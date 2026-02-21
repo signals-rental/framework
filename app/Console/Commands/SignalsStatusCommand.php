@@ -22,6 +22,12 @@ class SignalsStatusCommand extends Command
     {
         $this->displaySignalsLogo();
 
+        $this->line('  <fg=white;options=bold>Signals</> — Rental Management Framework');
+        $this->line('  Professional rental software. Free. Open Source. Forever.');
+        $this->newLine();
+        $this->line('  Thank you for making the right choice for your rental business.');
+        $this->newLine();
+
         $this->showInstallationState();
         $this->showDatabaseStatus();
         $this->showRedisStatus();

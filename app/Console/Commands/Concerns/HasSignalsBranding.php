@@ -30,8 +30,6 @@ trait HasSignalsBranding
             <fg=blue>@@</>                                                                                                       <fg=blue>@</>
             <fg=blue>@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@</>
 
-            <fg=white;options=bold>Signals</> — Rental Management Framework
-
         LOGO;
 
         $this->line($logo);
