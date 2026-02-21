@@ -1,9 +1,21 @@
 {
     "agents": [
-        "claude_code",
-        "codex",
-        "cursor",
-        "opencode"
+        "claude_code"
     ],
-    "guidelines": []
+    "guidelines": true,
+    "herd_mcp": true,
+    "mcp": true,
+    "packages": [
+        "laravel/ai"
+    ],
+    "sail": false,
+    "skills": [
+        "pennant-development",
+        "fluxui-development",
+        "livewire-development",
+        "volt-development",
+        "pest-testing",
+        "tailwindcss-development",
+        "developing-with-ai-sdk"
+    ]
 }
