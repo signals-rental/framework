@@ -9,17 +9,14 @@ use App\Services\ConnectionTesters\S3ConnectionTester;
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Process;
+use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 use function Laravel\Prompts\confirm;
-use function Laravel\Prompts\error;
-use function Laravel\Prompts\info;
-use function Laravel\Prompts\note;
 use function Laravel\Prompts\password;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
 use function Laravel\Prompts\text;
-use function Laravel\Prompts\warning;
 
 #[AsCommand(name: 'signals:install')]
 class SignalsInstallCommand extends Command
@@ -27,29 +24,62 @@ class SignalsInstallCommand extends Command
     use HasSignalsBranding;
 
     protected $signature = 'signals:install
-                            {--force : Skip confirmation prompts}';
+                            {--force : Skip confirmation prompts}
+                            {--db-host= : PostgreSQL host}
+                            {--db-port= : PostgreSQL port}
+                            {--db-database= : Database name}
+                            {--db-username= : Database username}
+                            {--db-password= : Database password}
+                            {--cache-driver= : Cache/queue driver (redis or database)}
+                            {--redis-host= : Redis host}
+                            {--redis-port= : Redis port}
+                            {--redis-password= : Redis password}
+                            {--storage-driver= : File storage driver (s3 or local)}
+                            {--s3-provider= : S3 provider (aws, minio, digitalocean, r2, other)}
+                            {--s3-bucket= : S3 bucket name}
+                            {--s3-region= : S3 region}
+                            {--s3-key= : S3 access key ID}
+                            {--s3-secret= : S3 secret access key}
+                            {--s3-endpoint= : S3 endpoint URL}
+                            {--reverb-host= : Reverb websocket host}
+                            {--reverb-port= : Reverb websocket port}
+                            {--reverb-scheme= : Reverb scheme (http or https)}
+                            {--app-url= : Application URL}
+                            {--skip-npm : Skip npm install and build}';
 
     protected $description = 'Configure Signals infrastructure: database, cache, storage, and websockets';
 
+    private bool $interactive = true;
+
     public function handle(): int
     {
-        $this->displayWelcomeBanner();
+        $this->interactive = $this->input->isInteractive();
 
-        if (! $this->configureDatabase()) {
-            return self::FAILURE;
+        if ($this->interactive) {
+            $this->displayWelcomeBanner();
         }
 
-        if (! $this->configureRedis()) {
+        try {
+            if (! $this->configureDatabase()) {
+                return self::FAILURE;
+            }
+
+            if (! $this->configureRedis()) {
+                return self::FAILURE;
+            }
+
+            if (! $this->configureStorage()) {
+                return self::FAILURE;
+            }
+
+            $this->configureReverb();
+
+            $this->finalize();
+        } catch (RuntimeException $e) {
+            $this->components->error($e->getMessage());
+
             return self::FAILURE;
         }
-
-        if (! $this->configureStorage()) {
-            return self::FAILURE;
-        }
-
-        $this->configureReverb();
-
-        $this->finalize();
 
         return self::SUCCESS;
     }
@@ -70,39 +100,44 @@ class SignalsInstallCommand extends Command
 
     protected function configureDatabase(): bool
     {
-        $this->components->twoColumnDetail('<fg=white;options=bold>Database Configuration</>', '<fg=gray>PostgreSQL</>');
-        $this->newLine();
+        if ($this->interactive) {
+            $this->components->twoColumnDetail('<fg=white;options=bold>Database Configuration</>', '<fg=gray>PostgreSQL</>');
+            $this->newLine();
+        }
 
-        $host = text(
-            label: 'PostgreSQL Host',
-            default: config('database.connections.pgsql.host', '127.0.0.1'),
-            required: true,
+        $host = $this->optionOrPrompt(
+            'db-host',
+            'PostgreSQL Host',
+            config('database.connections.pgsql.host', '127.0.0.1'),
         );
 
-        $port = (int) text(
-            label: 'Port',
-            default: (string) config('database.connections.pgsql.port', '5432'),
-            required: true,
+        $port = (int) $this->optionOrPrompt(
+            'db-port',
+            'Port',
+            (string) config('database.connections.pgsql.port', '5432'),
         );
 
-        $database = text(
-            label: 'Database Name',
-            default: config('database.connections.pgsql.database', 'signals'),
-            required: true,
+        $database = $this->optionOrPrompt(
+            'db-database',
+            'Database Name',
+            config('database.connections.pgsql.database', 'signals'),
         );
 
-        $username = text(
-            label: 'Username',
-            default: config('database.connections.pgsql.username', 'signals'),
-            required: true,
+        $username = $this->optionOrPrompt(
+            'db-username',
+            'Username',
+            config('database.connections.pgsql.username', 'signals'),
         );
 
-        $pass = password(
-            label: 'Password',
+        $pass = $this->optionOrPrompt(
+            'db-password',
+            'Password',
+            '',
             required: true,
+            secret: true,
         );
 
-        $tester = new PostgresConnectionTester;
+        $tester = app(PostgresConnectionTester::class);
 
         // Test server connectivity
         $serverResult = spin(
@@ -111,35 +146,45 @@ class SignalsInstallCommand extends Command
         );
 
         if (! $serverResult['success']) {
-            error('Could not connect to PostgreSQL: '.$serverResult['error']);
+            $this->components->error('Could not connect to PostgreSQL: '.$serverResult['error']);
 
-            if (confirm('Would you like to re-enter the database credentials?', true)) {
+            if ($this->interactive && confirm('Would you like to re-enter the database credentials?', true)) {
                 return $this->configureDatabase();
             }
 
             return false;
         }
 
-        info('Connected to PostgreSQL server');
+        $this->components->info('Connected to PostgreSQL server');
 
         // Check if database exists, offer to create
-        $dbExists = $tester->databaseExists($host, $port, $username, $pass, $database);
+        try {
+            $dbExists = $tester->databaseExists($host, $port, $username, $pass, $database);
+        } catch (\PDOException $e) {
+            $this->components->error('Failed to check database existence: '.$e->getMessage());
+
+            return false;
+        }
 
         if (! $dbExists) {
-            if (confirm("Database '{$database}' does not exist. Create it?", true)) {
+            $shouldCreate = ! $this->interactive
+                || $this->option('force')
+                || confirm("Database '{$database}' does not exist. Create it?", true);
+
+            if ($shouldCreate) {
                 try {
                     spin(
                         callback: fn () => $tester->createDatabase($host, $port, $username, $pass, $database),
                         message: "Creating database '{$database}'...",
                     );
-                    info("Database '{$database}' created");
-                } catch (\Exception $e) {
-                    error('Failed to create database: '.$e->getMessage());
+                    $this->components->info("Database '{$database}' created");
+                } catch (\PDOException $e) {
+                    $this->components->error('Failed to create database: '.$e->getMessage());
 
                     return false;
                 }
             } else {
-                warning('Database must exist before proceeding. Please create it manually and re-run.');
+                $this->components->warn('Database must exist before proceeding. Please create it manually and re-run.');
 
                 return false;
             }
@@ -158,12 +203,12 @@ class SignalsInstallCommand extends Command
         );
 
         if (! $dbResult['success']) {
-            error('Could not connect to database: '.$dbResult['error']);
+            $this->components->error('Could not connect to database: '.$dbResult['error']);
 
             return false;
         }
 
-        info("Connected to {$dbResult['version']}");
+        $this->components->info("Connected to {$dbResult['version']}");
 
         // Write to .env
         $this->writeEnvVariables([
@@ -189,9 +234,15 @@ class SignalsInstallCommand extends Command
         // Run migrations
         $this->line('');
         $this->components->info('Running migrations...');
-        $this->call('migrate', ['--force' => true]);
+        $exitCode = $this->call('migrate', ['--force' => true]);
 
-        info('Migrations completed');
+        if ($exitCode !== self::SUCCESS) {
+            $this->components->error('Migrations failed. Check the output above for details.');
+
+            return false;
+        }
+
+        $this->components->info('Migrations completed');
         $this->newLine();
 
         return true;
@@ -199,16 +250,19 @@ class SignalsInstallCommand extends Command
 
     protected function configureRedis(): bool
     {
-        $this->components->twoColumnDetail('<fg=white;options=bold>Cache & Queue Configuration</>', '');
-        $this->newLine();
+        if ($this->interactive) {
+            $this->components->twoColumnDetail('<fg=white;options=bold>Cache & Queue Configuration</>', '');
+            $this->newLine();
+        }
 
-        $driver = select(
-            label: 'Cache and queue driver',
-            options: [
+        $driver = $this->optionOrSelect(
+            'cache-driver',
+            'Cache and queue driver',
+            [
                 'redis' => 'Redis (recommended)',
                 'database' => 'Database (fallback)',
             ],
-            default: 'redis',
+            'redis',
         );
 
         if ($driver === 'database') {
@@ -218,31 +272,32 @@ class SignalsInstallCommand extends Command
                 'SESSION_DRIVER' => 'database',
             ]);
 
-            info('Using database driver for cache, queue, and sessions');
+            $this->components->info('Using database driver for cache, queue, and sessions');
             $this->newLine();
 
             return true;
         }
 
-        $host = text(
-            label: 'Redis Host',
-            default: config('database.redis.default.host', '127.0.0.1'),
-            required: true,
+        $host = $this->optionOrPrompt(
+            'redis-host',
+            'Redis Host',
+            config('database.redis.default.host', '127.0.0.1'),
         );
 
-        $port = (int) text(
-            label: 'Redis Port',
-            default: (string) config('database.redis.default.port', '6379'),
-            required: true,
+        $port = (int) $this->optionOrPrompt(
+            'redis-port',
+            'Redis Port',
+            (string) config('database.redis.default.port', '6379'),
         );
 
-        $pass = text(
-            label: 'Redis Password',
-            default: 'null',
-            hint: 'Leave as "null" for no password',
+        $pass = $this->optionOrPrompt(
+            'redis-password',
+            'Redis Password',
+            'null',
+            required: false,
         );
 
-        $tester = new RedisConnectionTester;
+        $tester = app(RedisConnectionTester::class);
         $result = spin(
             callback: fn () => $tester->test([
                 'host' => $host,
@@ -253,7 +308,11 @@ class SignalsInstallCommand extends Command
         );
 
         if (! $result['success']) {
-            warning('Could not connect to Redis: '.$result['error']);
+            $this->components->warn('Could not connect to Redis: '.$result['error']);
+
+            if (! $this->interactive) {
+                return false;
+            }
 
             $fallback = select(
                 label: 'How would you like to proceed?',
@@ -273,13 +332,13 @@ class SignalsInstallCommand extends Command
                 'SESSION_DRIVER' => 'database',
             ]);
 
-            info('Using database driver for cache, queue, and sessions');
+            $this->components->info('Using database driver for cache, queue, and sessions');
             $this->newLine();
 
             return true;
         }
 
-        info("Connected to {$result['version']}");
+        $this->components->info("Connected to {$result['version']}");
 
         $this->writeEnvVariables([
             'CACHE_STORE' => 'redis',
@@ -290,7 +349,7 @@ class SignalsInstallCommand extends Command
             'REDIS_PASSWORD' => $pass,
         ]);
 
-        info('Redis configured for cache, queue, and sessions');
+        $this->components->info('Redis configured for cache, queue, and sessions');
         $this->newLine();
 
         return true;
@@ -298,16 +357,19 @@ class SignalsInstallCommand extends Command
 
     protected function configureStorage(): bool
     {
-        $this->components->twoColumnDetail('<fg=white;options=bold>File Storage Configuration</>', '');
-        $this->newLine();
+        if ($this->interactive) {
+            $this->components->twoColumnDetail('<fg=white;options=bold>File Storage Configuration</>', '');
+            $this->newLine();
+        }
 
-        $driver = select(
-            label: 'File storage driver',
-            options: [
+        $driver = $this->optionOrSelect(
+            'storage-driver',
+            'File storage driver',
+            [
                 's3' => 'S3-compatible (recommended for production)',
                 'local' => 'Local disk',
             ],
-            default: 's3',
+            's3',
         );
 
         if ($driver === 'local') {
@@ -315,7 +377,7 @@ class SignalsInstallCommand extends Command
                 'FILESYSTEM_DISK' => 'local',
             ]);
 
-            info('Using local disk for file storage');
+            $this->components->info('Using local disk for file storage');
             $this->newLine();
 
             return true;
@@ -326,16 +388,15 @@ class SignalsInstallCommand extends Command
 
     protected function configureS3(): bool
     {
-        $provider = select(
-            label: 'S3-compatible storage provider',
-            options: [
-                'aws' => 'AWS S3',
-                'minio' => 'Minio',
-                'digitalocean' => 'DigitalOcean Spaces',
-                'r2' => 'Cloudflare R2',
-                'other' => 'Other S3-compatible',
-            ],
-        );
+        $providers = [
+            'aws' => 'AWS S3',
+            'minio' => 'Minio',
+            'digitalocean' => 'DigitalOcean Spaces',
+            'r2' => 'Cloudflare R2',
+            'other' => 'Other S3-compatible',
+        ];
+
+        $provider = $this->optionOrSelect('s3-provider', 'S3-compatible storage provider', $providers, 'aws');
 
         $usePathStyle = in_array($provider, ['minio', 'r2']);
 
@@ -347,41 +408,44 @@ class SignalsInstallCommand extends Command
             'other' => '',
         ];
 
-        $bucket = text(
-            label: 'Bucket Name',
-            default: config('filesystems.disks.s3.bucket', 'signals-files'),
-            required: true,
+        $bucket = $this->optionOrPrompt(
+            's3-bucket',
+            'Bucket Name',
+            config('filesystems.disks.s3.bucket', 'signals-files'),
         );
 
         $region = $this->selectRegion($provider);
 
-        $accessKey = text(
-            label: 'Access Key ID',
-            required: true,
-        );
+        $accessKey = $this->optionOrPrompt('s3-key', 'Access Key ID', '', required: true);
 
-        $secretKey = password(
-            label: 'Secret Access Key',
-            required: true,
-        );
+        $secretKey = $this->optionOrPrompt('s3-secret', 'Secret Access Key', '', required: true, secret: true);
 
-        $endpoint = '';
-        if ($provider !== 'aws') {
+        $endpoint = $this->option('s3-endpoint') ?? '';
+        if ($provider !== 'aws' && $endpoint === '') {
             $defaultEndpoint = $endpointDefaults[$provider];
 
             if ($provider === 'digitalocean') {
                 $defaultEndpoint = str_replace('{region}', $region, $defaultEndpoint);
             }
 
-            $endpoint = text(
-                label: 'Endpoint URL',
-                default: $defaultEndpoint,
-                required: $provider !== 'aws',
-                hint: $provider === 'r2' ? 'Replace {account_id} with your Cloudflare account ID' : '',
-            );
+            if ($this->interactive) {
+                $endpoint = text(
+                    label: 'Endpoint URL',
+                    default: $defaultEndpoint,
+                    required: true,
+                    hint: $provider === 'r2' ? 'Replace {account_id} with your Cloudflare account ID' : '',
+                );
+            } else {
+                if (str_contains($defaultEndpoint, '{')) {
+                    throw new RuntimeException(
+                        "The --s3-endpoint option is required for {$provider} in non-interactive mode."
+                    );
+                }
+                $endpoint = $defaultEndpoint;
+            }
         }
 
-        $tester = new S3ConnectionTester;
+        $tester = app(S3ConnectionTester::class);
         $result = spin(
             callback: fn () => $tester->test([
                 'key' => $accessKey,
@@ -395,7 +459,11 @@ class SignalsInstallCommand extends Command
         );
 
         if (! $result['success']) {
-            warning('S3 connection failed: '.$result['error']);
+            $this->components->warn('S3 connection failed: '.$result['error']);
+
+            if (! $this->interactive) {
+                return false;
+            }
 
             $action = select(
                 label: 'How would you like to proceed?',
@@ -415,7 +483,7 @@ class SignalsInstallCommand extends Command
                     'FILESYSTEM_DISK' => 'local',
                 ]);
 
-                info('Using local disk for file storage');
+                $this->components->info('Using local disk for file storage');
                 $this->newLine();
 
                 return true;
@@ -424,7 +492,7 @@ class SignalsInstallCommand extends Command
             return false;
         }
 
-        info('S3 bucket accessible — upload, read, and delete verified');
+        $this->components->info('S3 bucket accessible — upload, read, and delete verified');
 
         $this->writeEnvVariables([
             'FILESYSTEM_DISK' => 's3',
@@ -436,7 +504,7 @@ class SignalsInstallCommand extends Command
             'AWS_USE_PATH_STYLE_ENDPOINT' => $usePathStyle ? 'true' : 'false',
         ]);
 
-        info('S3 storage configured');
+        $this->components->info('S3 storage configured');
         $this->newLine();
 
         return true;
@@ -444,6 +512,15 @@ class SignalsInstallCommand extends Command
 
     protected function selectRegion(string $provider): string
     {
+        $value = $this->option('s3-region');
+        if ($value !== null) {
+            return $value;
+        }
+
+        if ($provider === 'r2') {
+            return 'auto';
+        }
+
         $awsRegions = [
             'us-east-1' => 'US East (N. Virginia)',
             'us-east-2' => 'US East (Ohio)',
@@ -472,6 +549,13 @@ class SignalsInstallCommand extends Command
             'syd1' => 'Sydney 1',
         ];
 
+        if (! $this->interactive) {
+            return match ($provider) {
+                'digitalocean' => 'nyc3',
+                default => config('filesystems.disks.s3.region', 'us-east-1'),
+            };
+        }
+
         return match ($provider) {
             'aws' => select(
                 label: 'AWS Region',
@@ -483,7 +567,6 @@ class SignalsInstallCommand extends Command
                 options: $doRegions,
                 default: 'nyc3',
             ),
-            'r2' => 'auto',
             default => text(
                 label: 'Region',
                 default: config('filesystems.disks.s3.region', 'us-east-1'),
@@ -494,30 +577,37 @@ class SignalsInstallCommand extends Command
 
     protected function configureReverb(): void
     {
-        $this->components->twoColumnDetail('<fg=white;options=bold>Websocket Configuration</>', '<fg=gray>Laravel Reverb</>');
-        $this->newLine();
+        if ($this->interactive) {
+            $this->components->twoColumnDetail('<fg=white;options=bold>Websocket Configuration</>', '<fg=gray>Laravel Reverb</>');
+            $this->newLine();
+        }
 
         $appId = (string) random_int(100000, 999999);
         $appKey = bin2hex(random_bytes(16));
         $appSecret = bin2hex(random_bytes(32));
 
-        $host = text(
-            label: 'Reverb Host',
-            default: config('reverb.servers.reverb.host', '0.0.0.0'),
+        $host = $this->optionOrPrompt(
+            'reverb-host',
+            'Reverb Host',
+            config('reverb.servers.reverb.host', '0.0.0.0'),
+            required: false,
         );
 
-        $port = text(
-            label: 'Reverb Port',
-            default: (string) config('reverb.servers.reverb.port', 8080),
+        $port = $this->optionOrPrompt(
+            'reverb-port',
+            'Reverb Port',
+            (string) config('reverb.servers.reverb.port', 8080),
+            required: false,
         );
 
-        $scheme = select(
-            label: 'Scheme',
-            options: [
+        $scheme = $this->optionOrSelect(
+            'reverb-scheme',
+            'Scheme',
+            [
                 'http' => 'HTTP',
                 'https' => 'HTTPS',
             ],
-            default: 'http',
+            'http',
         );
 
         $this->writeEnvVariables([
@@ -530,27 +620,33 @@ class SignalsInstallCommand extends Command
             'REVERB_SCHEME' => $scheme,
         ]);
 
-        info("Reverb configured (App ID: {$appId})");
-        info('Start with: php artisan reverb:start');
+        $this->components->info("Reverb configured (App ID: {$appId})");
+        $this->components->info('Start with: php artisan reverb:start');
         $this->newLine();
     }
 
     protected function finalize(): void
     {
-        $this->components->twoColumnDetail('<fg=white;options=bold>Finalising</>', '');
-        $this->newLine();
+        if ($this->interactive) {
+            $this->components->twoColumnDetail('<fg=white;options=bold>Finalising</>', '');
+            $this->newLine();
+        }
 
         // Generate APP_KEY if not set
         if (empty(config('app.key'))) {
-            $this->callSilently('key:generate', ['--force' => true]);
-            info('Application key generated');
+            $exitCode = $this->callSilently('key:generate', ['--force' => true]);
+            if ($exitCode !== self::SUCCESS) {
+                $this->components->warn('Failed to generate application key — you can run "php artisan key:generate" manually');
+            } else {
+                $this->components->info('Application key generated');
+            }
         }
 
         // App URL
-        $url = text(
-            label: 'Application URL',
-            default: config('app.url', 'http://localhost'),
-            required: true,
+        $url = $this->optionOrPrompt(
+            'app-url',
+            'Application URL',
+            config('app.url', 'http://localhost'),
         );
 
         $this->writeEnvVariables([
@@ -560,45 +656,145 @@ class SignalsInstallCommand extends Command
         ]);
 
         // Install frontend dependencies and build assets
-        $this->components->info('Installing frontend dependencies...');
-        $npmInstall = Process::run('npm install');
-        if ($npmInstall->successful()) {
-            info('Dependencies installed');
+        if ($this->option('skip-npm')) {
+            $this->components->info('Skipping npm install and build (--skip-npm)');
         } else {
-            warning('npm install failed — you can run it manually later');
-        }
+            try {
+                $this->components->info('Installing frontend dependencies...');
+                $npmInstall = Process::timeout(120)->run('npm install');
+                if ($npmInstall->successful()) {
+                    $this->components->info('Dependencies installed');
 
-        $this->components->info('Building frontend assets...');
-        $npmBuild = Process::run('npm run build');
-        if ($npmBuild->successful()) {
-            info('Frontend assets built');
-        } else {
-            warning('npm run build failed — you can run it manually later');
+                    $this->components->info('Building frontend assets...');
+                    $npmBuild = Process::timeout(120)->run('npm run build');
+                    if ($npmBuild->successful()) {
+                        $this->components->info('Frontend assets built');
+                    } else {
+                        $this->components->warn('npm run build failed — you can run it manually later');
+                        $this->outputProcessError($npmBuild);
+                    }
+                } else {
+                    $this->components->warn('npm install failed — you can run it manually later');
+                    $this->outputProcessError($npmInstall);
+                }
+            } catch (\Illuminate\Process\Exceptions\ProcessTimedOutException $e) {
+                $this->components->warn('npm timed out — you can run "npm install && npm run build" manually later');
+            }
         }
 
         // Cache config, routes, views
-        $this->callSilently('config:cache');
-        $this->callSilently('route:cache');
-        $this->callSilently('view:cache');
+        $cacheFailed = false;
+        foreach (['config:cache', 'route:cache', 'view:cache'] as $cacheCommand) {
+            if ($this->callSilently($cacheCommand) !== self::SUCCESS) {
+                $this->components->warn("{$cacheCommand} failed — you can run it manually later");
+                $cacheFailed = true;
+            }
+        }
 
-        info('Configuration cached');
+        if (! $cacheFailed) {
+            $this->components->info('Configuration cached');
+        }
         $this->newLine();
 
-        note(<<<NOTE
-            Infrastructure setup complete!
-
-            Next: Open your browser and visit:
-            {$url}/setup
-
-            Or continue setup in the terminal:
-            php artisan signals:setup
-        NOTE);
-
+        $this->components->info('Infrastructure setup complete!');
+        $this->newLine();
+        $this->line("  Next: Open your browser and visit: {$url}/setup");
+        $this->line('  Or continue setup in the terminal: php artisan signals:setup');
         $this->newLine();
     }
 
+    /**
+     * Get a value from a command option, or fall back to an interactive prompt.
+     *
+     * In non-interactive mode, returns the default if available, or throws
+     * a RuntimeException if the value is required and has no default.
+     */
+    private function optionOrPrompt(
+        string $optionName,
+        string $label,
+        string $default = '',
+        bool $required = true,
+        bool $secret = false,
+    ): string {
+        $value = $this->option($optionName);
+
+        if ($value !== null) {
+            if ($required && $value === '') {
+                throw new RuntimeException("The --{$optionName} option must not be empty.");
+            }
+
+            return $value;
+        }
+
+        if (! $this->interactive) {
+            if ($required && $default === '') {
+                throw new RuntimeException("The --{$optionName} option is required in non-interactive mode.");
+            }
+
+            return $default;
+        }
+
+        if ($secret) {
+            return password(label: $label, required: $required);
+        }
+
+        return text(label: $label, default: $default, required: $required);
+    }
+
+    /**
+     * Get a value from a command option, or fall back to an interactive select prompt.
+     *
+     * Validates that option values are within the allowed set. In non-interactive
+     * mode without an option, returns the default.
+     *
+     * @param  array<string, string>  $options
+     */
+    private function optionOrSelect(string $optionName, string $label, array $options, string $default): string
+    {
+        $value = $this->option($optionName);
+
+        if ($value !== null) {
+            if (! array_key_exists($value, $options)) {
+                throw new RuntimeException(
+                    "Invalid value '{$value}' for --{$optionName}. Allowed: ".implode(', ', array_keys($options))
+                );
+            }
+
+            return $value;
+        }
+
+        if (! $this->interactive) {
+            return $default;
+        }
+
+        return select(label: $label, options: $options, default: $default);
+    }
+
+    /**
+     * Write variables to the .env file, wrapping filesystem errors in RuntimeException.
+     *
+     * @param  array<string, string>  $variables
+     */
     protected function writeEnvVariables(array $variables): void
     {
-        Env::writeVariables($variables, $this->laravel->basePath('.env'), overwrite: true);
+        try {
+            Env::writeVariables($variables, $this->laravel->basePath('.env'), overwrite: true);
+        } catch (\Exception $e) {
+            throw new RuntimeException(
+                "Failed to write to .env file: {$e->getMessage()}. Check file permissions on: ".$this->laravel->basePath('.env'),
+                previous: $e,
+            );
+        }
+    }
+
+    /**
+     * Output the error from a failed process, if available.
+     */
+    private function outputProcessError(\Illuminate\Contracts\Process\ProcessResult $process): void
+    {
+        $errorOutput = trim($process->errorOutput() ?: $process->output());
+        if ($errorOutput !== '') {
+            $this->line("  <fg=gray>{$errorOutput}</>");
+        }
     }
 }
