@@ -8,6 +8,7 @@ use App\Services\ConnectionTesters\RedisConnectionTester;
 use App\Services\ConnectionTesters\S3ConnectionTester;
 use Illuminate\Console\Command;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Process;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 use function Laravel\Prompts\confirm;
@@ -557,6 +558,23 @@ class SignalsInstallCommand extends Command
             'SIGNALS_INSTALLED' => 'true',
             'SIGNALS_SETUP_COMPLETE' => 'false',
         ]);
+
+        // Install frontend dependencies and build assets
+        $this->components->info('Installing frontend dependencies...');
+        $npmInstall = Process::run('npm install');
+        if ($npmInstall->successful()) {
+            info('Dependencies installed');
+        } else {
+            warning('npm install failed — you can run it manually later');
+        }
+
+        $this->components->info('Building frontend assets...');
+        $npmBuild = Process::run('npm run build');
+        if ($npmBuild->successful()) {
+            info('Frontend assets built');
+        } else {
+            warning('npm run build failed — you can run it manually later');
+        }
 
         // Cache config, routes, views
         $this->callSilently('config:cache');
