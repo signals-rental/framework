@@ -1,5 +1,6 @@
-<x-layouts.app.sidebar>
-    <flux:main>
+<x-layouts.app.header>
+    <div class="flex flex-1 flex-col">
         {{ $slot }}
-    </flux:main>
-</x-layouts.app.sidebar>
+    </div>
+    <x-layouts.app.footer />
+</x-layouts.app.header>
