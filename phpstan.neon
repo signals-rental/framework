@@ -1,8 +1,22 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    - vendor/pestphp/pest/extension.neon
+    - vendor/phpstan/phpstan-mockery/extension.neon
 
 parameters:
     level: 5
     paths:
         - app/
+        - database/
+        - tests/
     tmpDir: storage/phpstan
+    scanDirectories:
+        - tests/
+    universalObjectCratesClasses:
+        - Signals\PHPStan\PestTestCase
+
+services:
+    -
+        class: Signals\PHPStan\PestTestClosureThisExtension
+        tags:
+            - phpstan.functionParameterClosureThisExtension

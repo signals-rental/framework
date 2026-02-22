@@ -49,7 +49,9 @@
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^4.3",
         "pestphp/pest-plugin-laravel": "^4.0",
-        "phpstan/phpstan": "*"
+        "pestphp/pest-plugin-type-coverage": "^4.0",
+        "phpstan/phpstan": "*",
+        "phpstan/phpstan-mockery": "^2.0"
     },
     "autoload": {
         "files": [
@@ -63,7 +65,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
+            "Tests\\": "tests/",
+            "Signals\\PHPStan\\": "phpstan/Extensions/"
         }
     },
     "scripts": {

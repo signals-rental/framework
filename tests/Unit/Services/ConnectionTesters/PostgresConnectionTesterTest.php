@@ -10,8 +10,8 @@ it('returns success shape on successful connection', function () {
         'host' => '127.0.0.1',
         'port' => 5432,
         'database' => 'postgres',
-        'username' => env('DB_USERNAME', 'signals'),
-        'password' => env('DB_PASSWORD', ''),
+        'username' => config('database.connections.pgsql.username', 'signals'),
+        'password' => config('database.connections.pgsql.password', ''),
     ]);
 
     expect($result)->toHaveKeys(['success', 'version', 'error']);

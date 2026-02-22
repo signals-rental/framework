@@ -53,7 +53,7 @@ it('allows auth routes when setup is complete', function () {
         ->assertOk();
 });
 
-it('falls back to database when env says incomplete but settings show complete', function () {
+it('redirects to setup when env says incomplete even if settings show complete', function () {
     config(['signals.installed' => true, 'signals.setup_complete' => false]);
 
     settings()->set('setup.completed_at', now()->toIso8601String());
@@ -62,7 +62,5 @@ it('falls back to database when env says incomplete but settings show complete',
 
     $this->actingAs($user)
         ->get('/dashboard')
-        ->assertOk();
-
-    expect(config('signals.setup_complete'))->toBeTrue();
+        ->assertRedirect(route('setup.wizard'));
 });

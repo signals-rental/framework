@@ -3,6 +3,8 @@
 use App\Actions\Setup\CompleteSetup;
 use App\Data\Setup\CompleteSetupData;
 use App\Enums\FeatureProfile;
+
+pest()->group('env-writing');
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Env;

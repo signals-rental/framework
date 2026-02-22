@@ -20,7 +20,7 @@ class StoreFactory extends Factory
             'name' => fake()->company(),
             'street' => fake()->streetAddress(),
             'city' => fake()->city(),
-            'county' => fake()->state(),
+            'county' => fake()->city(),
             'postcode' => fake()->postcode(),
             'country_code' => fake()->countryCode(),
             'is_default' => false,
