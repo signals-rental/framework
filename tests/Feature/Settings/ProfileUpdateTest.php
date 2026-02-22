@@ -11,6 +11,12 @@ class ProfileUpdateTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['signals.installed' => true, 'signals.setup_complete' => true]);
+    }
+
     public function test_profile_page_is_displayed(): void
     {
         $this->actingAs($user = User::factory()->create());

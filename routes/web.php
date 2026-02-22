@@ -4,18 +4,40 @@ use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
 Route::get('/', function () {
+    if (config('signals.installed') && ! config('signals.setup_complete')) {
+        return redirect()->route('setup.wizard');
+    }
+
     if (config('signals.setup_complete')) {
-        return redirect()->route('dashboard');
+        return auth()->check()
+            ? redirect()->route('dashboard')
+            : redirect()->route('login');
     }
 
     return view('welcome');
 })->name('home');
 
+/*
+|--------------------------------------------------------------------------
+| Setup Wizard
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['signals.setup-required'])->group(function () {
+    Volt::route('setup', 'setup.wizard')->name('setup.wizard');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Authenticated Routes
+|--------------------------------------------------------------------------
+*/
+
 Route::view('dashboard', 'dashboard')
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'signals.setup-complete'])
     ->name('dashboard');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'signals.setup-complete'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');

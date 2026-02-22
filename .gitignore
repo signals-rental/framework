@@ -23,3 +23,5 @@ yarn-error.log
 /.zed
 /storage/phpstan
 /framework-plans
+/.claude
+/.worktrees

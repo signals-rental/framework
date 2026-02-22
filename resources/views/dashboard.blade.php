@@ -1,4 +1,8 @@
 <x-layouts.app>
+    @if (config('signals.setup_complete'))
+        <livewire:dashboard.getting-started-checklist />
+    @endif
+
     {{-- Subnav --}}
     <nav class="app-subnav">
         <div class="flex h-full items-center gap-0">

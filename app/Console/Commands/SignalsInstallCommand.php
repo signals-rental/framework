@@ -59,6 +59,8 @@ class SignalsInstallCommand extends Command
             $this->displayWelcomeBanner();
         }
 
+        $this->ensureEnvFile();
+
         try {
             if (! $this->configureDatabase()) {
                 return self::FAILURE;
@@ -82,6 +84,42 @@ class SignalsInstallCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    protected function ensureEnvFile(): void
+    {
+        $envPath = $this->laravel->basePath('.env');
+        $examplePath = $this->laravel->basePath('.env.example');
+
+        if (! file_exists($envPath) && file_exists($examplePath)) {
+            copy($examplePath, $envPath);
+            $this->components->info('.env file created from .env.example');
+        }
+
+        if (! file_exists($envPath)) {
+            return;
+        }
+
+        $contents = file_get_contents($envPath);
+
+        // Ensure essential Laravel variables exist
+        $defaults = [
+            'APP_NAME' => '"Signals"',
+            'APP_ENV' => 'local',
+            'APP_DEBUG' => 'true',
+        ];
+
+        $added = [];
+        foreach ($defaults as $key => $value) {
+            if (! preg_match("/^{$key}=/m", $contents)) {
+                $contents = "{$key}={$value}\n".$contents;
+                $added[] = $key;
+            }
+        }
+
+        if (count($added) > 0) {
+            file_put_contents($envPath, $contents);
+        }
     }
 
     protected function displayWelcomeBanner(): void
