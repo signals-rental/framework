@@ -20,22 +20,10 @@ class EnsureSetupRequired
             abort(404);
         }
 
-        if (config('signals.setup_complete') || $this->isSetupCompleteInDatabase()) {
+        if (config('signals.setup_complete')) {
             return redirect()->route('dashboard');
         }
 
         return $next($request);
-    }
-
-    /**
-     * Check the settings table for setup.completed_at as a fallback.
-     */
-    private function isSetupCompleteInDatabase(): bool
-    {
-        try {
-            return settings()->has('setup.completed_at');
-        } catch (\Throwable) {
-            return false;
-        }
     }
 }

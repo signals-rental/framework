@@ -34,10 +34,10 @@ Route::middleware(['signals.setup-required'])->group(function () {
 */
 
 Route::view('dashboard', 'dashboard')
-    ->middleware(['auth', 'verified', 'signals.setup-complete'])
+    ->middleware(['signals.setup-complete', 'auth', 'verified'])
     ->name('dashboard');
 
-Route::middleware(['auth', 'signals.setup-complete'])->group(function () {
+Route::middleware(['signals.setup-complete', 'auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
