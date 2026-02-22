@@ -293,6 +293,7 @@ select:focus[data-flux-control] {
 }
 
 .header-actions {
+    height: 100%;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -363,6 +364,12 @@ select:focus[data-flux-control] {
     padding: 20px 24px;
     display: none;
     z-index: 200;
+}
+
+.mega-dropdown.mega-dropdown-end {
+    left: auto;
+    right: 0;
+    min-width: 240px;
 }
 
 .nav-dropdown-wrapper:hover .mega-dropdown,

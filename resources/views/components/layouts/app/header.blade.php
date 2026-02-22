@@ -3,18 +3,23 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="flex min-h-screen flex-col overflow-hidden bg-[var(--content-bg)] text-[13px] leading-normal text-[var(--text-primary)] antialiased">
+    <body class="flex min-h-screen flex-col overflow-hidden bg-[var(--content-bg)] text-[13px] leading-normal text-[var(--text-primary)] antialiased"
+          x-data="{ mobileNav: false }">
 
         {{-- ============================================================ --}}
         {{--  TOP HEADER (always navy)                                     --}}
         {{-- ============================================================ --}}
         <header class="header">
             {{-- Mobile hamburger --}}
-            <flux:sidebar.toggle class="lg:hidden mr-3 text-[var(--grey-light)]" icon="bars-2" inset="left" />
+            <button class="mr-3 shrink-0 text-[var(--grey-light)] hover:text-white lg:hidden"
+                    x-on:click="mobileNav = true"
+                    aria-label="{{ __('Toggle sidebar') }}">
+                <flux:icon.bars-2 class="!size-5" />
+            </button>
 
             {{-- Brand: customer company name --}}
             <a href="{{ route('dashboard') }}" class="header-brand" wire:navigate>
-                {{ config('app.name', 'Signals') }}
+                {{ settings('company.name', 'Signals') }}
             </a>
 
             {{-- Primary module navigation (desktop) --}}
@@ -107,117 +112,91 @@
                     <span class="notification-badge">3</span>
                 </button>
 
-                {{-- Theme toggle --}}
-                <button class="header-icon-btn"
-                        x-data
-                        x-on:click="$flux.appearance = $flux.appearance === 'dark' ? 'light' : ($flux.appearance === 'light' ? 'system' : 'dark')"
-                        title="Toggle theme"
-                        aria-label="Toggle theme">
-                    <svg x-show="$flux.appearance === 'dark'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="size-4">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>
-                    </svg>
-                    <svg x-show="$flux.appearance !== 'dark'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="size-4">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>
-                    </svg>
-                </button>
-
-                {{-- Settings --}}
-                <a href="{{ route('settings.profile') }}"
-                   class="header-icon-btn hidden lg:flex {{ request()->routeIs('settings.*') ? '!text-white' : '' }}"
-                   wire:navigate
-                   title="Settings">
-                    <flux:icon.cog-6-tooth class="!size-4" />
-                </a>
-
                 {{-- User dropdown --}}
-                <flux:dropdown position="top" align="end">
-                    <button class="ml-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center bg-[var(--green)] text-[10px] font-semibold tracking-wide text-white">
+                <div class="nav-dropdown-wrapper">
+                    <button class="ml-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center bg-[var(--green)] text-[10px] font-semibold tracking-wide text-white" type="button">
                         {{ auth()->user()->initials() }}
                     </button>
-
-                    <flux:menu>
-                        <flux:menu.radio.group>
-                            <div class="p-0 text-sm font-normal">
-                                <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                                    <span class="relative flex h-8 w-8 shrink-0 overflow-hidden">
-                                        <span class="flex h-full w-full items-center justify-center bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                            {{ auth()->user()->initials() }}
-                                        </span>
-                                    </span>
-                                    <div class="grid flex-1 text-left text-sm leading-tight">
-                                        <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                        <span class="truncate text-xs">{{ auth()->user()->email }}</span>
-                                    </div>
-                                </div>
+                    <div class="mega-dropdown mega-dropdown-end">
+                        <div class="flex items-center gap-3 pb-4">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center bg-[var(--green)] text-[11px] font-semibold tracking-wide text-white">
+                                {{ auth()->user()->initials() }}
+                            </span>
+                            <div class="grid flex-1 text-left leading-tight">
+                                <span class="truncate text-[12px] font-semibold text-[var(--text-primary)]">{{ auth()->user()->name }}</span>
+                                <span class="truncate text-[11px] text-[var(--text-muted)]">{{ auth()->user()->email }}</span>
                             </div>
-                        </flux:menu.radio.group>
-
-                        <flux:menu.separator />
-
-                        <flux:menu.radio.group>
-                            <flux:menu.item href="/settings/profile" icon="cog" wire:navigate>Settings</flux:menu.item>
-                        </flux:menu.radio.group>
-
-                        <flux:menu.separator />
-
-                        <form method="POST" action="{{ route('logout') }}" class="w-full">
-                            @csrf
-                            <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
-                                {{ __('Log Out') }}
-                            </flux:menu.item>
-                        </form>
-                    </flux:menu>
-                </flux:dropdown>
+                        </div>
+                        <div class="border-t border-[var(--dropdown-border)] pt-3">
+                            <a href="{{ route('settings.profile') }}" class="mega-item" wire:navigate>
+                                <flux:icon.cog-6-tooth class="mega-item-icon" />
+                                <span class="mega-item-label">Settings</span>
+                            </a>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="mega-item w-full">
+                                    <flux:icon.arrow-right-start-on-rectangle class="mega-item-icon" />
+                                    <span class="mega-item-label">{{ __('Log Out') }}</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
         {{-- ============================================================ --}}
-        {{--  MOBILE SIDEBAR (Flux-managed, hidden on desktop)             --}}
+        {{--  MOBILE SIDEBAR (Alpine-managed, hidden on desktop)            --}}
         {{-- ============================================================ --}}
-        <flux:sidebar sticky class="lg:hidden bg-[#0f172a]! border-r border-zinc-700">
-            <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-            <a href="{{ route('dashboard') }}" class="ml-1 flex items-center" wire:navigate>
-                <span class="font-[var(--font-display)] text-sm font-bold uppercase tracking-[0.06em] text-white">
-                    {{ config('app.name', 'Signals') }}
-                </span>
+        {{-- Backdrop --}}
+        <div x-show="mobileNav" x-on:click="mobileNav = false"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-[998] bg-black/50 lg:hidden" style="display:none"></div>
+
+        {{-- Panel --}}
+        <aside x-show="mobileNav"
+               x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
+               x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full"
+               x-on:keydown.escape.window="mobileNav = false"
+               class="dark fixed inset-y-0 left-0 z-[999] flex w-64 flex-col gap-2 overflow-y-auto border-r border-[#334155] bg-[#0f172a] p-4 text-[#e2e8f0] lg:hidden" style="display:none">
+
+            {{-- Close --}}
+            <button x-on:click="mobileNav = false" class="mb-2 self-end text-[var(--grey-light)] hover:text-white">
+                <flux:icon.x-mark class="!size-5" />
+            </button>
+
+            <div class="sidebar-group-label">Platform</div>
+            <a class="sidebar-item {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
+                <flux:icon.squares-2x2 class="!size-[15px]" /> Dashboard
             </a>
 
-            <flux:navlist variant="outline">
-                <flux:navlist.group heading="Platform">
-                    <flux:navlist.item icon="layout-grid" href="{{ route('dashboard') }}" :current="request()->routeIs('dashboard')" wire:navigate>
-                        Dashboard
-                    </flux:navlist.item>
-                </flux:navlist.group>
+            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+            <div class="sidebar-group-label">Operations</div>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.queue-list class="!size-[15px]" /> Opportunities</a>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.cube class="!size-[15px]" /> Products</a>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.archive-box class="!size-[15px]" /> Stock</a>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.document-text class="!size-[15px]" /> Invoices</a>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.calendar-days class="!size-[15px]" /> Schedule</a>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.truck class="!size-[15px]" /> Transport</a>
 
-                <flux:navlist.group heading="Operations" expandable>
-                    <flux:navlist.item href="#">Opportunities</flux:navlist.item>
-                    <flux:navlist.item href="#">Products</flux:navlist.item>
-                    <flux:navlist.item href="#">Stock</flux:navlist.item>
-                    <flux:navlist.item href="#">Invoices</flux:navlist.item>
-                    <flux:navlist.item href="#">Schedule</flux:navlist.item>
-                    <flux:navlist.item href="#">Transport</flux:navlist.item>
-                </flux:navlist.group>
+            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+            <div class="sidebar-group-label">CRM</div>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.user-group class="!size-[15px]" /> Members</a>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.calendar-days class="!size-[15px]" /> Activities</a>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.folder class="!size-[15px]" /> Projects</a>
 
-                <flux:navlist.group heading="CRM" expandable>
-                    <flux:navlist.item href="#">Members</flux:navlist.item>
-                    <flux:navlist.item href="#">Activities</flux:navlist.item>
-                    <flux:navlist.item href="#">Projects</flux:navlist.item>
-                </flux:navlist.group>
+            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+            <div class="sidebar-group-label">Insights</div>
+            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.chart-bar class="!size-[15px]" /> Reports</a>
 
-                <flux:navlist.group heading="Insights">
-                    <flux:navlist.item href="#">Reports</flux:navlist.item>
-                </flux:navlist.group>
-            </flux:navlist>
-
-            <flux:spacer />
-
-            <flux:navlist variant="outline">
-                <flux:navlist.item icon="cog-6-tooth" href="{{ route('settings.profile') }}" :current="request()->routeIs('settings.*')" wire:navigate>
-                    Settings
-                </flux:navlist.item>
-            </flux:navlist>
-        </flux:sidebar>
+            <div class="flex-1"></div>
+            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+            <a class="sidebar-item {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate x-on:click="mobileNav = false">
+                <flux:icon.cog-6-tooth class="!size-[15px]" /> Settings
+            </a>
+        </aside>
 
         {{-- ============================================================ --}}
         {{--  LAYOUT: SIDEBAR + MAIN CONTENT                              --}}
@@ -278,14 +257,6 @@
                     Projects
                 </a>
 
-                {{-- Push settings to bottom --}}
-                <div class="flex-1"></div>
-                <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
-
-                <a class="sidebar-item {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate>
-                    <flux:icon.cog-6-tooth class="!size-[15px]" />
-                    Settings
-                </a>
                 <div class="h-3 shrink-0"></div>
             </aside>
 

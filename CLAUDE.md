@@ -54,9 +54,10 @@ vendor/bin/pint             # fix all files
 vendor/bin/phpstan analyse  # run static analysis (level 5, app/ only)
 
 # Testing
-php artisan test                              # run all tests
-php artisan test tests/Feature/ExampleTest.php  # run a single file
-php artisan test --filter=testName            # filter by name
+php artisan test --parallel --exclude-group=env-writing  # run all tests (parallel)
+php artisan test --group=env-writing                     # run env-writing tests (sequential)
+php artisan test --parallel tests/Feature/ExampleTest.php  # run a single file
+php artisan test --parallel --filter=testName            # filter by name
 ```
 
 ## Architecture (Laravel 12)
@@ -448,7 +449,7 @@ All architectural decisions are documented in `framework-plans/`. **Always consu
 
 Before every commit, the following checks **must** pass in order:
 
-1. **Tests:** `php artisan test --compact` (relevant tests, or full suite if changes are broad)
+1. **Tests:** `php artisan test --parallel --compact --exclude-group=env-writing && php artisan test --compact --group=env-writing` (relevant tests, or full suite if changes are broad)
 2. **Formatting:** `vendor/bin/pint --dirty --format agent`
 3. **Static analysis:** `vendor/bin/phpstan analyse`
 4. **Code review:** Run `pr-review` agents to catch silent failures, code quality issues, and test gaps
@@ -617,7 +618,7 @@ protected function isAccessible(User $user, ?string $path = null): bool
 # Test Enforcement
 
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
+- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --parallel --compact` with a specific filename or filter.
 
 === laravel/core rules ===
 
@@ -745,7 +746,7 @@ protected function isAccessible(User $user, ?string $path = null): bool
 ## Pest
 
 - This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
-- Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
+- Run tests: `php artisan test --parallel --compact` or filter: `php artisan test --parallel --compact --filter=testName`.
 - Do NOT delete tests without approval.
 - CRITICAL: ALWAYS use `search-docs` tool for version-specific Pest documentation and updated code examples.
 - IMPORTANT: Activate `pest-testing` every time you're working with a Pest or testing-related task.

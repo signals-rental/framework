@@ -449,7 +449,7 @@ class SignalsInstallCommand extends Command
         $bucket = $this->optionOrPrompt(
             's3-bucket',
             'Bucket Name',
-            config('filesystems.disks.s3.bucket', 'signals-files'),
+            config('filesystems.disks.s3.bucket') ?? 'signals-files',
         );
 
         $region = $this->selectRegion($provider);
@@ -690,7 +690,6 @@ class SignalsInstallCommand extends Command
         $this->writeEnvVariables([
             'APP_URL' => $url,
             'SIGNALS_INSTALLED' => 'true',
-            'SIGNALS_SETUP_COMPLETE' => 'false',
         ]);
 
         // Install frontend dependencies and build assets
@@ -720,17 +719,19 @@ class SignalsInstallCommand extends Command
             }
         }
 
-        // Cache config, routes, views
-        $cacheFailed = false;
-        foreach (['config:cache', 'route:cache', 'view:cache'] as $cacheCommand) {
-            if ($this->callSilently($cacheCommand) !== self::SUCCESS) {
-                $this->components->warn("{$cacheCommand} failed — you can run it manually later");
-                $cacheFailed = true;
+        // Cache config, routes, views (skip during tests to avoid parallel conflicts)
+        if (! app()->runningUnitTests()) {
+            $cacheFailed = false;
+            foreach (['config:cache', 'route:cache', 'view:cache'] as $cacheCommand) {
+                if ($this->callSilently($cacheCommand) !== self::SUCCESS) {
+                    $this->components->warn("{$cacheCommand} failed — you can run it manually later");
+                    $cacheFailed = true;
+                }
             }
-        }
 
-        if (! $cacheFailed) {
-            $this->components->info('Configuration cached');
+            if (! $cacheFailed) {
+                $this->components->info('Configuration cached');
+            }
         }
         $this->newLine();
 

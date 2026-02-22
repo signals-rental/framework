@@ -6,6 +6,8 @@ use App\Services\ConnectionTesters\S3ConnectionTester;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Process;
 
+pest()->group('env-writing');
+
 beforeEach(function () {
     // Use a temp SQLite file for the pgsql connection so tests don't conflict
     // with the test framework's own :memory: database
@@ -37,10 +39,9 @@ afterEach(function () {
         unlink($envPath);
     }
 
-    // Clear any cached config/routes/views created by the command
+    // Clear any cached config/routes/views in case tests run without the guard
     Artisan::call('config:clear');
     Artisan::call('route:clear');
-    Artisan::call('view:clear');
 });
 
 it('registers the signals:install command', function () {
@@ -745,6 +746,37 @@ it('fails when an empty database password is provided', function () {
     ])
         ->assertFailed()
         ->expectsOutputToContain('--db-password option must not be empty');
+});
+
+it('sets SIGNALS_INSTALLED but does not modify SIGNALS_SETUP_COMPLETE in env', function () {
+    // Ensure env starts with SIGNALS_SETUP_COMPLETE=false
+    $envPath = base_path('.env');
+    $envContent = file_get_contents($envPath);
+    $envContent = preg_replace('/SIGNALS_SETUP_COMPLETE=\w+/', 'SIGNALS_SETUP_COMPLETE=false', $envContent);
+    file_put_contents($envPath, $envContent);
+
+    Process::fake();
+
+    $pgTester = $this->mock(PostgresConnectionTester::class);
+    $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
+    $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
+    $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+
+    $this->artisan('signals:install', [
+        '--no-interaction' => true,
+        '--force' => true,
+        '--db-host' => '127.0.0.1',
+        '--db-database' => $this->tempDb,
+        '--db-password' => 'secret',
+        '--cache-driver' => 'database',
+        '--storage-driver' => 'local',
+        '--app-url' => 'http://localhost',
+        '--skip-npm' => true,
+    ])->assertSuccessful();
+
+    $envContent = file_get_contents($envPath);
+    expect($envContent)->toContain('SIGNALS_INSTALLED=true');
+    expect($envContent)->toContain('SIGNALS_SETUP_COMPLETE=false');
 });
 
 it('fails with an invalid --s3-provider value', function () {
