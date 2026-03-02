@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Product Lockups — Brand System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --base: #f8f9fb;
+            --white: #ffffff;
+            --navy: #0f172a;
+            --navy-mid: #1e293b;
+            --blue: #2563eb;
+            --blue-light: #3b82f6;
+            --blue-pale: rgba(37, 99, 235, 0.08);
+            --red: #dc2626;
+            --grey: #64748b;
+            --grey-light: #94a3b8;
+            --grey-border: #e2e8f0;
+            --green: #059669;
+            --sky: #0ea5e9;
+            --cyan: #0891b2;
+            --amber: #d97706;
+            --violet: #7c3aed;
+            --rose: #e11d48;
+            --slate: #475569;
+            --grid-fine: rgba(59, 130, 246, 0.06);
+            --grid-strong: rgba(59, 130, 246, 0.12);
+            --grid-dark-fine: rgba(148, 163, 184, 0.08);
+            --grid-dark-strong: rgba(148, 163, 184, 0.15);
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-mono: 'Martian Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--base);
+            color: var(--navy);
+            line-height: 1.7;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Grid backgrounds */
+        .grid-bg-light {
+            background-color: var(--base);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .grid-bg-dark {
+            background-color: var(--navy);
+            color: var(--grey-light);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+        /* Top navigation */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--navy);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        }
+        .top-nav a {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--grey-light);
+            text-decoration: none;
+            letter-spacing: 0.02em;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: var(--white); }
+        .top-nav-center {
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            color: var(--grey);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Secondary nav */
+        .secondary-nav {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: var(--white);
+            border-bottom: 1px solid var(--grey-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            z-index: 999;
+        }
+        .secondary-nav a {
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            color: var(--grey);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 10px 0;
+            border-bottom: 2px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .secondary-nav a:hover { color: var(--navy); }
+        .secondary-nav a.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+            font-weight: 500;
+        }
+
+        /* Section stamp */
+        .section-stamp {
+            display: inline-flex;
+            align-items: stretch;
+            border: 2px solid var(--navy);
+            margin-bottom: 32px;
+            font-family: var(--font-display);
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stamp-num { background: var(--navy); color: var(--white); padding: 4px 10px; }
+        .stamp-title { padding: 4px 12px; color: var(--navy); border-right: 2px solid var(--navy); }
+        .stamp-rev { padding: 4px 10px; color: var(--red); font-weight: 700; }
+        .grid-bg-dark .section-stamp { border-color: var(--grey-light); }
+        .grid-bg-dark .stamp-num { background: var(--grey-light); color: var(--navy); }
+        .grid-bg-dark .stamp-title { color: var(--grey-light); border-color: var(--grey-light); }
+
+        /* Headings */
+        h1, h2, h3 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.01em; font-weight: 700; }
+        h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin-bottom: 16px; }
+        h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; margin-bottom: 16px; }
+        h3 { font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
+        h2 em, h1 em { font-style: italic; color: var(--blue); font-weight: 600; }
+
+        .subtitle { font-size: 0.8125rem; color: var(--grey); line-height: 1.8; max-width: 640px; }
+        .grid-bg-dark .subtitle { color: var(--grey-light); }
+
+        section { padding: 80px 0; position: relative; }
+
+        /* Dimension line dividers */
+        .dimension-line { display: flex; align-items: center; padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+        .dim-arrow-left, .dim-arrow-right { width: 0; height: 0; flex-shrink: 0; }
+        .dim-arrow-left { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 8px solid var(--blue); }
+        .dim-arrow-right { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 8px solid var(--blue); }
+        .dim-line { flex: 1; height: 1px; background: var(--blue); opacity: 0.3; }
+        .dim-label { padding: 0 16px; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); white-space: nowrap; }
+        .grid-bg-dark .dim-arrow-left { border-right-color: var(--blue-light); }
+        .grid-bg-dark .dim-arrow-right { border-left-color: var(--blue-light); }
+        .grid-bg-dark .dim-line { background: var(--blue-light); }
+        .grid-bg-dark .dim-label { color: var(--grey-light); }
+
+        /* Annotation labels */
+        .annotation { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+        .grid-bg-dark .annotation { color: var(--grey-light); }
+
+        /* Logo mark */
+        .logo-mark {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 2px solid currentColor;
+            padding: 6px 16px;
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+        }
+        .logo-mark.color-blue::after { background: var(--blue); }
+        .logo-mark.color-green::after { background: var(--green); }
+        .logo-mark.color-sky::after { background: var(--sky); }
+        .logo-mark.color-cyan::after { background: var(--cyan); }
+        .logo-mark.color-amber::after { background: var(--amber); }
+        .logo-mark.color-violet::after { background: var(--violet); }
+        .logo-mark.color-rose::after { background: var(--rose); }
+        .logo-mark.color-slate::after { background: var(--slate); }
+
+        .logo-mark.size-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+        .logo-mark.size-xl::after { width: 14px; height: 14px; }
+        .logo-mark.size-lg { font-size: 1.5rem; padding: 8px 20px; }
+        .logo-mark.size-lg::after { width: 10px; height: 10px; }
+        .logo-mark.size-md { font-size: 1rem; padding: 6px 16px; }
+        .logo-mark.size-sm { font-size: 0.75rem; padding: 4px 10px; }
+        .logo-mark.size-sm::after { width: 5px; height: 5px; }
+
+        /* Lockup rows */
+        .lockup-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            margin-bottom: 20px;
+            border: 1px solid var(--grey-border);
+            overflow: hidden;
+        }
+        .lockup-cell {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+        }
+        .lockup-cell.light { background: var(--base); }
+        .lockup-cell.dark { background: var(--navy); color: var(--white); }
+        .lockup-product { font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6; }
+        .lockup-desc { font-size: 0.6875rem; color: var(--grey); max-width: 300px; }
+        .lockup-cell.dark .lockup-desc { color: var(--grey-light); }
+
+        /* Extended lockup grid */
+        .extended-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .extended-lockup {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 48px 32px;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+        .extended-lockup .ext-product {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--grey-light);
+        }
+        .extended-lockup .ext-tagline {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--grey);
+        }
+
+        /* Family panel */
+        .family-panel {
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            padding: 64px 48px;
+            position: relative;
+        }
+        .family-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 40px 32px;
+        }
+        .family-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+        .family-item .family-name {
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--grey);
+        }
+
+        /* Construction lines connecting family items */
+        .family-panel::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 48px;
+            right: 48px;
+            height: 1px;
+            background: repeating-linear-gradient(90deg, var(--blue) 0, var(--blue) 4px, transparent 4px, transparent 8px);
+            opacity: 0.12;
+        }
+        .family-panel::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 64px;
+            bottom: 64px;
+            width: 1px;
+            background: repeating-linear-gradient(180deg, var(--blue) 0, var(--blue) 4px, transparent 4px, transparent 8px);
+            opacity: 0.12;
+        }
+
+        /* Co-branding */
+        .cobrand-example {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            padding: 64px 48px;
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            position: relative;
+        }
+        .cobrand-divider {
+            width: 1px;
+            height: 48px;
+            background: var(--grey-border);
+        }
+        .cobrand-partner {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--grey);
+        }
+        .cobrand-x {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--grey-light);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Clearspace indicators */
+        .clearspace-indicator {
+            border: 1px dashed var(--blue);
+            opacity: 0.2;
+            position: absolute;
+        }
+
+        /* Rules list */
+        .rule-list {
+            list-style: none;
+            margin-top: 24px;
+        }
+        .rule-list li {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--grey);
+            padding: 10px 0;
+            border-bottom: 1px solid var(--grey-border);
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+        .rule-list li::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--blue);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        /* Reveal */
+        .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* Footer */
+        footer { padding: 48px 0; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .lockup-row { grid-template-columns: 1fr; }
+            .extended-grid { grid-template-columns: 1fr; }
+            .family-grid { grid-template-columns: repeat(2, 1fr); }
+            .cobrand-example { flex-direction: column; gap: 24px; }
+            .cobrand-divider { width: 48px; height: 1px; }
+            .secondary-nav { gap: 16px; overflow-x: auto; padding: 0 16px; justify-content: flex-start; }
+            section { padding: 60px 0; }
+        }
+        @media (max-width: 480px) {
+            .family-grid { grid-template-columns: 1fr; }
+            .secondary-nav { gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- TOP NAVIGATION                               -->
+<!-- ============================================ -->
+<nav class="top-nav">
+    <a href="index.html">&larr; Brand System</a>
+    <span class="top-nav-center">BRD-005 &mdash; LOCKUPS</span>
+    <a href="social.html">Social &rarr;</a>
+</nav>
+
+<!-- ============================================ -->
+<!-- SECONDARY NAVIGATION                         -->
+<!-- ============================================ -->
+<nav class="secondary-nav">
+    <a href="marks.html">Marks</a>
+    <a href="colors.html">Colors</a>
+    <a href="typography.html">Typography</a>
+    <a href="lockups.html" class="active">Lockups</a>
+    <a href="social.html">Social</a>
+    <a href="schemes.html">Schemes</a>
+    <a href="guidelines.html">Guidelines</a>
+</nav>
+
+<!-- ============================================ -->
+<!-- SECTION 1: PRODUCT LOCKUPS (Light BG)        -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 120px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-005</span>
+            <span class="stamp-title">Product Lockups</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h1>Product <em>Lockups</em></h1>
+        <p class="subtitle" style="margin-bottom: 48px;">Each product uses the master mark with its own accent color. The corner accent shifts, everything else stays constant.</p>
+
+        <!-- 1. Signals (Master) -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-blue">Signals</span>
+                <div class="lockup-product">Signals &mdash; Master</div>
+                <div class="lockup-desc">Modern rental management</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-blue" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Signals</div>
+            </div>
+        </div>
+
+        <!-- 2. Rental Framework -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-green">Signals</span>
+                <div class="lockup-product">Rental Framework</div>
+                <div class="lockup-desc">Open source rental management framework</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-green" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Rental Framework</div>
+            </div>
+        </div>
+
+        <!-- 3. Cloud -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-sky">Signals</span>
+                <div class="lockup-product">Cloud</div>
+                <div class="lockup-desc">Managed hosting for Signals</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-sky" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Cloud</div>
+            </div>
+        </div>
+
+        <!-- 4. Network -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-cyan">Signals</span>
+                <div class="lockup-product">Network</div>
+                <div class="lockup-desc">Credit scores &amp; benchmarks</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-cyan" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Network</div>
+            </div>
+        </div>
+
+        <!-- 5. Intelligence -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-amber">Signals</span>
+                <div class="lockup-product">Intelligence</div>
+                <div class="lockup-desc">AI-powered analytics</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-amber" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Intelligence</div>
+            </div>
+        </div>
+
+        <!-- 6. Registry -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-violet">Signals</span>
+                <div class="lockup-product">Registry</div>
+                <div class="lockup-desc">Product &amp; venue database</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-violet" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Registry</div>
+            </div>
+        </div>
+
+        <!-- 7. Connect -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-rose">Signals</span>
+                <div class="lockup-product">Connect</div>
+                <div class="lockup-desc">B2B equipment marketplace</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-rose" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Connect</div>
+            </div>
+        </div>
+
+        <!-- 8. Transport -->
+        <div class="lockup-row">
+            <div class="lockup-cell light">
+                <span class="logo-mark size-lg color-slate">Signals</span>
+                <div class="lockup-product">Transport</div>
+                <div class="lockup-desc">Logistics &amp; delivery</div>
+            </div>
+            <div class="lockup-cell dark">
+                <span class="logo-mark size-lg color-slate" style="color: white;">Signals</span>
+                <div class="lockup-product" style="color: var(--grey-light);">Transport</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-dark">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 02 &mdash; Extended Lockups</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 2: EXTENDED LOCKUPS (Dark BG)        -->
+<!-- ============================================ -->
+<section class="grid-bg-dark">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-005b</span>
+            <span class="stamp-title">Extended Lockups</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2 style="color: var(--white);">Extended <em>Lockups</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">When space permits, the product name appears below the mark as a descriptor line.</p>
+
+        <div class="extended-grid">
+            <!-- Rental Framework -->
+            <div class="extended-lockup">
+                <span class="logo-mark size-lg color-green" style="color: white;">Signals</span>
+                <div class="ext-product">Rental Framework</div>
+                <div class="ext-tagline">Open source rental management framework</div>
+            </div>
+
+            <!-- Cloud -->
+            <div class="extended-lockup">
+                <span class="logo-mark size-lg color-sky" style="color: white;">Signals</span>
+                <div class="ext-product">Cloud</div>
+                <div class="ext-tagline">Managed hosting for Signals</div>
+            </div>
+
+            <!-- Intelligence -->
+            <div class="extended-lockup">
+                <span class="logo-mark size-lg color-amber" style="color: white;">Signals</span>
+                <div class="ext-product">Intelligence</div>
+                <div class="ext-tagline">AI-powered analytics</div>
+            </div>
+
+            <!-- Registry -->
+            <div class="extended-lockup">
+                <span class="logo-mark size-lg color-violet" style="color: white;">Signals</span>
+                <div class="ext-product">Registry</div>
+                <div class="ext-tagline">Product &amp; venue database</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 03 &mdash; Product Family</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 3: THE COMPLETE FAMILY (Light BG)    -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-005c</span>
+            <span class="stamp-title">Product Family</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2>The Complete <em>Family</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">All eight products displayed together. Same mark, different corner accent colors &mdash; one unified system.</p>
+
+        <div class="family-panel">
+            <!-- Annotation -->
+            <span class="annotation" style="position: absolute; top: 16px; right: 20px;">[REF: FAMILY-OVERVIEW]</span>
+            <span class="annotation" style="position: absolute; bottom: 16px; left: 20px;">SCALE: 1:1 &middot; 8 PRODUCTS</span>
+
+            <div class="family-grid">
+                <div class="family-item">
+                    <span class="logo-mark size-md color-blue">Signals</span>
+                    <div class="family-name">Signals</div>
+                </div>
+                <div class="family-item">
+                    <span class="logo-mark size-md color-green">Signals</span>
+                    <div class="family-name">Rental Framework</div>
+                </div>
+                <div class="family-item">
+                    <span class="logo-mark size-md color-sky">Signals</span>
+                    <div class="family-name">Cloud</div>
+                </div>
+                <div class="family-item">
+                    <span class="logo-mark size-md color-cyan">Signals</span>
+                    <div class="family-name">Network</div>
+                </div>
+                <div class="family-item">
+                    <span class="logo-mark size-md color-amber">Signals</span>
+                    <div class="family-name">Intelligence</div>
+                </div>
+                <div class="family-item">
+                    <span class="logo-mark size-md color-violet">Signals</span>
+                    <div class="family-name">Registry</div>
+                </div>
+                <div class="family-item">
+                    <span class="logo-mark size-md color-rose">Signals</span>
+                    <div class="family-name">Connect</div>
+                </div>
+                <div class="family-item">
+                    <span class="logo-mark size-md color-slate">Signals</span>
+                    <div class="family-name">Transport</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 04 &mdash; Co-Branding</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 4: CO-BRANDING (Light BG)            -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-005d</span>
+            <span class="stamp-title">Co-Branding</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2>Co-Branding <em>Rules</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">How the Signals mark pairs with a partner brand. Equal visual weight, consistent spacing, Signals always on the left.</p>
+
+        <div class="cobrand-example">
+            <span class="cobrand-x">Co-Branding Lockup</span>
+
+            <!-- Clearspace left -->
+            <div class="clearspace-indicator" style="top: 50%; left: 50%; transform: translate(-100%, -50%); width: 40px; height: 64px; margin-left: -60px;"></div>
+            <!-- Clearspace right -->
+            <div class="clearspace-indicator" style="top: 50%; left: 50%; transform: translate(0, -50%); width: 40px; height: 64px; margin-left: 20px;"></div>
+
+            <span class="logo-mark size-lg color-blue">Signals</span>
+            <div class="cobrand-divider"></div>
+            <span class="cobrand-partner">Partner</span>
+
+            <!-- Dimension annotations -->
+            <span class="annotation" style="position: absolute; bottom: 16px; left: 20px;">MIN. CLEARSPACE: 2&times;</span>
+            <span class="annotation" style="position: absolute; bottom: 16px; right: 20px;">EQUAL VISUAL WEIGHT</span>
+        </div>
+
+        <ul class="rule-list">
+            <li>Signals mark always appears on the left side of the lockup</li>
+            <li>Equal visual weight between Signals and partner marks</li>
+            <li>Minimum 2&times; clear space between marks (relative to mark height)</li>
+            <li>Vertical divider line separates the two marks at 1px, using --grey-border</li>
+            <li>Partner marks must not exceed the height of the Signals mark</li>
+            <li>Corner accent color on Signals mark remains the product-appropriate colour</li>
+        </ul>
+    </div>
+</section>
+
+<!-- ============================================ -->
+<!-- FOOTER                                       -->
+<!-- ============================================ -->
+<footer class="grid-bg-dark">
+    <div class="container" style="text-align: center;">
+        <span class="logo-mark size-sm color-blue" style="color: var(--grey-light); font-size: 0.625rem; border-color: var(--grey); margin-bottom: 20px;">Signals</span>
+        <div style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Signals Brand System &mdash; Product Lockups &mdash; BRD-005 &mdash; February 2026
+        </div>
+        <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Confidential &mdash; For internal and partner use
+        </div>
+    </div>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var els = document.querySelectorAll('.reveal, .section-stamp, .lockup-row, .extended-lockup, .family-panel, .cobrand-example');
+    var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+            if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    els.forEach(function(el) { el.classList.add('reveal'); obs.observe(el); });
+});
+</script>
+
+</body>
+</html>

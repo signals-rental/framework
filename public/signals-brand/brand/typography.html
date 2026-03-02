@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — BRD-004 Typography</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --base: #f8f9fb;
+            --white: #ffffff;
+            --navy: #0f172a;
+            --navy-mid: #1e293b;
+            --blue: #2563eb;
+            --blue-light: #3b82f6;
+            --blue-pale: rgba(37, 99, 235, 0.08);
+            --red: #dc2626;
+            --grey: #64748b;
+            --grey-light: #94a3b8;
+            --grey-border: #e2e8f0;
+            --green: #059669;
+            --sky: #0ea5e9;
+            --cyan: #0891b2;
+            --amber: #d97706;
+            --violet: #7c3aed;
+            --rose: #e11d48;
+            --slate: #475569;
+            --grid-fine: rgba(59, 130, 246, 0.06);
+            --grid-strong: rgba(59, 130, 246, 0.12);
+            --grid-dark-fine: rgba(148, 163, 184, 0.08);
+            --grid-dark-strong: rgba(148, 163, 184, 0.15);
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-mono: 'Martian Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--base);
+            color: var(--navy);
+            line-height: 1.7;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Grid backgrounds */
+        .grid-bg-light {
+            background-color: var(--base);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .grid-bg-dark {
+            background-color: var(--navy);
+            color: var(--grey-light);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+        /* ===================== */
+        /* Top navigation        */
+        /* ===================== */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--navy);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+            border-bottom: 1px solid var(--navy-mid);
+        }
+        .top-nav a {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--grey-light);
+            text-decoration: none;
+            letter-spacing: 0.02em;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: var(--white); }
+        .top-nav-center {
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            color: var(--grey);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .secondary-nav {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            height: 36px;
+            background: var(--navy-mid);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            z-index: 999;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        }
+        .secondary-nav a {
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            color: var(--grey);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 0 16px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s, background 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        .secondary-nav a:hover { color: var(--grey-light); background: rgba(255,255,255,0.03); }
+        .secondary-nav a.active {
+            color: var(--white);
+            border-bottom-color: var(--blue);
+            background: rgba(37, 99, 235, 0.06);
+        }
+
+        /* ===================== */
+        /* Section stamp          */
+        /* ===================== */
+        .section-stamp {
+            display: inline-flex;
+            align-items: stretch;
+            border: 2px solid var(--navy);
+            margin-bottom: 32px;
+            font-family: var(--font-display);
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stamp-num { background: var(--navy); color: var(--white); padding: 4px 10px; }
+        .stamp-title { padding: 4px 12px; color: var(--navy); border-right: 2px solid var(--navy); }
+        .stamp-rev { padding: 4px 10px; color: var(--red); font-weight: 700; }
+        .grid-bg-dark .section-stamp { border-color: var(--grey-light); }
+        .grid-bg-dark .stamp-num { background: var(--grey-light); color: var(--navy); }
+        .grid-bg-dark .stamp-title { color: var(--grey-light); border-color: var(--grey-light); }
+
+        /* ===================== */
+        /* Headings               */
+        /* ===================== */
+        h1, h2, h3 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.01em; font-weight: 700; }
+        h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin-bottom: 16px; }
+        h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; margin-bottom: 16px; }
+        h3 { font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
+        h2 em, h1 em { font-style: italic; color: var(--blue); font-weight: 600; }
+
+        .subtitle { font-size: 0.8125rem; color: var(--grey); line-height: 1.8; max-width: 640px; }
+        .grid-bg-dark .subtitle { color: var(--grey-light); }
+
+        section { padding: 80px 0; position: relative; }
+
+        /* ===================== */
+        /* Dimension dividers     */
+        /* ===================== */
+        .dimension-line { display: flex; align-items: center; padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+        .dim-arrow-left, .dim-arrow-right { width: 0; height: 0; flex-shrink: 0; }
+        .dim-arrow-left { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 8px solid var(--blue); }
+        .dim-arrow-right { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 8px solid var(--blue); }
+        .dim-line { flex: 1; height: 1px; background: var(--blue); opacity: 0.3; }
+        .dim-label { padding: 0 16px; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); white-space: nowrap; }
+        .grid-bg-dark .dim-arrow-left { border-right-color: var(--blue-light); }
+        .grid-bg-dark .dim-arrow-right { border-left-color: var(--blue-light); }
+        .grid-bg-dark .dim-line { background: var(--blue-light); }
+        .grid-bg-dark .dim-label { color: var(--grey-light); }
+
+        /* ===================== */
+        /* Annotations            */
+        /* ===================== */
+        .annotation { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+        .grid-bg-dark .annotation { color: var(--grey-light); }
+
+        /* ===================== */
+        /* Logo mark              */
+        /* ===================== */
+        .logo-mark {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 2px solid currentColor;
+            padding: 6px 16px;
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+        }
+        .logo-mark.color-blue::after { background: var(--blue); }
+        .logo-mark.color-green::after { background: var(--green); }
+        .logo-mark.color-sky::after { background: var(--sky); }
+        .logo-mark.color-cyan::after { background: var(--cyan); }
+        .logo-mark.color-amber::after { background: var(--amber); }
+        .logo-mark.color-violet::after { background: var(--violet); }
+        .logo-mark.color-rose::after { background: var(--rose); }
+        .logo-mark.color-slate::after { background: var(--slate); }
+
+        .logo-mark.size-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+        .logo-mark.size-xl::after { width: 14px; height: 14px; }
+        .logo-mark.size-lg { font-size: 1.5rem; padding: 8px 20px; }
+        .logo-mark.size-lg::after { width: 10px; height: 10px; }
+        .logo-mark.size-md { font-size: 1rem; padding: 6px 16px; }
+        .logo-mark.size-sm { font-size: 0.75rem; padding: 4px 10px; }
+        .logo-mark.size-sm::after { width: 5px; height: 5px; }
+
+        /* ===================== */
+        /* Type specimen rows     */
+        /* ===================== */
+        .type-row { margin-bottom: 32px; border-bottom: 1px solid var(--grey-border); padding-bottom: 24px; }
+        .type-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); margin-bottom: 8px; }
+        .type-sample-display { font-family: var(--font-display); }
+        .type-sample-mono { font-family: var(--font-mono); }
+
+        /* ===================== */
+        /* Character set cards    */
+        /* ===================== */
+        .charset-card {
+            padding: 24px;
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            margin-bottom: 16px;
+        }
+
+        /* ===================== */
+        /* Hierarchy demo (dark)  */
+        /* ===================== */
+        .hierarchy-row {
+            display: flex;
+            align-items: baseline;
+            gap: 24px;
+            padding: 16px 0;
+            position: relative;
+        }
+        .hierarchy-annotation {
+            width: 180px;
+            flex-shrink: 0;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--grey);
+            text-align: right;
+            padding-right: 24px;
+            border-right: 1px solid rgba(59, 130, 246, 0.15);
+        }
+        .hierarchy-sample {
+            flex: 1;
+        }
+        .hierarchy-connector {
+            position: absolute;
+            left: 180px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        /* ===================== */
+        /* Context mockup cards   */
+        /* ===================== */
+        .context-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .context-card {
+            border: 1px solid var(--grey-border);
+            background: var(--white);
+            overflow: hidden;
+        }
+        .context-card-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--grey-border);
+            font-family: var(--font-mono);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--grey);
+            background: var(--base);
+        }
+        .context-card-body {
+            padding: 32px 28px;
+            position: relative;
+        }
+
+        /* Annotation pointer */
+        .context-annotation {
+            position: absolute;
+            font-family: var(--font-mono);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--blue);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .context-annotation::before {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 1px;
+            background: var(--blue);
+            opacity: 0.4;
+        }
+
+        /* ===================== */
+        /* Guideline do/dont      */
+        /* ===================== */
+        .guidelines-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .guideline-card { border: 1px solid var(--grey-border); padding: 24px; background: var(--white); }
+        .guideline-card.do { border-top: 3px solid var(--green); }
+        .guideline-card.dont { border-top: 3px solid var(--red); }
+        .guideline-label { font-family: var(--font-display); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 16px; }
+        .guideline-card.do .guideline-label { color: var(--green); }
+        .guideline-card.dont .guideline-label { color: var(--red); }
+        .guideline-example { display: flex; align-items: center; justify-content: center; padding: 32px; background: var(--base); margin-bottom: 12px; min-height: 80px; }
+        .guideline-text { font-size: 0.6875rem; color: var(--grey); }
+
+        /* ===================== */
+        /* Reveal animation       */
+        /* ===================== */
+        .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* ===================== */
+        /* Responsive             */
+        /* ===================== */
+        @media (max-width: 768px) {
+            .context-grid { grid-template-columns: 1fr; }
+            .guidelines-grid { grid-template-columns: 1fr; }
+            .hierarchy-annotation { width: 120px; font-size: 8px; }
+            section { padding: 60px 0; }
+            .secondary-nav { overflow-x: auto; justify-content: flex-start; }
+            .secondary-nav a { white-space: nowrap; }
+        }
+        @media (max-width: 480px) {
+            .hierarchy-row { flex-direction: column; gap: 8px; }
+            .hierarchy-annotation { width: 100%; text-align: left; padding-right: 0; border-right: none; border-bottom: 1px solid rgba(59,130,246,0.15); padding-bottom: 4px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===================== -->
+<!-- TOP NAVIGATION        -->
+<!-- ===================== -->
+<nav class="top-nav">
+    <a href="index.html">&larr; Brand System</a>
+    <span class="top-nav-center">BRD-004 &mdash; TYPOGRAPHY</span>
+    <a href="lockups.html">Lockups &rarr;</a>
+</nav>
+
+<div class="secondary-nav">
+    <a href="marks.html">Marks</a>
+    <a href="colors.html">Colors</a>
+    <a href="typography.html" class="active">Typography</a>
+    <a href="lockups.html">Lockups</a>
+    <a href="social.html">Social</a>
+    <a href="schemes.html">Schemes</a>
+    <a href="guidelines.html">Guidelines</a>
+</div>
+
+
+<!-- ============================================ -->
+<!-- SECTION 1: TYPE SYSTEM OVERVIEW              -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 120px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-004</span>
+            <span class="stamp-title">Typography</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h1>Type <em>System</em></h1>
+        <p class="subtitle" style="margin-bottom: 48px;">Two typefaces. Display for headings and brand elements. Monospace for body, technical text, and specifications.</p>
+
+        <!-- Type specimen rows -->
+        <div class="type-row">
+            <div class="type-label">Display &mdash; Chakra Petch 700 &mdash; H1 / 48px / -0.01em</div>
+            <div class="type-sample-display" style="font-size: 3rem; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; line-height: 1.1;">Modern Rental Management</div>
+        </div>
+
+        <div class="type-row">
+            <div class="type-label">Display &mdash; Chakra Petch 700 &mdash; H2 / 36px / -0.01em</div>
+            <div class="type-sample-display" style="font-size: 2.25rem; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; line-height: 1.15;">Equipment Rental, Done Right</div>
+        </div>
+
+        <div class="type-row">
+            <div class="type-label">Display &mdash; Chakra Petch 600 &mdash; H3 / 18px / 0em</div>
+            <div class="type-sample-display" style="font-size: 1.125rem; font-weight: 600; text-transform: uppercase; line-height: 1.3;">Signals Cloud &mdash; Managed Hosting</div>
+        </div>
+
+        <div class="type-row">
+            <div class="type-label">Body &mdash; Martian Mono 400 &mdash; 13px / 1.7 line-height</div>
+            <div class="type-sample-mono" style="font-size: 0.8125rem; max-width: 640px;">Signals Cloud is a complete rental management system &mdash; quotes, orders, availability, prep lists, invoicing &mdash; deployed in seconds with zero IT overhead.</div>
+        </div>
+
+        <div class="type-row" style="border-bottom: none;">
+            <div class="type-label">Technical &mdash; Martian Mono 500 &mdash; 9px / uppercase / 0.1em tracking</div>
+            <div class="type-sample-mono" style="font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey);">[DWG-001] &middot; Section 03 &mdash; Services &middot; REV A &middot; Scale: 1:1 &middot; Feb 2026</div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================ -->
+<!-- SECTION 2: CHARACTER SET                     -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 0;">
+    <div class="container">
+        <div class="charset-card">
+            <div class="type-label" style="margin-bottom: 12px;">Character Set &mdash; Chakra Petch 700</div>
+            <div class="type-sample-display" style="font-size: 1.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.6; color: var(--navy);">
+                A B C D E F G H I J K L M N O P Q R S T U V W X Y Z<br>
+                0 1 2 3 4 5 6 7 8 9
+            </div>
+        </div>
+
+        <div class="charset-card">
+            <div class="type-label" style="margin-bottom: 12px;">Character Set &mdash; Martian Mono 400</div>
+            <div class="type-sample-mono" style="font-size: 1.5rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.6; color: var(--navy);">
+                A B C D E F G H I J K L M N O P Q R S T U V W X Y Z<br>
+                0 1 2 3 4 5 6 7 8 9
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 02 &mdash; Type Scale &amp; Hierarchy</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+
+<!-- ============================================ -->
+<!-- SECTION 3: TYPE SCALE & HIERARCHY (dark)     -->
+<!-- ============================================ -->
+<section class="grid-bg-dark">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-004b</span>
+            <span class="stamp-title">Type Scale</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2 style="color: var(--white);">Hierarchy</h2>
+        <p class="subtitle" style="margin-bottom: 48px;">The complete type scale stacked to show relative sizing, weight, and visual hierarchy from display headings down to technical annotations.</p>
+
+        <!-- Hierarchy demo -->
+        <div style="position: relative;">
+            <!-- Vertical connector line -->
+            <div style="position: absolute; left: 180px; top: 0; bottom: 0; width: 1px; background: rgba(59,130,246,0.1);"></div>
+
+            <div class="hierarchy-row">
+                <div class="hierarchy-annotation">
+                    3rem / 700<br>Chakra Petch
+                </div>
+                <div class="hierarchy-sample">
+                    <div style="font-family: var(--font-display); font-size: 3rem; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; line-height: 1.1; color: var(--white);">Signals Rental Framework</div>
+                </div>
+            </div>
+
+            <div class="hierarchy-row">
+                <div class="hierarchy-annotation">
+                    2.25rem / 700<br>Chakra Petch
+                </div>
+                <div class="hierarchy-sample">
+                    <div style="font-family: var(--font-display); font-size: 2.25rem; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; line-height: 1.15; color: var(--white);">Open Source Equipment Rental</div>
+                </div>
+            </div>
+
+            <div class="hierarchy-row">
+                <div class="hierarchy-annotation">
+                    1.125rem / 600<br>Chakra Petch
+                </div>
+                <div class="hierarchy-sample">
+                    <div style="font-family: var(--font-display); font-size: 1.125rem; font-weight: 600; text-transform: uppercase; line-height: 1.3; color: var(--grey-light);">Built for the UK hire industry</div>
+                </div>
+            </div>
+
+            <div class="hierarchy-row">
+                <div class="hierarchy-annotation">
+                    0.8125rem / 400<br>Martian Mono
+                </div>
+                <div class="hierarchy-sample">
+                    <div style="font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 400; line-height: 1.7; color: var(--grey-light); max-width: 580px;">Modern rental management software for hire companies. Quotes, orders, availability, prep lists, invoicing, and reporting in one system.</div>
+                </div>
+            </div>
+
+            <div class="hierarchy-row" style="border-bottom: none;">
+                <div class="hierarchy-annotation">
+                    9px / 500<br>Martian Mono
+                </div>
+                <div class="hierarchy-sample">
+                    <div style="font-family: var(--font-mono); font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey);">[BRD-004] &middot; HIERARCHY DEMO &middot; REV A &middot; Feb 2026</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scale relationship guidelines -->
+        <div style="margin-top: 48px; padding: 24px; border: 1px solid rgba(148,163,184,0.15); background: rgba(148,163,184,0.03);">
+            <div class="type-label" style="color: var(--grey-light); margin-bottom: 12px;">Scale Ratio</div>
+            <div style="display: flex; gap: 32px; flex-wrap: wrap; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--white);">48</span>
+                    <span style="font-family: var(--font-mono); font-size: 9px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">&rarr;</span>
+                    <span style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--white);">36</span>
+                    <span style="font-family: var(--font-mono); font-size: 9px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">&rarr;</span>
+                    <span style="font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--white);">18</span>
+                    <span style="font-family: var(--font-mono); font-size: 9px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">&rarr;</span>
+                    <span style="font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; color: var(--white);">13</span>
+                    <span style="font-family: var(--font-mono); font-size: 9px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">&rarr;</span>
+                    <span style="font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; color: var(--white);">9</span>
+                </div>
+                <div style="font-family: var(--font-mono); font-size: 9px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.08em;">
+                    H1 &middot; H2 &middot; H3 &middot; Body &middot; Technical
+                </div>
+            </div>
+            <!-- Visual scale bar -->
+            <div style="margin-top: 16px; display: flex; gap: 4px; align-items: flex-end; height: 48px;">
+                <div style="width: 48px; height: 48px; background: var(--blue); opacity: 0.8;"></div>
+                <div style="width: 48px; height: 36px; background: var(--blue); opacity: 0.6;"></div>
+                <div style="width: 48px; height: 18px; background: var(--blue); opacity: 0.4;"></div>
+                <div style="width: 48px; height: 13px; background: var(--blue); opacity: 0.3;"></div>
+                <div style="width: 48px; height: 9px; background: var(--blue); opacity: 0.2;"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 03 &mdash; Type in Context</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+
+<!-- ============================================ -->
+<!-- SECTION 4: TYPE IN CONTEXT                   -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-004c</span>
+            <span class="stamp-title">Application</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2>Type in <em>Context</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">Two mockup cards showing how the type system applies in real product contexts.</p>
+
+        <div class="context-grid">
+            <!-- Card 1: Marketing Page -->
+            <div class="context-card">
+                <div class="context-card-header">Marketing Page</div>
+                <div class="context-card-body" style="min-height: 320px;">
+                    <!-- Annotations -->
+                    <div class="context-annotation" style="top: 24px; right: 16px;">Chakra Petch 700</div>
+
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy); margin-bottom: 8px;">
+                        SIGNALS CLOUD
+                    </div>
+                    <div style="font-family: var(--font-display); font-style: italic; font-weight: 600; font-size: 1rem; color: var(--blue); margin-bottom: 20px;">
+                        Managed Hosting
+                    </div>
+                    <div style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--grey); line-height: 1.7; margin-bottom: 24px; max-width: 400px;">
+                        Deploy your rental management system in seconds. Zero server configuration, automatic updates, built-in backups.
+                    </div>
+                    <div style="display: inline-block; background: var(--navy); color: var(--white); font-family: var(--font-display); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 24px;">
+                        START FREE TRIAL
+                    </div>
+
+                    <div class="context-annotation" style="bottom: 68px; right: 16px;">Chakra Petch 600</div>
+                    <div class="context-annotation" style="bottom: 24px; right: 16px;">Martian Mono 400</div>
+                </div>
+            </div>
+
+            <!-- Card 2: Technical Document -->
+            <div class="context-card">
+                <div class="context-card-header">Technical Document</div>
+                <div class="context-card-body" style="min-height: 320px;">
+                    <!-- Section stamp at top -->
+                    <div style="display: inline-flex; align-items: stretch; border: 1px solid var(--grey-border); margin-bottom: 20px; font-family: var(--font-display); font-size: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;">
+                        <span style="background: var(--navy); color: var(--white); padding: 2px 6px;">API-001</span>
+                        <span style="padding: 2px 8px; color: var(--navy); border-right: 1px solid var(--grey-border);">Reference</span>
+                        <span style="padding: 2px 6px; color: var(--red); font-weight: 700;">REV B</span>
+                    </div>
+
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.125rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy); margin-bottom: 16px;">
+                        API REFERENCE
+                    </div>
+
+                    <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--navy); background: var(--base); border: 1px solid var(--grey-border); padding: 12px 16px; margin-bottom: 12px; line-height: 1.6;">
+                        <span style="color: var(--blue);">GET</span> /api/v1/equipment<br>
+                        <span style="color: var(--blue);">POST</span> /api/v1/orders<br>
+                        <span style="color: var(--blue);">PUT</span> /api/v1/orders/{id}
+                    </div>
+
+                    <div style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--grey); line-height: 1.7;">
+                        Returns paginated equipment records filtered by availability status and category.
+                    </div>
+
+                    <div class="context-annotation" style="bottom: 24px; right: 16px;">Stamp + Mono body</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================ -->
+<!-- SECTION 5: PAIRING RULES                     -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 0;">
+    <div class="container">
+        <h3 style="font-size: 0.8125rem; margin-bottom: 24px;">Pairing Rules</h3>
+
+        <div class="guidelines-grid">
+            <!-- DO: Proper pairing -->
+            <div class="guideline-card do">
+                <div class="guideline-label">&#10003; Do</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 8px; align-items: flex-start; padding: 24px 32px;">
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy);">Signals Cloud</div>
+                    <div style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--grey); line-height: 1.7;">Managed hosting for hire companies.</div>
+                </div>
+                <div class="guideline-text">Pair Chakra Petch headings with Martian Mono body text. This is the standard combination.</div>
+            </div>
+
+            <!-- DONT: Wrong font -->
+            <div class="guideline-card dont">
+                <div class="guideline-label">&#10007; Don't</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 8px; align-items: flex-start; padding: 24px 32px;">
+                    <div style="font-family: Arial, Helvetica, sans-serif; font-weight: 700; font-size: 1.25rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy);">Signals Cloud</div>
+                    <div style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--grey); line-height: 1.7;">Managed hosting for hire companies.</div>
+                </div>
+                <div class="guideline-text">Never substitute Chakra Petch with Arial, Helvetica, or other system fonts for headings.</div>
+            </div>
+
+            <!-- DO: Uppercase headings with tight tracking -->
+            <div class="guideline-card do">
+                <div class="guideline-label">&#10003; Do</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 4px; align-items: flex-start; padding: 24px 32px;">
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy);">EQUIPMENT RENTAL</div>
+                    <div style="font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey);">letter-spacing: -0.01em</div>
+                </div>
+                <div class="guideline-text">Always set display headings in uppercase with -0.01em letter-spacing for tight, precise tracking.</div>
+            </div>
+
+            <!-- DONT: Lowercase or excessive tracking -->
+            <div class="guideline-card dont">
+                <div class="guideline-label">&#10007; Don't</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 4px; align-items: flex-start; padding: 24px 32px;">
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; text-transform: none; letter-spacing: 0.2em; color: var(--navy);">Equipment Rental</div>
+                    <div style="font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--red);">letter-spacing: 0.2em &middot; mixed case</div>
+                </div>
+                <div class="guideline-text">Never use title case or sentence case for display headings. Avoid excessive letter-spacing beyond 0em.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ============================================ -->
+<!-- FOOTER                                       -->
+<!-- ============================================ -->
+<footer class="grid-bg-dark" style="padding: 48px 0;">
+    <div class="container" style="text-align: center;">
+        <span class="logo-mark size-sm color-blue" style="color: var(--grey-light); font-size: 0.625rem; border-color: var(--grey); margin-bottom: 20px;">Signals</span>
+        <div style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Signals Brand Guidelines &mdash; BRD-004 Typography &mdash; February 2026
+        </div>
+        <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Confidential &mdash; For internal and partner use
+        </div>
+    </div>
+</footer>
+
+
+<!-- ============================================ -->
+<!-- IntersectionObserver reveal animations        -->
+<!-- ============================================ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var els = document.querySelectorAll('.reveal, .section-stamp, .type-row, .charset-card, .hierarchy-row, .context-card, .guideline-card');
+    var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+            if (e.isIntersecting) {
+                e.target.classList.add('visible');
+                obs.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    els.forEach(function(el) {
+        el.classList.add('reveal');
+        obs.observe(el);
+    });
+});
+</script>
+
+</body>
+</html>

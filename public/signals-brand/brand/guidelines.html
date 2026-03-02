@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals Brand System — Usage Guidelines</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================= */
+        /* DESIGN TOKENS                                 */
+        /* ============================================= */
+        :root {
+            --base: #f8f9fb;
+            --white: #ffffff;
+            --navy: #0f172a;
+            --navy-mid: #1e293b;
+            --blue: #2563eb;
+            --blue-light: #3b82f6;
+            --blue-pale: rgba(37, 99, 235, 0.08);
+            --red: #dc2626;
+            --grey: #64748b;
+            --grey-light: #94a3b8;
+            --grey-border: #e2e8f0;
+            --green: #059669;
+            --sky: #0ea5e9;
+            --cyan: #0891b2;
+            --amber: #d97706;
+            --violet: #7c3aed;
+            --rose: #e11d48;
+            --slate: #475569;
+            --grid-fine: rgba(59, 130, 246, 0.06);
+            --grid-strong: rgba(59, 130, 246, 0.12);
+            --grid-dark-fine: rgba(148, 163, 184, 0.08);
+            --grid-dark-strong: rgba(148, 163, 184, 0.15);
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-mono: 'Martian Mono', monospace;
+        }
+
+        /* ============================================= */
+        /* RESET & BASE                                  */
+        /* ============================================= */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--base);
+            color: var(--navy);
+            line-height: 1.7;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================= */
+        /* NAVIGATION                                    */
+        /* ============================================= */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--navy);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+        .top-nav a {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--grey-light);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: var(--white); }
+        .top-nav .nav-center {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--grey);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .top-nav .nav-placeholder {
+            width: 120px;
+        }
+
+        .sub-nav {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            height: 44px;
+            background: var(--base);
+            border-bottom: 1px solid var(--grey-border);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            padding: 0 24px;
+        }
+        .sub-nav a {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--grey);
+            text-decoration: none;
+            padding: 10px 0;
+            border-bottom: 2px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .sub-nav a:hover { color: var(--navy); }
+        .sub-nav a.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+        }
+
+        /* ============================================= */
+        /* GRID BACKGROUNDS                              */
+        /* ============================================= */
+        .grid-bg-light {
+            background-color: var(--base);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .grid-bg-dark {
+            background-color: var(--navy);
+            color: var(--grey-light);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        /* ============================================= */
+        /* LAYOUT                                        */
+        /* ============================================= */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+        section { padding: 80px 0; position: relative; }
+
+        /* ============================================= */
+        /* SECTION STAMP                                 */
+        /* ============================================= */
+        .section-stamp {
+            display: inline-flex;
+            align-items: stretch;
+            border: 2px solid var(--navy);
+            margin-bottom: 32px;
+            font-family: var(--font-display);
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stamp-num { background: var(--navy); color: var(--white); padding: 4px 10px; }
+        .stamp-title { padding: 4px 12px; color: var(--navy); border-right: 2px solid var(--navy); }
+        .stamp-rev { padding: 4px 10px; color: var(--red); font-weight: 700; }
+        .grid-bg-dark .section-stamp { border-color: var(--grey-light); }
+        .grid-bg-dark .stamp-num { background: var(--grey-light); color: var(--navy); }
+        .grid-bg-dark .stamp-title { color: var(--grey-light); border-color: var(--grey-light); }
+
+        /* ============================================= */
+        /* HEADINGS                                      */
+        /* ============================================= */
+        h1, h2, h3 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.01em; font-weight: 700; }
+        h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin-bottom: 16px; }
+        h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; margin-bottom: 16px; }
+        h3 { font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
+        h2 em, h1 em { font-style: italic; color: var(--blue); font-weight: 600; }
+
+        .subtitle { font-size: 0.8125rem; color: var(--grey); line-height: 1.8; max-width: 640px; }
+        .grid-bg-dark .subtitle { color: var(--grey-light); }
+
+        /* ============================================= */
+        /* DIMENSION LINE DIVIDERS                       */
+        /* ============================================= */
+        .dimension-line { display: flex; align-items: center; padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+        .dim-arrow-left, .dim-arrow-right { width: 0; height: 0; flex-shrink: 0; }
+        .dim-arrow-left { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 8px solid var(--blue); }
+        .dim-arrow-right { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 8px solid var(--blue); }
+        .dim-line { flex: 1; height: 1px; background: var(--blue); opacity: 0.3; }
+        .dim-label { padding: 0 16px; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); white-space: nowrap; }
+        .grid-bg-dark .dim-arrow-left { border-right-color: var(--blue-light); }
+        .grid-bg-dark .dim-arrow-right { border-left-color: var(--blue-light); }
+        .grid-bg-dark .dim-line { background: var(--blue-light); }
+        .grid-bg-dark .dim-label { color: var(--grey-light); }
+
+        /* ============================================= */
+        /* ANNOTATION LABELS                             */
+        /* ============================================= */
+        .annotation { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+        .grid-bg-dark .annotation { color: var(--grey-light); }
+
+        /* ============================================= */
+        /* LOGO MARK                                     */
+        /* ============================================= */
+        .logo-mark {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 2px solid currentColor;
+            padding: 6px 16px;
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+        }
+        .logo-mark.color-blue::after { background: var(--blue); }
+        .logo-mark.color-green::after { background: var(--green); }
+        .logo-mark.color-sky::after { background: var(--sky); }
+        .logo-mark.color-cyan::after { background: var(--cyan); }
+        .logo-mark.color-amber::after { background: var(--amber); }
+        .logo-mark.color-violet::after { background: var(--violet); }
+        .logo-mark.color-rose::after { background: var(--rose); }
+        .logo-mark.color-slate::after { background: var(--slate); }
+
+        .logo-mark.size-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+        .logo-mark.size-xl::after { width: 14px; height: 14px; }
+        .logo-mark.size-lg { font-size: 1.5rem; padding: 8px 20px; }
+        .logo-mark.size-lg::after { width: 10px; height: 10px; }
+        .logo-mark.size-md { font-size: 1rem; padding: 6px 16px; }
+        .logo-mark.size-sm { font-size: 0.75rem; padding: 4px 10px; }
+        .logo-mark.size-sm::after { width: 5px; height: 5px; }
+
+        /* No-accent variant for incorrect examples */
+        .logo-mark.no-accent::after { display: none; }
+
+        /* ============================================= */
+        /* MONOGRAM                                      */
+        /* ============================================= */
+        .monogram {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 2px solid currentColor;
+            position: relative;
+        }
+        .monogram::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+        }
+        .monogram.color-blue::after { background: var(--blue); }
+        .monogram.color-green::after { background: var(--green); }
+        .monogram.color-sky::after { background: var(--sky); }
+        .monogram.mono-64 { width: 64px; height: 64px; font-size: 1.75rem; }
+        .monogram.mono-64::after { width: 10px; height: 10px; }
+        .monogram.mono-48 { width: 48px; height: 48px; font-size: 1.25rem; }
+        .monogram.mono-48::after { width: 8px; height: 8px; }
+        .monogram.mono-36 { width: 36px; height: 36px; font-size: 1rem; }
+        .monogram.mono-36::after { width: 6px; height: 6px; }
+
+        /* ============================================= */
+        /* GUIDELINES GRID                               */
+        /* ============================================= */
+        .guidelines-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .guideline-card {
+            border: 1px solid var(--grey-border);
+            padding: 24px;
+            background: var(--white);
+        }
+        .guideline-card.do {
+            border-top: 3px solid var(--green);
+        }
+        .guideline-card.dont {
+            border-top: 3px solid var(--red);
+        }
+        .guideline-label {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            letter-spacing: 0.06em;
+        }
+        .guideline-card.do .guideline-label { color: var(--green); }
+        .guideline-card.dont .guideline-label { color: var(--red); }
+        .guideline-example {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            background: var(--base);
+            margin-bottom: 12px;
+            min-height: 80px;
+        }
+        .guideline-text {
+            font-size: 0.6875rem;
+            color: var(--grey);
+        }
+
+        /* Dark bg guideline cards */
+        .grid-bg-dark .guideline-card {
+            background: var(--navy-mid);
+            border-color: rgba(148, 163, 184, 0.15);
+        }
+        .grid-bg-dark .guideline-example {
+            background: var(--navy);
+        }
+        .grid-bg-dark .guideline-text {
+            color: var(--grey-light);
+        }
+
+        /* ============================================= */
+        /* CLEAR SPACE DIAGRAM                           */
+        /* ============================================= */
+        .clearspace-frame {
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            padding: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 360px;
+        }
+        .clearspace-inner {
+            position: relative;
+            display: inline-block;
+        }
+        .clearspace-zone {
+            position: absolute;
+            border: 1px dashed var(--blue);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .clearspace-label {
+            position: absolute;
+            font-family: var(--font-mono);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--amber);
+            white-space: nowrap;
+        }
+        .clearspace-dim {
+            position: absolute;
+            display: flex;
+            align-items: center;
+        }
+        .clearspace-dim.horizontal { flex-direction: row; }
+        .clearspace-dim.vertical { flex-direction: column; }
+        .clearspace-dim .cd-line-h { height: 1px; background: var(--amber); flex: 1; }
+        .clearspace-dim .cd-line-v { width: 1px; background: var(--amber); flex: 1; }
+        .clearspace-dim .cd-arrow-l { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-right: 5px solid var(--amber); }
+        .clearspace-dim .cd-arrow-r { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 5px solid var(--amber); }
+        .clearspace-dim .cd-arrow-u { width: 0; height: 0; border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid var(--amber); }
+        .clearspace-dim .cd-arrow-d { width: 0; height: 0; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 5px solid var(--amber); }
+
+        /* ============================================= */
+        /* MINIMUM SIZE EXAMPLES                         */
+        /* ============================================= */
+        .minsize-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 32px;
+        }
+        .minsize-card {
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            padding: 24px;
+            text-align: center;
+        }
+        .minsize-card .minsize-example {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 64px;
+            margin-bottom: 12px;
+        }
+        .minsize-card .minsize-label {
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--grey);
+        }
+        .minsize-card.invalid {
+            position: relative;
+        }
+        .minsize-card.invalid::after {
+            content: '';
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            border: 2px solid var(--red);
+            opacity: 0.15;
+            pointer-events: none;
+        }
+        .minsize-card.invalid .minsize-example {
+            opacity: 0.4;
+        }
+        .minsize-card.invalid .minsize-label {
+            color: var(--red);
+        }
+
+        /* ============================================= */
+        /* CO-BRANDING CARDS                             */
+        /* ============================================= */
+        .cobrand-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .cobrand-card {
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            padding: 24px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        .cobrand-num {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--blue);
+            flex-shrink: 0;
+            line-height: 1;
+            width: 32px;
+        }
+        .cobrand-content {
+            flex: 1;
+        }
+        .cobrand-rule {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .cobrand-desc {
+            font-size: 0.6875rem;
+            color: var(--grey);
+            line-height: 1.6;
+        }
+        .cobrand-visual {
+            background: var(--base);
+            padding: 16px;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            gap: 16px;
+        }
+        .cobrand-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* ============================================= */
+        /* SPEC TABLE                                    */
+        /* ============================================= */
+        .spec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+        }
+        .spec-table th {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 2px solid rgba(148, 163, 184, 0.2);
+            color: var(--white);
+        }
+        .spec-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            color: var(--grey-light);
+        }
+        .spec-table tr:nth-child(even) td {
+            background: rgba(148, 163, 184, 0.04);
+        }
+        .spec-table .spec-property {
+            color: var(--white);
+            font-weight: 500;
+        }
+        .spec-table .spec-value {
+            color: var(--blue-light);
+        }
+
+        /* ============================================= */
+        /* FOOTER                                        */
+        /* ============================================= */
+        .footer-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 0;
+            border-bottom: 1px solid var(--grey-border);
+            margin-bottom: 32px;
+        }
+        .footer-nav a {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--grey);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-nav a:hover { color: var(--blue); }
+
+        /* ============================================= */
+        /* REVEAL ANIMATION                              */
+        /* ============================================= */
+        .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* ============================================= */
+        /* RESPONSIVE                                    */
+        /* ============================================= */
+        @media (max-width: 768px) {
+            .guidelines-grid { grid-template-columns: 1fr; }
+            .cobrand-grid { grid-template-columns: 1fr; }
+            .minsize-grid { grid-template-columns: repeat(2, 1fr); }
+            .sub-nav { gap: 16px; flex-wrap: wrap; height: auto; padding: 8px 16px; }
+            .sub-nav a { font-size: 10px; padding: 6px 0; }
+            .clearspace-frame { padding: 48px 24px; }
+            section { padding: 60px 0; }
+        }
+        @media (max-width: 480px) {
+            .top-nav { padding: 0 12px; }
+            .container { padding: 0 16px; }
+            .minsize-grid { grid-template-columns: 1fr; }
+            .cobrand-card { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ================================================ -->
+<!-- NAVIGATION                                       -->
+<!-- ================================================ -->
+<nav class="top-nav">
+    <a href="index.html">&larr; Brand System</a>
+    <span class="nav-center">BRD-008 &mdash; Guidelines</span>
+    <a href="schemes.html">&larr; Schemes</a>
+</nav>
+
+<div class="sub-nav">
+    <a href="marks.html">Marks</a>
+    <a href="colors.html">Colors</a>
+    <a href="typography.html">Typography</a>
+    <a href="lockups.html">Lockups</a>
+    <a href="social.html">Social</a>
+    <a href="schemes.html">Schemes</a>
+    <a href="guidelines.html" class="active">Guidelines</a>
+</div>
+
+<!-- ================================================ -->
+<!-- SECTION 1: MARK USAGE                            -->
+<!-- ================================================ -->
+<section class="grid-bg-light" style="padding-top: 120px;">
+    <div class="container">
+        <div class="section-stamp reveal">
+            <span class="stamp-num">BRD-008</span>
+            <span class="stamp-title">Usage Guidelines</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h1 class="reveal">Usage <em>Guidelines</em></h1>
+        <p class="subtitle reveal" style="margin-bottom: 48px;">Rules for consistent brand application across all touchpoints.</p>
+
+        <!-- Do / Don't Grid -->
+        <div class="guidelines-grid">
+
+            <!-- Pair 1: Correct mark -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example">
+                    <span class="logo-mark size-md color-blue">Signals</span>
+                </div>
+                <div class="guideline-text">Use the mark with proper padding and the correct product accent color. The corner accent must always be present.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example">
+                    <span class="logo-mark no-accent size-md" style="transform: rotate(5deg);">Signals</span>
+                </div>
+                <div class="guideline-text">Never rotate, skew, or distort the mark. Never remove the corner accent device.</div>
+            </div>
+
+            <!-- Pair 2: Dark background -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="background: var(--navy); padding: 32px;">
+                    <span class="logo-mark size-md color-blue" style="color: var(--white);">Signals</span>
+                </div>
+                <div class="guideline-text">On dark backgrounds, use a white mark. The corner accent retains its product color.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example" style="background: var(--navy); padding: 32px;">
+                    <span style="display: inline-block; font-family: Arial, sans-serif; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; border: 2px solid var(--white); padding: 6px 16px; position: relative; color: var(--white); font-size: 1rem;">Signals<span style="position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; background: hotpink;"></span></span>
+                </div>
+                <div class="guideline-text">Never use unauthorized fonts or non-brand accent colors. The mark must use Chakra Petch exclusively.</div>
+            </div>
+
+            <!-- Pair 3: Monogram at small sizes -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="gap: 16px;">
+                    <span class="monogram mono-48 color-blue" style="color: var(--navy);">S</span>
+                    <span class="monogram mono-36 color-blue" style="color: var(--navy);">S</span>
+                </div>
+                <div class="guideline-text">At small sizes, switch to the monogram. It maintains legibility down to 24px.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example">
+                    <span class="logo-mark size-sm color-blue" style="opacity: 0.4; font-size: 0.5rem; padding: 2px 6px;">Signals</span>
+                </div>
+                <div class="guideline-text">Never use the full mark below minimum size (80px width). Text becomes illegible and the accent disappears.</div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 02 &mdash; Clear Space</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ================================================ -->
+<!-- SECTION 2: CLEAR SPACE                           -->
+<!-- ================================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp reveal">
+            <span class="stamp-num">BRD-008b</span>
+            <span class="stamp-title">Clear Space</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2 class="reveal">Clear Space &amp; <em>Minimum Size</em></h2>
+        <p class="subtitle reveal" style="margin-bottom: 48px;">Maintain clear space around the mark to preserve visual integrity and legibility.</p>
+
+        <!-- Clear space diagram -->
+        <div class="clearspace-frame reveal">
+            <span class="annotation" style="position: absolute; top: 12px; right: 16px;">[REF: CLEAR-SPACE]</span>
+            <span class="annotation" style="position: absolute; bottom: 12px; left: 16px;">UNIT: x = CAP HEIGHT OF "S"</span>
+
+            <div class="clearspace-inner" style="padding: 60px;">
+                <!-- Dashed clear-zone border -->
+                <div class="clearspace-zone" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+
+                <!-- The mark -->
+                <span class="logo-mark size-lg color-blue">Signals</span>
+
+                <!-- Top dimension -->
+                <div class="clearspace-dim horizontal" style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 40px;">
+                    <span class="cd-arrow-l"></span>
+                    <span class="cd-line-h"></span>
+                    <span class="cd-arrow-r"></span>
+                </div>
+                <div class="clearspace-label" style="top: -24px; left: 50%; transform: translateX(-50%);">x</div>
+
+                <!-- Bottom dimension -->
+                <div class="clearspace-dim horizontal" style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 40px;">
+                    <span class="cd-arrow-l"></span>
+                    <span class="cd-line-h"></span>
+                    <span class="cd-arrow-r"></span>
+                </div>
+                <div class="clearspace-label" style="bottom: -24px; left: 50%; transform: translateX(-50%);">x</div>
+
+                <!-- Left dimension -->
+                <div class="clearspace-dim vertical" style="position: absolute; left: -8px; top: 50%; transform: translateY(-50%); height: 40px;">
+                    <span class="cd-arrow-u"></span>
+                    <span class="cd-line-v"></span>
+                    <span class="cd-arrow-d"></span>
+                </div>
+                <div class="clearspace-label" style="left: -28px; top: 50%; transform: translateY(-50%);">x</div>
+
+                <!-- Right dimension -->
+                <div class="clearspace-dim vertical" style="position: absolute; right: -8px; top: 50%; transform: translateY(-50%); height: 40px;">
+                    <span class="cd-arrow-u"></span>
+                    <span class="cd-line-v"></span>
+                    <span class="cd-arrow-d"></span>
+                </div>
+                <div class="clearspace-label" style="right: -28px; top: 50%; transform: translateY(-50%);">x</div>
+            </div>
+
+            <!-- Annotation below diagram -->
+            <div class="annotation" style="position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); color: var(--blue); opacity: 0.7; white-space: nowrap;">
+                Minimum clear space: 1x on all sides
+            </div>
+        </div>
+
+        <!-- Minimum size rules -->
+        <div style="margin-top: 32px;">
+            <span class="annotation reveal" style="display: block; margin-bottom: 20px;">Minimum Size Requirements</span>
+
+            <div class="minsize-grid">
+                <!-- Full mark at minimum -->
+                <div class="minsize-card reveal">
+                    <div class="minsize-example">
+                        <span class="logo-mark size-sm color-blue" style="font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                    </div>
+                    <div class="minsize-label" style="color: var(--green);">Full mark: 80px min</div>
+                </div>
+
+                <!-- Monogram at minimum -->
+                <div class="minsize-card reveal">
+                    <div class="minsize-example">
+                        <span class="monogram color-blue" style="width: 24px; height: 24px; font-size: 0.625rem; color: var(--navy);">S</span>
+                    </div>
+                    <div class="minsize-label" style="color: var(--green);">Monogram: 24px min</div>
+                </div>
+
+                <!-- Full mark below minimum (invalid) -->
+                <div class="minsize-card invalid reveal">
+                    <div class="minsize-example">
+                        <span class="logo-mark size-sm color-blue" style="font-size: 0.375rem; padding: 1px 4px;">Signals</span>
+                    </div>
+                    <div class="minsize-label">Below min &mdash; use monogram</div>
+                </div>
+
+                <!-- Monogram below minimum (invalid) -->
+                <div class="minsize-card invalid reveal">
+                    <div class="minsize-example">
+                        <span class="monogram color-blue" style="width: 16px; height: 16px; font-size: 0.375rem; color: var(--navy);">S</span>
+                    </div>
+                    <div class="minsize-label">Below min &mdash; use wordmark</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 03 &mdash; Color Rules</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ================================================ -->
+<!-- SECTION 3: COLOR USAGE RULES (DARK BG)           -->
+<!-- ================================================ -->
+<section class="grid-bg-dark" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp reveal">
+            <span class="stamp-num">BRD-008c</span>
+            <span class="stamp-title">Color Rules</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2 class="reveal" style="color: var(--white);">Color <em>Rules</em></h2>
+        <p class="subtitle reveal" style="margin-bottom: 48px;">Strict rules for color usage ensure each product is instantly identifiable.</p>
+
+        <div class="guidelines-grid">
+
+            <!-- Pair 1: Correct product colors -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="background: var(--navy); gap: 24px;">
+                    <div style="text-align: center;">
+                        <span class="logo-mark size-sm color-green" style="color: var(--white); font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 7px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px;">Framework</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <span class="logo-mark size-sm color-sky" style="color: var(--white); font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 7px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px;">Cloud</div>
+                    </div>
+                </div>
+                <div class="guideline-text">Each product uses only its assigned accent color. Framework = green, Cloud = sky.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example" style="background: var(--navy);">
+                    <div style="text-align: center;">
+                        <span class="logo-mark size-sm color-green" style="color: var(--white); font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 7px; color: var(--red); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px;">Cloud &mdash; Wrong color</div>
+                    </div>
+                </div>
+                <div class="guideline-text">Never mix product colors. The green accent belongs to Framework, not Cloud.</div>
+            </div>
+
+            <!-- Pair 2: Photography overlay -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="position: relative; overflow: hidden; padding: 32px;">
+                    <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #c2885a, #8ab375, #5a8fc2); opacity: 0.3;"></div>
+                    <div style="position: absolute; inset: 0; background: var(--navy); opacity: 0.75;"></div>
+                    <span class="logo-mark size-md color-blue" style="color: var(--white); position: relative; z-index: 1;">Signals</span>
+                </div>
+                <div class="guideline-text">On photography, apply a dark overlay (minimum 70% opacity) before placing the mark.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example" style="position: relative; overflow: hidden; padding: 32px;">
+                    <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #c2885a, #8ab375, #5a8fc2, #c26a5a, #7a5ac2);"></div>
+                    <span class="logo-mark size-md color-blue" style="color: var(--white); position: relative; z-index: 1;">Signals</span>
+                </div>
+                <div class="guideline-text">Never place the mark on busy or colorful backgrounds without an overlay. It reduces legibility.</div>
+            </div>
+
+            <!-- Pair 3: Tints -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="background: var(--blue-pale); flex-direction: column; gap: 8px;">
+                    <span style="font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy);">Subtle Backgrounds</span>
+                    <span style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey);">Use 10-25% tints for panels and cards</span>
+                </div>
+                <div class="guideline-text">Use accent color tints (10-25% opacity) for subtle background panels.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example" style="background: var(--blue); flex-direction: column; gap: 8px;">
+                    <span style="font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white);">Too Intense</span>
+                    <span style="font-family: var(--font-mono); font-size: 0.625rem; color: rgba(255,255,255,0.7);">Full-strength accent overwhelms content</span>
+                </div>
+                <div class="guideline-text">Never use full-strength accent colors as large-area backgrounds. It competes with content.</div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider (dark to light) -->
+<div class="grid-bg-dark">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 04 &mdash; Typography Rules</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ================================================ -->
+<!-- SECTION 4: TYPOGRAPHY RULES                      -->
+<!-- ================================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp reveal">
+            <span class="stamp-num">BRD-008d</span>
+            <span class="stamp-title">Typography Rules</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2 class="reveal">Typography <em>Rules</em></h2>
+        <p class="subtitle reveal" style="margin-bottom: 48px;">Consistent type usage reinforces the Signals technical identity.</p>
+
+        <div class="guidelines-grid">
+
+            <!-- Pair 1: Correct typefaces -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 12px;">
+                    <span style="font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy);">Heading in Chakra Petch</span>
+                    <span style="font-family: var(--font-mono); font-size: 0.6875rem; color: var(--grey);">Body text in Martian Mono at 13px for technical precision.</span>
+                </div>
+                <div class="guideline-text">Chakra Petch 700 for headings. Martian Mono 400/500 for body and technical text.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 12px;">
+                    <span style="font-family: 'Comic Sans MS', 'Helvetica Neue', Helvetica, sans-serif; font-weight: bold; font-size: 1.25rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy);">Heading in Comic Sans</span>
+                    <span style="font-family: Georgia, 'Times New Roman', serif; font-size: 0.6875rem; color: var(--grey);">Body text in Georgia ruins the technical feel entirely.</span>
+                </div>
+                <div class="guideline-text">Never substitute unauthorized typefaces. No system fonts, no serif fonts for body copy.</div>
+            </div>
+
+            <!-- Pair 2: Uppercase headings -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 8px;">
+                    <span style="font-family: var(--font-display); font-weight: 700; font-size: 1.125rem; text-transform: uppercase; letter-spacing: -0.01em; color: var(--navy);">Uppercase Headings</span>
+                    <span style="font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey-light);">-0.01em tracking</span>
+                </div>
+                <div class="guideline-text">Headings are always uppercase with tight -0.01em letter-spacing for a confident, engineered feel.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 8px;">
+                    <span style="font-family: var(--font-display); font-weight: 700; font-size: 1.125rem; letter-spacing: 0.3em; color: var(--navy);">lowercase headings</span>
+                    <span style="font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--red);">+0.3em tracking &mdash; too wide</span>
+                </div>
+                <div class="guideline-text">Never use lowercase headings or excessive letter-spacing. It contradicts the brand's precision.</div>
+            </div>
+
+            <!-- Pair 3: Annotations -->
+            <div class="guideline-card do reveal">
+                <div class="guideline-label">Do</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 12px;">
+                    <span style="font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey-light);">[REF: BRD-008D] Technical Annotation</span>
+                    <span style="font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey-light);">Scale: 1:1 &mdash; Units: PX</span>
+                </div>
+                <div class="guideline-text">Technical annotations use 9px Martian Mono, uppercase, with 0.08em tracking.</div>
+            </div>
+            <div class="guideline-card dont reveal">
+                <div class="guideline-label">Don't</div>
+                <div class="guideline-example" style="flex-direction: column; gap: 8px;">
+                    <span style="font-family: var(--font-display); font-weight: 500; font-size: 13px; color: var(--navy); line-height: 1.7;">Using Chakra Petch at 13px for body text defeats the purpose of having a monospace body font. The display typeface should be reserved for headings and the brand mark only.</span>
+                </div>
+                <div class="guideline-text">Never use the display font for body text. Chakra Petch is for headings and the mark only.</div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 05 &mdash; Co-Branding</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ================================================ -->
+<!-- SECTION 5: CO-BRANDING RULES                     -->
+<!-- ================================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp reveal">
+            <span class="stamp-num">BRD-008e</span>
+            <span class="stamp-title">Co-Branding</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2 class="reveal">Co-Branding <em>Rules</em></h2>
+        <p class="subtitle reveal" style="margin-bottom: 48px;">Guidelines for presenting the Signals mark alongside partner brands.</p>
+
+        <div class="cobrand-grid">
+
+            <!-- Rule 1 -->
+            <div class="cobrand-card reveal">
+                <div class="cobrand-num">1</div>
+                <div class="cobrand-content">
+                    <div class="cobrand-rule">Signals mark always appears on the left</div>
+                    <div class="cobrand-desc">In any co-branded lockup, the Signals mark takes the left position to establish hierarchy.</div>
+                    <div class="cobrand-visual">
+                        <span class="logo-mark size-sm color-blue" style="font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                        <span style="font-family: var(--font-mono); font-size: 9px; color: var(--grey-light);">&times;</span>
+                        <span style="font-family: var(--font-display); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey); border: 1.5px solid var(--grey-border); padding: 3px 8px;">Partner</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rule 2 -->
+            <div class="cobrand-card reveal">
+                <div class="cobrand-num">2</div>
+                <div class="cobrand-content">
+                    <div class="cobrand-rule">Minimum 2x clear space between marks</div>
+                    <div class="cobrand-desc">Maintain at least 2x the clear-space unit between the Signals mark and the partner mark.</div>
+                    <div class="cobrand-visual" style="gap: 0; position: relative;">
+                        <span class="logo-mark size-sm color-blue" style="font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                        <div style="width: 48px; display: flex; align-items: center; position: relative;">
+                            <div style="width: 100%; height: 1px; background: var(--amber);"></div>
+                            <span style="position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-family: var(--font-mono); font-size: 7px; color: var(--amber); text-transform: uppercase; white-space: nowrap;">2x</span>
+                        </div>
+                        <span style="font-family: var(--font-display); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey); border: 1.5px solid var(--grey-border); padding: 3px 8px;">Partner</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rule 3 -->
+            <div class="cobrand-card reveal">
+                <div class="cobrand-num">3</div>
+                <div class="cobrand-content">
+                    <div class="cobrand-rule">Partner logos should match visual weight</div>
+                    <div class="cobrand-desc">Scale partner logos so they appear optically balanced alongside the Signals mark. Neither brand should dominate.</div>
+                    <div class="cobrand-visual">
+                        <span class="logo-mark size-sm color-blue" style="font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                        <span style="font-family: var(--font-mono); font-size: 9px; color: var(--grey-light);">&times;</span>
+                        <span style="font-family: var(--font-display); font-weight: 600; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grey); border: 1.5px solid var(--grey-border); padding: 3px 8px;">Partner</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rule 4 -->
+            <div class="cobrand-card reveal">
+                <div class="cobrand-num">4</div>
+                <div class="cobrand-content">
+                    <div class="cobrand-rule">Never combine more than two brands in a single lockup</div>
+                    <div class="cobrand-desc">Multi-brand lockups create visual clutter. If three or more brands are involved, list them separately.</div>
+                    <div class="cobrand-visual">
+                        <span style="font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grey-light);">Max 2 brands per lockup</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rule 5 (full width) -->
+            <div class="cobrand-card full-width reveal">
+                <div class="cobrand-num">5</div>
+                <div class="cobrand-content">
+                    <div class="cobrand-rule">The corner accent must always be present &mdash; never remove it</div>
+                    <div class="cobrand-desc">The corner accent device is the most distinctive element of the Signals identity. Removing it for co-branding or any other reason is never permitted. It persists in all contexts, including monograms.</div>
+                    <div class="cobrand-visual" style="gap: 24px;">
+                        <div style="text-align: center;">
+                            <span class="logo-mark size-sm color-blue" style="font-size: 0.625rem; padding: 3px 8px;">Signals</span>
+                            <div style="font-family: var(--font-mono); font-size: 7px; color: var(--green); text-transform: uppercase; margin-top: 8px;">Correct</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <span class="monogram mono-36 color-blue" style="color: var(--navy);">S</span>
+                            <div style="font-family: var(--font-mono); font-size: 7px; color: var(--green); text-transform: uppercase; margin-top: 8px;">Correct</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <span class="logo-mark no-accent size-sm" style="font-size: 0.625rem; padding: 3px 8px; opacity: 0.5;">Signals</span>
+                            <div style="font-family: var(--font-mono); font-size: 7px; color: var(--red); text-transform: uppercase; margin-top: 8px;">Never</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 06 &mdash; Technical Specifications</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ================================================ -->
+<!-- SECTION 6: TECHNICAL SPECIFICATIONS (DARK BG)    -->
+<!-- ================================================ -->
+<section class="grid-bg-dark" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp reveal">
+            <span class="stamp-num">BRD-008f</span>
+            <span class="stamp-title">Specifications</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h2 class="reveal" style="color: var(--white);">Technical <em>Specifications</em></h2>
+        <p class="subtitle reveal" style="margin-bottom: 48px;">Complete reference for implementing the Signals mark in code and design tools.</p>
+
+        <!-- Spec table: Mark Properties -->
+        <div class="reveal" style="margin-bottom: 32px;">
+            <span class="annotation" style="display: block; margin-bottom: 16px; color: var(--blue-light);">Mark Properties</span>
+            <div style="overflow-x: auto;">
+                <table class="spec-table">
+                    <thead>
+                        <tr>
+                            <th>Property</th>
+                            <th>Value</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="spec-property">Border Width</td>
+                            <td class="spec-value">2px solid</td>
+                            <td>Uses currentColor for inheritance</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">Corner Accent (size-md)</td>
+                            <td class="spec-value">8px &times; 8px</td>
+                            <td>Scales proportionally with size variant</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">Corner Position</td>
+                            <td class="spec-value">top: -2px; right: -2px</td>
+                            <td>Overlaps the border on top-right</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">Font Family</td>
+                            <td class="spec-value">Chakra Petch 700</td>
+                            <td>Bold weight only in the mark</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">Letter-Spacing</td>
+                            <td class="spec-value">0.08em</td>
+                            <td>0.12em at size-xl</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">Text-Transform</td>
+                            <td class="spec-value">uppercase</td>
+                            <td>Always uppercase, no exceptions</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">Default Padding</td>
+                            <td class="spec-value">6px 16px</td>
+                            <td>Varies by size variant</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Spec table: Size Variants -->
+        <div class="reveal">
+            <span class="annotation" style="display: block; margin-bottom: 16px; color: var(--blue-light);">Size Variants</span>
+            <div style="overflow-x: auto;">
+                <table class="spec-table">
+                    <thead>
+                        <tr>
+                            <th>Size</th>
+                            <th>Font Size</th>
+                            <th>Padding</th>
+                            <th>Corner Accent</th>
+                            <th>Use Case</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="spec-property">XL</td>
+                            <td class="spec-value">2.5rem (40px)</td>
+                            <td>12px 28px</td>
+                            <td class="spec-value">14px &times; 14px</td>
+                            <td>Hero sections, splash screens</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">LG</td>
+                            <td class="spec-value">1.5rem (24px)</td>
+                            <td>8px 20px</td>
+                            <td class="spec-value">10px &times; 10px</td>
+                            <td>Page headers, presentations</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">MD</td>
+                            <td class="spec-value">1rem (16px)</td>
+                            <td>6px 16px</td>
+                            <td class="spec-value">8px &times; 8px</td>
+                            <td>Navigation, cards, sidebars</td>
+                        </tr>
+                        <tr>
+                            <td class="spec-property">SM</td>
+                            <td class="spec-value">0.75rem (12px)</td>
+                            <td>4px 10px</td>
+                            <td class="spec-value">5px &times; 5px</td>
+                            <td>Badges, footnotes, compact UI</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================ -->
+<!-- FOOTER                                           -->
+<!-- ================================================ -->
+<footer class="grid-bg-light" style="padding: 48px 0;">
+    <div class="container">
+        <!-- Page navigation -->
+        <div class="footer-nav">
+            <a href="schemes.html">&larr; Previous: Color Schemes</a>
+            <a href="index.html">Back to Index</a>
+        </div>
+
+        <!-- Footer content -->
+        <div style="text-align: center;">
+            <span class="logo-mark size-sm color-blue" style="font-size: 0.625rem; padding: 3px 8px; margin-bottom: 20px;">Signals</span>
+            <div style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+                Signals Brand Guidelines &mdash; Version 1.0 &mdash; February 2026
+            </div>
+            <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+                Confidential &mdash; For internal and partner use
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- ================================================ -->
+<!-- JAVASCRIPT: Scroll Reveal                        -->
+<!-- ================================================ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var els = document.querySelectorAll('.reveal');
+    var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                obs.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    els.forEach(function(el) {
+        obs.observe(el);
+    });
+});
+</script>
+
+</body>
+</html>

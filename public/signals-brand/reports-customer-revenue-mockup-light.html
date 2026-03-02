@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Revenue Report — Signals</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Light Mode Palette */
+            --bg: #faf8f5;
+            --bg-warm: #f5f2ed;
+            --bg-pure: #ffffff;
+            --surface: #ffffff;
+            --surface-hover: #f9f7f4;
+            --surface-elevated: #ffffff;
+            --border: rgba(201, 132, 92, 0.15);
+            --border-strong: rgba(201, 132, 92, 0.25);
+
+            --terracotta: #c9845c;
+            --terracotta-light: #dba07a;
+            --terracotta-dark: #a66b47;
+            --terracotta-glow: rgba(201, 132, 92, 0.1);
+            --terracotta-glow-strong: rgba(201, 132, 92, 0.15);
+
+            --text-primary: #2d2620;
+            --text-secondary: #5a4d42;
+            --text-muted: #8a7d72;
+            --text-dim: #a99d91;
+
+            --olive: #5a7a4e;
+            --olive-light: #6b8b5e;
+            --olive-bg: rgba(90, 122, 78, 0.1);
+            --success: #4a8a3a;
+            --success-bg: rgba(74, 138, 58, 0.1);
+            --danger: #c45050;
+            --danger-bg: rgba(196, 80, 80, 0.1);
+            --warning: #b8942e;
+            --warning-bg: rgba(184, 148, 46, 0.1);
+            --info: #4a7ab8;
+            --info-bg: rgba(74, 122, 184, 0.1);
+
+            --font-display: 'Fraunces', Georgia, serif;
+            --font-body: 'DM Sans', -apple-system, sans-serif;
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+
+            --shadow-sm: 0 1px 2px rgba(45, 38, 32, 0.04), 0 1px 4px rgba(45, 38, 32, 0.06);
+            --shadow-md: 0 2px 8px rgba(45, 38, 32, 0.06), 0 4px 16px rgba(45, 38, 32, 0.08);
+            --shadow-lg: 0 4px 16px rgba(45, 38, 32, 0.08), 0 8px 32px rgba(45, 38, 32, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Subtle Grain Overlay */
+        .grain {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            right: -50%;
+            bottom: -50%;
+            width: 200%;
+            height: 200%;
+            background: transparent url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E") repeat;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.018;
+        }
+
+        /* Layout */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-pure);
+            border-right: 1px solid var(--border);
+            padding: 24px 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 50;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .sidebar-header {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo-mark {
+            width: 36px;
+            height: 36px;
+            background: var(--terracotta);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(201, 132, 92, 0.3);
+        }
+
+        .logo-mark::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 28px;
+            height: 28px;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.5;
+            animation: ripple 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.7; }
+        }
+
+        @keyframes ripple {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.2; }
+        }
+
+        .nav-section {
+            padding: 0 12px;
+            margin-bottom: 24px;
+        }
+
+        .nav-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            padding: 0 12px;
+            margin-bottom: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-warm);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--terracotta-glow-strong);
+            color: var(--terracotta-dark);
+        }
+
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 3px;
+            height: 24px;
+            background: var(--terracotta);
+            border-radius: 0 3px 3px 0;
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            opacity: 0.7;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 32px 40px;
+            background: var(--bg);
+        }
+
+        /* Page Header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 32px;
+        }
+
+        .page-title-group h1 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .page-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: var(--radius-md);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--terracotta);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(201, 132, 92, 0.25);
+        }
+
+        .btn-primary:hover {
+            background: var(--terracotta-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(201, 132, 92, 0.35);
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text-primary);
+            border: 1px solid var(--border-strong);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-secondary:hover {
+            background: var(--surface-hover);
+            border-color: var(--terracotta);
+        }
+
+        /* Date Range Pills */
+        .date-pills {
+            display: flex;
+            gap: 4px;
+            background: var(--surface);
+            padding: 4px;
+            border-radius: var(--radius-md);
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .date-pill {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .date-pill:hover {
+            color: var(--text-primary);
+            background: var(--bg-warm);
+        }
+
+        .date-pill.active {
+            background: var(--terracotta);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(201, 132, 92, 0.25);
+        }
+
+        .date-custom {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 16px;
+            padding-left: 16px;
+            border-left: 1px solid var(--border);
+        }
+
+        .date-custom label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .date-input {
+            padding: 6px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+        }
+
+        .date-input:focus {
+            outline: none;
+            border-color: var(--terracotta);
+            box-shadow: 0 0 0 3px var(--terracotta-glow);
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .summary-card:hover {
+            border-color: var(--border-strong);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .summary-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .summary-value {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .summary-value.success {
+            color: var(--olive);
+        }
+
+        .summary-sublabel {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        /* Segment Badges Row */
+        .segment-badges {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .segment-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .segment-badge:hover {
+            background: var(--surface-hover);
+            border-color: var(--border-strong);
+        }
+
+        .segment-badge.active {
+            border-color: currentColor;
+        }
+
+        .segment-badge.success {
+            color: var(--olive);
+            background: var(--olive-bg);
+            border-color: rgba(90, 122, 78, 0.2);
+        }
+
+        .segment-badge.danger {
+            color: var(--danger);
+            background: var(--danger-bg);
+            border-color: rgba(196, 80, 80, 0.2);
+        }
+
+        .segment-badge.info {
+            color: var(--info);
+            background: var(--info-bg);
+            border-color: rgba(74, 122, 184, 0.2);
+        }
+
+        .badge-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .badge-count {
+            font-weight: 600;
+        }
+
+        /* Filters Row */
+        .filters-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .filter-input,
+        .filter-select {
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .filter-input {
+            width: 240px;
+        }
+
+        .filter-input::placeholder {
+            color: var(--text-dim);
+        }
+
+        .filter-input:focus,
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--terracotta);
+            box-shadow: 0 0 0 3px var(--terracotta-glow);
+        }
+
+        .filter-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a7d72' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+            cursor: pointer;
+        }
+
+        /* Data Table */
+        .table-container {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 16px 20px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            background: var(--bg-warm);
+            border-bottom: 1px solid var(--border);
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .data-table th:hover {
+            color: var(--terracotta);
+        }
+
+        .data-table th.sorted {
+            color: var(--terracotta-dark);
+        }
+
+        .th-content {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sort-icon {
+            width: 14px;
+            height: 14px;
+            opacity: 0.4;
+        }
+
+        .data-table th.sorted .sort-icon {
+            opacity: 1;
+        }
+
+        .data-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr {
+            transition: background 0.2s ease;
+            cursor: pointer;
+        }
+
+        .data-table tbody tr:hover {
+            background: var(--surface-hover);
+        }
+
+        .data-table tbody tr.expanded {
+            background: var(--terracotta-glow);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Cell Styles */
+        .cell-org {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .expand-icon {
+            width: 20px;
+            height: 20px;
+            color: var(--text-dim);
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+
+        .expanded .expand-icon {
+            transform: rotate(90deg);
+            color: var(--terracotta);
+        }
+
+        .org-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .org-name:hover {
+            color: var(--terracotta);
+        }
+
+        .cell-center {
+            text-align: center;
+        }
+
+        .cell-right {
+            text-align: right;
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .badge-ltv-a {
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid rgba(74, 138, 58, 0.2);
+        }
+
+        .badge-ltv-b {
+            background: var(--info-bg);
+            color: var(--info);
+            border: 1px solid rgba(74, 122, 184, 0.2);
+        }
+
+        .badge-ltv-c {
+            background: var(--warning-bg);
+            color: var(--warning);
+            border: 1px solid rgba(184, 148, 46, 0.2);
+        }
+
+        .badge-ltv-d {
+            background: rgba(138, 125, 114, 0.1);
+            color: var(--text-muted);
+            border: 1px solid rgba(138, 125, 114, 0.2);
+        }
+
+        .badge-aov {
+            background: var(--bg-warm);
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border: 1px solid var(--border);
+        }
+
+        /* Growth Indicator */
+        .growth-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+        }
+
+        .growth-indicator.positive {
+            color: var(--olive);
+        }
+
+        .growth-indicator.negative {
+            color: var(--danger);
+        }
+
+        .growth-indicator.neutral {
+            color: var(--text-muted);
+        }
+
+        .growth-icon {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Revenue Cell */
+        .revenue-value {
+            font-weight: 600;
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--text-primary);
+        }
+
+        .revenue-secondary {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Expanded Row */
+        .expanded-content {
+            background: var(--bg-warm);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .expanded-content td {
+            padding: 0;
+        }
+
+        .expanded-inner {
+            padding: 24px 32px;
+        }
+
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .insight-card {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .insight-card:hover {
+            border-color: var(--border-strong);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .insight-card.highlight-success {
+            border-left: 3px solid var(--olive);
+        }
+
+        .insight-card.highlight-warning {
+            border-left: 3px solid var(--warning);
+        }
+
+        .insight-card.highlight-danger {
+            border-left: 3px solid var(--danger);
+        }
+
+        .insight-card.highlight-info {
+            border-left: 3px solid var(--info);
+        }
+
+        .insight-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .insight-icon {
+            width: 14px;
+            height: 14px;
+            opacity: 0.6;
+        }
+
+        .insight-value {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .insight-value.small {
+            font-size: 1rem;
+        }
+
+        .insight-secondary {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .insight-secondary.success {
+            color: var(--olive);
+        }
+
+        .insight-secondary.danger {
+            color: var(--danger);
+        }
+
+        /* Progress Bars */
+        .score-bar {
+            height: 6px;
+            background: var(--bg);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .score-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        .score-fill.success {
+            background: linear-gradient(90deg, var(--olive), var(--olive-light));
+        }
+
+        .score-fill.danger {
+            background: linear-gradient(90deg, var(--danger), #d87070);
+        }
+
+        .score-fill.info {
+            background: linear-gradient(90deg, var(--info), #6a8ec8);
+        }
+
+        /* Similar Customers List */
+        .similar-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .similar-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .similar-badge {
+            font-size: 0.65rem;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        /* AI Insights Row */
+        .ai-insights-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .ai-card {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .ai-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .ai-score {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-score-value {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .ai-score-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .ai-score-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .ai-score-badge.high {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .ai-score-badge.low {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .benchmark-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .benchmark-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+
+        .benchmark-label {
+            color: var(--text-muted);
+        }
+
+        .benchmark-value {
+            font-weight: 500;
+        }
+
+        .benchmark-value.positive {
+            color: var(--olive);
+        }
+
+        .benchmark-value.negative {
+            color: var(--danger);
+        }
+
+        /* Upsell Tags */
+        .upsell-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .upsell-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: var(--info-bg);
+            border: 1px solid rgba(74, 122, 184, 0.15);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--info);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeInUp 0.4s ease forwards;
+        }
+
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .insights-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .ai-insights-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <a href="#" class="logo">
+                    <div class="logo-mark"></div>
+                    Signals
+                </a>
+            </div>
+
+            <nav class="nav-section">
+                <div class="nav-label">Overview</div>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    Activity Feed
+                </a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Intelligence</div>
+                <a href="#" class="nav-item active">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Customer Revenue
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                    Product Health
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"/>
+                        <line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
+                    </svg>
+                    Utilisation
+                </a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Forecasting</div>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                        <polyline points="17 6 23 6 23 12"/>
+                    </svg>
+                    Revenue Forecast
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Pipeline
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Page Header -->
+            <header class="page-header">
+                <div class="page-title-group">
+                    <h1>Customer Revenue</h1>
+                    <p class="page-subtitle">Analyze customer performance, growth trends, and AI-powered insights</p>
+                </div>
+                <div class="page-actions">
+                    <button class="btn btn-secondary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export Excel
+                    </button>
+                </div>
+            </header>
+
+            <!-- Date Range Pills -->
+            <div class="date-pills">
+                <button class="date-pill">Last Month</button>
+                <button class="date-pill active">This Month</button>
+                <button class="date-pill">This Year</button>
+                <button class="date-pill">Last Year</button>
+                <div class="date-custom">
+                    <label>Custom:</label>
+                    <input type="date" class="date-input" value="2026-01-01">
+                    <span style="color: var(--text-muted)">to</span>
+                    <input type="date" class="date-input" value="2026-01-16">
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+                <div class="summary-card fade-in">
+                    <div class="summary-label">Period</div>
+                    <div class="summary-value">1 Jan – 16 Jan 2026</div>
+                    <div class="summary-sublabel">This Month</div>
+                </div>
+                <div class="summary-card fade-in delay-1">
+                    <div class="summary-label">Total Revenue</div>
+                    <div class="summary-value success">£247,832.50</div>
+                    <div class="summary-sublabel">+12.3% vs last period</div>
+                </div>
+                <div class="summary-card fade-in delay-2">
+                    <div class="summary-label">Active Customers</div>
+                    <div class="summary-value">43</div>
+                    <div class="summary-sublabel">Organisations with revenue</div>
+                </div>
+            </div>
+
+            <!-- Segment Badges -->
+            <div class="segment-badges">
+                <div class="segment-badge success">
+                    <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
+                    </svg>
+                    <span class="badge-count">12</span> LTV-A
+                    <span style="opacity: 0.7">(£182,450)</span>
+                </div>
+                <div class="segment-badge success">
+                    <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                    </svg>
+                    <span class="badge-count">18</span> Growing
+                </div>
+                <div class="segment-badge danger">
+                    <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>
+                    </svg>
+                    <span class="badge-count">5</span> Declining
+                </div>
+                <div class="segment-badge info">
+                    <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <span class="badge-count">8</span> New
+                </div>
+            </div>
+
+            <!-- Filters Row -->
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label class="filter-label">Search:</label>
+                    <input type="text" class="filter-input" placeholder="Name, description, tags...">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">LTV:</label>
+                    <select class="filter-select">
+                        <option>All</option>
+                        <option>A (Top 20%)</option>
+                        <option>B</option>
+                        <option>C</option>
+                        <option>D</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">AOV:</label>
+                    <select class="filter-select">
+                        <option>All</option>
+                        <option>Large</option>
+                        <option>Medium+</option>
+                        <option>Medium</option>
+                        <option>Small</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Growth:</label>
+                    <select class="filter-select">
+                        <option>All</option>
+                        <option>Growing</option>
+                        <option>Stable</option>
+                        <option>Declining</option>
+                        <option>New</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 280px;">
+                                <span class="th-content">
+                                    Organisation
+                                    <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M7 15l5 5 5-5M7 9l5-5 5 5"/>
+                                    </svg>
+                                </span>
+                            </th>
+                            <th class="cell-center">
+                                <span class="th-content" style="justify-content: center;">
+                                    LTV
+                                    <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M7 15l5 5 5-5M7 9l5-5 5 5"/>
+                                    </svg>
+                                </span>
+                            </th>
+                            <th class="cell-center">AOV</th>
+                            <th class="cell-center">
+                                <span class="th-content" style="justify-content: center;">
+                                    Growth
+                                    <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M7 15l5 5 5-5M7 9l5-5 5 5"/>
+                                    </svg>
+                                </span>
+                            </th>
+                            <th class="cell-right sorted">
+                                <span class="th-content" style="justify-content: flex-end;">
+                                    Revenue
+                                    <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M7 9l5-5 5 5"/>
+                                    </svg>
+                                </span>
+                            </th>
+                            <th class="cell-right">Highest Order</th>
+                            <th class="cell-center">First Rental</th>
+                            <th class="cell-center">Last Rental</th>
+                            <th class="cell-right">YoY %</th>
+                            <th class="cell-right">Rolling 24m</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Expanded Row: Altitude AV Productions -->
+                        <tr class="expanded">
+                            <td>
+                                <div class="cell-org">
+                                    <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                    <span class="org-name">Altitude AV Productions</span>
+                                </div>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-ltv-a">A</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-aov">L</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="growth-indicator positive">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                    </svg>
+                                    Growing
+                                </span>
+                            </td>
+                            <td class="cell-right">
+                                <span class="revenue-value">£47,832.50</span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£12,450.00</td>
+                            <td class="cell-center revenue-secondary">Mar 2019</td>
+                            <td class="cell-center revenue-secondary">Jan 2026</td>
+                            <td class="cell-right">
+                                <span class="growth-indicator positive">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="18 15l-6-6-6 6"/>
+                                    </svg>
+                                    23.5%
+                                </span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£89,234.00</td>
+                        </tr>
+                        <!-- Expanded Content Row -->
+                        <tr class="expanded-content">
+                            <td colspan="10">
+                                <div class="expanded-inner">
+                                    <!-- Transaction Stats -->
+                                    <div class="insights-grid">
+                                        <div class="insight-card highlight-success">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                                                    <line x1="3" y1="6" x2="21" y2="6"/>
+                                                    <path d="M16 10a4 4 0 0 1-8 0"/>
+                                                </svg>
+                                                Orders (12m)
+                                            </div>
+                                            <div class="insight-value">18 orders</div>
+                                            <div class="insight-secondary success">£47,832 total</div>
+                                            <div class="insight-secondary success">+£8,200 YoY</div>
+                                        </div>
+
+                                        <div class="insight-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                    <polyline points="14 2 14 8 20 8"/>
+                                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                                </svg>
+                                                Quotes (12m)
+                                            </div>
+                                            <div class="insight-value">24 quotes</div>
+                                            <div class="insight-secondary">£62,400 total</div>
+                                        </div>
+
+                                        <div class="insight-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <circle cx="12" cy="12" r="10"/>
+                                                    <polyline points="12 6 12 12 16 14"/>
+                                                </svg>
+                                                Outstanding
+                                            </div>
+                                            <div class="insight-value">3 quotes</div>
+                                            <div class="insight-secondary">£8,750 pending</div>
+                                        </div>
+
+                                        <div class="insight-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="20" x2="12" y2="10"/>
+                                                    <line x1="18" y1="20" x2="18" y2="4"/>
+                                                    <line x1="6" y1="20" x2="6" y2="16"/>
+                                                </svg>
+                                                Order Range
+                                            </div>
+                                            <div class="insight-value small">£890 – £12,450</div>
+                                            <div class="insight-secondary">Largest / Smallest</div>
+                                        </div>
+
+                                        <div class="insight-card highlight-info">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                                    <circle cx="12" cy="7" r="4"/>
+                                                </svg>
+                                                Customer Type
+                                            </div>
+                                            <div class="insight-value small">High-Value Event Client</div>
+                                            <div class="insight-secondary">AI Classification</div>
+                                        </div>
+
+                                        <div class="insight-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                                    <circle cx="9" cy="7" r="4"/>
+                                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                                </svg>
+                                                Similar Customers
+                                            </div>
+                                            <div class="similar-list">
+                                                <div class="similar-item">
+                                                    <span class="badge badge-ltv-a similar-badge">A</span>
+                                                    Royal Events Ltd
+                                                </div>
+                                                <div class="similar-item">
+                                                    <span class="badge badge-ltv-a similar-badge">A</span>
+                                                    Stagecraft Pro
+                                                </div>
+                                                <div class="similar-item">
+                                                    <span class="badge badge-ltv-b similar-badge">B</span>
+                                                    Arena Lighting
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- AI Insights Row -->
+                                    <div class="ai-insights-row">
+                                        <div class="ai-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                                    <polyline points="17 6 23 6 23 12"/>
+                                                </svg>
+                                                Growth Potential
+                                            </div>
+                                            <div class="ai-card-header">
+                                                <div class="ai-score">
+                                                    <span class="ai-score-value" style="color: var(--olive);">High</span>
+                                                    <span class="ai-score-badge high">78%</span>
+                                                </div>
+                                            </div>
+                                            <div class="score-bar">
+                                                <div class="score-fill success" style="width: 78%;"></div>
+                                            </div>
+                                            <div class="insight-secondary" style="margin-top: 8px;">Similar to 4 LTV-A customers</div>
+                                        </div>
+
+                                        <div class="ai-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                                </svg>
+                                                Churn Risk
+                                            </div>
+                                            <div class="ai-card-header">
+                                                <div class="ai-score">
+                                                    <span class="ai-score-value" style="color: var(--olive);">Low</span>
+                                                    <span class="ai-score-badge high">12%</span>
+                                                </div>
+                                            </div>
+                                            <div class="score-bar">
+                                                <div class="score-fill success" style="width: 12%;"></div>
+                                            </div>
+                                            <div class="insight-secondary" style="margin-top: 8px;">Active engagement pattern</div>
+                                        </div>
+
+                                        <div class="ai-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="18" y1="20" x2="18" y2="10"/>
+                                                    <line x1="12" y1="20" x2="12" y2="4"/>
+                                                    <line x1="6" y1="20" x2="6" y2="14"/>
+                                                </svg>
+                                                vs Similar Customers
+                                            </div>
+                                            <div class="benchmark-list">
+                                                <div class="benchmark-item">
+                                                    <span class="benchmark-label">Revenue</span>
+                                                    <span class="benchmark-value positive">+15%</span>
+                                                </div>
+                                                <div class="benchmark-item">
+                                                    <span class="benchmark-label">Order Frequency</span>
+                                                    <span class="benchmark-value positive">+22%</span>
+                                                </div>
+                                                <div class="benchmark-item">
+                                                    <span class="benchmark-label">Avg Order</span>
+                                                    <span class="benchmark-value negative">-8%</span>
+                                                </div>
+                                            </div>
+                                            <div class="insight-secondary" style="margin-top: 8px;">Based on 12 similar customers</div>
+                                        </div>
+
+                                        <div class="ai-card">
+                                            <div class="insight-label">
+                                                <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <circle cx="12" cy="12" r="10"/>
+                                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                                </svg>
+                                                Upsell Opportunities
+                                            </div>
+                                            <div class="upsell-tags">
+                                                <span class="upsell-tag">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <line x1="12" y1="5" x2="12" y2="19"/>
+                                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                                    </svg>
+                                                    Rigging Equipment
+                                                </span>
+                                                <span class="upsell-tag">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <line x1="12" y1="5" x2="12" y2="19"/>
+                                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                                    </svg>
+                                                    LED Wall Panels
+                                                </span>
+                                                <span class="upsell-tag">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <line x1="12" y1="5" x2="12" y2="19"/>
+                                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                                    </svg>
+                                                    Audio Consoles
+                                                </span>
+                                            </div>
+                                            <div class="insight-secondary" style="margin-top: 8px;">Based on similar customer purchases</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 2: Skyline Events -->
+                        <tr>
+                            <td>
+                                <div class="cell-org">
+                                    <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                    <span class="org-name">Skyline Events Ltd</span>
+                                </div>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-ltv-a">A</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-aov">M+</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="growth-indicator positive">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                                    </svg>
+                                    Growing
+                                </span>
+                            </td>
+                            <td class="cell-right">
+                                <span class="revenue-value">£38,920.00</span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£8,750.00</td>
+                            <td class="cell-center revenue-secondary">Jun 2020</td>
+                            <td class="cell-center revenue-secondary">Jan 2026</td>
+                            <td class="cell-right">
+                                <span class="growth-indicator positive">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="18 15l-6-6-6 6"/>
+                                    </svg>
+                                    18.2%
+                                </span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£72,450.00</td>
+                        </tr>
+
+                        <!-- Row 3: Meridian Productions -->
+                        <tr>
+                            <td>
+                                <div class="cell-org">
+                                    <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                    <span class="org-name">Meridian Productions</span>
+                                </div>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-ltv-b">B</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-aov">M</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="growth-indicator neutral">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                    </svg>
+                                    Stable
+                                </span>
+                            </td>
+                            <td class="cell-right">
+                                <span class="revenue-value">£24,150.00</span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£5,200.00</td>
+                            <td class="cell-center revenue-secondary">Nov 2021</td>
+                            <td class="cell-center revenue-secondary">Dec 2025</td>
+                            <td class="cell-right">
+                                <span class="growth-indicator neutral">
+                                    —
+                                </span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£48,300.00</td>
+                        </tr>
+
+                        <!-- Row 4: Apex Rentals (Declining) -->
+                        <tr>
+                            <td>
+                                <div class="cell-org">
+                                    <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                    <span class="org-name">Apex Rentals Group</span>
+                                </div>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-ltv-c">C</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-aov">S</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="growth-indicator negative">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>
+                                    </svg>
+                                    Declining
+                                </span>
+                            </td>
+                            <td class="cell-right">
+                                <span class="revenue-value">£8,420.00</span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£2,100.00</td>
+                            <td class="cell-center revenue-secondary">Feb 2022</td>
+                            <td class="cell-center revenue-secondary">Nov 2025</td>
+                            <td class="cell-right">
+                                <span class="growth-indicator negative">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="18 9l-6 6-6-6"/>
+                                    </svg>
+                                    32.1%
+                                </span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£21,800.00</td>
+                        </tr>
+
+                        <!-- Row 5: New Customer -->
+                        <tr>
+                            <td>
+                                <div class="cell-org">
+                                    <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                    <span class="org-name">Nova Sound Systems</span>
+                                </div>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-ltv-d">D</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="badge badge-aov">M</span>
+                            </td>
+                            <td class="cell-center">
+                                <span class="growth-indicator" style="color: var(--info);">
+                                    <svg class="growth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                    </svg>
+                                    New
+                                </span>
+                            </td>
+                            <td class="cell-right">
+                                <span class="revenue-value">£3,250.00</span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£3,250.00</td>
+                            <td class="cell-center revenue-secondary">Jan 2026</td>
+                            <td class="cell-center revenue-secondary">Jan 2026</td>
+                            <td class="cell-right">
+                                <span class="growth-indicator" style="color: var(--info);">
+                                    New
+                                </span>
+                            </td>
+                            <td class="cell-right revenue-secondary">£3,250.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Simple interaction for expanding rows
+        document.querySelectorAll('.data-table tbody tr:not(.expanded-content)').forEach(row => {
+            row.addEventListener('click', function() {
+                console.log('Row clicked:', this.querySelector('.org-name')?.textContent);
+            });
+        });
+
+        // Date pill interaction
+        document.querySelectorAll('.date-pill').forEach(pill => {
+            pill.addEventListener('click', function() {
+                document.querySelectorAll('.date-pill').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Segment badge interaction
+        document.querySelectorAll('.segment-badge').forEach(badge => {
+            badge.addEventListener('click', function() {
+                this.classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+</html>

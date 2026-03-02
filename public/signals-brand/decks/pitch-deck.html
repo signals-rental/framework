@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals — The Rental Industry Ecosystem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   Signals Pitch Deck — Blueprint Design System (v2, 22 slides)
+   ========================================================================== */
+
+:root {
+    --base: #f8f9fb;
+    --white: #ffffff;
+    --navy: #0f172a;
+    --navy-mid: #1e293b;
+    --blue: #2563eb;
+    --blue-light: #3b82f6;
+    --blue-pale: rgba(37, 99, 235, 0.08);
+    --red: #dc2626;
+    --grey: #64748b;
+    --grey-light: #94a3b8;
+    --grey-border: #e2e8f0;
+    --green: #059669;
+    --green-light: #34d399;
+    --sky: #0ea5e9;
+    --cyan: #0891b2;
+    --amber: #d97706;
+    --violet: #7c3aed;
+    --rose: #e11d48;
+    --slate: #475569;
+    --grid-fine: rgba(59, 130, 246, 0.06);
+    --grid-strong: rgba(59, 130, 246, 0.12);
+    --grid-dark-fine: rgba(148, 163, 184, 0.08);
+    --grid-dark-strong: rgba(148, 163, 184, 0.15);
+    --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Martian Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: var(--font-mono);
+    background: var(--navy);
+    color: var(--navy);
+    line-height: 1.7;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+/* --- Slide System --- */
+.deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.slide {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: translateY(12px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none; padding: 60px 48px 80px; overflow-y: auto;
+}
+.slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; z-index: 1; }
+.slide-inner { max-width: 1100px; width: 100%; min-height: 0; }
+
+.slide-dark {
+    background-color: var(--navy); color: var(--grey-light);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+}
+.slide-dark h1, .slide-dark h2, .slide-dark h3, .slide-dark h4 { color: var(--white); }
+.slide-light {
+    background-color: var(--base); color: var(--navy);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+}
+
+/* --- Logo Mark --- */
+.logo-mark {
+    display: inline-block; font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; border: 2px solid currentColor;
+    padding: 6px 16px; position: relative; text-decoration: none; color: inherit;
+}
+.logo-mark::after { content: ''; position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; }
+.logo-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+.logo-xl::after { width: 14px; height: 14px; }
+.logo-lg { font-size: 1.5rem; padding: 8px 20px; }
+.logo-lg::after { width: 10px; height: 10px; }
+.color-blue::after { background: var(--blue); }
+.color-green::after { background: var(--green); }
+.color-sky::after { background: var(--sky); }
+.color-cyan::after { background: var(--cyan); }
+.color-amber::after { background: var(--amber); }
+.color-violet::after { background: var(--violet); }
+.color-rose::after { background: var(--rose); }
+
+/* --- Section Stamps --- */
+.section-stamp {
+    display: inline-flex; align-items: stretch; border: 2px solid var(--navy);
+    margin-bottom: 24px; font-family: var(--font-display); font-size: 0.5625rem;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.stamp-num { background: var(--navy); color: var(--white); padding: 3px 8px; }
+.stamp-title { padding: 3px 10px; color: var(--navy); border-right: 2px solid var(--navy); }
+.stamp-rev { padding: 3px 8px; color: var(--red); font-weight: 700; }
+.slide-dark .section-stamp { border-color: var(--grey-light); }
+.slide-dark .stamp-num { background: var(--grey-light); color: var(--navy); }
+.slide-dark .stamp-title { color: var(--grey-light); border-color: var(--grey-light); }
+
+/* --- Buttons --- */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--font-display); font-size: 0.6875rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 22px;
+    text-decoration: none; transition: all 0.2s ease; cursor: pointer; border: none;
+}
+.btn-primary { background: var(--blue); color: var(--white); }
+.btn-outline { background: transparent; border: 1.5px solid var(--navy); color: var(--navy); }
+.btn-outline:hover { background: var(--navy); color: var(--white); }
+.btn-green { background: var(--green); color: var(--white); }
+.slide-dark .btn-outline { border-color: var(--grey-light); color: var(--grey-light); }
+.slide-dark .btn-outline:hover { background: var(--grey-light); color: var(--navy); }
+
+/* --- Trim Marks --- */
+.trim-marks { position: relative; }
+.trim-marks::before, .trim-marks::after { content: ''; position: absolute; pointer-events: none; }
+.trim-marks::before { top: -4px; left: -4px; width: 14px; height: 14px; border-top: 1.5px solid var(--blue); border-left: 1.5px solid var(--blue); }
+.trim-marks::after { top: -4px; right: -4px; width: 14px; height: 14px; border-top: 1.5px solid var(--blue); border-right: 1.5px solid var(--blue); }
+.trim-bl, .trim-br { position: absolute; width: 14px; height: 14px; pointer-events: none; }
+.trim-bl { bottom: -4px; left: -4px; border-bottom: 1.5px solid var(--blue); border-left: 1.5px solid var(--blue); }
+.trim-br { bottom: -4px; right: -4px; border-bottom: 1.5px solid var(--blue); border-right: 1.5px solid var(--blue); }
+.slide-dark .trim-marks::before, .slide-dark .trim-marks::after { border-color: var(--blue-light); }
+.slide-dark .trim-bl, .slide-dark .trim-br { border-color: var(--blue-light); }
+
+/* --- ISO Title Block --- */
+.iso-block {
+    position: absolute; bottom: 0; right: 0; border-left: 2px solid var(--blue);
+    border-top: 2px solid var(--blue); padding: 3px 8px; font-family: var(--font-mono);
+    font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--blue); line-height: 1.5; background: var(--base);
+}
+.slide-dark .iso-block { background: var(--navy); border-color: var(--blue-light); color: var(--blue-light); }
+
+/* --- Dimension Line --- */
+.dim-line-h { display: flex; align-items: center; margin: 20px 0; }
+.dim-arrow-l { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-right: 6px solid var(--blue); flex-shrink: 0; }
+.dim-arrow-r { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 6px solid var(--blue); flex-shrink: 0; }
+.dim-rule { flex: 1; height: 1px; background: var(--blue); opacity: 0.3; }
+.dim-label { padding: 0 12px; font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); white-space: nowrap; }
+.slide-dark .dim-arrow-l { border-right-color: var(--blue-light); }
+.slide-dark .dim-arrow-r { border-left-color: var(--blue-light); }
+.slide-dark .dim-rule { background: var(--blue-light); }
+.slide-dark .dim-label { color: var(--grey-light); }
+
+/* --- Annotation --- */
+.annotation { font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+.slide-dark .annotation { color: var(--grey-light); }
+
+/* --- Fold Marks --- */
+.fold-marks { /* fold-mark children use slide's positioning context */ }
+.fold-mark { position: absolute; width: 0; height: 0; pointer-events: none; }
+.fm-tl { top: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(59, 130, 246, 0.15); }
+.fm-tr { top: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(59, 130, 246, 0.15); }
+.fm-bl { bottom: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(59, 130, 246, 0.15); }
+.fm-br { bottom: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(59, 130, 246, 0.15); }
+
+/* --- Utility --- */
+.mb-4 { margin-bottom: 4px; } .mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; } .mb-24 { margin-bottom: 24px; } .mb-32 { margin-bottom: 32px; }
+.mb-48 { margin-bottom: 48px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; } .mt-32 { margin-top: 32px; }
+
+/* --- Layouts --- */
+.slide-centered { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.slide-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+.slide-two-col-wide { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
+
+/* --- Shared headline --- */
+.slide-headline { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.1; margin-bottom: 8px; }
+.slide-headline em { font-style: italic; font-weight: 600; }
+.slide-subtitle { font-size: 0.75rem; line-height: 1.8; margin-bottom: 28px; }
+.slide-dark .slide-subtitle { color: var(--grey-light); }
+.slide-light .slide-subtitle { color: var(--grey); }
+
+/* --- Check marks --- */
+.chk { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.chk svg { width: 14px; height: 14px; }
+.feature-row { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; }
+.slide-dark .feature-row { color: var(--grey-light); }
+.slide-light .feature-row { color: var(--slate); }
+.feature-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* --- Bullet dot --- */
+.bdot { display: inline-block; width: 5px; height: 5px; border-radius: 1px; flex-shrink: 0; }
+
+/* =======================================================================
+   SLIDE 1: Title
+   ======================================================================= */
+.s1-headline { font-size: clamp(1.8rem, 3.5vw, 2.75rem); line-height: 1.08; margin-bottom: 20px; max-width: 720px; }
+.s1-headline em { color: var(--blue); font-style: italic; font-weight: 600; }
+.s1-subtitle { font-size: 0.8125rem; color: var(--grey-light); line-height: 1.8; max-width: 560px; margin-bottom: 32px; }
+.s1-hint { font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 48px; opacity: 0.6; }
+
+/* =======================================================================
+   SLIDE 2: Pyramid
+   ======================================================================= */
+.pyramid-wrap { display: flex; align-items: flex-end; gap: 32px; width: 100%; max-width: 740px; }
+.pyramid { display: flex; flex-direction: column; align-items: center; gap: 0; flex: 1; }
+.pyr-bar {
+    display: flex; align-items: stretch; border: 1.5px solid var(--grey-border);
+    background: var(--white); position: relative; width: 100%;
+}
+.pyr-bar + .pyr-bar { margin-top: -1.5px; }
+.pyr-accent { width: 5px; flex-shrink: 0; }
+.pyr-content { padding: 14px 18px; flex: 1; }
+.pyr-name { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); margin-bottom: 2px; }
+.pyr-desc { font-size: 0.6875rem; color: var(--grey); line-height: 1.6; }
+.pyr-tag {
+    display: flex; align-items: center; padding: 0 14px; font-family: var(--font-display);
+    font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--grey); border-left: 1px solid var(--grey-border); white-space: nowrap;
+}
+.pyr-bar-platform { max-width: 55%; align-self: center; }
+.pyr-bar-cloud { max-width: 77%; align-self: center; }
+.pyr-bar-framework { max-width: 100%; }
+.pyr-arrow {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex-shrink: 0; padding: 0 8px;
+}
+.pyr-arrow-line { width: 2px; flex: 1; min-height: 60px; background: linear-gradient(to top, var(--green), var(--blue)); opacity: 0.4; }
+.pyr-arrow-head { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid var(--blue); }
+.pyr-arrow-label { font-family: var(--font-mono); font-size: 7px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); writing-mode: vertical-lr; text-orientation: mixed; transform: rotate(180deg); }
+
+/* =======================================================================
+   SLIDE 4: Open Source
+   ======================================================================= */
+.oss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 760px; }
+.oss-card {
+    border: 1px solid var(--grey-border); padding: 24px; background: var(--white); position: relative;
+}
+.oss-icon { width: 28px; height: 28px; margin-bottom: 12px; }
+.oss-name { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 6px; }
+.oss-desc { font-size: 0.6875rem; color: var(--grey); line-height: 1.7; }
+
+/* =======================================================================
+   SLIDE 5: Plugins & API
+   ======================================================================= */
+.code-block { background: var(--navy-mid); border: 1px solid rgba(148, 163, 184, 0.15); overflow: hidden; }
+.slide-light .code-block { background: var(--navy); }
+.code-header { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
+.code-dot { width: 8px; height: 8px; border-radius: 50%; }
+.code-dot-r { background: #ef4444; } .code-dot-y { background: #eab308; } .code-dot-g { background: #22c55e; }
+.code-body { padding: 16px; font-family: var(--font-mono); font-size: 0.6875rem; line-height: 1.8; color: var(--grey-light); overflow-x: auto; }
+.code-body .kw { color: #c678dd; } .code-body .fn { color: #61afef; } .code-body .str { color: var(--green-light); }
+.code-body .cmt { color: var(--grey); font-style: italic; } .code-body .var { color: #e5c07b; }
+
+/* =======================================================================
+   SLIDE 6: Cloud — Dashboard mockup
+   ======================================================================= */
+.dash-mockup { border: 2px solid var(--navy); padding: 20px; background: var(--white); position: relative; }
+.dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--grey-border); }
+.dash-url { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--navy); }
+.dash-live { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; background: var(--sky); color: var(--white); padding: 2px 8px; }
+.dash-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-box { text-align: center; padding: 12px 6px; border: 1px solid var(--grey-border); position: relative; }
+.stat-val { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--navy); line-height: 1.2; }
+.stat-lbl { font-family: var(--font-mono); font-size: 8px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
+.stat-tol { position: absolute; top: 3px; right: 4px; font-family: var(--font-mono); font-size: 7px; color: var(--red); }
+.dash-activity { display: flex; flex-direction: column; gap: 6px; }
+.activity-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; font-size: 0.625rem; border-left: 3px solid transparent; background: var(--base); }
+.activity-text { color: var(--navy); } .activity-time { color: var(--grey); font-size: 0.5625rem; }
+
+/* =======================================================================
+   SLIDE 7: Platform Overview — Service cards
+   ======================================================================= */
+.services-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.svc-card { background: rgba(148, 163, 184, 0.06); border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; position: relative; }
+.svc-accent { position: absolute; top: 0; left: 0; width: 3px; height: 100%; }
+.svc-icon { width: 28px; height: 28px; margin-bottom: 12px; opacity: 0.8; }
+.svc-name { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 6px; }
+.svc-desc { font-size: 0.6875rem; color: var(--grey-light); line-height: 1.6; }
+
+/* =======================================================================
+   SLIDES 8-13: Individual service slides (two-col pattern)
+   ======================================================================= */
+.svc-label { font-family: var(--font-display); font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+.svc-title { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; margin-bottom: 8px; }
+.slide-dark .svc-title { color: var(--white); }
+.svc-text { font-size: 0.6875rem; line-height: 1.7; margin-bottom: 16px; }
+.slide-dark .svc-text { color: var(--grey-light); }
+.slide-light .svc-text { color: var(--grey); }
+.svc-features { display: flex; flex-direction: column; gap: 6px; font-size: 0.6875rem; }
+.svc-features li { list-style: none; display: flex; align-items: center; gap: 8px; }
+.slide-dark .svc-features { color: var(--grey-light); }
+.slide-light .svc-features { color: var(--slate); }
+
+/* Credit score mockup */
+.credit-mockup { background: var(--white); border: 1px solid var(--grey-border); padding: 20px; }
+.credit-label { font-family: var(--font-mono); font-size: 8px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.1em; text-align: center; margin-bottom: 6px; }
+.credit-score { font-family: var(--font-display); font-size: 56px; font-weight: 700; color: var(--cyan); line-height: 1; text-align: center; letter-spacing: -0.02em; }
+.credit-bar { height: 5px; background: var(--grey-border); margin: 12px 0; overflow: hidden; }
+.credit-fill { height: 100%; width: 82%; background: linear-gradient(90deg, var(--red), var(--amber), #16a34a); }
+.credit-details { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.credit-detail { background: var(--base); border: 1px solid var(--grey-border); padding: 10px; }
+.credit-detail-lbl { font-family: var(--font-mono); font-size: 7px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+.credit-detail-val { font-family: var(--font-display); font-size: 0.9375rem; font-weight: 700; color: var(--navy); text-transform: uppercase; }
+
+/* Dark mockup panels */
+.dark-mockup { background: rgba(148, 163, 184, 0.06); border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; }
+.dark-mockup-label { font-family: var(--font-mono); font-size: 8px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.1em; text-align: center; margin-bottom: 10px; }
+.dark-stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.08); font-size: 0.6875rem; }
+.dark-stat-row:last-child { border-bottom: none; }
+.dark-stat-key { color: var(--grey-light); }
+.dark-stat-val { font-family: var(--font-display); font-weight: 600; color: var(--white); }
+
+/* =======================================================================
+   SLIDES 14-17: Architecture (progressive)
+   ======================================================================= */
+.arch-diagram { display: flex; flex-direction: column; align-items: center; gap: 0; width: 100%; max-width: 720px; }
+.arch-tier { width: 100%; border: 2px solid var(--navy); padding: 20px 24px; text-align: center; position: relative; background: var(--white); }
+.arch-tier-label { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); margin-bottom: 4px; }
+.arch-tier-desc { font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey); letter-spacing: 0.02em; }
+.arch-services { display: flex; justify-content: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.arch-svc-tag { font-family: var(--font-display); font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 8px; }
+.arch-connector { display: flex; flex-direction: column; align-items: center; padding: 6px 0; }
+.arch-conn-line { width: 2px; height: 16px; background: var(--blue); opacity: 0.3; }
+.arch-conn-label { font-family: var(--font-mono); font-size: 7px; color: var(--grey); text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 8px; }
+.arch-mid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; width: 100%; align-items: stretch; }
+.arch-mid-box { border: 2px solid var(--navy); padding: 16px 20px; text-align: center; background: var(--white); }
+.arch-mid-or { display: flex; align-items: center; justify-content: center; padding: 0 16px; font-family: var(--font-display); font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); }
+.arch-note { font-size: 0.6875rem; color: var(--grey); line-height: 1.7; max-width: 560px; text-align: center; margin-top: 20px; }
+/* Greyed-out future tiers */
+.arch-tier-ghost, .arch-mid-ghost .arch-mid-box { opacity: 0.15; }
+.arch-connector-ghost { opacity: 0.15; }
+
+/* =======================================================================
+   SLIDE 18: Network Effect
+   ======================================================================= */
+.ne-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 720px; }
+.ne-stat { border: 1px solid rgba(148, 163, 184, 0.15); padding: 24px 20px; text-align: center; background: rgba(148, 163, 184, 0.04); }
+.ne-stat-num { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--white); line-height: 1; margin-bottom: 4px; }
+.ne-stat-label { font-family: var(--font-display); font-size: 0.625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); margin-bottom: 12px; }
+.ne-stat-desc { font-size: 0.6875rem; color: var(--grey-light); line-height: 1.6; }
+.ne-stat.highlight { border-color: var(--cyan); background: rgba(8, 145, 178, 0.08); }
+.ne-stat.highlight .ne-stat-num { color: var(--cyan); }
+.ne-progress { display: flex; align-items: center; gap: 0; width: 100%; max-width: 720px; margin-top: 24px; }
+.ne-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--grey); opacity: 0.3; flex-shrink: 0; }
+.ne-dot.active { background: var(--cyan); opacity: 1; width: 8px; height: 8px; }
+.ne-line { flex: 1; height: 1px; background: var(--grey); opacity: 0.2; }
+
+/* =======================================================================
+   SLIDE 19: Revenue Streams
+   ======================================================================= */
+.rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 800px; }
+.rev-card { border: 1.5px solid var(--grey-border); padding: 24px; background: var(--white); }
+.rev-card-label { font-family: var(--font-display); font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); margin-bottom: 4px; }
+.rev-card-name { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 8px; }
+.rev-card-desc { font-size: 0.6875rem; color: var(--grey); line-height: 1.7; }
+.rev-callout {
+    border: 2px solid var(--blue); padding: 20px 24px; max-width: 800px; width: 100%;
+    background: var(--blue-pale); text-align: center;
+}
+.rev-callout p { font-size: 0.75rem; color: var(--navy); line-height: 1.7; }
+.rev-callout strong { font-weight: 500; }
+
+/* =======================================================================
+   SLIDE 20: Paths & Wrap-up
+   ======================================================================= */
+.s20-paths { display: flex; gap: 12px; width: 100%; max-width: 760px; margin-bottom: 32px; }
+.s20-path { flex: 1; border: 1.5px solid var(--grey-border); padding: 14px 12px; background: var(--white); text-align: left; }
+.s20-path.s20-featured { border-color: var(--navy); border-width: 2px; }
+.s20-path-bar { width: 100%; height: 3px; margin-bottom: 10px; }
+.s20-path-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 2px; }
+.s20-path-price { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.04em; color: var(--grey); margin-bottom: 6px; }
+.s20-path-desc { font-size: 0.625rem; color: var(--grey); line-height: 1.5; }
+.s20-cta { margin-top: 8px; }
+.s20-cta-headline { font-family: var(--font-display); font-size: clamp(1rem, 2vw, 1.25rem); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--navy); margin-bottom: 6px; }
+.s20-cta-body { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--grey); line-height: 1.6; max-width: 440px; margin-bottom: 10px; }
+.s20-cta-url { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--blue); letter-spacing: 0.02em; }
+
+/* =======================================================================
+   Navigation Bar
+   ======================================================================= */
+.nav-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+    display: flex; align-items: center; justify-content: center; gap: 16px; padding: 12px 24px;
+    transition: background 0.5s, color 0.5s;
+}
+.nav-bar.nav-light { background: rgba(248, 249, 251, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--grey-border); }
+.nav-bar.nav-dark { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(148, 163, 184, 0.12); }
+.nav-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.nav-light .nav-btn { color: var(--grey); } .nav-light .nav-btn:hover { color: var(--navy); border-color: var(--grey-border); }
+.nav-dark .nav-btn { color: var(--grey-light); } .nav-dark .nav-btn:hover { color: var(--white); border-color: rgba(148, 163, 184, 0.2); }
+.nav-btn:disabled { opacity: 0.25; cursor: default; } .nav-btn:disabled:hover { border-color: transparent; }
+.nav-btn svg { width: 14px; height: 14px; }
+.nav-dots { display: flex; align-items: center; gap: 4px; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; border: none; cursor: pointer; transition: all 0.3s; padding: 0; }
+.nav-light .nav-dot { background: var(--grey-border); } .nav-light .nav-dot.active { background: var(--blue); width: 16px; border-radius: 3px; }
+.nav-light .nav-dot:hover:not(.active) { background: var(--grey-light); }
+.nav-dark .nav-dot { background: rgba(148, 163, 184, 0.25); } .nav-dark .nav-dot.active { background: var(--blue); width: 16px; border-radius: 3px; }
+.nav-dark .nav-dot:hover:not(.active) { background: rgba(148, 163, 184, 0.5); }
+.nav-counter { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; min-width: 44px; text-align: center; }
+.nav-light .nav-counter { color: var(--grey); } .nav-dark .nav-counter { color: var(--grey-light); }
+
+/* =======================================================================
+   Responsive
+   ======================================================================= */
+@media (max-width: 900px) {
+    .slide { padding: 48px 24px 72px; }
+    .slide-two-col, .slide-two-col-wide { grid-template-columns: 1fr; gap: 32px; }
+    .services-grid { grid-template-columns: repeat(2, 1fr); }
+    .s20-paths { flex-wrap: wrap; } .s20-path { flex: 1 1 calc(50% - 6px); }
+    .ne-stats { grid-template-columns: 1fr; max-width: 320px; }
+    .arch-mid { grid-template-columns: 1fr; }
+    .arch-mid-or { padding: 8px 0; }
+    .dash-mockup { display: none; }
+    .oss-grid { grid-template-columns: 1fr; }
+    .rev-grid { grid-template-columns: 1fr; }
+    .pyr-bar-platform, .pyr-bar-cloud { max-width: 100%; }
+    .pyramid-wrap { flex-direction: column; align-items: center; }
+    .pyr-arrow { flex-direction: row; writing-mode: horizontal-tb; }
+    .pyr-arrow-line { min-height: 0; min-width: 60px; height: 2px; width: auto; }
+}
+@media (max-width: 600px) {
+    .slide { padding: 40px 16px 68px; }
+    .services-grid { grid-template-columns: 1fr; }
+    .s20-path { flex: 1 1 100%; }
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ================================================================ S01 -->
+<section class="slide slide-dark active fold-marks" data-bg="dark">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-32"><span class="stamp-num">SIG-D01</span><span class="stamp-title">Pitch Deck</span><span class="stamp-rev">Rev B</span></div>
+        <div class="logo-mark logo-xl color-blue mb-48">Signals</div>
+        <h1 class="s1-headline">The Rental Industry<br>Has a <em>Data Problem</em></h1>
+        <p class="s1-subtitle">Disconnected systems. Duplicated data. Decisions made on gut feel. Every rental business entering the same products, chasing the same references, guessing the same demand patterns. There is a better way.</p>
+        <div class="dim-line-h" style="width:200px"><span class="dim-arrow-l"></span><span class="dim-rule"></span><span class="dim-arrow-r"></span></div>
+        <p class="s1-hint">Use arrow keys to navigate</p>
+    </div>
+</section>
+
+<!-- ================================================================ S02: Ecosystem Pyramid -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D02</span><span class="stamp-title">Ecosystem</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-12">Open Source Foundation.<br><em style="color:var(--blue)">Commercial Power.</em></h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:36px">Three products that work independently or together. Start free, add what you need.</p>
+        <div class="pyramid-wrap">
+            <div class="pyramid">
+                <div class="pyr-bar pyr-bar-platform">
+                    <div class="pyr-accent" style="background:var(--blue)"></div>
+                    <div class="pyr-content"><div class="pyr-name">Signals Platform</div><div class="pyr-desc">Shared data, AI, logistics, financial intelligence</div></div>
+                    <div class="pyr-tag">Subscription</div>
+                </div>
+                <div class="pyr-bar pyr-bar-cloud">
+                    <div class="pyr-accent" style="background:var(--sky)"></div>
+                    <div class="pyr-content"><div class="pyr-name">Signals Cloud</div><div class="pyr-desc">Managed hosting. Zero IT overhead, running in minutes</div></div>
+                    <div class="pyr-tag">Subscription</div>
+                </div>
+                <div class="pyr-bar pyr-bar-framework">
+                    <div class="pyr-accent" style="background:var(--green)"></div>
+                    <div class="pyr-content"><div class="pyr-name">Signals Rental Framework</div><div class="pyr-desc">Full-featured rental management. MIT licensed. Free forever.</div></div>
+                    <div class="pyr-tag" style="color:var(--green)">Free / MIT</div>
+                </div>
+            </div>
+            <div class="pyr-arrow">
+                <div class="pyr-arrow-head"></div>
+                <div style="font-family:var(--font-mono);font-size:7px;text-transform:uppercase;letter-spacing:0.1em;color:var(--blue);padding:4px 0">Paid</div>
+                <div class="pyr-arrow-line"></div>
+                <div style="font-family:var(--font-mono);font-size:7px;text-transform:uppercase;letter-spacing:0.1em;color:var(--green);padding:4px 0">Free</div>
+            </div>
+        </div>
+        <p class="annotation mt-24">Start at the base. Add layers as you grow.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S03: Framework -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col-wide">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D03</span><span class="stamp-title">Framework</span><span class="stamp-rev">Rev B</span></div>
+                <h2 class="slide-headline"><em style="color:var(--green)">Signals Rental</em> Framework</h2>
+                <p class="slide-subtitle">Production-ready rental management. Self-host forever. Plugin-extensible and API-first.</p>
+                <div class="feature-list">
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Asset &amp; inventory management</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Quotes, orders &amp; invoicing</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Customer &amp; contact management</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Real-time availability &amp; scheduling</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Maintenance tracking</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Reporting, analytics &amp; REST API</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Plugin system for extensibility</div>
+                </div>
+                <p class="annotation mt-16">MIT License &middot; Laravel + PHP &middot; PostgreSQL</p>
+            </div>
+            <div>
+                <div class="code-block trim-marks"><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot code-dot-r"></span><span class="code-dot code-dot-y"></span><span class="code-dot code-dot-g"></span></div>
+                    <div class="code-body"><span class="cmt"># Install Signals</span>
+<span class="kw">composer</span> create-project \
+&nbsp;&nbsp;signals/signals
+
+<span class="cmt"># Run setup</span>
+<span class="kw">php</span> artisan signals:install
+
+<span class="cmt"># Start developing</span>
+<span class="kw">composer</span> run dev
+
+<span class="str">&#10003; Signals is ready.</span>
+<span class="str">&#10003; Visit your-app.test</span></div>
+                </div>
+                <p class="annotation mt-12" style="text-align:right">framework.signals.rent</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S04: Power of Open Source -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D04</span><span class="stamp-title">Open Source</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-12">Built on <em style="color:var(--green)">Open Source</em></h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:36px">The best rental software should be owned by the industry, not a single vendor.</p>
+        <div class="oss-grid">
+            <div class="oss-card">
+                <svg class="oss-icon" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.5"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z"/><path d="M12 22V12"/><path d="M3 7l9 5 9-5"/></svg>
+                <div class="oss-name">MIT Licensed</div>
+                <div class="oss-desc">No restrictions on use, modification, or distribution. Use it for any purpose. Commercially or otherwise. No strings attached.</div>
+            </div>
+            <div class="oss-card">
+                <svg class="oss-icon" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <div class="oss-name">No Vendor Lock-in</div>
+                <div class="oss-desc">Your data, your servers, your rules. Fork it. Modify it. Leave anytime. You are never dependent on a single company's roadmap or pricing.</div>
+            </div>
+            <div class="oss-card">
+                <svg class="oss-icon" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                <div class="oss-name">Community Driven</div>
+                <div class="oss-desc">Contributions, bug reports, and feature requests from real rental businesses. Built by the people who use it, for the people who use it.</div>
+            </div>
+            <div class="oss-card">
+                <svg class="oss-icon" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <div class="oss-name">Fully Transparent</div>
+                <div class="oss-desc">Every line of code visible. No black boxes. Audit security, review logic, understand exactly what runs your business.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S05: Plugins & API -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D05</span><span class="stamp-title">Extensibility</span><span class="stamp-rev">Rev B</span></div>
+                <h2 class="slide-headline"><em style="color:var(--green)">Extend</em> Everything</h2>
+                <p class="slide-subtitle">The Framework is a starting point, not a ceiling. Build exactly what your operation needs.</p>
+                <h4 style="color:var(--green-light);font-size:0.6875rem;margin-bottom:12px">Plugin System</h4>
+                <div class="feature-list mb-24">
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#34d399" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Install community &amp; commercial plugins</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#34d399" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Build private plugins for your business</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#34d399" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Sell plugins on the marketplace</div>
+                </div>
+                <h4 style="color:var(--green-light);font-size:0.6875rem;margin-bottom:12px">REST API</h4>
+                <div class="feature-list">
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#34d399" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Every feature accessible via API</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#34d399" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Build custom integrations &amp; dashboards</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#34d399" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Webhooks for real-time events</div>
+                </div>
+            </div>
+            <div>
+                <div class="code-block trim-marks"><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot code-dot-r"></span><span class="code-dot code-dot-y"></span><span class="code-dot code-dot-g"></span></div>
+                    <div class="code-body"><span class="cmt">// GET /api/v1/assets</span>
+{
+  <span class="str">"data"</span>: [
+    {
+      <span class="str">"id"</span>: <span class="var">1042</span>,
+      <span class="str">"name"</span>: <span class="str">"LED Parcan 64"</span>,
+      <span class="str">"status"</span>: <span class="str">"available"</span>,
+      <span class="str">"category"</span>: <span class="str">"Lighting"</span>,
+      <span class="str">"daily_rate"</span>: <span class="var">25.00</span>
+    }
+  ],
+  <span class="str">"meta"</span>: { <span class="str">"total"</span>: <span class="var">847</span> }
+}</div>
+                </div>
+                <p class="annotation mt-12" style="text-align:right">Full OpenAPI spec included</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S06: Cloud -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D06</span><span class="stamp-title">Cloud</span><span class="stamp-rev">Rev B</span></div>
+                <h2 class="slide-headline">Signals <em style="color:var(--sky)">Cloud</em></h2>
+                <p class="slide-subtitle">The Framework, hosted and managed. For teams who want modern rental software without the infrastructure overhead.</p>
+                <div class="feature-list">
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#0ea5e9" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Your own Signals instance, running in minutes</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#0ea5e9" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Automatic backups &amp; security updates</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#0ea5e9" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Performance monitoring &amp; SSL</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#0ea5e9" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>Priority support included</div>
+                    <div class="feature-row"><span class="chk"><svg viewBox="0 0 16 16" fill="none" stroke="#0ea5e9" stroke-width="2"><polyline points="3,8 7,12 13,4"/></svg></span>14-day free trial, no credit card</div>
+                </div>
+                <p class="annotation mt-24">cloud.signals.rent</p>
+            </div>
+            <div>
+                <div class="dash-mockup trim-marks"><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="dash-header"><span class="dash-url">cloud.signals.rent/dashboard</span><span class="dash-live">Live</span></div>
+                    <div class="dash-stats">
+                        <div class="stat-box"><div class="stat-tol">+12%</div><div class="stat-val">&pound;84.2k</div><div class="stat-lbl">Revenue MTD</div></div>
+                        <div class="stat-box"><div class="stat-tol">78%</div><div class="stat-val">78%</div><div class="stat-lbl">Utilisation</div></div>
+                        <div class="stat-box"><div class="stat-tol">+3</div><div class="stat-val">142</div><div class="stat-lbl">Active Jobs</div></div>
+                    </div>
+                    <div class="dash-activity">
+                        <div class="activity-row" style="border-left-color:var(--green)"><span class="activity-text">Order #4127 confirmed</span><span class="activity-time">2m ago</span></div>
+                        <div class="activity-row" style="border-left-color:var(--sky)"><span class="activity-text">Quote sent to Riverside Events</span><span class="activity-time">14m ago</span></div>
+                        <div class="activity-row" style="border-left-color:var(--amber)"><span class="activity-text">PAT test due: Cable Ramp 20m</span><span class="activity-time">1h ago</span></div>
+                        <div class="activity-row" style="border-left-color:var(--violet)"><span class="activity-text">New customer: Summit Productions</span><span class="activity-time">3h ago</span></div>
+                    </div>
+                    <div class="iso-block"><span>SIG-CLD-01</span><br><span style="color:var(--red)">Rev B</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S07: Platform Overview -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D07</span><span class="stamp-title">Platform</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-8">The Signals <em style="color:var(--blue)">Platform</em></h2>
+        <p class="slide-subtitle" style="max-width:560px;margin-bottom:36px">Six services that work independently or together. Not locked to the Signals Framework &mdash; works with any rental management system via API.</p>
+        <div class="services-grid">
+            <div class="svc-card"><div class="svc-accent" style="background:var(--violet)"></div><svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><div class="svc-name">Registry</div><div class="svc-desc">Shared industry database. Products, manufacturers, venues, contacts.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--cyan)"></div><svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><div class="svc-name">Network</div><div class="svc-desc">Credit scores and payment intelligence across the industry.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--amber)"></div><svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.5"><path d="M12 3L2 12h3v8h14v-8h3L12 3z"/><path d="M9 16v-4h6v4"/></svg><div class="svc-name">Intelligence</div><div class="svc-desc">AI demand forecasting, pricing suggestions, anomaly detection.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--rose)"></div><svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="1.5"><path d="M8 12h8M12 8v8"/><circle cx="12" cy="12" r="9"/></svg><div class="svc-name">Connect</div><div class="svc-desc">B2B equipment marketplace. Find kit or list your excess capacity.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--green)"></div><svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.5"><rect x="2" y="7" width="20" height="12" rx="2"/><path d="M6 7V5a2 2 0 012-2h8a2 2 0 012 2v2"/><path d="M12 11v4"/></svg><div class="svc-name">Transport</div><div class="svc-desc">Vehicle tracking, driver apps, route optimisation, proof of delivery.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--blue)"></div><svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.5"><path d="M3 3v18h18"/><polyline points="7,14 11,10 15,13 21,7"/></svg><div class="svc-name">Cashflow</div><div class="svc-desc">Financial intelligence. Trading cashflow and asset lifecycle ROI.</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S08: Registry -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D08</span><span class="stamp-title">Registry</span><span class="stamp-rev">Rev B</span></div>
+                <div class="svc-label" style="color:var(--violet)">Platform Service</div>
+                <h2 class="svc-title" style="color:var(--navy)">Signals Registry</h2>
+                <p class="svc-text">The shared industry database. Products, specifications, manufacturers, suppliers, venues, locations, customer records. Stop manually entering the same data everyone else is entering.</p>
+                <ul class="svc-features">
+                    <li><span class="bdot" style="background:var(--violet)"></span>Standardised product specifications &amp; weights</li>
+                    <li><span class="bdot" style="background:var(--violet)"></span>Manufacturer &amp; supplier records</li>
+                    <li><span class="bdot" style="background:var(--violet)"></span>Venue &amp; location data with site access notes</li>
+                    <li><span class="bdot" style="background:var(--violet)"></span>One-click import into your system</li>
+                    <li><span class="bdot" style="background:var(--violet)"></span>Community maintained, always growing</li>
+                </ul>
+                <p class="annotation mt-24">registry.signals.rent</p>
+            </div>
+            <div>
+                <div class="oss-card trim-marks" style="border-color:var(--violet)"><div class="trim-bl" style="border-color:var(--violet)"></div><div class="trim-br" style="border-color:var(--violet)"></div>
+                    <div style="font-family:var(--font-mono);font-size:8px;color:var(--grey);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Search Registry</div>
+                    <div style="border:1px solid var(--grey-border);padding:8px 12px;margin-bottom:12px;font-size:0.6875rem;color:var(--grey)">LED Parcan...</div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-left:3px solid var(--violet);background:var(--base);font-size:0.625rem"><span style="color:var(--navy)">LED Parcan 64 RGBW &mdash; Showtec</span><span style="font-family:var(--font-display);font-size:0.5rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--violet);padding:2px 6px;border:1px solid var(--violet)">Import</span></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-left:3px solid var(--violet);background:var(--base);font-size:0.625rem"><span style="color:var(--navy)">LED Parcan 56 RGB &mdash; Chauvet</span><span style="font-family:var(--font-display);font-size:0.5rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--violet);padding:2px 6px;border:1px solid var(--violet)">Import</span></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-left:3px solid var(--violet);background:var(--base);font-size:0.625rem"><span style="color:var(--navy)">LED Parcan Slim 7x10W &mdash; ADJ</span><span style="font-family:var(--font-display);font-size:0.5rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--violet);padding:2px 6px;border:1px solid var(--violet)">Import</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S09: Network -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="credit-mockup" style="background:rgba(148,163,184,0.06);border-color:rgba(148,163,184,0.12)">
+                    <div class="credit-label" style="color:var(--grey-light)">Customer Credit Score</div>
+                    <div class="credit-score">820</div>
+                    <div class="credit-bar" style="background:rgba(148,163,184,0.12)"><div class="credit-fill"></div></div>
+                    <div class="credit-details" style="gap:8px">
+                        <div class="credit-detail" style="background:rgba(148,163,184,0.06);border-color:rgba(148,163,184,0.12)"><div class="credit-detail-lbl" style="color:var(--grey-light)">Avg Payment</div><div class="credit-detail-val" style="color:var(--white)">28 Days</div></div>
+                        <div class="credit-detail" style="background:rgba(148,163,184,0.06);border-color:rgba(148,163,184,0.12)"><div class="credit-detail-lbl" style="color:var(--grey-light)">On Time</div><div class="credit-detail-val" style="color:var(--white)">94%</div></div>
+                        <div class="credit-detail" style="background:rgba(148,163,184,0.06);border-color:rgba(148,163,184,0.12)"><div class="credit-detail-lbl" style="color:var(--grey-light)">Orders</div><div class="credit-detail-val" style="color:var(--white)">142</div></div>
+                        <div class="credit-detail" style="background:rgba(148,163,184,0.06);border-color:rgba(148,163,184,0.12)"><div class="credit-detail-lbl" style="color:var(--grey-light)">Risk Level</div><div class="credit-detail-val" style="color:var(--green)">Low</div></div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D09</span><span class="stamp-title">Network</span><span class="stamp-rev">Rev B</span></div>
+                <div class="svc-label" style="color:var(--cyan)">Platform Service</div>
+                <h2 class="svc-title">Signals Network</h2>
+                <p class="svc-text">The industry intelligence layer. Credit scores based on actual payment behaviour across multiple rental companies. The information hire desks share informally over the phone, formalised and scaled.</p>
+                <ul class="svc-features">
+                    <li><span class="bdot" style="background:var(--cyan)"></span>Credit scores from real cross-industry data</li>
+                    <li><span class="bdot" style="background:var(--cyan)"></span>Breakages &amp; missings patterns by customer</li>
+                    <li><span class="bdot" style="background:var(--cyan)"></span>Utilisation benchmarks against industry</li>
+                    <li><span class="bdot" style="background:var(--cyan)"></span>Contribute anonymised data, access collective insights</li>
+                </ul>
+                <p class="annotation mt-24">network.signals.rent</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S10: Intelligence -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D10</span><span class="stamp-title">Intelligence</span><span class="stamp-rev">Rev B</span></div>
+                <div class="svc-label" style="color:var(--amber)">Platform Service</div>
+                <h2 class="svc-title" style="color:var(--navy)">Signals Intelligence</h2>
+                <p class="svc-text">AI that understands rental. Not generic models &mdash; trained on rental workflows and industry data. The core of what Signals means: providing the signals that improve every decision.</p>
+                <ul class="svc-features">
+                    <li><span class="bdot" style="background:var(--amber)"></span>Demand forecasting from historical patterns &amp; external signals</li>
+                    <li><span class="bdot" style="background:var(--amber)"></span>Pricing suggestions based on availability &amp; competition</li>
+                    <li><span class="bdot" style="background:var(--amber)"></span>Document understanding: POs, tech specs, contracts</li>
+                    <li><span class="bdot" style="background:var(--amber)"></span>Anomaly detection before problems escalate</li>
+                    <li><span class="bdot" style="background:var(--amber)"></span>Natural language assistant that knows your business</li>
+                </ul>
+                <p class="annotation mt-24">intelligence.signals.rent</p>
+            </div>
+            <div>
+                <div class="oss-card" style="border-color:var(--amber)">
+                    <div style="font-family:var(--font-mono);font-size:8px;color:var(--grey);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px">Signals Intelligence</div>
+                    <div style="background:var(--base);border:1px solid var(--grey-border);padding:12px;margin-bottom:8px;font-size:0.6875rem;color:var(--navy);border-radius:0 8px 8px 8px">What&rsquo;s the demand forecast for LED parcans over the next 4 weeks?</div>
+                    <div style="background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.2);padding:12px;font-size:0.6875rem;color:var(--slate);border-radius:8px 0 8px 8px;line-height:1.7">Based on historical bookings and 3 confirmed events in your area, LED parcan demand is forecast to <strong style="color:var(--amber)">increase 34%</strong> in weeks 2-3. Consider adjusting daily rates by +15% during peak and pre-staging 40 additional units.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S11: Connect -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D11</span><span class="stamp-title">Connect</span><span class="stamp-rev">Rev B</span></div>
+        <div class="svc-label" style="color:var(--rose)">Platform Service</div>
+        <h2 class="slide-headline mb-8">Signals <em style="color:var(--rose)">Connect</em></h2>
+        <p class="slide-subtitle" style="max-width:540px;margin-bottom:36px">The B2B equipment marketplace. Find equipment from other rental companies when you're short. List your excess capacity when you have availability. The subhire market, formalised and accessible.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;max-width:700px;width:100%">
+            <div class="dark-mockup"><div class="dark-mockup-label">Find Kit</div><div class="dark-stat-row"><span class="dark-stat-key">Need</span><span class="dark-stat-val">50x Parcans</span></div><div class="dark-stat-row"><span class="dark-stat-key">When</span><span class="dark-stat-val">Mar 14-18</span></div><div class="dark-stat-row"><span class="dark-stat-key">Offers</span><span class="dark-stat-val" style="color:var(--rose)">3 Available</span></div></div>
+            <div class="dark-mockup"><div class="dark-mockup-label">List Excess</div><div class="dark-stat-row"><span class="dark-stat-key">Asset</span><span class="dark-stat-val">PA System</span></div><div class="dark-stat-row"><span class="dark-stat-key">Available</span><span class="dark-stat-val">Mar 10-24</span></div><div class="dark-stat-row"><span class="dark-stat-key">Views</span><span class="dark-stat-val" style="color:var(--rose)">12</span></div></div>
+            <div class="dark-mockup"><div class="dark-mockup-label">Trust</div><div class="dark-stat-row"><span class="dark-stat-key">Verified</span><span class="dark-stat-val" style="color:var(--green)">Yes</span></div><div class="dark-stat-row"><span class="dark-stat-key">Credit</span><span class="dark-stat-val">820</span></div><div class="dark-stat-row"><span class="dark-stat-key">Integrated</span><span class="dark-stat-val">Network</span></div></div>
+        </div>
+        <p class="annotation mt-24">Expand your fleet without buying &middot; connect.signals.rent</p>
+    </div>
+</section>
+
+<!-- ================================================================ S12: Transport -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D12</span><span class="stamp-title">Transport</span><span class="stamp-rev">Rev B</span></div>
+                <div class="svc-label" style="color:var(--green)">Platform Service</div>
+                <h2 class="svc-title" style="color:var(--navy)">Signals Transport</h2>
+                <p class="svc-text">The last mile of rental, tracked and documented. Customers get transparency, you get accountability. Live visibility of your entire delivery operation.</p>
+                <ul class="svc-features">
+                    <li><span class="bdot" style="background:var(--green)"></span>Real-time vehicle tracking &mdash; every van, live</li>
+                    <li><span class="bdot" style="background:var(--green)"></span>Driver app with job lists, navigation, notes, photos</li>
+                    <li><span class="bdot" style="background:var(--green)"></span>Proof of delivery &mdash; signatures, photos, timestamps</li>
+                    <li><span class="bdot" style="background:var(--green)"></span>Automated customer ETA notifications</li>
+                    <li><span class="bdot" style="background:var(--green)"></span>Document capture &mdash; collection notes, damage reports</li>
+                    <li><span class="bdot" style="background:var(--green)"></span>Route optimisation for multi-drop days</li>
+                </ul>
+                <p class="annotation mt-24">transport.signals.rent</p>
+            </div>
+            <div>
+                <div class="oss-card" style="border-color:var(--green)">
+                    <div style="font-family:var(--font-mono);font-size:8px;color:var(--grey);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Live Delivery Tracking</div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-left:3px solid var(--green);background:var(--base);font-size:0.625rem"><span style="color:var(--navy)">Van 03 &mdash; Riverside Events</span><span style="font-family:var(--font-display);font-size:0.5rem;font-weight:700;color:var(--green);text-transform:uppercase">En Route</span></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-left:3px solid var(--amber);background:var(--base);font-size:0.625rem"><span style="color:var(--navy)">Van 01 &mdash; Summit Productions</span><span style="font-family:var(--font-display);font-size:0.5rem;font-weight:700;color:var(--amber);text-transform:uppercase">Loading</span></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-left:3px solid var(--blue);background:var(--base);font-size:0.625rem"><span style="color:var(--navy)">Van 05 &mdash; Lakeside Venue</span><span style="font-family:var(--font-display);font-size:0.5rem;font-weight:700;color:var(--blue);text-transform:uppercase">Delivered</span></div>
+                    </div>
+                    <div style="margin-top:12px;padding:8px 10px;background:var(--base);font-size:0.625rem;color:var(--grey)">ETA notification sent to Riverside Events: <strong style="color:var(--navy)">14 min</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S13: Cashflow -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-D13</span><span class="stamp-title">Cashflow</span><span class="stamp-rev">Rev B</span></div>
+                <div class="svc-label" style="color:var(--blue-light)">Platform Service</div>
+                <h2 class="svc-title">Signals Cashflow</h2>
+                <p class="svc-text">Two views of the money that matters. Know which assets are actually making money. Understand when you'll need cash. See the real lifetime value of every piece of equipment.</p>
+                <h4 style="color:var(--blue-light);font-size:0.625rem;margin-bottom:8px">Trading Cashflow</h4>
+                <ul class="svc-features mb-16">
+                    <li><span class="bdot" style="background:var(--blue-light)"></span>Overhead tracking &amp; cash position projections</li>
+                    <li><span class="bdot" style="background:var(--blue-light)"></span>Salary, wage &amp; operational cost planning</li>
+                    <li><span class="bdot" style="background:var(--blue-light)"></span>Seasonal pattern analysis</li>
+                </ul>
+                <h4 style="color:var(--blue-light);font-size:0.625rem;margin-bottom:8px">Asset Lifecycle</h4>
+                <ul class="svc-features">
+                    <li><span class="bdot" style="background:var(--blue-light)"></span>Purchase costs, financing &amp; depreciation</li>
+                    <li><span class="bdot" style="background:var(--blue-light)"></span>Rental income over asset lifetime</li>
+                    <li><span class="bdot" style="background:var(--blue-light)"></span>ROI by asset, category, or fleet segment</li>
+                </ul>
+                <p class="annotation mt-24">cashflow.signals.rent</p>
+            </div>
+            <div>
+                <div class="dark-mockup">
+                    <div class="dark-mockup-label">Asset Lifecycle ROI</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Asset</span><span class="dark-stat-val">LED Parcan 64</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Purchase</span><span class="dark-stat-val">&pound;380</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Total Income</span><span class="dark-stat-val" style="color:var(--green)">&pound;2,840</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Maintenance</span><span class="dark-stat-val" style="color:var(--amber)">&pound;145</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Net ROI</span><span class="dark-stat-val" style="color:var(--green)">609%</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Payback</span><span class="dark-stat-val">4.2 months</span></div>
+                </div>
+                <div class="dark-mockup" style="margin-top:12px">
+                    <div class="dark-mockup-label">Cash Position Forecast</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Current</span><span class="dark-stat-val" style="color:var(--green)">&pound;42.8k</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">30-day</span><span class="dark-stat-val">&pound;38.1k</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">90-day</span><span class="dark-stat-val" style="color:var(--amber)">&pound;28.4k</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S14: Architecture Step 1 -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D14</span><span class="stamp-title">Architecture 1/4</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-8" style="font-size:clamp(1.3rem,2.5vw,1.75rem)">Everything Starts Here</h2>
+        <p class="slide-subtitle" style="max-width:500px;margin-bottom:36px">The Signals Rental Framework is the open-source foundation. MIT licensed, production-ready, and free forever.</p>
+        <div class="arch-diagram">
+            <div class="arch-connector-ghost" style="opacity:0.08"><div class="arch-conn-line"></div><div class="arch-conn-label">REST API</div><div class="arch-conn-line"></div></div>
+            <div class="arch-mid" style="opacity:0.08"><div class="arch-mid-box" style="border-color:var(--sky)"><div class="arch-tier-label" style="font-size:0.75rem">Cloud</div></div><div class="arch-mid-or">or</div><div class="arch-mid-box" style="border-color:var(--green)"><div class="arch-tier-label" style="font-size:0.75rem">Self-Hosted</div></div></div>
+            <div class="arch-connector" style="opacity:0.08"><div class="arch-conn-line"></div><div class="arch-conn-label">Runs On</div><div class="arch-conn-line"></div></div>
+            <div class="arch-tier" style="border-color:var(--green)">
+                <div class="arch-tier-label" style="color:var(--green)">Signals Rental Framework</div>
+                <div class="arch-tier-desc">Open Source (MIT) &middot; Production-ready &middot; Plugin-extensible &middot; API-first</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S15: Architecture Step 2 -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D15</span><span class="stamp-title">Architecture 2/4</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-8" style="font-size:clamp(1.3rem,2.5vw,1.75rem)">Choose How to Run It</h2>
+        <p class="slide-subtitle" style="max-width:500px;margin-bottom:36px">Host it yourself with full control, or let Signals Cloud manage the infrastructure for you. Same software either way.</p>
+        <div class="arch-diagram">
+            <div style="opacity:0.08;display:flex;flex-direction:column;align-items:center;width:100%"><div class="arch-tier" style="border-color:var(--blue)"><div class="arch-tier-label">Platform</div></div><div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">REST API</div><div class="arch-conn-line"></div></div></div>
+            <div class="arch-mid">
+                <div class="arch-mid-box" style="border-color:var(--sky)"><div class="arch-tier-label" style="font-size:0.75rem">Signals Cloud</div><div class="arch-tier-desc">We manage it</div></div>
+                <div class="arch-mid-or">or</div>
+                <div class="arch-mid-box" style="border-color:var(--green)"><div class="arch-tier-label" style="font-size:0.75rem">Self-Hosted</div><div class="arch-tier-desc">You manage it</div></div>
+            </div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">Runs On</div><div class="arch-conn-line"></div></div>
+            <div class="arch-tier" style="border-color:var(--green)">
+                <div class="arch-tier-label" style="color:var(--green)">Signals Rental Framework</div>
+                <div class="arch-tier-desc">Open Source (MIT) &middot; Production-ready &middot; Plugin-extensible &middot; API-first</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S16: Architecture Step 3 -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D16</span><span class="stamp-title">Architecture 3/4</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-8" style="font-size:clamp(1.3rem,2.5vw,1.75rem)">Add Intelligence on Top</h2>
+        <p class="slide-subtitle" style="max-width:500px;margin-bottom:36px">The Platform sits above everything. Six services providing shared data and intelligence that make every rental business smarter.</p>
+        <div class="arch-diagram">
+            <div class="arch-tier" style="border-color:var(--blue)">
+                <div class="arch-tier-label">Signals Platform</div>
+                <div class="arch-tier-desc">Shared data and intelligence for any rental business</div>
+                <div class="arch-services">
+                    <span class="arch-svc-tag" style="color:var(--violet);border:1px solid var(--violet)">Registry</span>
+                    <span class="arch-svc-tag" style="color:var(--cyan);border:1px solid var(--cyan)">Network</span>
+                    <span class="arch-svc-tag" style="color:var(--amber);border:1px solid var(--amber)">Intelligence</span>
+                    <span class="arch-svc-tag" style="color:var(--rose);border:1px solid var(--rose)">Connect</span>
+                    <span class="arch-svc-tag" style="color:var(--green);border:1px solid var(--green)">Transport</span>
+                    <span class="arch-svc-tag" style="color:var(--blue);border:1px solid var(--blue)">Cashflow</span>
+                </div>
+            </div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">REST API</div><div class="arch-conn-line"></div></div>
+            <div class="arch-mid">
+                <div class="arch-mid-box" style="border-color:var(--sky)"><div class="arch-tier-label" style="font-size:0.75rem">Signals Cloud</div><div class="arch-tier-desc">We manage it</div></div>
+                <div class="arch-mid-or">or</div>
+                <div class="arch-mid-box" style="border-color:var(--green)"><div class="arch-tier-label" style="font-size:0.75rem">Self-Hosted</div><div class="arch-tier-desc">You manage it</div></div>
+            </div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">Runs On</div><div class="arch-conn-line"></div></div>
+            <div class="arch-tier" style="border-color:var(--green)">
+                <div class="arch-tier-label" style="color:var(--green)">Signals Rental Framework</div>
+                <div class="arch-tier-desc">Open Source (MIT) &middot; Production-ready &middot; Plugin-extensible &middot; API-first</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S17: Architecture Complete -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D17</span><span class="stamp-title">Architecture 4/4</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-8" style="font-size:clamp(1.3rem,2.5vw,1.75rem)">Works With Any RMS</h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:36px">The Platform isn't locked to the Signals Framework. Any rental management system can connect via REST API.</p>
+        <div class="arch-diagram">
+            <div class="arch-tier" style="border-color:var(--blue)">
+                <div class="arch-tier-label">Signals Platform</div>
+                <div class="arch-tier-desc">Shared data and intelligence for any rental business</div>
+                <div class="arch-services">
+                    <span class="arch-svc-tag" style="color:var(--violet);border:1px solid var(--violet)">Registry</span>
+                    <span class="arch-svc-tag" style="color:var(--cyan);border:1px solid var(--cyan)">Network</span>
+                    <span class="arch-svc-tag" style="color:var(--amber);border:1px solid var(--amber)">Intelligence</span>
+                    <span class="arch-svc-tag" style="color:var(--rose);border:1px solid var(--rose)">Connect</span>
+                    <span class="arch-svc-tag" style="color:var(--green);border:1px solid var(--green)">Transport</span>
+                    <span class="arch-svc-tag" style="color:var(--blue);border:1px solid var(--blue)">Cashflow</span>
+                </div>
+            </div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">REST API</div><div class="arch-conn-line"></div></div>
+            <div style="display:flex;gap:12px;width:100%;flex-wrap:wrap;justify-content:center">
+                <div style="border:2px solid var(--sky);padding:12px 16px;text-align:center;background:var(--white);flex:1;min-width:120px"><div class="arch-tier-label" style="font-size:0.7rem">Signals Cloud</div></div>
+                <div style="border:2px solid var(--green);padding:12px 16px;text-align:center;background:var(--white);flex:1;min-width:120px"><div class="arch-tier-label" style="font-size:0.7rem">Self-Hosted</div></div>
+                <div style="border:2px solid var(--grey-border);padding:12px 16px;text-align:center;background:var(--white);flex:1;min-width:120px"><div class="arch-tier-label" style="font-size:0.7rem;color:var(--grey)">HireHop</div></div>
+                <div style="border:2px solid var(--grey-border);padding:12px 16px;text-align:center;background:var(--white);flex:1;min-width:120px"><div class="arch-tier-label" style="font-size:0.7rem;color:var(--grey)">Current RMS</div></div>
+                <div style="border:2px solid var(--grey-border);padding:12px 16px;text-align:center;background:var(--white);flex:1;min-width:120px"><div class="arch-tier-label" style="font-size:0.7rem;color:var(--grey)">Rentman</div></div>
+            </div>
+        </div>
+        <p class="arch-note mt-24">We're building infrastructure for the rental industry, not just features for our product.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S18: Network Effect -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D18</span><span class="stamp-title">Network Effect</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-12" style="max-width:640px">Every Business That Joins Makes It <em style="color:var(--cyan)">More Valuable</em></h2>
+        <p class="slide-subtitle" style="max-width:480px;margin-bottom:40px">Your data stays private. Aggregated insights benefit everyone.</p>
+        <div class="ne-stats">
+            <div class="ne-stat"><div class="ne-stat-num">1</div><div class="ne-stat-label">Business</div><div class="ne-stat-desc">Your own credit checks. Your own product data. Local insight only.</div></div>
+            <div class="ne-stat"><div class="ne-stat-num">100</div><div class="ne-stat-label">Businesses</div><div class="ne-stat-desc">Market benchmarks emerge. Pricing intelligence. Regional patterns.</div></div>
+            <div class="ne-stat highlight"><div class="ne-stat-num">1,000+</div><div class="ne-stat-label">Businesses</div><div class="ne-stat-desc">Industry-wide signals. Predictive analytics. True market intelligence.</div></div>
+        </div>
+        <div class="ne-progress">
+            <span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot"></span><span class="ne-line"></span><span class="ne-dot active"></span>
+        </div>
+        <p class="annotation mt-16">Registry grows &middot; Network sharpens &middot; Intelligence improves &middot; Connect expands</p>
+    </div>
+</section>
+
+<!-- ================================================================ S19: Revenue Streams -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D19</span><span class="stamp-title">Revenue</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-12">Beyond <em style="color:var(--blue)">Subscriptions</em></h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:36px">The network effect creates a data asset. Multiple high-margin revenue streams emerge once the network reaches scale.</p>
+        <div class="rev-grid">
+            <div class="rev-card">
+                <div class="rev-card-label">Recurring</div>
+                <div class="rev-card-name">Institutional Data API</div>
+                <div class="rev-card-desc">Manufacturers, banks, valuers, insurers, and brokers access market intelligence, demand patterns, credit risk data, and equipment valuations via licensed API.</div>
+            </div>
+            <div class="rev-card">
+                <div class="rev-card-label">Recurring</div>
+                <div class="rev-card-name">Enterprise</div>
+                <div class="rev-card-desc">Custom contracts for large rental groups and multi-site operators. Dedicated support, bespoke integrations, private cloud deployment, and SLA guarantees.</div>
+            </div>
+            <div class="rev-card">
+                <div class="rev-card-label">Recurring</div>
+                <div class="rev-card-name">Partner Programme</div>
+                <div class="rev-card-desc">Certified consultants, developers, and integrators. Tiered partner levels with training, lead sharing, co-marketing, and revenue share on referrals.</div>
+            </div>
+            <div class="rev-card">
+                <div class="rev-card-label">One-off &amp; Recurring</div>
+                <div class="rev-card-name">Implementation &amp; Reports</div>
+                <div class="rev-card-desc">Data migration, configuration, go-live support. Plus institutional reports: market overviews, category deep-dives, and custom research for investors and PE firms.</div>
+            </div>
+        </div>
+        <div class="rev-callout mt-24">
+            <p><strong>Institutional data products are high-margin once the network exists.</strong> The data costs little to produce but commands premium pricing from manufacturers, lenders, and industry bodies.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S20: Paths & Next Steps -->
+<section class="slide slide-light fold-marks" data-bg="light">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-D20</span><span class="stamp-title">Paths & Next Steps</span><span class="stamp-rev">Rev B</span></div>
+        <h2 class="slide-headline mb-8">Choose Your Path</h2>
+        <p class="slide-subtitle" style="max-width:480px;margin-bottom:28px">Start free. Add what you need. No bundling tricks.</p>
+        <div class="s20-paths">
+            <div class="s20-path">
+                <div class="s20-path-bar" style="background:var(--green)"></div>
+                <div class="s20-path-name">Free Forever</div>
+                <div class="s20-path-price">£0 / month</div>
+                <div class="s20-path-desc">Download the Framework. Self-host. Full features, MIT licensed.</div>
+            </div>
+            <div class="s20-path">
+                <div class="s20-path-bar" style="background:var(--sky)"></div>
+                <div class="s20-path-name">Cloud</div>
+                <div class="s20-path-price">Subscription</div>
+                <div class="s20-path-desc">Managed hosting. We run it, you use it. Backups and support included.</div>
+            </div>
+            <div class="s20-path">
+                <div class="s20-path-bar" style="background:var(--blue)"></div>
+                <div class="s20-path-name">Platform</div>
+                <div class="s20-path-price">Subscription</div>
+                <div class="s20-path-desc">Add Registry, Network, Intelligence and more. Works with any RMS.</div>
+            </div>
+            <div class="s20-path s20-featured">
+                <div class="s20-path-bar" style="background:var(--navy)"></div>
+                <div class="s20-path-name">Cloud + Platform</div>
+                <div class="s20-path-price">Both subscriptions</div>
+                <div class="s20-path-desc">The full ecosystem. Hosted framework plus all platform services.</div>
+            </div>
+        </div>
+        <p class="annotation">Mix and match &middot; Cancel anytime &middot; Pay for what you use</p>
+        <div class="s20-cta">
+            <div class="s20-cta-headline">Let's Talk</div>
+            <div class="s20-cta-body">We're building the data layer the rental industry never had. If that resonates, we'd love to hear from you.</div>
+            <div class="s20-cta-url">signals.rent</div>
+        </div>
+        <div style="margin-top:16px">
+            <div class="iso-block" style="position:relative;bottom:auto;right:auto"><span>SIG-DECK-001</span> &middot; <span style="color:var(--red)">Rev B</span> &middot; <span>2026</span></div>
+        </div>
+    </div>
+</section>
+
+</div>
+
+<!-- Navigation Bar -->
+<nav class="nav-bar nav-dark" id="navBar">
+    <button class="nav-btn" id="prevBtn" aria-label="Previous slide" disabled>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10,3 5,8 10,13"/></svg>
+    </button>
+    <div class="nav-dots" id="navDots"></div>
+    <span class="nav-counter" id="navCounter">01 / 20</span>
+    <button class="nav-btn" id="nextBtn" aria-label="Next slide">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg>
+    </button>
+</nav>
+
+<script>
+(function() {
+    var slides = document.querySelectorAll('.slide');
+    var navBar = document.getElementById('navBar');
+    var navDots = document.getElementById('navDots');
+    var navCounter = document.getElementById('navCounter');
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var total = slides.length;
+    var current = 0;
+    var transitioning = false;
+
+    for (var i = 0; i < total; i++) {
+        (function(idx) {
+            var dot = document.createElement('button');
+            dot.className = 'nav-dot' + (idx === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', 'Go to slide ' + (idx + 1));
+            dot.addEventListener('click', function() { goToSlide(idx); });
+            navDots.appendChild(dot);
+        })(i);
+    }
+
+    function goToSlide(n) {
+        if (n < 0 || n >= total || n === current || transitioning) return;
+        transitioning = true;
+        slides[current].classList.remove('active');
+        current = n;
+        slides[current].classList.add('active');
+        updateNav();
+        setTimeout(function() { transitioning = false; }, 500);
+    }
+
+    function updateNav() {
+        var num = String(current + 1).padStart(2, '0');
+        var tot = String(total).padStart(2, '0');
+        navCounter.textContent = num + ' / ' + tot;
+        var dots = navDots.querySelectorAll('.nav-dot');
+        for (var i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle('active', i === current);
+        }
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current === total - 1;
+        var bg = slides[current].getAttribute('data-bg');
+        navBar.classList.remove('nav-light', 'nav-dark');
+        navBar.classList.add(bg === 'dark' ? 'nav-dark' : 'nav-light');
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goToSlide(current + 1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goToSlide(current - 1); }
+        else if (e.key === 'Home') { e.preventDefault(); goToSlide(0); }
+        else if (e.key === 'End') { e.preventDefault(); goToSlide(total - 1); }
+    });
+    prevBtn.addEventListener('click', function() { goToSlide(current - 1); });
+    nextBtn.addEventListener('click', function() { goToSlide(current + 1); });
+
+    var touchX = 0, touchY = 0;
+    document.addEventListener('touchstart', function(e) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+        var dx = e.changedTouches[0].clientX - touchX;
+        var dy = e.changedTouches[0].clientY - touchY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) { dx < 0 ? goToSlide(current + 1) : goToSlide(current - 1); }
+    }, { passive: true });
+
+    updateNav();
+})();
+</script>
+</body>
+</html>

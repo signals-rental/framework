@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 05: Bold Contrast</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --black: #000000;
+            --white: #ffffff;
+            --gray-100: #f5f5f5;
+            --gray-300: #d4d4d4;
+            --gray-500: #737373;
+            --gray-700: #404040;
+            --accent: #FF4500;
+
+            --font-display: 'Bebas Neue', Impact, sans-serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--black);
+            color: var(--white);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 1000;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--gray-500);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--white); }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 40px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 24px 0;
+            background: var(--black);
+            border-bottom: 1px solid var(--gray-700);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            letter-spacing: 0.05em;
+            color: var(--white);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--gray-500);
+            text-decoration: none;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--white); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 32px;
+            font-family: var(--font-display);
+            font-size: 1.125rem;
+            letter-spacing: 0.05em;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--white);
+        }
+        .btn-primary:hover {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--white);
+            border: 2px solid var(--white);
+        }
+        .btn-outline:hover {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 120px 0 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: 'SIGNALS';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: var(--font-display);
+            font-size: 25vw;
+            letter-spacing: 0.1em;
+            color: var(--gray-700);
+            opacity: 0.15;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(4rem, 15vw, 12rem);
+            letter-spacing: 0.02em;
+            line-height: 0.9;
+            margin-bottom: 40px;
+        }
+
+        .hero h1 span {
+            display: block;
+            color: var(--accent);
+        }
+
+        .hero-subtitle {
+            font-size: 1.125rem;
+            color: var(--gray-300);
+            max-width: 500px;
+            margin-bottom: 48px;
+            line-height: 1.8;
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 16px;
+        }
+
+        /* Section */
+        section {
+            padding: 120px 0;
+        }
+
+        .section-light {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .section-header {
+            margin-bottom: 80px;
+        }
+
+        .section-label {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            color: var(--accent);
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 8vw, 6rem);
+            letter-spacing: 0.02em;
+            line-height: 0.95;
+        }
+
+        /* Problem */
+        .problem {
+            background: var(--white);
+            color: var(--black);
+            text-align: center;
+            padding: 160px 0;
+        }
+
+        .problem-text {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 4rem);
+            letter-spacing: 0.02em;
+            line-height: 1.1;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .problem-text span {
+            color: var(--accent);
+        }
+
+        /* Features */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2px;
+            background: var(--gray-700);
+        }
+
+        .feature-card {
+            background: var(--black);
+            padding: 60px 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: attr(data-number);
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            font-family: var(--font-display);
+            font-size: 6rem;
+            color: var(--gray-700);
+            opacity: 0.3;
+            line-height: 1;
+        }
+
+        .feature-title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .feature-desc {
+            font-size: 0.9375rem;
+            color: var(--gray-300);
+            line-height: 1.7;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Comparison */
+        .comparison {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 2fr repeat(3, 1fr);
+            border: 2px solid var(--black);
+        }
+
+        .comp-header {
+            background: var(--black);
+            color: var(--white);
+            padding: 24px;
+            font-family: var(--font-display);
+            font-size: 1rem;
+            letter-spacing: 0.1em;
+        }
+
+        .comp-header.highlight {
+            background: var(--accent);
+        }
+
+        .comp-cell {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-300);
+            font-size: 0.875rem;
+        }
+
+        .comp-cell:first-child {
+            font-weight: 600;
+        }
+
+        .comp-cell.highlight {
+            background: rgba(255, 69, 0, 0.05);
+            font-weight: 600;
+        }
+
+        .check-icon {
+            color: var(--accent);
+            font-size: 1.25rem;
+        }
+
+        .partial-icon {
+            color: var(--gray-500);
+        }
+
+        /* Case Study */
+        .case-study {
+            background: var(--accent);
+            color: var(--white);
+        }
+
+        .case-study .section-label {
+            color: var(--black);
+        }
+
+        .case-study .section-title {
+            color: var(--white);
+        }
+
+        .case-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+            margin-top: 64px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .case-quote {
+            margin-top: 80px;
+            text-align: center;
+        }
+
+        .case-quote blockquote {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            letter-spacing: 0.02em;
+            margin-bottom: 24px;
+        }
+
+        .case-quote cite {
+            font-style: normal;
+            font-size: 0.875rem;
+            opacity: 0.7;
+        }
+
+        /* How It Works */
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 32px;
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+        }
+
+        .step-number {
+            font-family: var(--font-display);
+            font-size: 8rem;
+            line-height: 1;
+            color: var(--gray-700);
+            margin-bottom: 24px;
+        }
+
+        .step-title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+
+        .step-desc {
+            font-size: 0.9375rem;
+            color: var(--gray-300);
+            line-height: 1.7;
+        }
+
+        .step-arrow {
+            color: var(--accent);
+            font-size: 3rem;
+            padding-top: 80px;
+        }
+
+        /* CTA */
+        .cta-section {
+            text-align: center;
+            padding: 200px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+            opacity: 0.2;
+            pointer-events: none;
+        }
+
+        .cta-section h2 {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 10vw, 8rem);
+            letter-spacing: 0.02em;
+            line-height: 0.95;
+            margin-bottom: 48px;
+            position: relative;
+        }
+
+        /* Footer */
+        footer {
+            padding: 48px 0;
+            border-top: 1px solid var(--gray-700);
+        }
+
+        footer .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .footer-links a {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .footer-links a:hover { color: var(--white); }
+
+        @media (max-width: 1024px) {
+            .features-grid { grid-template-columns: 1fr; }
+            .case-stats { grid-template-columns: repeat(2, 1fr); }
+            .steps { flex-direction: column; }
+            .step-arrow { display: none; }
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+            .comp-header:not(:first-child) { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 0 24px; }
+            .nav-links { display: none; }
+            .case-stats { grid-template-columns: 1fr; gap: 40px; }
+            section { padding: 80px 0; }
+            .cta-section { padding: 120px 0; }
+            .hero-ctas { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Designs
+    </a>
+
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">SIGNALS</a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#comparison">Compare</a>
+                <a href="#case-study">Results</a>
+                <a href="#" class="btn btn-primary">GET ACCESS</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>SEE THE<br><span>SIGNALS</span></h1>
+                <p class="hero-subtitle">AI-powered intelligence that transforms your rental data into predictive insights. Know your customers. Understand your assets. Anticipate demand.</p>
+                <div class="hero-ctas">
+                    <a href="#" class="btn btn-primary">GET EARLY ACCESS</a>
+                    <a href="#" class="btn btn-outline">WATCH DEMO</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="problem">
+        <div class="container">
+            <p class="problem-text">YOUR RMS SHOWS WHAT HAPPENED.<br><span>SIGNALS SHOWS WHAT'S COMING.</span></p>
+        </div>
+    </section>
+
+    <section id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">CAPABILITIES</div>
+                <h2 class="section-title">INTELLIGENCE<br>THAT DRIVES<br>RESULTS</h2>
+            </div>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card" data-number="01">
+                <h3 class="feature-title">AI-POWERED INSIGHTS</h3>
+                <p class="feature-desc">Utilisation forecasting, revenue predictions, and pricing optimization powered by machine learning models trained on your data.</p>
+            </div>
+            <div class="feature-card" data-number="02">
+                <h3 class="feature-title">CUSTOMER INTELLIGENCE</h3>
+                <p class="feature-desc">Behavioural signals, LTV banding, growth trends, and AOV segmentation. Know exactly who your customers are.</p>
+            </div>
+            <div class="feature-card" data-number="03">
+                <h3 class="feature-title">PRODUCT INTELLIGENCE</h3>
+                <p class="feature-desc">Health scores, utilisation bands, rental rate trends, and product affinities. Optimize every asset in your fleet.</p>
+            </div>
+            <div class="feature-card" data-number="04">
+                <h3 class="feature-title">ACTIVITY SIGNALS</h3>
+                <p class="feature-desc">Every customer interaction—page views, searches, quote requests—captured and transformed into actionable intelligence.</p>
+            </div>
+            <div class="feature-card" data-number="05">
+                <h3 class="feature-title">INCENTIVE PROGRAMS</h3>
+                <p class="feature-desc">Trade, Pro, and Partner tiers based on spend. Automate rewards and drive loyalty without the manual work.</p>
+            </div>
+            <div class="feature-card" data-number="06">
+                <h3 class="feature-title">UNIFIED DATA LAYER</h3>
+                <p class="feature-desc">Connect your RMS, CRM, accounting, and customer portal. One source of truth for your entire operation.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="comparison" id="comparison">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">COMPARISON</div>
+                <h2 class="section-title" style="color: var(--black);">NOT JUST<br>ANOTHER TOOL</h2>
+            </div>
+            <div class="comparison-grid">
+                <div class="comp-header">CAPABILITY</div>
+                <div class="comp-header highlight">SIGNALS</div>
+                <div class="comp-header">RMS</div>
+                <div class="comp-header">CRM</div>
+
+                <div class="comp-cell">Predictive Analytics</div>
+                <div class="comp-cell highlight"><span class="check-icon">●</span></div>
+                <div class="comp-cell"><span class="partial-icon">○</span></div>
+                <div class="comp-cell"><span class="partial-icon">○</span></div>
+
+                <div class="comp-cell">Customer Behaviour</div>
+                <div class="comp-cell highlight"><span class="check-icon">●</span></div>
+                <div class="comp-cell"><span class="partial-icon">◐</span></div>
+                <div class="comp-cell"><span class="check-icon">●</span></div>
+
+                <div class="comp-cell">Asset Health</div>
+                <div class="comp-cell highlight"><span class="check-icon">●</span></div>
+                <div class="comp-cell"><span class="partial-icon">◐</span></div>
+                <div class="comp-cell"><span class="partial-icon">○</span></div>
+
+                <div class="comp-cell">Revenue Forecasting</div>
+                <div class="comp-cell highlight"><span class="check-icon">●</span></div>
+                <div class="comp-cell"><span class="partial-icon">○</span></div>
+                <div class="comp-cell"><span class="partial-icon">○</span></div>
+
+                <div class="comp-cell">Rental Workflows</div>
+                <div class="comp-cell highlight"><span class="check-icon">●</span></div>
+                <div class="comp-cell"><span class="check-icon">●</span></div>
+                <div class="comp-cell"><span class="partial-icon">○</span></div>
+
+                <div class="comp-cell">AI Recommendations</div>
+                <div class="comp-cell highlight"><span class="check-icon">●</span></div>
+                <div class="comp-cell"><span class="partial-icon">○</span></div>
+                <div class="comp-cell"><span class="partial-icon">◐</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="case-study" id="case-study">
+        <div class="container">
+            <div class="section-label">CASE STUDY</div>
+            <h2 class="section-title">REAL RESULTS<br>FROM A LEADING<br>UK HIRE COMPANY</h2>
+            <div class="case-stats">
+                <div class="stat-item">
+                    <div class="stat-value">137</div>
+                    <div class="stat-label">Livewire components deployed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">50K+</div>
+                    <div class="stat-label">Monthly activity events</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">15%</div>
+                    <div class="stat-label">Quote conversion lift</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Customer tiers automated</div>
+                </div>
+            </div>
+            <div class="case-quote">
+                <blockquote>"SIGNALS TRANSFORMED HOW WE UNDERSTAND OUR CUSTOMERS."</blockquote>
+                <cite>Operations Director, Leading UK Hire Company</cite>
+            </div>
+        </div>
+    </section>
+
+    <section id="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">PROCESS</div>
+                <h2 class="section-title">THREE STEPS<br>TO INTELLIGENCE</h2>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">01</div>
+                    <h3 class="step-title">CONNECT</h3>
+                    <p class="step-desc">Integrate with your existing RMS, CRM, and accounting systems. We support Current RMS, Rentman, Xero, and more.</p>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">02</div>
+                    <h3 class="step-title">ANALYSE</h3>
+                    <p class="step-desc">Our AI processes your data, identifies patterns, and builds predictive models specific to your business.</p>
+                </div>
+                <div class="step-arrow">→</div>
+                <div class="step">
+                    <div class="step-number">03</div>
+                    <h3 class="step-title">ACT</h3>
+                    <p class="step-desc">Receive recommendations, automate incentives, and make data-driven decisions with confidence.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <h2>START SEEING<br>THE SIGNALS</h2>
+            <a href="#" class="btn btn-primary">GET EARLY ACCESS</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-logo">SIGNALS</div>
+            <div class="footer-links">
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

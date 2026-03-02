@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals Brand System — Social Assets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --base: #f8f9fb;
+            --white: #ffffff;
+            --navy: #0f172a;
+            --navy-mid: #1e293b;
+            --blue: #2563eb;
+            --blue-light: #3b82f6;
+            --blue-pale: rgba(37, 99, 235, 0.08);
+            --red: #dc2626;
+            --grey: #64748b;
+            --grey-light: #94a3b8;
+            --grey-border: #e2e8f0;
+            --green: #059669;
+            --sky: #0ea5e9;
+            --cyan: #0891b2;
+            --amber: #d97706;
+            --violet: #7c3aed;
+            --rose: #e11d48;
+            --slate: #475569;
+            --grid-fine: rgba(59, 130, 246, 0.06);
+            --grid-strong: rgba(59, 130, 246, 0.12);
+            --grid-dark-fine: rgba(148, 163, 184, 0.08);
+            --grid-dark-strong: rgba(148, 163, 184, 0.15);
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-mono: 'Martian Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--base);
+            color: var(--navy);
+            line-height: 1.7;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================ */
+        /* NAVIGATION                                   */
+        /* ============================================ */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--navy);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+        .top-nav a {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--grey-light);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: var(--white); }
+        .top-nav .nav-center {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--grey);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .sub-nav {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            height: 44px;
+            background: var(--base);
+            border-bottom: 1px solid var(--grey-border);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            padding: 0 24px;
+        }
+        .sub-nav a {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--grey);
+            text-decoration: none;
+            padding: 10px 0;
+            border-bottom: 2px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .sub-nav a:hover { color: var(--navy); }
+        .sub-nav a.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+        }
+
+        /* ============================================ */
+        /* GRID BACKGROUNDS                             */
+        /* ============================================ */
+        .grid-bg-light {
+            background-color: var(--base);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .grid-bg-dark {
+            background-color: var(--navy);
+            color: var(--grey-light);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        /* ============================================ */
+        /* LAYOUT                                       */
+        /* ============================================ */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+        section { padding: 80px 0; position: relative; }
+
+        /* ============================================ */
+        /* SECTION STAMP                                */
+        /* ============================================ */
+        .section-stamp {
+            display: inline-flex;
+            align-items: stretch;
+            border: 2px solid var(--navy);
+            margin-bottom: 32px;
+            font-family: var(--font-display);
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stamp-num { background: var(--navy); color: var(--white); padding: 4px 10px; }
+        .stamp-title { padding: 4px 12px; color: var(--navy); border-right: 2px solid var(--navy); }
+        .stamp-rev { padding: 4px 10px; color: var(--red); font-weight: 700; }
+        .grid-bg-dark .section-stamp { border-color: var(--grey-light); }
+        .grid-bg-dark .stamp-num { background: var(--grey-light); color: var(--navy); }
+        .grid-bg-dark .stamp-title { color: var(--grey-light); border-color: var(--grey-light); }
+
+        /* ============================================ */
+        /* HEADINGS                                     */
+        /* ============================================ */
+        h1, h2, h3 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.01em; font-weight: 700; }
+        h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin-bottom: 16px; }
+        h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; margin-bottom: 16px; }
+        h3 { font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
+        h2 em, h1 em { font-style: italic; color: var(--blue); font-weight: 600; }
+
+        .subtitle { font-size: 0.8125rem; color: var(--grey); line-height: 1.8; max-width: 640px; }
+        .grid-bg-dark .subtitle { color: var(--grey-light); }
+
+        /* ============================================ */
+        /* DIMENSION LINE DIVIDERS                      */
+        /* ============================================ */
+        .dimension-line { display: flex; align-items: center; padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+        .dim-arrow-left, .dim-arrow-right { width: 0; height: 0; flex-shrink: 0; }
+        .dim-arrow-left { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 8px solid var(--blue); }
+        .dim-arrow-right { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 8px solid var(--blue); }
+        .dim-line { flex: 1; height: 1px; background: var(--blue); opacity: 0.3; }
+        .dim-label { padding: 0 16px; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); white-space: nowrap; }
+        .grid-bg-dark .dim-arrow-left { border-right-color: var(--blue-light); }
+        .grid-bg-dark .dim-arrow-right { border-left-color: var(--blue-light); }
+        .grid-bg-dark .dim-line { background: var(--blue-light); }
+        .grid-bg-dark .dim-label { color: var(--grey-light); }
+
+        /* ============================================ */
+        /* ANNOTATION LABELS                            */
+        /* ============================================ */
+        .annotation { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+        .grid-bg-dark .annotation { color: var(--grey-light); }
+
+        /* ============================================ */
+        /* LOGO MARK                                    */
+        /* ============================================ */
+        .logo-mark {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 2px solid currentColor;
+            padding: 6px 16px;
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+        }
+        .logo-mark.color-blue::after { background: var(--blue); }
+        .logo-mark.color-green::after { background: var(--green); }
+        .logo-mark.color-sky::after { background: var(--sky); }
+        .logo-mark.color-cyan::after { background: var(--cyan); }
+        .logo-mark.color-amber::after { background: var(--amber); }
+        .logo-mark.color-violet::after { background: var(--violet); }
+        .logo-mark.color-rose::after { background: var(--rose); }
+        .logo-mark.color-slate::after { background: var(--slate); }
+
+        .logo-mark.size-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+        .logo-mark.size-xl::after { width: 14px; height: 14px; }
+        .logo-mark.size-lg { font-size: 1.5rem; padding: 8px 20px; }
+        .logo-mark.size-lg::after { width: 10px; height: 10px; }
+        .logo-mark.size-md { font-size: 1rem; padding: 6px 16px; }
+        .logo-mark.size-sm { font-size: 0.75rem; padding: 4px 10px; }
+        .logo-mark.size-sm::after { width: 5px; height: 5px; }
+
+        /* ============================================ */
+        /* MONOGRAM                                     */
+        /* ============================================ */
+        .monogram {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 2px solid currentColor;
+            position: relative;
+        }
+        .monogram::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+        }
+        .monogram.color-blue::after { background: var(--blue); }
+        .monogram.color-green::after { background: var(--green); }
+        .monogram.color-sky::after { background: var(--sky); }
+        .monogram.color-cyan::after { background: var(--cyan); }
+        .monogram.color-amber::after { background: var(--amber); }
+        .monogram.color-violet::after { background: var(--violet); }
+        .monogram.color-rose::after { background: var(--rose); }
+        .monogram.color-slate::after { background: var(--slate); }
+        .monogram.mono-64 { width: 64px; height: 64px; font-size: 1.75rem; }
+        .monogram.mono-64::after { width: 10px; height: 10px; }
+        .monogram.mono-48 { width: 48px; height: 48px; font-size: 1.25rem; }
+        .monogram.mono-48::after { width: 8px; height: 8px; }
+        .monogram.mono-36 { width: 36px; height: 36px; font-size: 1rem; }
+        .monogram.mono-36::after { width: 6px; height: 6px; }
+        .monogram.mono-32 { width: 32px; height: 32px; font-size: 0.875rem; }
+        .monogram.mono-32::after { width: 5px; height: 5px; }
+        .monogram.mono-16 { width: 16px; height: 16px; font-size: 0.5rem; border-width: 1px; }
+        .monogram.mono-16::after { width: 3px; height: 3px; top: -1px; right: -1px; }
+
+        /* ============================================ */
+        /* SOCIAL MOCKUPS                               */
+        /* ============================================ */
+        .social-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+        .social-card { border: 1px solid var(--grey-border); background: var(--white); overflow: hidden; }
+        .social-preview { position: relative; overflow: hidden; }
+        .social-preview.og { aspect-ratio: 1200 / 630; }
+        .social-preview.twitter { aspect-ratio: 1500 / 500; }
+        .social-preview.github { aspect-ratio: 1280 / 640; }
+        .social-preview-inner {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 24px;
+            background-color: var(--navy);
+            background-image:
+                repeating-linear-gradient(0deg, rgba(148, 163, 184, 0.08) 0px, rgba(148, 163, 184, 0.08) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.08) 0px, rgba(148, 163, 184, 0.08) 1px, transparent 1px, transparent 32px);
+        }
+        .social-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); padding: 10px 16px; }
+
+        /* ============================================ */
+        /* SLACK ICONS                                  */
+        /* ============================================ */
+        .slack-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .slack-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1rem;
+            border: 2px solid currentColor;
+            position: relative;
+            border-radius: 8px;
+        }
+        .slack-icon::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            border-radius: 0 6px 0 0;
+        }
+
+        /* ============================================ */
+        /* ICON / PROFILE ROWS                          */
+        /* ============================================ */
+        .icon-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+        .profile-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+        .profile-pic {
+            width: 80px; height: 80px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700; font-size: 2rem;
+            border: 2px solid currentColor; position: relative;
+            border-radius: 50%;
+        }
+
+        /* ============================================ */
+        /* FAVICON ROW                                  */
+        /* ============================================ */
+        .favicon-row { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+        .favicon-item { text-align: center; }
+        .favicon-size-label {
+            display: block;
+            margin-top: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.5625rem;
+            color: var(--grey);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .favicon-container {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            border: 1px solid var(--grey-border);
+        }
+        .favicon-container.on-dark {
+            background: var(--navy);
+            border-color: rgba(148, 163, 184, 0.15);
+        }
+
+        /* ============================================ */
+        /* REVEAL ANIMATION                             */
+        /* ============================================ */
+        .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* ============================================ */
+        /* RESPONSIVE                                   */
+        /* ============================================ */
+        @media (max-width: 768px) {
+            .social-grid { grid-template-columns: 1fr; }
+            .sub-nav { gap: 16px; flex-wrap: wrap; height: auto; padding: 8px 16px; }
+            .sub-nav a { font-size: 10px; padding: 6px 0; }
+            section { padding: 60px 0; }
+        }
+        @media (max-width: 480px) {
+            .top-nav { padding: 0 12px; }
+            .container { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- NAVIGATION                                   -->
+<!-- ============================================ -->
+<nav class="top-nav">
+    <a href="index.html">&larr; Brand System</a>
+    <span class="nav-center">BRD-006 &mdash; Social</span>
+    <a href="schemes.html">Schemes &rarr;</a>
+</nav>
+
+<div class="sub-nav">
+    <a href="marks.html">Marks</a>
+    <a href="colors.html">Colors</a>
+    <a href="typography.html">Typography</a>
+    <a href="lockups.html">Lockups</a>
+    <a href="social.html" class="active">Social</a>
+    <a href="schemes.html">Schemes</a>
+    <a href="guidelines.html">Guidelines</a>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 1: OG IMAGES                         -->
+<!-- ============================================ -->
+<section class="grid-bg-dark" style="padding-top: 120px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-006</span>
+            <span class="stamp-title">Social Assets</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h1 style="color: var(--white);">Social <em>Assets</em></h1>
+        <p class="subtitle" style="margin-bottom: 48px;">OG images, Twitter headers, profile pictures, and Slack icons for each product.</p>
+
+        <!-- OG Images -->
+        <h3 style="color: var(--white); font-size: 0.8125rem; margin-bottom: 20px;">OG Images (1200&times;630)</h3>
+        <div class="social-grid" style="margin-bottom: 48px;">
+
+            <!-- Signals Master -->
+            <div class="social-card">
+                <div class="social-preview og">
+                    <div class="social-preview-inner">
+                        <span class="logo-mark size-lg color-blue" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.08em;">Modern Rental Management</div>
+                    </div>
+                </div>
+                <div class="social-label">og:image &mdash; Signals Master</div>
+            </div>
+
+            <!-- Rental Framework -->
+            <div class="social-card">
+                <div class="social-preview og">
+                    <div class="social-preview-inner">
+                        <span class="logo-mark size-lg color-green" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.08em;">Rental Framework</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); margin-top: 4px;">Open Source &middot; MIT License &middot; Laravel</div>
+                    </div>
+                </div>
+                <div class="social-label">og:image &mdash; Rental Framework</div>
+            </div>
+
+            <!-- Cloud -->
+            <div class="social-card">
+                <div class="social-preview og">
+                    <div class="social-preview-inner">
+                        <span class="logo-mark size-lg color-sky" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.08em;">Cloud</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); margin-top: 4px;">Managed Hosting &middot; Zero IT Overhead</div>
+                    </div>
+                </div>
+                <div class="social-label">og:image &mdash; Cloud</div>
+            </div>
+
+            <!-- Network -->
+            <div class="social-card">
+                <div class="social-preview og">
+                    <div class="social-preview-inner">
+                        <span class="logo-mark size-lg color-cyan" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.08em;">Network</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); margin-top: 4px;">Credit Scores &middot; Benchmarks</div>
+                    </div>
+                </div>
+                <div class="social-label">og:image &mdash; Network</div>
+            </div>
+
+            <!-- Intelligence -->
+            <div class="social-card">
+                <div class="social-preview og">
+                    <div class="social-preview-inner">
+                        <span class="logo-mark size-lg color-amber" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.08em;">Intelligence</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); margin-top: 4px;">AI-Powered Analytics</div>
+                    </div>
+                </div>
+                <div class="social-label">og:image &mdash; Intelligence</div>
+            </div>
+
+            <!-- Registry -->
+            <div class="social-card">
+                <div class="social-preview og">
+                    <div class="social-preview-inner">
+                        <span class="logo-mark size-lg color-violet" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.08em;">Registry</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); margin-top: 4px;">Product &amp; Venue Database</div>
+                    </div>
+                </div>
+                <div class="social-label">og:image &mdash; Registry</div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-dark">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 02 &mdash; Twitter / X Headers</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 2: TWITTER / X HEADERS               -->
+<!-- ============================================ -->
+<section class="grid-bg-dark" style="padding-top: 40px;">
+    <div class="container">
+        <h3 style="color: var(--white); font-size: 0.8125rem; margin-bottom: 20px;">Twitter / X Headers (1500&times;500)</h3>
+
+        <!-- Master header -->
+        <div class="social-card" style="margin-bottom: 24px;">
+            <div class="social-preview twitter">
+                <div class="social-preview-inner" style="flex-direction: row; justify-content: space-between; padding: 24px 48px;">
+                    <span class="logo-mark size-md color-blue" style="color: white;">Signals</span>
+                    <div style="text-align: right;">
+                        <div style="font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.04em;">Modern Rental Management</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey-light); margin-top: 4px;">signals.rent &middot; Cambridge, UK</div>
+                    </div>
+                </div>
+            </div>
+            <div class="social-label">twitter:image &mdash; Master Brand Header</div>
+        </div>
+
+        <!-- Framework header -->
+        <div class="social-card">
+            <div class="social-preview twitter">
+                <div class="social-preview-inner" style="flex-direction: row; justify-content: space-between; padding: 24px 48px;">
+                    <span class="logo-mark size-md color-green" style="color: white;">Signals</span>
+                    <div style="text-align: right;">
+                        <div style="font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.04em;">Rental Framework</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey-light); margin-top: 4px;">Open Source &middot; MIT License</div>
+                    </div>
+                </div>
+            </div>
+            <div class="social-label">twitter:image &mdash; Framework Header</div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-dark">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 03 &mdash; GitHub Social</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 3: GITHUB SOCIAL                     -->
+<!-- ============================================ -->
+<section class="grid-bg-dark" style="padding-top: 40px;">
+    <div class="container">
+        <h3 style="color: var(--white); font-size: 0.8125rem; margin-bottom: 20px;">GitHub Social Preview (1280&times;640)</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <!-- Framework GitHub card -->
+            <div class="social-card">
+                <div class="social-preview github">
+                    <div class="social-preview-inner" style="gap: 16px;">
+                        <span class="logo-mark size-lg color-green" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.04em;">Signals Rental Framework</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey-light); text-align: center; max-width: 340px; line-height: 1.6;">The open-source equipment rental management framework for Laravel</div>
+                        <div style="display: flex; gap: 20px; margin-top: 8px;">
+                            <div style="display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey);">
+                                <span style="width: 8px; height: 8px; background: var(--amber); border-radius: 50%; display: inline-block;"></span>
+                                PHP
+                            </div>
+                            <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey);">&star; 1.2k</div>
+                            <div style="font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey);">&#9734; 89 forks</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="social-label">github social &mdash; Rental Framework</div>
+            </div>
+
+            <!-- Signals Master GitHub card -->
+            <div class="social-card">
+                <div class="social-preview github">
+                    <div class="social-preview-inner" style="gap: 16px;">
+                        <span class="logo-mark size-lg color-blue" style="color: white;">Signals</span>
+                        <div style="font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.04em;">Signals</div>
+                        <div style="font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey-light); text-align: center; max-width: 340px; line-height: 1.6;">Modern rental management platform</div>
+                    </div>
+                </div>
+                <div class="social-label">github social &mdash; Signals Master</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-dark">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 04 &mdash; Icons &amp; Avatars</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 4: PROFILE PICS & SLACK              -->
+<!-- ============================================ -->
+<section class="grid-bg-dark" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-006b</span>
+            <span class="stamp-title">Icons &amp; Avatars</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2 style="color: var(--white);">Icons &amp; <em>Avatars</em></h2>
+
+        <!-- Slack Icons -->
+        <div style="margin-bottom: 48px;">
+            <h3 style="color: var(--white); font-size: 0.8125rem; margin-bottom: 16px;">Slack Icons (36px)</h3>
+            <div class="slack-row" style="margin-bottom: 12px;">
+                <!-- Master -->
+                <div class="slack-icon" style="color: var(--navy); background: var(--white);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--blue); border-radius: 0 6px 0 0;"></span>
+                </div>
+                <!-- Framework -->
+                <div class="slack-icon" style="color: var(--white); background: var(--green);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--navy); border-radius: 0 6px 0 0;"></span>
+                </div>
+                <!-- Cloud -->
+                <div class="slack-icon" style="color: var(--white); background: var(--sky);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--navy); border-radius: 0 6px 0 0;"></span>
+                </div>
+                <!-- Network -->
+                <div class="slack-icon" style="color: var(--white); background: var(--cyan);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--navy); border-radius: 0 6px 0 0;"></span>
+                </div>
+                <!-- Intelligence -->
+                <div class="slack-icon" style="color: var(--white); background: var(--amber);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--navy); border-radius: 0 6px 0 0;"></span>
+                </div>
+                <!-- Registry -->
+                <div class="slack-icon" style="color: var(--white); background: var(--violet);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--navy); border-radius: 0 6px 0 0;"></span>
+                </div>
+                <!-- Connect -->
+                <div class="slack-icon" style="color: var(--white); background: var(--rose);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--navy); border-radius: 0 6px 0 0;"></span>
+                </div>
+                <!-- Transport -->
+                <div class="slack-icon" style="color: var(--white); background: var(--slate);">
+                    <span>S</span>
+                    <span style="position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: var(--navy); border-radius: 0 6px 0 0;"></span>
+                </div>
+            </div>
+            <div style="font-size: 0.5625rem; color: var(--grey);">Master &middot; Framework &middot; Cloud &middot; Network &middot; Intelligence &middot; Registry &middot; Connect &middot; Transport</div>
+        </div>
+
+        <!-- Monograms -->
+        <div style="margin-bottom: 48px;">
+            <h3 style="color: var(--white); font-size: 0.8125rem; margin-bottom: 16px;">Monograms (64 / 48 / 36px)</h3>
+            <div class="icon-row">
+                <span class="monogram mono-64 color-blue" style="color: var(--white);">S</span>
+                <span class="monogram mono-48 color-green" style="color: var(--white);">S</span>
+                <span class="monogram mono-36 color-sky" style="color: var(--white);">S</span>
+                <span class="monogram mono-36 color-cyan" style="color: var(--white);">S</span>
+                <span class="monogram mono-36 color-amber" style="color: var(--white);">S</span>
+                <span class="monogram mono-36 color-violet" style="color: var(--white);">S</span>
+                <span class="monogram mono-36 color-rose" style="color: var(--white);">S</span>
+                <span class="monogram mono-36 color-slate" style="color: var(--white);">S</span>
+            </div>
+        </div>
+
+        <!-- Profile Pictures -->
+        <div>
+            <h3 style="color: var(--white); font-size: 0.8125rem; margin-bottom: 16px;">Profile Pictures (circular)</h3>
+            <div class="profile-row">
+                <div class="profile-pic" style="color: var(--blue);">S</div>
+                <div class="profile-pic" style="color: var(--green);">S</div>
+                <div class="profile-pic" style="color: var(--sky);">S</div>
+                <div class="profile-pic" style="color: var(--amber);">S</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 05 &mdash; Favicons</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 5: FAVICON VARIANTS                  -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-006c</span>
+            <span class="stamp-title">Favicons</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2>Favicon <em>Variants</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">The monogram scales down to favicon sizes across all standard dimensions.</p>
+
+        <!-- Light background favicons -->
+        <div style="margin-bottom: 40px;">
+            <span class="annotation" style="display: block; margin-bottom: 16px;">On Light Background</span>
+            <div class="favicon-row">
+                <div class="favicon-item">
+                    <div class="favicon-container">
+                        <span class="monogram mono-16 color-blue" style="color: var(--navy);">S</span>
+                    </div>
+                    <span class="favicon-size-label">16px</span>
+                </div>
+                <div class="favicon-item">
+                    <div class="favicon-container">
+                        <span class="monogram mono-32 color-blue" style="color: var(--navy);">S</span>
+                    </div>
+                    <span class="favicon-size-label">32px</span>
+                </div>
+                <div class="favicon-item">
+                    <div class="favicon-container">
+                        <span class="monogram mono-48 color-blue" style="color: var(--navy);">S</span>
+                    </div>
+                    <span class="favicon-size-label">48px</span>
+                </div>
+                <div class="favicon-item">
+                    <div class="favicon-container">
+                        <div class="monogram color-blue" style="color: var(--navy); width: 192px; height: 192px; font-size: 5.25rem;">S</div>
+                    </div>
+                    <span class="favicon-size-label">192px (Android)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dark background favicons -->
+        <div>
+            <span class="annotation" style="display: block; margin-bottom: 16px;">On Dark Background</span>
+            <div class="favicon-row">
+                <div class="favicon-item">
+                    <div class="favicon-container on-dark">
+                        <span class="monogram mono-16 color-blue" style="color: var(--white);">S</span>
+                    </div>
+                    <span class="favicon-size-label">16px</span>
+                </div>
+                <div class="favicon-item">
+                    <div class="favicon-container on-dark">
+                        <span class="monogram mono-32 color-blue" style="color: var(--white);">S</span>
+                    </div>
+                    <span class="favicon-size-label">32px</span>
+                </div>
+                <div class="favicon-item">
+                    <div class="favicon-container on-dark">
+                        <span class="monogram mono-48 color-blue" style="color: var(--white);">S</span>
+                    </div>
+                    <span class="favicon-size-label">48px</span>
+                </div>
+                <div class="favicon-item">
+                    <div class="favicon-container on-dark">
+                        <div class="monogram color-blue" style="color: var(--white); width: 192px; height: 192px; font-size: 5.25rem;">S</div>
+                    </div>
+                    <span class="favicon-size-label">192px (Android)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================ -->
+<!-- FOOTER                                       -->
+<!-- ============================================ -->
+<footer class="grid-bg-dark" style="padding: 48px 0;">
+    <div class="container" style="text-align: center;">
+        <span class="logo-mark size-sm color-blue" style="color: var(--grey-light); font-size: 0.625rem; border-color: var(--grey); margin-bottom: 20px;">Signals</span>
+        <div style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Signals Brand Guidelines &mdash; Version 1.0 &mdash; February 2026
+        </div>
+        <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Confidential &mdash; For internal and partner use
+        </div>
+    </div>
+</footer>
+
+<!-- ============================================ -->
+<!-- SCROLL REVEAL                                -->
+<!-- ============================================ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var els = document.querySelectorAll(
+        '.section-stamp, .social-card, .slack-icon, .monogram, .profile-pic, ' +
+        '.favicon-item, h1, h2, h3'
+    );
+    var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                obs.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    els.forEach(function(el) {
+        el.classList.add('reveal');
+        obs.observe(el);
+    });
+});
+</script>
+
+</body>
+</html>

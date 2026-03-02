@@ -1,0 +1,28 @@
+{
+    "sections": [
+        {
+            "title": "Getting Started",
+            "slug": "getting-started",
+            "pages": [
+                { "title": "Introduction", "slug": "introduction" },
+                { "title": "Installation", "slug": "installation" },
+                { "title": "Configuration", "slug": "configuration" },
+                { "title": "Authentication & Settings", "slug": "authentication" }
+            ]
+        },
+        {
+            "title": "Platform",
+            "slug": "platform",
+            "pages": [
+                { "title": "Dashboard", "slug": "dashboard" }
+            ]
+        },
+        {
+            "title": "API",
+            "slug": "api",
+            "pages": [
+                { "title": "API Overview", "slug": "overview" }
+            ]
+        }
+    ]
+}

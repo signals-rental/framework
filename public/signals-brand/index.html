@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design Options</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+            padding: 60px 24px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+
+        .subtitle {
+            font-size: 1.125rem;
+            color: #888;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .designs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 32px;
+        }
+
+        .design-card {
+            background: #141414;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.06);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .design-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(255,255,255,0.15);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .card-preview {
+            height: 240px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: top;
+        }
+
+        .card-preview .preview-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .card-number {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+
+        .card-description {
+            font-size: 0.875rem;
+            color: #888;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            font-size: 0.6875rem;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 100px;
+            color: #999;
+        }
+
+        /* Color swatches for each design */
+        .design-1 .card-preview { background: linear-gradient(135deg, #faf9f7 0%, #e8e4df 100%); }
+        .design-2 .card-preview { background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%); }
+        .design-3 .card-preview { background: linear-gradient(135deg, #2d2420 0%, #4a3728 100%); }
+        .design-3a .card-preview { background: linear-gradient(135deg, #f5f0eb 0%, #e8ddd2 100%); }
+        .design-3b .card-preview { background: linear-gradient(135deg, #1a1613 0%, #2d2420 100%); }
+        .design-3c .card-preview { background: linear-gradient(135deg, #f0e8df 0%, #d4c4b0 100%); }
+        .design-3d .card-preview { background: linear-gradient(135deg, #1a1613 0%, #2a1f1a 50%, #1a1613 100%); }
+        .design-4 .card-preview { background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%); }
+        .design-5 .card-preview { background: linear-gradient(135deg, #000000 0%, #111111 100%); }
+        .design-6 .card-preview { background: linear-gradient(135deg, #0a2540 0%, #425466 100%); }
+        .design-7 .card-preview { background: linear-gradient(135deg, #18181b 0%, #27272a 100%); }
+        .design-8 .card-preview { background: linear-gradient(135deg, #1a1c2e 0%, #2d3748 100%); }
+        .design-9 .card-preview { background: linear-gradient(135deg, #050505 0%, #0f0f0f 100%); }
+        .design-10 .card-preview { background: linear-gradient(135deg, #f0ebe3 0%, #ddd5c9 100%); }
+
+        .preview-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+            opacity: 0.3;
+        }
+
+        .design-1 .preview-text { color: #1a1a1a; }
+        .design-2 .preview-text { color: #00d4ff; }
+        .design-3 .preview-text { color: #c9a87c; }
+        .design-3a .preview-text { color: #c9713d; }
+        .design-3b .preview-text { color: #d4a574; }
+        .design-3c .preview-text { color: #8b5e3c; }
+        .design-3d .preview-text { color: #ff8c61; }
+        .design-4 .preview-text { color: #000; }
+        .design-5 .preview-text { color: #fff; }
+        .design-6 .preview-text { color: #80e9ff; }
+        .design-7 .preview-text { color: #a78bfa; }
+        .design-8 .preview-text { color: #60a5fa; }
+        .design-9 .preview-text { color: #ef4444; }
+        .design-10 .preview-text { color: #1a1a1a; }
+        .design-11 .card-preview { background: linear-gradient(135deg, #1c1c1e 0%, #2a2a2e 50%, #1c1c1e 100%); }
+        .design-12 .card-preview { background: linear-gradient(135deg, #0c0c0e 0%, #161618 50%, #0c0c0e 100%); }
+        .design-13 .card-preview { background: linear-gradient(135deg, #0a1628 0%, #0f2240 50%, #0a1628 100%); }
+        .design-14 .card-preview { background: linear-gradient(135deg, #f4f1ea 0%, #ebe7df 100%); }
+        .design-11 .preview-text { color: #ff6b2b; }
+        .design-12 .preview-text { color: #ffb627; }
+        .design-12b .card-preview { background: linear-gradient(135deg, #08090d 0%, #12141a 50%, #08090d 100%); }
+        .design-12b .preview-text { color: #2dd4bf; }
+        .design-13 .preview-text { color: #67b8e3; }
+        .design-13b .card-preview { background: linear-gradient(135deg, #f8f9fb 0%, #eef2f7 100%); }
+        .design-13b .preview-text { color: #2563eb; }
+        .design-14 .preview-text { color: #9b1b30; }
+        .design-brand .card-preview {
+            background: linear-gradient(135deg, #f8f9fb 0%, #0f172a 100%);
+            border-bottom: 3px solid #2563eb;
+        }
+        .design-brand .preview-text { color: #2563eb; font-family: 'Inter', sans-serif; letter-spacing: 0.08em; font-weight: 700; text-transform: uppercase; }
+        .design-brand { border-color: rgba(37, 99, 235, 0.3); }
+        .design-brand:hover { border-color: rgba(37, 99, 235, 0.6); }
+
+        footer {
+            text-align: center;
+            margin-top: 80px;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            color: #666;
+            font-size: 0.875rem;
+        }
+
+        @media (max-width: 480px) {
+            .designs-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Signals Design Options</h1>
+            <p class="subtitle">21 design directions plus a complete brand identity system. Click any card to view the full design.</p>
+        </header>
+
+        <div class="designs-grid">
+            <a href="design-01-editorial.html" class="design-card design-1">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 01</div>
+                    <h2 class="card-title">Editorial Luxe</h2>
+                    <p class="card-description">Magazine-style elegance with sophisticated serif typography. Cream and charcoal palette with refined editorial layouts.</p>
+                    <div class="card-tags">
+                        <span class="tag">Serif</span>
+                        <span class="tag">Light mode</span>
+                        <span class="tag">Premium</span>
+                        <span class="tag">Editorial</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-02-signal-pulse.html" class="design-card design-2">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 02</div>
+                    <h2 class="card-title">Signal Pulse</h2>
+                    <p class="card-description">Dark mode with animated data visualizations and electric cyan accents. Technical, data-forward aesthetic.</p>
+                    <div class="card-tags">
+                        <span class="tag">Dark</span>
+                        <span class="tag">Animated</span>
+                        <span class="tag">Technical</span>
+                        <span class="tag">Cyan</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-03-warm-earth.html" class="design-card design-3">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 03</div>
+                    <h2 class="card-title">Warm Earth</h2>
+                    <p class="card-description">Terracotta and clay tones create an approachable premium feel. Warm, inviting, yet sophisticated.</p>
+                    <div class="card-tags">
+                        <span class="tag">Warm</span>
+                        <span class="tag">Terracotta</span>
+                        <span class="tag">Approachable</span>
+                        <span class="tag">Premium</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-03a-organic-flow.html" class="design-card design-3a">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 03A</div>
+                    <h2 class="card-title">Organic Flow</h2>
+                    <p class="card-description">Warm Earth refined with flowing organic shapes, custom cursor, grain texture, and parallax blobs.</p>
+                    <div class="card-tags">
+                        <span class="tag">Organic</span>
+                        <span class="tag">Parallax</span>
+                        <span class="tag">Custom cursor</span>
+                        <span class="tag">Animated</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-03b-geometric.html" class="design-card design-3b">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 03B</div>
+                    <h2 class="card-title">Geometric Art Deco</h2>
+                    <p class="card-description">Angular clip-paths, diagonal dividers, and animated diamond shapes with art deco influence.</p>
+                    <div class="card-tags">
+                        <span class="tag">Geometric</span>
+                        <span class="tag">Art Deco</span>
+                        <span class="tag">Angular</span>
+                        <span class="tag">Bold</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-03c-kinetic.html" class="design-card design-3c">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 03C</div>
+                    <h2 class="card-title">Kinetic Depth</h2>
+                    <p class="card-description">Tactile 3D feel with layered shadows, tilt-on-hover cards, and neumorphic depth effects.</p>
+                    <div class="card-tags">
+                        <span class="tag">3D</span>
+                        <span class="tag">Neumorphic</span>
+                        <span class="tag">Interactive</span>
+                        <span class="tag">Tactile</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-03d-editorial.html" class="design-card design-3d">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 03D</div>
+                    <h2 class="card-title">Editorial Magazine</h2>
+                    <p class="card-description">Magazine-style layout with horizontal scrolling features, split-screen hero, and sunset gradients.</p>
+                    <div class="card-tags">
+                        <span class="tag">Editorial</span>
+                        <span class="tag">Horizontal scroll</span>
+                        <span class="tag">Magazine</span>
+                        <span class="tag">Dramatic</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-04-swiss.html" class="design-card design-4">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 04</div>
+                    <h2 class="card-title">Swiss Precision</h2>
+                    <p class="card-description">Grid-based layouts with clean sans-serif typography. Minimal, precise, and highly functional design.</p>
+                    <div class="card-tags">
+                        <span class="tag">Minimal</span>
+                        <span class="tag">Grid</span>
+                        <span class="tag">White</span>
+                        <span class="tag">Precise</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-04b-swiss.html" class="design-card design-4">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 04B</div>
+                    <h2 class="card-title">Swiss Precision v2</h2>
+                    <p class="card-description">Updated Swiss style with current homepage content. Instrument Sans + JetBrains Mono, 12-column grid, signal red accent, section numbering.</p>
+                    <div class="card-tags">
+                        <span class="tag">Minimal</span>
+                        <span class="tag">Swiss</span>
+                        <span class="tag">Monospace</span>
+                        <span class="tag">Precision</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-05-bold.html" class="design-card design-5">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 05</div>
+                    <h2 class="card-title">Bold Contrast</h2>
+                    <p class="card-description">Stark black and white with massive typography. Single accent color for maximum impact and memorability.</p>
+                    <div class="card-tags">
+                        <span class="tag">Bold</span>
+                        <span class="tag">B&W</span>
+                        <span class="tag">Typography</span>
+                        <span class="tag">Statement</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-06-stripe.html" class="design-card design-6">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 06</div>
+                    <h2 class="card-title">Stripe Refined</h2>
+                    <p class="card-description">Polished gradients and professional finesse inspired by Stripe. Product-focused with trust-building design.</p>
+                    <div class="card-tags">
+                        <span class="tag">Gradient</span>
+                        <span class="tag">Professional</span>
+                        <span class="tag">Polished</span>
+                        <span class="tag">Trust</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-07-laravel.html" class="design-card design-7">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 07</div>
+                    <h2 class="card-title">Laravel Cloud</h2>
+                    <p class="card-description">Modern dark theme with subtle purple/indigo accents. Developer-friendly aesthetic with refined details.</p>
+                    <div class="card-tags">
+                        <span class="tag">Dark</span>
+                        <span class="tag">Purple</span>
+                        <span class="tag">Modern</span>
+                        <span class="tag">Dev</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-08-intercom.html" class="design-card design-8">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 08</div>
+                    <h2 class="card-title">Intercom Warm</h2>
+                    <p class="card-description">Friendly and conversational with a warmer palette. Approachable SaaS feel that builds connection.</p>
+                    <div class="card-tags">
+                        <span class="tag">Friendly</span>
+                        <span class="tag">Blue</span>
+                        <span class="tag">Warm</span>
+                        <span class="tag">SaaS</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-09-cinematic.html" class="design-card design-9">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 09</div>
+                    <h2 class="card-title">Cinematic Dark</h2>
+                    <p class="card-description">Dramatic and moody like Nightwatch. Deep blacks with striking red accents and cinematic lighting effects.</p>
+                    <div class="card-tags">
+                        <span class="tag">Dramatic</span>
+                        <span class="tag">Red</span>
+                        <span class="tag">Moody</span>
+                        <span class="tag">Cinematic</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-10-typography.html" class="design-card design-10">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 10</div>
+                    <h2 class="card-title">Unexpected Type</h2>
+                    <p class="card-description">Distinctive typography as the hero element. Art-directed layouts with unconventional font choices.</p>
+                    <div class="card-tags">
+                        <span class="tag">Typography</span>
+                        <span class="tag">Art direction</span>
+                        <span class="tag">Unique</span>
+                        <span class="tag">Light</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-11-warehouse.html" class="design-card design-11">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 11</div>
+                    <h2 class="card-title">The Warehouse</h2>
+                    <p class="card-description">Refined industrial aesthetic with safety orange accents, flight case labels, equipment tags, and cross-hatch textures.</p>
+                    <div class="card-tags">
+                        <span class="tag">Industrial</span>
+                        <span class="tag">Orange</span>
+                        <span class="tag">Dark</span>
+                        <span class="tag">Stencil</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-12-console.html" class="design-card design-12">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 12</div>
+                    <h2 class="card-title">The Console</h2>
+                    <p class="card-description">Mixing desk control surface with amber VU meters, LED indicators, panel screws, and knurled metal textures.</p>
+                    <div class="card-tags">
+                        <span class="tag">Console</span>
+                        <span class="tag">Amber</span>
+                        <span class="tag">LED</span>
+                        <span class="tag">Dark</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-12b-console.html" class="design-card design-12b">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 12B</div>
+                    <h2 class="card-title">The Console v2</h2>
+                    <p class="card-description">Modern digital console with teal glow, frosted glass panels, signal bars, dot-matrix backgrounds, and horizontal-scroll services.</p>
+                    <div class="card-tags">
+                        <span class="tag">Console</span>
+                        <span class="tag">Teal</span>
+                        <span class="tag">Glass</span>
+                        <span class="tag">Modern</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-13-blueprint.html" class="design-card design-13">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 13</div>
+                    <h2 class="card-title">The Blueprint</h2>
+                    <p class="card-description">Technical drawing on deep indigo with grid backgrounds, registration marks, dimension lines, and annotation callouts.</p>
+                    <div class="card-tags">
+                        <span class="tag">Blueprint</span>
+                        <span class="tag">Schematic</span>
+                        <span class="tag">Indigo</span>
+                        <span class="tag">Grid</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-13b-blueprint.html" class="design-card design-13b">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 13B</div>
+                    <h2 class="card-title">The Blueprint v2</h2>
+                    <p class="card-description">Light architectural print with graph paper grid, ISO title blocks, trim marks, dimension arrows, revision stamps, and compass rose.</p>
+                    <div class="card-tags">
+                        <span class="tag">Blueprint</span>
+                        <span class="tag">Light</span>
+                        <span class="tag">Technical</span>
+                        <span class="tag">Print</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="brand/index.html" class="design-card design-brand">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Brand System</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Brand Guidelines</div>
+                    <h2 class="card-title">Blueprint Brand System</h2>
+                    <p class="card-description">Complete multi-page brand identity system. Marks, colors, typography, product lockups, social assets, color schemes, and usage guidelines.</p>
+                    <div class="card-tags">
+                        <span class="tag">7 Pages</span>
+                        <span class="tag">Blueprint</span>
+                        <span class="tag">Brand</span>
+                        <span class="tag">Identity</span>
+                    </div>
+                </div>
+            </a>
+
+            <a href="design-14-broadsheet.html" class="design-card design-14">
+                <div class="card-preview">
+                    <div class="preview-placeholder">
+                        <span class="preview-text">Signals</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="card-number">Option 14</div>
+                    <h2 class="card-title">The Broadsheet</h2>
+                    <p class="card-description">British newspaper editorial with Playfair Display masthead, multi-column layouts, hairline rules, and drop caps.</p>
+                    <div class="card-tags">
+                        <span class="tag">Editorial</span>
+                        <span class="tag">Serif</span>
+                        <span class="tag">Newspaper</span>
+                        <span class="tag">Light</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <footer>
+            <p>Signals Landing Page Design Exploration — 21 Options (including Warm Earth Refinements &amp; New Directions)</p>
+        </footer>
+    </div>
+</body>
+</html>

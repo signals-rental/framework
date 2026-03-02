@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals — Supporter Announcements</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+    --white: #ffffff;
+    --navy: #0f172a;
+    --grey: #64748b;
+    --grey-light: #94a3b8;
+    --base: #f8f9fb;
+    --grey-border: #e2e8f0;
+    --green: #059669;
+    --green-light: #34d399;
+    --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Martian Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--font-mono);
+    background: #1a1a2e;
+    color: var(--white);
+    -webkit-font-smoothing: antialiased;
+    padding: 40px;
+}
+
+/* --- Controls --- */
+.controls {
+    max-width: 1180px;
+    margin: 0 auto 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.controls h1 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.controls p { font-size: 0.6875rem; color: var(--grey); }
+.btn-download {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 24px;
+    background: var(--green);
+    color: var(--white);
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-download:hover { background: #047857; }
+.btn-download:disabled { opacity: 0.5; cursor: wait; }
+
+/* --- Card Grid --- */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(540px, 1fr));
+    gap: 32px;
+    max-width: 1180px;
+    margin: 0 auto;
+}
+.card-wrapper { width: 540px; height: 540px; overflow: hidden; }
+
+/* --- Card (light mode) --- */
+.card {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    transform-origin: top left;
+    transform: scale(0.5);
+    background-color: var(--base);
+    color: var(--navy);
+    background-image:
+        repeating-linear-gradient(0deg, rgba(5, 150, 105, 0.05) 0px, rgba(5, 150, 105, 0.05) 1px, transparent 1px, transparent 54px),
+        repeating-linear-gradient(90deg, rgba(5, 150, 105, 0.05) 0px, rgba(5, 150, 105, 0.05) 1px, transparent 1px, transparent 54px),
+        repeating-linear-gradient(0deg, rgba(5, 150, 105, 0.1) 0px, rgba(5, 150, 105, 0.1) 1px, transparent 1px, transparent 270px),
+        repeating-linear-gradient(90deg, rgba(5, 150, 105, 0.1) 0px, rgba(5, 150, 105, 0.1) 1px, transparent 1px, transparent 270px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 100px 120px;
+    text-align: center;
+}
+
+/* --- Trim Marks --- */
+.card::before, .card::after {
+    content: '';
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    z-index: 2;
+}
+.card::before { top: 36px; left: 36px; border-top: 2px solid var(--green); border-left: 2px solid var(--green); }
+.card::after { top: 36px; right: 36px; border-top: 2px solid var(--green); border-right: 2px solid var(--green); }
+.trim-bl, .trim-br {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    z-index: 2;
+}
+.trim-bl { bottom: 36px; left: 36px; border-bottom: 2px solid var(--green); border-left: 2px solid var(--green); }
+.trim-br { bottom: 36px; right: 36px; border-bottom: 2px solid var(--green); border-right: 2px solid var(--green); }
+
+/* --- Logo Mark (brand spec) --- */
+.logo-mark {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: 2px solid currentColor;
+    padding: 6px 16px;
+    position: relative;
+    text-decoration: none;
+    color: inherit;
+}
+.logo-mark::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+}
+.color-green::after { background: var(--green); }
+.logo-mark.size-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+.logo-mark.size-xl::after { width: 14px; height: 14px; }
+.logo-mark.size-lg { font-size: 1.5rem; padding: 8px 20px; }
+.logo-mark.size-lg::after { width: 10px; height: 10px; }
+.lockup { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.lockup-product { font-family: var(--font-mono); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6; }
+
+/* --- Stamp --- */
+.card-stamp {
+    display: inline-flex;
+    align-items: stretch;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1;
+}
+.card-stamp-num { background: var(--green); color: var(--white); padding: 5px 12px; }
+.card-stamp-title { padding: 5px 12px; border: 1px solid var(--grey-border); border-left: none; color: var(--grey); }
+
+/* --- Partnership Layout --- */
+.partnership {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 64px;
+    width: 1080px;
+    margin-left: -120px;
+    margin-right: -120px;
+    background: var(--white);
+    padding: 48px 120px;
+}
+.partner-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+    max-width: 340px;
+}
+.partner-logo-box {
+    width: 280px;
+    height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.partner-logo-box img {
+    max-width: 180px;
+    max-height: 180px;
+    object-fit: contain;
+}
+.partner-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--grey);
+}
+.partner-label {
+    margin-top: 24px;
+}
+.partner-name {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--navy);
+    margin-bottom: 24px;
+}
+
+/* --- Connector --- */
+.connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+    margin-top: -120px;
+}
+.connector-line {
+    width: 1px;
+    height: 32px;
+    background: var(--grey-border);
+}
+.connector-x {
+    font-family: var(--font-mono);
+    font-size: 3rem;
+    font-weight: 500;
+    color: var(--green);
+    padding: 8px 0;
+}
+
+/* --- Dimension Line --- */
+.dim-line {
+    display: flex;
+    align-items: center;
+    width: 140px;
+    opacity: 0.25;
+}
+.dim-arrow-l, .dim-arrow-r {
+    width: 0; height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    flex-shrink: 0;
+}
+.dim-arrow-l { border-right: 6px solid var(--grey); }
+.dim-arrow-r { border-left: 6px solid var(--grey); }
+.dim-rule { flex: 1; height: 1px; background: var(--grey); }
+
+/* --- Text --- */
+.card-headline {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    color: var(--navy);
+    font-size: 2.75rem;
+}
+.card-headline em {
+    font-style: italic;
+    font-weight: 600;
+    color: var(--green);
+}
+.card-blurb {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--grey);
+    max-width: 700px;
+}
+.card-annotation {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--grey);
+}
+
+/* --- Fold dots --- */
+.fold-dot {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(5, 150, 105, 0.3);
+    z-index: 2;
+}
+</style>
+</head>
+<body>
+
+<div class="controls">
+    <div>
+        <h1>Supporter Announcements</h1>
+        <p>2 cards &middot; 1080 &times; 1080px &middot; PNG</p>
+    </div>
+    <button class="btn-download" id="downloadAll" onclick="downloadAll()">Download All as PNG</button>
+</div>
+
+<div class="card-grid">
+
+<!-- Card 0: CEG — First Supporter -->
+<div class="card-wrapper"><div class="card" id="card-0">
+    <div class="trim-bl"></div><div class="trim-br"></div>
+    <div class="fold-dot" style="top:540px;left:36px"></div>
+    <div class="fold-dot" style="top:540px;right:36px"></div>
+
+    <div class="card-stamp" style="margin-bottom:52px">
+        <span class="card-stamp-num">SIG-S01</span>
+        <span class="card-stamp-title">Supporter</span>
+    </div>
+
+    <div class="card-headline" style="margin-bottom:20px">Project <em>Supporter</em></div>
+    <div class="card-blurb" style="margin-bottom:48px">We're pleased to announce open-source project support from CEG, one of the UK's leading event equipment rental companies.</div>
+
+    <div class="partnership" style="margin-bottom:56px">
+        <div class="partner-side">
+            <div class="partner-logo-box">
+                <div class="lockup"><span class="logo-mark size-lg color-green" style="font-size:2rem;padding:10px 24px;">Signals</span><div class="lockup-product">Rental Framework</div></div>
+            </div>
+            <div class="partner-label">Framework</div>
+            <div class="partner-name">Signals</div>
+        </div>
+        <div class="connector">
+            <div class="connector-line"></div>
+            <div class="connector-x">&times;</div>
+            <div class="connector-line"></div>
+        </div>
+        <div class="partner-side">
+            <div class="partner-logo-box">
+                <img src="/img/ceg-logo-orange.png" alt="CEG">
+            </div>
+            <div class="partner-label">Supporter</div>
+            <div class="partner-name">CEG</div>
+        </div>
+    </div>
+
+    <div class="dim-line"><span class="dim-arrow-l"></span><span class="dim-rule"></span><span class="dim-arrow-r"></span></div>
+    <div style="height:24px"></div>
+    <div class="card-annotation">signals.rent &times; ceg.rent</div>
+</div></div>
+
+<!-- Card 1: TSL Lighting — Supporter -->
+<div class="card-wrapper"><div class="card" id="card-1">
+    <div class="trim-bl"></div><div class="trim-br"></div>
+    <div class="fold-dot" style="top:540px;left:36px"></div>
+    <div class="fold-dot" style="top:540px;right:36px"></div>
+
+    <div class="card-stamp" style="margin-bottom:52px">
+        <span class="card-stamp-num">SIG-S02</span>
+        <span class="card-stamp-title">Supporter</span>
+    </div>
+
+    <div class="card-headline" style="margin-bottom:20px">Project <em>Supporter</em></div>
+    <div class="card-blurb" style="margin-bottom:48px">We're pleased to announce open-source project support from TSL Lighting, specialists in professional lighting solutions for the events industry.</div>
+
+    <div class="partnership" style="margin-bottom:56px">
+        <div class="partner-side">
+            <div class="partner-logo-box">
+                <div class="lockup"><span class="logo-mark size-lg color-green" style="font-size:2rem;padding:10px 24px;">Signals</span><div class="lockup-product">Rental Framework</div></div>
+            </div>
+            <div class="partner-label">Framework</div>
+            <div class="partner-name">Signals</div>
+        </div>
+        <div class="connector">
+            <div class="connector-line"></div>
+            <div class="connector-x">&times;</div>
+            <div class="connector-line"></div>
+        </div>
+        <div class="partner-side">
+            <div class="partner-logo-box">
+                <img src="/img/tsl-logo.png" alt="TSL Lighting">
+            </div>
+            <div class="partner-label">Supporter</div>
+            <div class="partner-name">TSL Lighting</div>
+        </div>
+    </div>
+
+    <div class="dim-line"><span class="dim-arrow-l"></span><span class="dim-rule"></span><span class="dim-arrow-r"></span></div>
+    <div style="height:24px"></div>
+    <div class="card-annotation">signals.rent &times; tsllighting.com</div>
+</div></div>
+
+</div>
+
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script>
+var cardNames = [
+    'supporter-01-ceg',
+    'supporter-02-tsl-lighting'
+];
+
+function waitForImages() {
+    var imgs = document.querySelectorAll('.card img');
+    var promises = Array.from(imgs).map(function(img) {
+        if (img.complete) return Promise.resolve();
+        return new Promise(function(resolve) {
+            img.onload = resolve;
+            img.onerror = resolve;
+        });
+    });
+    return Promise.all(promises);
+}
+
+async function downloadAll() {
+    var btn = document.getElementById('downloadAll');
+    btn.disabled = true;
+    btn.textContent = 'Loading images...';
+
+    await waitForImages();
+
+    for (var i = 0; i < 2; i++) {
+        var card = document.getElementById('card-' + i);
+        btn.textContent = 'Rendering ' + (i + 1) + ' / 2...';
+
+        card.style.transform = 'none';
+
+        try {
+            var canvas = await html2canvas(card, {
+                width: 1080,
+                height: 1080,
+                scale: 4,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#f8f9fb',
+                logging: false
+            });
+
+            var link = document.createElement('a');
+            link.download = cardNames[i] + '.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            await new Promise(function(r) { setTimeout(r, 500); });
+        } catch (err) {
+            console.error('Failed to render card ' + i, err);
+        }
+
+        card.style.transform = 'scale(0.5)';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Download All as PNG';
+}
+</script>
+</body>
+</html>

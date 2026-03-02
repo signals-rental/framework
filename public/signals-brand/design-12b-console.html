@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 12b: The Console v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@600;700&family=Fira+Code:wght@400;500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================================
+           THE CONSOLE v2 — Digital Production Surface
+           Allen & Heath Avantis / LED strips / frosted glass
+           ============================================================ */
+
+        :root {
+            --base: #08090d;
+            --panel: #12141a;
+            --panel-raised: #1a1d24;
+            --border: #1e2129;
+            --border-light: #272b35;
+
+            --teal: #2dd4bf;
+            --teal-dim: #14b8a6;
+            --teal-glow: rgba(45, 212, 191, 0.35);
+            --teal-glow-soft: rgba(45, 212, 191, 0.15);
+            --teal-glow-faint: rgba(45, 212, 191, 0.06);
+
+            --amber: #f59e0b;
+            --amber-glow: rgba(245, 158, 11, 0.3);
+
+            --coral: #fb7185;
+            --coral-glow: rgba(251, 113, 133, 0.3);
+
+            --green: #4ade80;
+            --green-glow: rgba(74, 222, 128, 0.3);
+
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --text-faint: #475569;
+
+            --font-display: 'Familjen Grotesk', sans-serif;
+            --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'Fira Code', 'SF Mono', monospace;
+
+            --frost: rgba(18, 20, 26, 0.7);
+            --frost-border: rgba(255, 255, 255, 0.06);
+
+            --dot-matrix: radial-gradient(
+                circle,
+                rgba(255, 255, 255, 0.03) 1px,
+                transparent 1px
+            );
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--base);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ---- Back Link ---- */
+        .back-link {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 200;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-faint);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.3s;
+        }
+        .back-link:hover { color: var(--text-muted); }
+
+        /* ---- Container ---- */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+        .container-wide {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        /* ============================================================
+           DOT MATRIX BACKGROUND
+           ============================================================ */
+        .dot-bg {
+            background-image: var(--dot-matrix);
+            background-size: 20px 20px;
+        }
+
+        /* ============================================================
+           SIGNAL BARS — Vertical LED tower decorations
+           ============================================================ */
+        .signal-bars {
+            display: flex;
+            gap: 3px;
+            align-items: flex-end;
+            height: 24px;
+        }
+
+        .signal-bar {
+            width: 3px;
+            border-radius: 1.5px;
+            background: var(--teal);
+            opacity: 0.6;
+        }
+
+        .signal-bars--teal .signal-bar { background: var(--teal); }
+        .signal-bars--amber .signal-bar { background: var(--amber); }
+
+        .signal-bar:nth-child(1) { height: 40%; animation: barPulse 2s ease-in-out infinite; }
+        .signal-bar:nth-child(2) { height: 70%; animation: barPulse 2s ease-in-out 0.2s infinite; }
+        .signal-bar:nth-child(3) { height: 100%; animation: barPulse 2s ease-in-out 0.4s infinite; }
+        .signal-bar:nth-child(4) { height: 55%; animation: barPulse 2s ease-in-out 0.6s infinite; }
+
+        @keyframes barPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* ============================================================
+           GLOW LINES — Section dividers
+           ============================================================ */
+        .glow-line {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--teal-dim), transparent);
+            box-shadow: 0 0 8px var(--teal-glow-soft), 0 0 20px var(--teal-glow-faint);
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .glow-line--short {
+            max-width: 600px;
+        }
+
+        /* ============================================================
+           STATUS PIPS — Rectangular LED indicators
+           ============================================================ */
+        .pip {
+            display: inline-block;
+            width: 8px;
+            height: 3px;
+            border-radius: 1.5px;
+            flex-shrink: 0;
+        }
+
+        .pip--teal {
+            background: var(--teal);
+            box-shadow: 0 0 6px var(--teal-glow), 0 0 12px var(--teal-glow-soft);
+        }
+
+        .pip--amber {
+            background: var(--amber);
+            box-shadow: 0 0 6px var(--amber-glow);
+        }
+
+        .pip--coral {
+            background: var(--coral);
+            box-shadow: 0 0 6px var(--coral-glow);
+        }
+
+        .pip--green {
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green-glow);
+        }
+
+        .pip--pulse {
+            animation: pipPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pipPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ============================================================
+           FROSTED GLASS CARDS
+           ============================================================ */
+        .frost-card {
+            background: var(--frost);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--frost-border);
+            border-radius: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .frost-card:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .frost-card--interactive:hover {
+            border-color: rgba(45, 212, 191, 0.2);
+            box-shadow: 0 0 30px var(--teal-glow-faint), 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ============================================================
+           NAVIGATION
+           ============================================================ */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(8, 9, 13, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .nav-glow {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 5%, var(--teal-dim) 50%, transparent 95%);
+            box-shadow: 0 0 8px var(--teal-glow-soft);
+            opacity: 0.6;
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.375rem;
+            font-weight: 700;
+            color: var(--text);
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-center {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-item {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            transition: all 0.25s ease;
+        }
+
+        .nav-item:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .nav-item.active {
+            color: var(--teal);
+            background: rgba(45, 212, 191, 0.08);
+        }
+
+        .nav-sep {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 6px;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-link {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 6px 12px;
+            transition: color 0.25s;
+        }
+        .nav-link:hover { color: var(--text); }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .btn:active { transform: translateY(1px); }
+
+        .btn-primary {
+            background: var(--teal);
+            color: #08090d;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        .btn-primary:hover {
+            background: #5eead4;
+            box-shadow: 0 4px 20px var(--teal-glow), 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        .btn-primary:active {
+            background: var(--teal-dim);
+        }
+
+        .btn-frost {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .btn-frost:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-green {
+            background: var(--green);
+            color: #08090d;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        .btn-green:hover {
+            box-shadow: 0 4px 20px var(--green-glow), 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.8125rem;
+            border-radius: 8px;
+        }
+
+        /* ============================================================
+           SECTION LABELS
+           ============================================================ */
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--teal);
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        /* ============================================================
+           ANIMATIONS
+           ============================================================ */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .fade-up {
+            opacity: 0;
+            animation: fadeUp 0.7s ease forwards;
+        }
+
+        .fade-up-1 { animation-delay: 0.1s; }
+        .fade-up-2 { animation-delay: 0.2s; }
+        .fade-up-3 { animation-delay: 0.3s; }
+        .fade-up-4 { animation-delay: 0.4s; }
+        .fade-up-5 { animation-delay: 0.5s; }
+        .fade-up-6 { animation-delay: 0.6s; }
+
+        /* ============================================================
+           HERO — Full-width left-aligned, mockup breaks right
+           ============================================================ */
+        .hero {
+            padding: 160px 0 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: var(--dot-matrix);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+
+        /* Ambient teal glow top-right */
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: -200px;
+            right: -200px;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--teal-glow-faint), transparent 60%);
+            pointer-events: none;
+        }
+
+        .hero .container {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 16px 6px 12px;
+            background: rgba(45, 212, 191, 0.06);
+            border: 1px solid rgba(45, 212, 191, 0.12);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--teal);
+            letter-spacing: 0.03em;
+            margin-bottom: 28px;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: 3.75rem;
+            font-weight: 700;
+            line-height: 1.06;
+            letter-spacing: -0.03em;
+            color: var(--text);
+            margin-bottom: 24px;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            color: var(--teal);
+            text-shadow: 0 0 40px var(--teal-glow-faint);
+        }
+
+        .hero-description {
+            font-size: 1.125rem;
+            line-height: 1.7;
+            color: var(--text-muted);
+            margin-bottom: 36px;
+            max-width: 480px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .hero-meta {
+            display: flex;
+            gap: 24px;
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+        }
+
+        .hero-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hero-meta .check {
+            color: var(--teal);
+            font-size: 0.75rem;
+        }
+
+        /* ============================================================
+           HERO MOCKUP — Frosted glass dashboard
+           ============================================================ */
+        .hero-mockup {
+            position: relative;
+            z-index: 2;
+        }
+
+        .mockup-card {
+            background: rgba(18, 20, 26, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow:
+                0 8px 60px rgba(0, 0, 0, 0.5),
+                0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .mockup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mockup-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mockup-title {
+            font-family: var(--font-display);
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .mockup-url {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+        }
+
+        .mockup-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: var(--teal);
+            letter-spacing: 0.04em;
+        }
+
+        .mockup-body {
+            padding: 24px;
+        }
+
+        /* Stats Grid in Mockup */
+        .mockup-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .mockup-stat {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Fader track lines in stat cards */
+        .mockup-stat::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
+            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+        }
+
+        .mockup-stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--teal);
+            letter-spacing: 0.04em;
+            text-shadow: 0 0 20px var(--teal-glow-soft);
+            line-height: 1.2;
+        }
+
+        .mockup-stat-label {
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        /* Signal strength bars in mockup */
+        .mockup-signal-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            padding: 0 4px;
+        }
+
+        .mockup-signal {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 32px;
+        }
+
+        .mockup-signal-seg {
+            flex: 1;
+            border-radius: 1px;
+            opacity: 0;
+            animation: segFadeIn 0.3s ease forwards;
+        }
+
+        @keyframes segFadeIn {
+            to { opacity: 1; }
+        }
+
+        .mockup-signal--teal .mockup-signal-seg { background: var(--teal); box-shadow: 0 0 4px var(--teal-glow-soft); }
+        .mockup-signal--amber .mockup-signal-seg { background: var(--amber); box-shadow: 0 0 4px rgba(245, 158, 11, 0.15); }
+        .mockup-signal--green .mockup-signal-seg { background: var(--green); box-shadow: 0 0 4px rgba(74, 222, 128, 0.15); }
+
+        /* Activity in Mockup */
+        .mockup-activity {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .mockup-activity-header {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .mockup-activity-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.8125rem;
+            opacity: 0;
+            animation: fadeUp 0.4s ease forwards;
+        }
+
+        .mockup-activity-item:nth-child(2) { animation-delay: 0.8s; }
+        .mockup-activity-item:nth-child(3) { animation-delay: 1.1s; }
+        .mockup-activity-item:nth-child(4) { animation-delay: 1.4s; }
+        .mockup-activity-item:last-child { border-bottom: none; }
+
+        .mockup-activity-text {
+            flex: 1;
+            color: var(--text-muted);
+        }
+
+        .mockup-activity-time {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+            flex-shrink: 0;
+        }
+
+        /* Floating status tags */
+        .mockup-tags {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .mockup-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* ============================================================
+           SECTIONS — General
+           ============================================================ */
+        section {
+            padding: 100px 0;
+            position: relative;
+        }
+
+        section h2 {
+            font-family: var(--font-display);
+            font-size: 2.75rem;
+            font-weight: 700;
+            line-height: 1.12;
+            letter-spacing: -0.03em;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        section h2 em {
+            font-style: italic;
+            color: var(--teal);
+        }
+
+        .section-desc {
+            font-size: 1.0625rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+            max-width: 560px;
+            margin-bottom: 48px;
+        }
+
+        /* ============================================================
+           CLOUD SECTION
+           ============================================================ */
+        .cloud-section {
+            padding: 100px 0;
+        }
+
+        .cloud-inner {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .cloud-card {
+            padding: 40px;
+        }
+
+        .cloud-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 14px;
+            background: rgba(45, 212, 191, 0.06);
+            border: 1px solid rgba(45, 212, 191, 0.12);
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: var(--teal);
+            letter-spacing: 0.08em;
+            margin-bottom: 28px;
+        }
+
+        .cloud-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .cloud-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.9375rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .cloud-features .pip {
+            margin-top: 8px;
+        }
+
+        /* Cloud Mockup — Order table */
+        .cloud-mockup {
+            background: rgba(18, 20, 26, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .cloud-mockup-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .cloud-mockup-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .cloud-mockup-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 16px;
+            align-items: center;
+            padding: 13px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.8125rem;
+        }
+        .cloud-mockup-row:last-child { border-bottom: none; }
+
+        .cloud-mockup-id {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-faint);
+        }
+
+        .cloud-mockup-name { color: var(--text-muted); }
+
+        .cloud-mockup-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .cloud-mockup-amount {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--teal);
+            text-align: right;
+        }
+
+        /* ============================================================
+           SERVICES — Horizontal scroll snap
+           ============================================================ */
+        .services-section {
+            padding: 100px 0;
+            overflow: hidden;
+        }
+
+        .services-scroll-wrapper {
+            position: relative;
+        }
+
+        .services-scroll {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            padding: 4px 0 20px;
+            scrollbar-width: none;
+        }
+        .services-scroll::-webkit-scrollbar { display: none; }
+
+        .service-card {
+            flex: 0 0 420px;
+            scroll-snap-align: start;
+            padding: 36px;
+            min-height: 380px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .service-icon-wrap {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(45, 212, 191, 0.06);
+            border: 1px solid rgba(45, 212, 191, 0.1);
+            border-radius: 10px;
+            margin-bottom: 24px;
+        }
+
+        .service-icon-pip {
+            width: 12px;
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        .service-card h3 {
+            font-family: var(--font-display);
+            font-size: 1.375rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 12px;
+        }
+
+        .service-card p {
+            font-size: 0.9375rem;
+            color: var(--text-muted);
+            line-height: 1.65;
+            margin-bottom: 24px;
+        }
+
+        .service-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .service-features li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+        }
+
+        .service-stat {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: var(--teal);
+            letter-spacing: 0.04em;
+            margin-bottom: 6px;
+        }
+
+        /* ============================================================
+           INDUSTRIES
+           ============================================================ */
+        .industries-section {
+            background: var(--panel);
+            background-image: var(--dot-matrix);
+            background-size: 20px 20px;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .industries-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .industry-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            transition: all 0.3s ease;
+            cursor: default;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .industry-card:hover {
+            border-color: rgba(45, 212, 191, 0.15);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .industry-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(45, 212, 191, 0.04);
+            border: 1px solid rgba(45, 212, 191, 0.08);
+            border-radius: 12px;
+            font-size: 1.375rem;
+            flex-shrink: 0;
+        }
+
+        .industry-card h4 {
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 3px;
+        }
+
+        .industry-card span {
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+        }
+
+        /* ============================================================
+           WHY SECTION
+           ============================================================ */
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .why-item {
+            padding: 28px;
+            position: relative;
+        }
+
+        /* Teal glow decoration top-left of why items */
+        .why-item::before {
+            content: '';
+            position: absolute;
+            top: 28px;
+            left: 28px;
+            width: 2px;
+            height: 20px;
+            background: var(--teal);
+            border-radius: 1px;
+            box-shadow: 0 0 8px var(--teal-glow-soft);
+            opacity: 0.5;
+        }
+
+        .why-item-content {
+            padding-left: 18px;
+        }
+
+        .why-item h4 {
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .why-item p {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           OPEN SOURCE SECTION
+           ============================================================ */
+        .opensource-section {
+            background: var(--base);
+        }
+
+        .opensource-section h2 em {
+            color: var(--green);
+            text-shadow: 0 0 40px rgba(74, 222, 128, 0.15);
+        }
+
+        .opensource-panel {
+            padding: 48px;
+        }
+
+        .opensource-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .opensource-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .opensource-features li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9375rem;
+            color: var(--text-muted);
+        }
+
+        .opensource-cta {
+            text-align: center;
+            padding: 36px;
+            background: rgba(74, 222, 128, 0.04);
+            border: 1px solid rgba(74, 222, 128, 0.1);
+            border-radius: 14px;
+        }
+
+        .opensource-cta p {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .opensource-cta span {
+            font-size: 0.875rem;
+            color: var(--text-faint);
+            display: block;
+            margin-bottom: 24px;
+        }
+
+        /* ============================================================
+           CTA SECTION
+           ============================================================ */
+        .cta-section {
+            text-align: center;
+            padding: 120px 0;
+            position: relative;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--teal-glow-faint), transparent 60%);
+            pointer-events: none;
+        }
+
+        .cta-section h2 {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .cta-section .section-desc {
+            margin: 0 auto 40px;
+            text-align: center;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            position: relative;
+        }
+
+        .cta-meta {
+            font-size: 0.875rem;
+            color: var(--text-faint);
+            margin-top: 24px;
+            position: relative;
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        footer {
+            background: var(--panel);
+            border-top: 1px solid var(--border);
+            background-image: var(--dot-matrix);
+            background-size: 20px 20px;
+            padding: 72px 0 0;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(4, 1fr);
+            gap: 40px;
+            padding-bottom: 56px;
+        }
+
+        .footer-brand .logo {
+            display: inline-block;
+            margin-bottom: 14px;
+        }
+
+        .footer-brand p {
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+            line-height: 1.65;
+            max-width: 260px;
+        }
+
+        .footer-col h5 {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: var(--text-faint);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 18px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .footer-col a {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.25s;
+        }
+        .footer-col a:hover { color: var(--teal); }
+
+        .footer-bottom {
+            border-top: 1px solid var(--border);
+            padding: 20px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-faint);
+        }
+
+        .footer-bottom-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-bottom-links a {
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.25s;
+        }
+        .footer-bottom-links a:hover { color: var(--text-muted); }
+
+        /* ============================================================
+           FADER TRACKS — Background decoration for stat areas
+           ============================================================ */
+        .fader-tracks {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: space-evenly;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        .fader-track {
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 1024px) {
+            .hero .container {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .hero h1 {
+                font-size: 2.75rem;
+            }
+
+            .cloud-inner {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .service-card {
+                flex: 0 0 340px;
+            }
+
+            .industries-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .why-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .opensource-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container, .container-wide {
+                padding: 0 20px;
+            }
+
+            .nav-center { display: none; }
+
+            .hero {
+                padding: 120px 0 60px;
+            }
+
+            .hero h1 {
+                font-size: 2.25rem;
+            }
+
+            .hero-description {
+                font-size: 1rem;
+            }
+
+            .hero-meta {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .hero-buttons .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .mockup-stats {
+                grid-template-columns: 1fr;
+            }
+
+            section { padding: 72px 0; }
+
+            section h2 {
+                font-size: 2rem;
+            }
+
+            .service-card {
+                flex: 0 0 300px;
+            }
+
+            .industries-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .why-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+
+            .cloud-card {
+                padding: 24px;
+            }
+
+            .opensource-panel {
+                padding: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 {
+                font-size: 1.875rem;
+            }
+
+            section h2 {
+                font-size: 1.75rem;
+            }
+
+            .mockup-tags {
+                flex-direction: column;
+            }
+
+            .service-card {
+                flex: 0 0 calc(100vw - 52px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+         BACK LINK
+         ============================================================ -->
+    <a href="index.html" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        All Designs
+    </a>
+
+    <!-- ============================================================
+         NAVIGATION
+         ============================================================ -->
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">Signals</a>
+
+            <div class="nav-center">
+                <a href="#cloud" class="nav-item active">Cloud</a>
+                <a href="#services" class="nav-item">Registry</a>
+                <a href="#services" class="nav-item">Network</a>
+                <a href="#services" class="nav-item">Intelligence</a>
+            </div>
+
+            <div class="nav-right">
+                <a href="#opensource" class="nav-link">Open Source</a>
+                <span class="nav-sep"></span>
+                <a href="#" class="nav-link">Sign In</a>
+                <a href="#" class="btn btn-primary btn-sm">Start Trial</a>
+            </div>
+        </div>
+        <div class="nav-glow"></div>
+    </nav>
+
+    <!-- ============================================================
+         HERO
+         ============================================================ -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge fade-up fade-up-1">
+                    <span class="pip pip--teal pip--pulse"></span>
+                    Built on open source
+                </div>
+
+                <h1 class="fade-up fade-up-2">Modern rental management for <em>hire companies</em></h1>
+
+                <p class="hero-description fade-up fade-up-3">Signals Cloud is a complete rental management system &mdash; quotes, orders, availability, prep lists, invoicing &mdash; deployed in seconds with zero IT overhead.</p>
+
+                <div class="hero-buttons fade-up fade-up-4">
+                    <a href="#" class="btn btn-primary">Start Free Trial</a>
+                    <a href="#" class="btn btn-frost">Watch Demo</a>
+                </div>
+
+                <div class="hero-meta fade-up fade-up-5">
+                    <span><span class="check">&#10003;</span> 14-day free trial</span>
+                    <span><span class="check">&#10003;</span> No credit card required</span>
+                    <span><span class="check">&#10003;</span> UK-based support</span>
+                </div>
+            </div>
+
+            <!-- HERO MOCKUP -->
+            <div class="hero-mockup fade-up fade-up-3">
+                <div class="mockup-card">
+                    <div class="mockup-header">
+                        <div class="mockup-header-left">
+                            <span class="mockup-title">Dashboard</span>
+                            <span class="mockup-url">acme.signals.rent</span>
+                        </div>
+                        <div class="mockup-live">
+                            <span class="pip pip--teal pip--pulse"></span>
+                            Live
+                        </div>
+                    </div>
+
+                    <div class="mockup-body">
+                        <!-- Stats -->
+                        <div class="mockup-stats">
+                            <div class="mockup-stat">
+                                <div class="mockup-stat-value">&pound;28.4k</div>
+                                <div class="mockup-stat-label">This Month</div>
+                            </div>
+                            <div class="mockup-stat">
+                                <div class="mockup-stat-value">76%</div>
+                                <div class="mockup-stat-label">Utilisation</div>
+                            </div>
+                            <div class="mockup-stat">
+                                <div class="mockup-stat-value">14</div>
+                                <div class="mockup-stat-label">Active Jobs</div>
+                            </div>
+                        </div>
+
+                        <!-- Signal Bars (instead of VU meters) -->
+                        <div class="mockup-signal-row">
+                            <div class="mockup-signal mockup-signal--teal">
+                                <span class="mockup-signal-seg" style="height:30%; animation-delay:0.1s"></span>
+                                <span class="mockup-signal-seg" style="height:55%; animation-delay:0.15s"></span>
+                                <span class="mockup-signal-seg" style="height:80%; animation-delay:0.2s"></span>
+                                <span class="mockup-signal-seg" style="height:100%; animation-delay:0.25s"></span>
+                                <span class="mockup-signal-seg" style="height:90%; animation-delay:0.3s"></span>
+                                <span class="mockup-signal-seg" style="height:65%; animation-delay:0.35s"></span>
+                                <span class="mockup-signal-seg" style="height:40%; animation-delay:0.4s"></span>
+                                <span class="mockup-signal-seg" style="height:20%; animation-delay:0.45s"></span>
+                            </div>
+                            <div class="mockup-signal mockup-signal--green">
+                                <span class="mockup-signal-seg" style="height:20%; animation-delay:0.5s"></span>
+                                <span class="mockup-signal-seg" style="height:45%; animation-delay:0.55s"></span>
+                                <span class="mockup-signal-seg" style="height:70%; animation-delay:0.6s"></span>
+                                <span class="mockup-signal-seg" style="height:95%; animation-delay:0.65s"></span>
+                                <span class="mockup-signal-seg" style="height:100%; animation-delay:0.7s"></span>
+                                <span class="mockup-signal-seg" style="height:80%; animation-delay:0.75s"></span>
+                                <span class="mockup-signal-seg" style="height:55%; animation-delay:0.8s"></span>
+                                <span class="mockup-signal-seg" style="height:30%; animation-delay:0.85s"></span>
+                            </div>
+                            <div class="mockup-signal mockup-signal--amber">
+                                <span class="mockup-signal-seg" style="height:50%; animation-delay:0.9s"></span>
+                                <span class="mockup-signal-seg" style="height:75%; animation-delay:0.95s"></span>
+                                <span class="mockup-signal-seg" style="height:60%; animation-delay:1.0s"></span>
+                                <span class="mockup-signal-seg" style="height:85%; animation-delay:1.05s"></span>
+                                <span class="mockup-signal-seg" style="height:100%; animation-delay:1.1s"></span>
+                                <span class="mockup-signal-seg" style="height:70%; animation-delay:1.15s"></span>
+                                <span class="mockup-signal-seg" style="height:45%; animation-delay:1.2s"></span>
+                                <span class="mockup-signal-seg" style="height:25%; animation-delay:1.25s"></span>
+                            </div>
+                        </div>
+
+                        <!-- Activity -->
+                        <div class="mockup-activity">
+                            <div class="mockup-activity-header">Signal Routing</div>
+                            <div class="mockup-activity-item">
+                                <span class="pip pip--green"></span>
+                                <span class="mockup-activity-text">Quote #1284 accepted</span>
+                                <span class="mockup-activity-time">2m ago</span>
+                            </div>
+                            <div class="mockup-activity-item">
+                                <span class="pip pip--teal"></span>
+                                <span class="mockup-activity-text">Order dispatched to O2 Arena</span>
+                                <span class="mockup-activity-time">18m ago</span>
+                            </div>
+                            <div class="mockup-activity-item">
+                                <span class="pip pip--amber"></span>
+                                <span class="mockup-activity-text">Invoice #892 payment received</span>
+                                <span class="mockup-activity-time">1h ago</span>
+                            </div>
+                        </div>
+
+                        <!-- Status Tags -->
+                        <div class="mockup-tags">
+                            <div class="mockup-tag">
+                                <span class="pip pip--green"></span>
+                                Xero sync complete
+                            </div>
+                            <div class="mockup-tag">
+                                <span class="pip pip--teal"></span>
+                                42 items prepped
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GLOW LINE DIVIDER -->
+    <div class="glow-line"></div>
+
+    <!-- ============================================================
+         CLOUD SECTION
+         ============================================================ -->
+    <section class="cloud-section" id="cloud">
+        <div class="container">
+            <div class="section-label fade-up">
+                <div class="signal-bars signal-bars--teal">
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                </div>
+                START HERE
+            </div>
+
+            <h2 class="fade-up">Your complete hire system,<br>in the cloud</h2>
+
+            <p class="section-desc fade-up">Everything you need to manage quotes, orders, stock, prep, and invoicing. Deployed instantly, updated automatically, backed up continuously.</p>
+
+            <div class="cloud-inner fade-up">
+                <div class="cloud-card frost-card">
+                    <div class="cloud-badge">
+                        <span class="pip pip--teal"></span>
+                        MANAGED HOSTING
+                    </div>
+
+                    <ul class="cloud-features">
+                        <li><span class="pip pip--teal"></span> Quotes &amp; orders with digital approval workflows</li>
+                        <li><span class="pip pip--teal"></span> Real-time stock availability &amp; clash detection</li>
+                        <li><span class="pip pip--teal"></span> Prep lists, pick sheets &amp; return processing</li>
+                        <li><span class="pip pip--teal"></span> Integrated invoicing with Xero &amp; QuickBooks sync</li>
+                        <li><span class="pip pip--teal"></span> Custom branding on all client-facing documents</li>
+                        <li><span class="pip pip--teal"></span> Sub-hire tracking &amp; purchase orders</li>
+                        <li><span class="pip pip--teal"></span> Multi-location warehouse management</li>
+                        <li><span class="pip pip--teal"></span> Crew scheduling &amp; transport planning</li>
+                    </ul>
+                </div>
+
+                <div class="cloud-mockup">
+                    <div class="cloud-mockup-header">
+                        <span class="cloud-mockup-dot" style="background: var(--coral);"></span>
+                        <span class="cloud-mockup-dot" style="background: var(--amber);"></span>
+                        <span class="cloud-mockup-dot" style="background: var(--green);"></span>
+                    </div>
+                    <div class="cloud-mockup-row">
+                        <span class="cloud-mockup-id">Q-1284</span>
+                        <span class="cloud-mockup-name">Glastonbury Main Stage</span>
+                        <span class="cloud-mockup-status"><span class="pip pip--green"></span> Accepted</span>
+                        <span class="cloud-mockup-amount">&pound;14,200</span>
+                    </div>
+                    <div class="cloud-mockup-row">
+                        <span class="cloud-mockup-id">O-0891</span>
+                        <span class="cloud-mockup-name">O2 Arena - Corporate Event</span>
+                        <span class="cloud-mockup-status"><span class="pip pip--teal"></span> Dispatched</span>
+                        <span class="cloud-mockup-amount">&pound;8,450</span>
+                    </div>
+                    <div class="cloud-mockup-row">
+                        <span class="cloud-mockup-id">O-0889</span>
+                        <span class="cloud-mockup-name">BBC Studios - Series Wrap</span>
+                        <span class="cloud-mockup-status"><span class="pip pip--amber"></span> Returning</span>
+                        <span class="cloud-mockup-amount">&pound;3,780</span>
+                    </div>
+                    <div class="cloud-mockup-row">
+                        <span class="cloud-mockup-id">Q-1285</span>
+                        <span class="cloud-mockup-name">Manchester Arena - Tour Support</span>
+                        <span class="cloud-mockup-status"><span class="pip pip--amber"></span> Pending</span>
+                        <span class="cloud-mockup-amount">&pound;22,600</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GLOW LINE DIVIDER -->
+    <div class="glow-line"></div>
+
+    <!-- ============================================================
+         SERVICES — Horizontal Scroll
+         ============================================================ -->
+    <section class="services-section" id="services">
+        <div class="container">
+            <div class="section-label fade-up">
+                <div class="signal-bars signal-bars--teal">
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                </div>
+                EXTEND WHEN READY
+            </div>
+
+            <h2 class="fade-up">Add capability as you grow</h2>
+
+            <p class="section-desc fade-up">Start with Cloud. Plug in additional modules when your business is ready. Each service is independent, all work together.</p>
+        </div>
+
+        <div class="container-wide">
+            <div class="services-scroll-wrapper fade-up">
+                <div class="services-scroll">
+                    <!-- Registry -->
+                    <div class="service-card frost-card frost-card--interactive">
+                        <div class="service-icon-wrap">
+                            <span class="service-icon-pip" style="background: var(--teal); box-shadow: 0 0 8px var(--teal-glow-soft);"></span>
+                        </div>
+                        <div class="service-stat">15,000+ PRODUCTS</div>
+                        <h3>Signals Registry</h3>
+                        <p>A shared product database connecting hire companies. Standardised equipment records with specifications, images, and weight data across the industry.</p>
+                        <ul class="service-features">
+                            <li><span class="pip pip--teal"></span> Standardised product library</li>
+                            <li><span class="pip pip--teal"></span> Shared specs &amp; weight data</li>
+                            <li><span class="pip pip--teal"></span> Automatic product matching</li>
+                            <li><span class="pip pip--teal"></span> Barcode &amp; serial tracking</li>
+                        </ul>
+                    </div>
+
+                    <!-- Network -->
+                    <div class="service-card frost-card frost-card--interactive">
+                        <div class="service-icon-wrap" style="background: rgba(245, 158, 11, 0.06); border-color: rgba(245, 158, 11, 0.1);">
+                            <span class="service-icon-pip" style="background: var(--amber); box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);"></span>
+                        </div>
+                        <div class="service-stat" style="color: var(--amber);">CREDIT SCORES</div>
+                        <h3>Signals Network</h3>
+                        <p>Credit scores and performance benchmarks for the hire industry. Know who you're working with before committing stock or extending terms.</p>
+                        <ul class="service-features">
+                            <li><span class="pip pip--amber"></span> Industry credit scores</li>
+                            <li><span class="pip pip--amber"></span> Payment history benchmarks</li>
+                            <li><span class="pip pip--amber"></span> Company verification</li>
+                            <li><span class="pip pip--amber"></span> Sub-hire partner ratings</li>
+                        </ul>
+                    </div>
+
+                    <!-- Intelligence -->
+                    <div class="service-card frost-card frost-card--interactive">
+                        <div class="service-icon-wrap" style="background: rgba(251, 113, 133, 0.06); border-color: rgba(251, 113, 133, 0.1);">
+                            <span class="service-icon-pip" style="background: var(--coral); box-shadow: 0 0 8px rgba(251, 113, 133, 0.2);"></span>
+                        </div>
+                        <div class="service-stat" style="color: var(--coral);">AI ASSISTANT</div>
+                        <h3>Signals Intelligence</h3>
+                        <p>AI-powered insights across your rental operations. Demand forecasting, pricing optimisation, and utilisation analytics that learn your business.</p>
+                        <ul class="service-features">
+                            <li><span class="pip pip--coral"></span> Demand forecasting</li>
+                            <li><span class="pip pip--coral"></span> Pricing optimisation</li>
+                            <li><span class="pip pip--coral"></span> Utilisation analytics</li>
+                            <li><span class="pip pip--coral"></span> Automated reporting</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GLOW LINE DIVIDER -->
+    <div class="glow-line"></div>
+
+    <!-- ============================================================
+         INDUSTRIES
+         ============================================================ -->
+    <section class="industries-section">
+        <div class="container">
+            <div class="section-label fade-up">
+                <div class="signal-bars signal-bars--teal">
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                </div>
+                BUILT FOR HIRE
+            </div>
+
+            <h2 class="fade-up">Whatever your kit,<br>we speak your language</h2>
+
+            <p class="section-desc fade-up">Purpose-built for companies that rent, hire, and deploy physical equipment. Not retrofitted project management.</p>
+
+            <div class="industries-grid">
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127903;</div>
+                    <div>
+                        <h4>Lighting &amp; AV</h4>
+                        <span>Moving heads, LED, control</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127908;</div>
+                    <div>
+                        <h4>Audio &amp; PA</h4>
+                        <span>Line arrays, monitors, desks</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127909;</div>
+                    <div>
+                        <h4>Film &amp; Broadcast</h4>
+                        <span>Cameras, lenses, grip</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127919;</div>
+                    <div>
+                        <h4>Staging &amp; Structures</h4>
+                        <span>Truss, staging, barriers</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#9889;</div>
+                    <div>
+                        <h4>Power &amp; Distribution</h4>
+                        <span>Generators, distro, cable</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#128295;</div>
+                    <div>
+                        <h4>Tools &amp; Plant</h4>
+                        <span>Access, tools, equipment</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GLOW LINE DIVIDER -->
+    <div class="glow-line"></div>
+
+    <!-- ============================================================
+         WHY SECTION
+         ============================================================ -->
+    <section>
+        <div class="container">
+            <div class="section-label fade-up">
+                <div class="signal-bars signal-bars--teal">
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                    <span class="signal-bar"></span>
+                </div>
+                WHY SIGNALS
+            </div>
+
+            <h2 class="fade-up">Built different, on purpose</h2>
+
+            <p class="section-desc fade-up">Not another generic SaaS with a rental plugin. Every line of code is written for hire companies.</p>
+
+            <div class="why-grid">
+                <div class="why-item frost-card fade-up">
+                    <div class="why-item-content">
+                        <h4>Up and running in a day</h4>
+                        <p>Import your stock, set your rates, and start quoting. No six-month implementation projects.</p>
+                    </div>
+                </div>
+                <div class="why-item frost-card fade-up">
+                    <div class="why-item-content">
+                        <h4>Honest pricing</h4>
+                        <p>Transparent per-user pricing. No hidden fees, no enterprise tax, no surprise invoices at renewal.</p>
+                    </div>
+                </div>
+                <div class="why-item frost-card fade-up">
+                    <div class="why-item-content">
+                        <h4>Built on open source</h4>
+                        <p>Our core is open source. No vendor lock-in, no hostage situation. Your data is always yours.</p>
+                    </div>
+                </div>
+                <div class="why-item frost-card fade-up">
+                    <div class="why-item-content">
+                        <h4>UK-based support</h4>
+                        <p>Real people who understand the hire industry. Not a chatbot, not a call centre in another timezone.</p>
+                    </div>
+                </div>
+                <div class="why-item frost-card fade-up">
+                    <div class="why-item-content">
+                        <h4>Intelligence built in</h4>
+                        <p>AI that learns your business patterns. Smarter pricing, demand forecasting, and utilisation insights.</p>
+                    </div>
+                </div>
+                <div class="why-item frost-card fade-up">
+                    <div class="why-item-content">
+                        <h4>Works with your tools</h4>
+                        <p>Xero, QuickBooks, Google Workspace, and more. We connect to the tools you already rely on.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GLOW LINE DIVIDER -->
+    <div class="glow-line"></div>
+
+    <!-- ============================================================
+         OPEN SOURCE
+         ============================================================ -->
+    <section class="opensource-section" id="opensource">
+        <div class="container">
+            <div class="section-label fade-up" style="color: var(--green);">
+                <div class="signal-bars signal-bars--amber">
+                    <span class="signal-bar" style="background: var(--green);"></span>
+                    <span class="signal-bar" style="background: var(--green);"></span>
+                    <span class="signal-bar" style="background: var(--green);"></span>
+                    <span class="signal-bar" style="background: var(--green);"></span>
+                </div>
+                OPEN SOURCE
+            </div>
+
+            <h2 class="fade-up">Prefer to <em>self-host?</em></h2>
+
+            <p class="section-desc fade-up">Run Signals on your own infrastructure. Full control, full access, no restrictions. The same powerful core that runs Signals Cloud.</p>
+
+            <div class="opensource-panel frost-card fade-up">
+                <div class="opensource-grid">
+                    <div>
+                        <ul class="opensource-features">
+                            <li><span class="pip pip--green"></span> Full source code access on GitHub</li>
+                            <li><span class="pip pip--green"></span> Docker &amp; native deployment options</li>
+                            <li><span class="pip pip--green"></span> Community-driven development</li>
+                            <li><span class="pip pip--green"></span> No feature gating or artificial limits</li>
+                            <li><span class="pip pip--green"></span> MIT licensed &mdash; use it however you want</li>
+                            <li><span class="pip pip--green"></span> Commercial support available if needed</li>
+                        </ul>
+                    </div>
+
+                    <div class="opensource-cta">
+                        <p>Free forever. No strings attached.</p>
+                        <span>Download, deploy, and make it your own.</span>
+                        <a href="#" class="btn btn-green">View on GitHub</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GLOW LINE DIVIDER -->
+    <div class="glow-line glow-line--short"></div>
+
+    <!-- ============================================================
+         CTA SECTION
+         ============================================================ -->
+    <section class="cta-section">
+        <div class="container">
+            <h2 class="fade-up">Ready to modernise your<br><em>hire operation?</em></h2>
+
+            <p class="section-desc fade-up" style="margin: 0 auto 40px; text-align: center;">Join hire companies across the UK already running on Signals.</p>
+
+            <div class="cta-buttons fade-up">
+                <a href="#" class="btn btn-primary" style="box-shadow: 0 4px 24px var(--teal-glow), 0 1px 2px rgba(0,0,0,0.3);">Start Free Trial</a>
+                <a href="#" class="btn btn-frost">Talk to Sales</a>
+            </div>
+
+            <p class="cta-meta fade-up">14-day trial &middot; Full features &middot; UK support</p>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         FOOTER
+         ============================================================ -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="#" class="logo">Signals</a>
+                    <p>Modern rental management for hire companies. Built on open source, backed by people who understand the industry.</p>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Platform</h5>
+                    <ul>
+                        <li><a href="#">Signals Cloud</a></li>
+                        <li><a href="#">Registry</a></li>
+                        <li><a href="#">Network</a></li>
+                        <li><a href="#">Intelligence</a></li>
+                        <li><a href="#">Pricing</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Resources</h5>
+                    <ul>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">API Reference</a></li>
+                        <li><a href="#">Changelog</a></li>
+                        <li><a href="#">Status</a></li>
+                        <li><a href="#">Blog</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Company</h5>
+                    <ul>
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Contact</a></li>
+                        <li><a href="#">Privacy</a></li>
+                        <li><a href="#">Terms</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Open Source</h5>
+                    <ul>
+                        <li><a href="#">GitHub</a></li>
+                        <li><a href="#">Contributing</a></li>
+                        <li><a href="#">Licence</a></li>
+                        <li><a href="#">Community</a></li>
+                        <li><a href="#">Self-hosting</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <span>&copy; 2026 Signals. All rights reserved.</span>
+                <div class="footer-bottom-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ============================================================
+         INTERSECTION OBSERVER + ANIMATIONS
+         ============================================================ -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Intersection Observer for scroll-triggered animations
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.animationPlayState = 'running';
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.1,
+                rootMargin: '0px 0px -40px 0px'
+            });
+
+            // Pause animations that aren't in the hero, observe them
+            document.querySelectorAll('.fade-up').forEach((el) => {
+                if (!el.closest('.hero') && !el.closest('nav')) {
+                    el.style.animationPlayState = 'paused';
+                }
+                observer.observe(el);
+            });
+
+            // Smooth scroll for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    const href = this.getAttribute('href');
+                    if (href === '#') return;
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+
+            // Nav glow pulse
+            const navGlow = document.querySelector('.nav-glow');
+            if (navGlow) {
+                navGlow.style.animation = 'glowPulse 4s ease-in-out infinite';
+            }
+        });
+    </script>
+
+</body>
+</html>

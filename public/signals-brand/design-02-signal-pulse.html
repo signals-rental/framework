@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 02: Signal Pulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --black: #050508;
+            --dark: #0a0a0f;
+            --surface: #12121a;
+            --cyan: #00d4ff;
+            --cyan-glow: rgba(0, 212, 255, 0.15);
+            --cyan-dark: #00a8cc;
+            --white: #ffffff;
+            --gray: #6b7280;
+            --gray-dark: #374151;
+
+            --font-display: 'Syne', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--black);
+            color: var(--white);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 1000;
+            font-size: 0.75rem;
+            color: var(--gray);
+            text-decoration: none;
+            font-family: var(--font-mono);
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--cyan); }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* Animated background */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 20px 0;
+            background: rgba(5, 5, 8, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--cyan);
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--cyan); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-decoration: none;
+            border-radius: 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--cyan);
+            color: var(--black);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 30px var(--cyan-glow), 0 0 60px var(--cyan-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--cyan);
+            border: 1px solid var(--cyan);
+        }
+        .btn-secondary:hover {
+            background: var(--cyan-glow);
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 120px 24px;
+            text-align: center;
+        }
+
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        .pulse-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            border: 1px solid var(--cyan);
+            border-radius: 50%;
+            opacity: 0;
+            animation: pulse-expand 4s ease-out infinite;
+        }
+
+        .pulse-ring:nth-child(2) { animation-delay: 1s; }
+        .pulse-ring:nth-child(3) { animation-delay: 2s; }
+        .pulse-ring:nth-child(4) { animation-delay: 3s; }
+
+        @keyframes pulse-expand {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+        }
+
+        .hero-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--cyan);
+            margin-bottom: 32px;
+            padding: 8px 16px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .hero-label::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--cyan);
+            border-radius: 50%;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.04em;
+            margin-bottom: 32px;
+            text-transform: uppercase;
+        }
+
+        .hero h1 .highlight {
+            color: var(--cyan);
+            text-shadow: 0 0 40px var(--cyan-glow);
+        }
+
+        .hero-text {
+            font-size: 0.9375rem;
+            color: var(--gray);
+            margin-bottom: 48px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.8;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        /* Data Section */
+        .data-section {
+            padding: 160px 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .data-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .data-header h2 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .data-header p {
+            color: var(--gray);
+            font-size: 0.875rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .feature-card {
+            background: var(--dark);
+            padding: 48px 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .feature-card:hover::before {
+            transform: translateX(0);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border: 1px solid var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            color: var(--cyan);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+        }
+
+        .feature-card h3 {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card p {
+            font-size: 0.8125rem;
+            color: var(--gray);
+            line-height: 1.7;
+        }
+
+        /* Stats */
+        .stats {
+            padding: 120px 24px;
+            background: var(--surface);
+            position: relative;
+            z-index: 1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 48px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            font-weight: 800;
+            color: var(--cyan);
+            line-height: 1;
+            margin-bottom: 8px;
+            text-shadow: 0 0 30px var(--cyan-glow);
+        }
+
+        .stat-label {
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--gray);
+        }
+
+        /* Comparison */
+        .comparison {
+            padding: 160px 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .comparison-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .comparison-header h2 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8125rem;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 20px 24px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .comparison-table thead th {
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--gray);
+            background: var(--surface);
+        }
+
+        .comparison-table thead th.highlight {
+            color: var(--cyan);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .comparison-table tbody td {
+            color: var(--gray);
+        }
+
+        .comparison-table tbody td:first-child {
+            color: var(--white);
+        }
+
+        .comparison-table tbody td.highlight {
+            background: rgba(0, 212, 255, 0.03);
+        }
+
+        .check { color: var(--cyan); }
+
+        /* CTA */
+        .cta {
+            padding: 160px 24px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            background: var(--surface);
+        }
+
+        .cta h2 {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+        }
+
+        .cta h2 .highlight {
+            color: var(--cyan);
+        }
+
+        .cta p {
+            font-size: 0.9375rem;
+            color: var(--gray);
+            margin-bottom: 48px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-form {
+            display: flex;
+            gap: 0;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .cta-form input {
+            flex: 1;
+            padding: 16px 24px;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            background: var(--dark);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-right: none;
+            color: var(--white);
+            outline: none;
+        }
+
+        .cta-form input::placeholder { color: var(--gray-dark); }
+        .cta-form input:focus { border-color: var(--cyan); }
+
+        /* Footer */
+        footer {
+            padding: 60px 24px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--gray-dark);
+        }
+
+        .footer-logo {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .footer-links a {
+            color: var(--gray-dark);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .footer-links a:hover { color: var(--cyan); }
+
+        @media (max-width: 968px) {
+            .features-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .nav-links { display: none; }
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .cta-form { flex-direction: column; }
+            .cta-form input { border-right: 1px solid rgba(0, 212, 255, 0.2); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <a href="index.html" class="back-link">[←] BACK</a>
+
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">SIGNALS</a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#comparison">Compare</a>
+                <a href="#cta" class="btn btn-primary">Get Access</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-bg">
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring"></div>
+        </div>
+        <div class="hero-content">
+            <div class="hero-label">
+                AI Intelligence for Rental
+            </div>
+            <h1>The <span class="highlight">AI Brain</span><br>for Equipment Rental</h1>
+            <p class="hero-text">Your RMS shows what happened. Signals shows what's coming. Transform customer behaviour into predictive intelligence.</p>
+            <div class="hero-cta">
+                <a href="#cta" class="btn btn-primary">Get Early Access →</a>
+                <a href="#features" class="btn btn-secondary">View Features</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="data-section" id="features">
+        <div class="container">
+            <div class="data-header">
+                <h2>Intelligence at Every Layer</h2>
+                <p>Six capabilities that transform how you understand your business</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">[01]</div>
+                    <h3>Customer Intelligence</h3>
+                    <p>LTV banding (A/B/C), growth trends, AOV segmentation, customer similarity clustering.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">[02]</div>
+                    <h3>Product Intelligence</h3>
+                    <p>Health scores, utilisation bands, rate trends, AI-powered affinity recommendations.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">[03]</div>
+                    <h3>Activity Signals</h3>
+                    <p>Every interaction captured—page views, searches, quotes. Behaviour becomes buying signals.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">[04]</div>
+                    <h3>AI Predictions</h3>
+                    <p>ML-powered utilisation forecasting, revenue predictions, pricing optimisation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">[05]</div>
+                    <h3>Incentive Programs</h3>
+                    <p>Automated loyalty tiers: Trade → Pro → Partner. Reward and retain automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">[06]</div>
+                    <h3>Unified Data Layer</h3>
+                    <p>Connect RMS, CRM, Xero, portal. Single source of truth across every touchpoint.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat">
+                    <div class="stat-value">50K+</div>
+                    <div class="stat-label">Events / Month</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">15%</div>
+                    <div class="stat-label">Conversion Lift</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Loyalty Tiers</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">137</div>
+                    <div class="stat-label">Live Components</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="comparison" id="comparison">
+        <div class="container">
+            <div class="comparison-header">
+                <h2>Beyond Traditional Systems</h2>
+            </div>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Capability</th>
+                        <th class="highlight">Signals</th>
+                        <th>Current RMS / Rentman</th>
+                        <th>HubSpot / Salesforce</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Behaviour tracking</td>
+                        <td class="highlight"><span class="check">✓ Every interaction</span></td>
+                        <td>Orders only</td>
+                        <td>Manual logging</td>
+                    </tr>
+                    <tr>
+                        <td>Predictive utilisation</td>
+                        <td class="highlight"><span class="check">✓ AI-powered</span></td>
+                        <td>Historical only</td>
+                        <td>Not available</td>
+                    </tr>
+                    <tr>
+                        <td>LTV segmentation</td>
+                        <td class="highlight"><span class="check">✓ Automatic</span></td>
+                        <td>Manual tags</td>
+                        <td>With setup</td>
+                    </tr>
+                    <tr>
+                        <td>Product recommendations</td>
+                        <td class="highlight"><span class="check">✓ AI engine</span></td>
+                        <td>Not available</td>
+                        <td>Not available</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="cta" id="cta">
+        <div class="container">
+            <h2>Start Seeing<br><span class="highlight">The Signals</span></h2>
+            <p>Join the rental companies using AI to understand their customers better than ever before.</p>
+            <form class="cta-form" onsubmit="event.preventDefault(); alert('Access request received!');">
+                <input type="email" placeholder="your@email.com" required>
+                <button type="submit" class="btn btn-primary">Get Access →</button>
+            </form>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">SIGNALS</div>
+                <div class="footer-links">
+                    <a href="#">Features</a>
+                    <a href="#">Pricing</a>
+                    <a href="#">Privacy</a>
+                </div>
+                <div>© 2026 Signals</div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

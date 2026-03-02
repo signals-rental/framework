@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — SVG &amp; PNG Icon Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Martian Mono', monospace;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 48px;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        h1 { font-family: 'Chakra Petch', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; font-size: 1.5rem; margin-bottom: 8px; }
+        h2 { font-family: 'Chakra Petch', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; font-size: 1rem; margin-bottom: 24px; color: #94a3b8; }
+        .subtitle { color: #94a3b8; margin-bottom: 48px; font-size: 0.8125rem; }
+        .section { margin-bottom: 64px; padding-bottom: 48px; border-bottom: 1px solid #1e293b; }
+        .section:last-child { border-bottom: none; }
+        .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .preview-cell { text-align: center; }
+        .preview-cell svg { border: 1px solid #1e293b; max-width: 280px; height: auto; display: block; margin: 0 auto 12px; }
+        .preview-cell.on-white svg { border-color: #cbd5e1; }
+        .btn-row { display: flex; gap: 8px; justify-content: center; }
+        .download-btn {
+            display: inline-block;
+            font-family: 'Chakra Petch', sans-serif;
+            font-weight: 600;
+            font-size: 0.5625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 5px 12px;
+            background: #059669;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .download-btn:hover { background: #047857; }
+        .download-btn.png { background: #2563eb; }
+        .download-btn.png:hover { background: #1d4ed8; }
+        .back-link { font-size: 0.6875rem; color: #64748b; text-decoration: none; display: inline-block; margin-bottom: 32px; }
+        .back-link:hover { color: #e2e8f0; }
+        .bg-label { font-size: 0.5625rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        #measure { position: absolute; left: -9999px; top: -9999px; }
+        @media (max-width: 900px) { .preview-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 600px) { .preview-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">&larr; Brand System</a>
+<h1>SVG &amp; PNG Export</h1>
+<p class="subtitle">Signals Rental Framework — 1000&times;1000px icon assets</p>
+
+<div class="section">
+    <h2>Monogram — Inset on Background</h2>
+    <div class="preview-grid" id="monogramGrid"></div>
+</div>
+
+<div class="section">
+    <h2>Social Square — With Text</h2>
+    <div class="preview-grid" id="socialGrid"></div>
+</div>
+
+<svg id="measure" xmlns="http://www.w3.org/2000/svg" width="2000" height="500"></svg>
+
+<script>
+var GREEN  = '#059669';
+var NAVY   = '#0f172a';
+var WHITE  = '#ffffff';
+var BASE   = '#f8f9fb';
+var GREY   = '#94a3b8';
+var GREY_D = '#64748b';
+var S = 1000;
+
+var FONT_CSS = "@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=Martian+Mono:wght@400;500&display=swap');";
+
+function measureText(text, fontFamily, fontWeight, fontSize, letterSpacing) {
+    var svg = document.getElementById('measure');
+    var ns = 'http://www.w3.org/2000/svg';
+    var el = document.createElementNS(ns, 'text');
+    el.setAttribute('font-family', fontFamily);
+    el.setAttribute('font-weight', fontWeight);
+    el.setAttribute('font-size', fontSize);
+    if (letterSpacing) el.setAttribute('letter-spacing', letterSpacing);
+    el.textContent = text;
+    svg.appendChild(el);
+    var box = el.getBBox();
+    svg.removeChild(el);
+    return { width: box.width, height: box.height, y: box.y };
+}
+
+function downloadSVG(svgString, filename) {
+    var blob = new Blob([svgString], { type: 'image/svg+xml' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function downloadPNG(drawFn, filename, scale) {
+    scale = scale || 1;
+    var size = S * scale;
+    var canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    drawFn(ctx);
+    var a = document.createElement('a');
+    a.download = filename;
+    a.href = canvas.toDataURL('image/png');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+function drawMonogramCanvas(ctx, bgFill, borderColor, letterColor, accentColor, monoMarkSize, monoBorder, monoCorner, monoFontSize) {
+    var mx = (S - monoMarkSize) / 2;
+    var my = mx;
+    var ms = monoMarkSize;
+    var bh = monoBorder / 2;
+
+    // Background
+    ctx.fillStyle = bgFill;
+    ctx.fillRect(0, 0, S, S);
+
+    // Border rect (outer edge at mx,my to mx+ms,my+ms)
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = monoBorder;
+    ctx.strokeRect(mx + bh, my + bh, ms - monoBorder, ms - monoBorder);
+
+    // Corner accent at top-right of outer edge
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(mx + ms - monoCorner, my, monoCorner, monoCorner);
+
+    // Letter "S" centered
+    ctx.fillStyle = letterColor;
+    ctx.font = '700 ' + monoFontSize + 'px "Chakra Petch"';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('S', mx + ms / 2, my + ms / 2 + monoFontSize * 0.04);
+}
+
+function drawSocialCanvas(ctx, bgFill, borderColor, textColor, accentColor, descColor, markX, markY, markW, markH, socialBorder, socialCorner, socialFontSize, socialLetterSpacing, descFontSize, descLetterSpacing, descY) {
+    var bh = socialBorder / 2;
+
+    // Background
+    ctx.fillStyle = bgFill;
+    ctx.fillRect(0, 0, S, S);
+
+    // Border rect
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = socialBorder;
+    ctx.strokeRect(markX + bh, markY + bh, markW - socialBorder, markH - socialBorder);
+
+    // Corner accent at top-right of outer edge
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(markX + markW - socialCorner, markY, socialCorner, socialCorner);
+
+    // "SIGNALS" text centered in mark
+    ctx.fillStyle = textColor;
+    ctx.font = '700 ' + socialFontSize + 'px "Chakra Petch"';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.letterSpacing = socialLetterSpacing + 'px';
+    ctx.fillText('SIGNALS', S / 2, markY + markH / 2 + socialFontSize * 0.04);
+
+    // "RENTAL FRAMEWORK" descriptor
+    ctx.fillStyle = descColor;
+    ctx.font = '500 ' + descFontSize + 'px "Martian Mono"';
+    ctx.letterSpacing = descLetterSpacing + 'px';
+    ctx.fillText('RENTAL FRAMEWORK', S / 2, descY);
+}
+
+function createCell(parentId, label, svgString, baseName, isLight, drawFn) {
+    var grid = document.getElementById(parentId);
+    var cell = document.createElement('div');
+    cell.className = 'preview-cell' + (isLight ? ' on-white' : '');
+
+    var labelDiv = document.createElement('div');
+    labelDiv.className = 'bg-label';
+    labelDiv.textContent = label;
+    cell.appendChild(labelDiv);
+
+    var wrapper = document.createElement('div');
+    wrapper.insertAdjacentHTML('afterbegin', svgString);
+    cell.appendChild(wrapper.firstChild);
+
+    var btnRow = document.createElement('div');
+    btnRow.className = 'btn-row';
+
+    var svgBtn = document.createElement('button');
+    svgBtn.className = 'download-btn';
+    svgBtn.textContent = 'SVG';
+    svgBtn.addEventListener('click', function() { downloadSVG(svgString, baseName + '.svg'); });
+    btnRow.appendChild(svgBtn);
+
+    var png2xBtn = document.createElement('button');
+    png2xBtn.className = 'download-btn png';
+    png2xBtn.textContent = 'PNG 2x';
+    png2xBtn.addEventListener('click', function() { downloadPNG(drawFn, baseName + '@2x.png', 2); });
+    btnRow.appendChild(png2xBtn);
+
+    var png4xBtn = document.createElement('button');
+    png4xBtn.className = 'download-btn png';
+    png4xBtn.textContent = 'PNG 4x';
+    png4xBtn.addEventListener('click', function() { downloadPNG(drawFn, baseName + '@4x.png', 4); });
+    btnRow.appendChild(png4xBtn);
+
+    cell.appendChild(btnRow);
+    grid.appendChild(cell);
+}
+
+function buildAll() {
+
+    // ─── MONOGRAM (inset in square background) ───
+    // The monogram mark is centered within the 1000×1000 canvas,
+    // not edge-to-edge. Mark occupies ~55% of the canvas.
+    var monoMarkSize = 540;
+    var monoOffset = (S - monoMarkSize) / 2; // centering offset
+
+    // Proportions from CSS .monogram.mono-64: border=2/64, corner=10/64, font=28/64
+    var monoBorder = Math.round(2 / 64 * monoMarkSize);   // ~17
+    var monoCorner = Math.round(10 / 64 * monoMarkSize);  // ~84
+    var monoFontSize = Math.round(28 / 64 * monoMarkSize); // ~236
+
+    var sBox = measureText('S', "'Chakra Petch', sans-serif", '700', monoFontSize, '0');
+
+    function makeMonogram(bgFill, borderColor, letterColor, accentColor) {
+        var bh = monoBorder / 2;
+        var mx = monoOffset;
+        var my = monoOffset;
+        var ms = monoMarkSize;
+
+        // Text centered in the mark
+        var textX = mx + ms / 2;
+        var textY = my + ms / 2 - (sBox.y + sBox.height / 2);
+
+        // Border rect: stroke centered, so outer edge = (mx, my) to (mx+ms, my+ms)
+        var rx = mx + bh;
+        var ry = my + bh;
+        var rw = ms - monoBorder;
+        var rh = ms - monoBorder;
+
+        // Corner accent: top-right of outer edge
+        var ax = mx + ms - monoCorner;
+        var ay = my;
+
+        return [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">',
+            '<defs><style>' + FONT_CSS + '</style></defs>',
+            '<rect width="1000" height="1000" fill="' + bgFill + '"/>',
+            '<rect x="' + rx + '" y="' + ry + '" width="' + rw + '" height="' + rh + '" fill="none" stroke="' + borderColor + '" stroke-width="' + monoBorder + '"/>',
+            '<rect x="' + ax + '" y="' + ay + '" width="' + monoCorner + '" height="' + monoCorner + '" fill="' + accentColor + '"/>',
+            '<text x="' + textX + '" y="' + textY + '" font-family="\'Chakra Petch\', sans-serif" font-weight="700" font-size="' + monoFontSize + '" fill="' + letterColor + '" text-anchor="middle">S</text>',
+            '</svg>'
+        ].join('\n');
+    }
+
+    // ─── SOCIAL SQUARE ───
+    var socialFontSize = 100;
+    var socialLetterSpacing = 0.08 * socialFontSize;
+
+    var sigBox = measureText('SIGNALS', "'Chakra Petch', sans-serif", '700', socialFontSize, socialLetterSpacing + 'px');
+
+    // CSS ratios from .logo-mark.size-lg (font-size 24px)
+    var sf = socialFontSize / 24;
+    var socialPadV = Math.round(8 * sf);
+    var socialPadH = Math.round(20 * sf);
+    var socialBorder = Math.round(2 * sf);
+    var socialCorner = Math.round(10 * sf);
+
+    // Mark rect (outer edge includes border)
+    var markW = sigBox.width + socialPadH * 2 + socialBorder * 2;
+    var markH = sigBox.height + socialPadV * 2 + socialBorder * 2;
+    var markX = (S - markW) / 2;
+    var markY = S / 2 - markH / 2 - 40;
+
+    // Text baseline
+    var sigTextX = S / 2;
+    var sigTextY = markY + socialBorder + socialPadV - sigBox.y;
+
+    // Descriptor
+    var descFontSize = 24;
+    var descLetterSpacing = 0.1 * descFontSize;
+    var descBox = measureText('RENTAL FRAMEWORK', "'Martian Mono', monospace", '500', descFontSize, descLetterSpacing + 'px');
+    var descY = markY + markH + 50 - descBox.y;
+
+    function makeSocial(bgFill, borderColor, textColor, accentColor, descColor) {
+        var bh = socialBorder / 2;
+
+        // Border rect
+        var rx = markX + bh;
+        var ry = markY + bh;
+        var rw = markW - socialBorder;
+        var rh = markH - socialBorder;
+
+        // Corner accent: top-right of outer edge = (markX + markW, markY)
+        var ax = markX + markW - socialCorner;
+        var ay = markY;
+
+        return [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">',
+            '<defs><style>' + FONT_CSS + '</style></defs>',
+            '<rect width="1000" height="1000" fill="' + bgFill + '"/>',
+            '<rect x="' + rx + '" y="' + ry + '" width="' + rw + '" height="' + rh + '" fill="none" stroke="' + borderColor + '" stroke-width="' + socialBorder + '"/>',
+            '<rect x="' + ax + '" y="' + ay + '" width="' + socialCorner + '" height="' + socialCorner + '" fill="' + accentColor + '"/>',
+            '<text x="' + sigTextX + '" y="' + sigTextY + '" font-family="\'Chakra Petch\', sans-serif" font-weight="700" font-size="' + socialFontSize + '" fill="' + textColor + '" text-anchor="middle" letter-spacing="' + socialLetterSpacing + 'px">SIGNALS</text>',
+            '<text x="' + (S / 2) + '" y="' + descY + '" font-family="\'Martian Mono\', monospace" font-weight="500" font-size="' + descFontSize + '" fill="' + descColor + '" text-anchor="middle" letter-spacing="' + descLetterSpacing + 'px">RENTAL FRAMEWORK</text>',
+            '</svg>'
+        ].join('\n');
+    }
+
+    // ─── Render all ───
+    var _mms = monoMarkSize, _mb = monoBorder, _mc = monoCorner, _mf = monoFontSize;
+
+    createCell('monogramGrid', 'On Navy (Dark)',
+        makeMonogram(NAVY, WHITE, WHITE, GREEN),
+        'srf-monogram-navy', false,
+        function(ctx) { drawMonogramCanvas(ctx, NAVY, WHITE, WHITE, GREEN, _mms, _mb, _mc, _mf); });
+    createCell('monogramGrid', 'On White',
+        makeMonogram(WHITE, NAVY, NAVY, GREEN),
+        'srf-monogram-white', true,
+        function(ctx) { drawMonogramCanvas(ctx, WHITE, NAVY, NAVY, GREEN, _mms, _mb, _mc, _mf); });
+    createCell('monogramGrid', 'On Green (Slack)',
+        makeMonogram(GREEN, WHITE, WHITE, NAVY),
+        'srf-monogram-green', false,
+        function(ctx) { drawMonogramCanvas(ctx, GREEN, WHITE, WHITE, NAVY, _mms, _mb, _mc, _mf); });
+
+    var _mx = markX, _my = markY, _mw = markW, _mh = markH;
+    var _sb = socialBorder, _sc = socialCorner, _sf2 = socialFontSize, _sls = socialLetterSpacing;
+    var _df = descFontSize, _dls = descLetterSpacing;
+    var socialDescY = markY + markH / 2 + markH / 2 + 50;
+
+    createCell('socialGrid', 'On Navy (Dark)',
+        makeSocial(NAVY, WHITE, WHITE, GREEN, GREY),
+        'srf-social-navy', false,
+        function(ctx) { drawSocialCanvas(ctx, NAVY, WHITE, WHITE, GREEN, GREY, _mx, _my, _mw, _mh, _sb, _sc, _sf2, _sls, _df, _dls, socialDescY); });
+    createCell('socialGrid', 'On White',
+        makeSocial(WHITE, NAVY, NAVY, GREEN, GREY_D),
+        'srf-social-white', true,
+        function(ctx) { drawSocialCanvas(ctx, WHITE, NAVY, NAVY, GREEN, GREY_D, _mx, _my, _mw, _mh, _sb, _sc, _sf2, _sls, _df, _dls, socialDescY); });
+    createCell('socialGrid', 'On Base (Light)',
+        makeSocial(BASE, NAVY, NAVY, GREEN, GREY_D),
+        'srf-social-light', true,
+        function(ctx) { drawSocialCanvas(ctx, BASE, NAVY, NAVY, GREEN, GREY_D, _mx, _my, _mw, _mh, _sb, _sc, _sf2, _sls, _df, _dls, socialDescY); });
+}
+
+document.fonts.ready.then(function() {
+    setTimeout(buildAll, 300);
+});
+</script>
+
+</body>
+</html>

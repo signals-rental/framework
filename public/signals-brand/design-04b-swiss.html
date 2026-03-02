@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 04b: Swiss Precision v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ========================================
+           VARIABLES
+           ======================================== */
+        :root {
+            --white: #ffffff;
+            --black: #000000;
+            --near-black: #171717;
+            --dark: #0a0a0a;
+            --gray-50: #f5f5f5;
+            --gray-200: #e5e5e5;
+            --gray-400: #a3a3a3;
+            --gray-600: #525252;
+            --gray-800: #262626;
+            --red: #dc2626;
+            --red-hover: #b91c1c;
+            --green: #16a34a;
+
+            --font-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+            --grid-max: 1440px;
+            --grid-padding: 48px;
+            --grid-gap: 24px;
+        }
+
+        /* ========================================
+           RESET & BASE
+           ======================================== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--white);
+            color: var(--near-black);
+            line-height: 1.5;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img { max-width: 100%; display: block; }
+
+        /* ========================================
+           ANIMATION — RESTRAINED
+           ======================================== */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-up {
+            animation: fadeUp 0.5s ease-out both;
+        }
+
+        .fade-up-d1 { animation-delay: 0.05s; }
+        .fade-up-d2 { animation-delay: 0.1s; }
+        .fade-up-d3 { animation-delay: 0.15s; }
+        .fade-up-d4 { animation-delay: 0.2s; }
+        .fade-up-d5 { animation-delay: 0.25s; }
+
+        /* ========================================
+           LAYOUT
+           ======================================== */
+        .container {
+            max-width: var(--grid-max);
+            margin: 0 auto;
+            padding: 0 var(--grid-padding);
+        }
+
+        .grid-12 {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: var(--grid-gap);
+        }
+
+        .rule {
+            border: none;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        /* ========================================
+           BACK LINK
+           ======================================== */
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: var(--grid-padding);
+            z-index: 200;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: var(--gray-400);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.15s;
+        }
+
+        .back-link:hover {
+            color: var(--near-black);
+        }
+
+        .back-link svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* ========================================
+           NAVIGATION
+           ======================================== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            height: 56px;
+            background: var(--white);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .nav-inner {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+            color: var(--near-black);
+            flex-shrink: 0;
+        }
+
+        .nav-center {
+            display: flex;
+            align-items: center;
+            gap: 48px;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .nav-center a {
+            font-family: var(--font-sans);
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--gray-600);
+            transition: color 0.15s;
+        }
+
+        .nav-center a:hover {
+            color: var(--near-black);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-shrink: 0;
+        }
+
+        .nav-right a {
+            font-family: var(--font-sans);
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--gray-600);
+            transition: color 0.15s;
+        }
+
+        .nav-right a:hover {
+            color: var(--near-black);
+        }
+
+        /* ========================================
+           BUTTONS
+           ======================================== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 14px;
+            padding: 10px 24px;
+            border-radius: 4px;
+            transition: all 0.15s;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            line-height: 1.4;
+        }
+
+        .btn-red {
+            background: var(--red);
+            color: var(--white);
+        }
+
+        .btn-red:hover {
+            background: var(--red-hover);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--near-black);
+            border: 1px solid var(--gray-200);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--gray-400);
+        }
+
+        .btn-red-sm {
+            background: var(--red);
+            color: var(--white);
+            font-size: 13px;
+            padding: 8px 18px;
+        }
+
+        .btn-red-sm:hover {
+            background: var(--red-hover);
+        }
+
+        .btn-green {
+            background: var(--green);
+            color: var(--white);
+        }
+
+        .btn-green:hover {
+            background: #15803d;
+        }
+
+        .btn-dark-outline {
+            background: transparent;
+            color: var(--white);
+            border: 1px solid var(--gray-800);
+        }
+
+        .btn-dark-outline:hover {
+            border-color: var(--gray-400);
+        }
+
+        /* ========================================
+           SECTION NUMBERING
+           ======================================== */
+        .section-num {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--gray-400);
+            letter-spacing: 0.02em;
+            margin-bottom: 48px;
+        }
+
+        /* ========================================
+           SECTION LABEL
+           ======================================== */
+        .section-label {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--red);
+            margin-bottom: 16px;
+        }
+
+        .section-label-gray {
+            color: var(--gray-400);
+        }
+
+        .section-label-white {
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* ========================================
+           SECTION HEADLINE
+           ======================================== */
+        .section-h2 {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 40px;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            color: var(--near-black);
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 18px;
+            color: var(--gray-600);
+            line-height: 1.6;
+            max-width: 560px;
+        }
+
+        /* ========================================
+           HERO
+           ======================================== */
+        .hero {
+            padding: 112px 0 96px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 7fr 5fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .hero-label {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hero-label-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+        }
+
+        .hero h1 {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: clamp(40px, 5vw, 64px);
+            letter-spacing: -0.03em;
+            line-height: 1.05;
+            color: var(--near-black);
+            margin-bottom: 24px;
+        }
+
+        .hero-desc {
+            font-size: 18px;
+            color: var(--gray-600);
+            line-height: 1.6;
+            margin-bottom: 32px;
+            max-width: 520px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .hero-meta {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--gray-400);
+            letter-spacing: 0.01em;
+        }
+
+        /* Hero Dashboard Card */
+        .hero-card {
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--white);
+            transition: border-color 0.15s;
+        }
+
+        .hero-card:hover {
+            border-color: var(--gray-400);
+        }
+
+        .hero-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .hero-card-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hero-card-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--near-black);
+        }
+
+        .hero-card-url {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--gray-400);
+        }
+
+        .hero-card-badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--green);
+            background: rgba(22, 163, 74, 0.08);
+            padding: 3px 8px;
+            border-radius: 3px;
+        }
+
+        .hero-card-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .hero-card-stat {
+            padding: 16px 20px;
+            border-right: 1px solid var(--gray-200);
+        }
+
+        .hero-card-stat:last-child {
+            border-right: none;
+        }
+
+        .hero-card-stat-value {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 22px;
+            letter-spacing: -0.02em;
+            color: var(--near-black);
+            line-height: 1.2;
+        }
+
+        .hero-card-stat-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--gray-400);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .hero-card-activity {
+            padding: 16px 20px;
+        }
+
+        .hero-card-activity-title {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--gray-400);
+            margin-bottom: 12px;
+        }
+
+        .hero-card-activity-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--gray-50);
+            font-size: 13px;
+            color: var(--near-black);
+        }
+
+        .hero-card-activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .hero-card-activity-time {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--gray-400);
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        /* ========================================
+           CLOUD SECTION (DARK)
+           ======================================== */
+        .cloud-section {
+            background: var(--dark);
+            color: var(--white);
+            padding: 96px 0;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .cloud-section .section-h2 {
+            color: var(--white);
+        }
+
+        .cloud-section .section-desc {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .cloud-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            margin-top: 48px;
+            align-items: start;
+        }
+
+        .cloud-card {
+            border: 1px solid var(--gray-800);
+            border-radius: 8px;
+            padding: 32px;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .cloud-card-badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--red);
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+
+        .cloud-card-title {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 24px;
+            letter-spacing: -0.02em;
+            color: var(--white);
+            margin-bottom: 12px;
+        }
+
+        .cloud-card-desc {
+            font-size: 14px;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+
+        .cloud-features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            margin-bottom: 28px;
+        }
+
+        .cloud-feature {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cloud-feature-check {
+            color: var(--green);
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Cloud Mockup */
+        .cloud-mockup {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .cloud-mockup-row {
+            border: 1px solid var(--gray-800);
+            border-radius: 8px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.02);
+            transition: border-color 0.15s;
+        }
+
+        .cloud-mockup-row:hover {
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .cloud-mockup-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--white);
+        }
+
+        .cloud-mockup-sub {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            margin-top: 2px;
+        }
+
+        .cloud-mockup-status {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            padding: 4px 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .status-pending {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .status-dispatched {
+            color: var(--green);
+            background: rgba(22, 163, 74, 0.1);
+        }
+
+        .status-expected {
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        /* ========================================
+           SERVICES SECTION
+           ======================================== */
+        .services-section {
+            padding: 96px 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .services-header {
+            margin-bottom: 56px;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--grid-gap);
+        }
+
+        .service-card {
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 32px;
+            transition: border-color 0.15s;
+        }
+
+        .service-card:hover {
+            border-color: var(--gray-400);
+        }
+
+        .service-icon {
+            font-size: 24px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .service-title {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: -0.01em;
+            color: var(--near-black);
+            margin-bottom: 12px;
+        }
+
+        .service-desc {
+            font-size: 14px;
+            color: var(--gray-600);
+            line-height: 1.65;
+            margin-bottom: 20px;
+        }
+
+        .service-features {
+            list-style: none;
+        }
+
+        .service-features li {
+            font-size: 13px;
+            color: var(--gray-600);
+            padding: 6px 0;
+            border-bottom: 1px solid var(--gray-50);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .service-features li:last-child {
+            border-bottom: none;
+        }
+
+        .service-features li::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--gray-400);
+            flex-shrink: 0;
+        }
+
+        /* ========================================
+           INDUSTRIES SECTION
+           ======================================== */
+        .industries-section {
+            padding: 96px 0;
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .industries-header {
+            margin-bottom: 56px;
+        }
+
+        .industries-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--grid-gap);
+        }
+
+        .industry-card {
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 28px;
+            transition: border-color 0.15s;
+        }
+
+        .industry-card:hover {
+            border-color: var(--gray-400);
+        }
+
+        .industry-icon {
+            font-size: 22px;
+            margin-bottom: 14px;
+            display: block;
+        }
+
+        .industry-name {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--near-black);
+            margin-bottom: 6px;
+        }
+
+        .industry-desc {
+            font-size: 13px;
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+
+        /* ========================================
+           WHY SECTION
+           ======================================== */
+        .why-section {
+            padding: 96px 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .why-header {
+            margin-bottom: 56px;
+        }
+
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--grid-gap);
+        }
+
+        .why-item {
+            padding: 28px;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            transition: border-color 0.15s;
+        }
+
+        .why-item:hover {
+            border-color: var(--gray-400);
+        }
+
+        .why-icon {
+            font-size: 22px;
+            margin-bottom: 14px;
+            display: block;
+        }
+
+        .why-title {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--near-black);
+            margin-bottom: 8px;
+        }
+
+        .why-desc {
+            font-size: 13px;
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+
+        /* ========================================
+           OPEN SOURCE SECTION (DARK)
+           ======================================== */
+        .oss-section {
+            background: var(--dark);
+            color: var(--white);
+            padding: 96px 0;
+            border-bottom: 1px solid var(--gray-800);
+        }
+
+        .oss-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 64px;
+            align-items: start;
+        }
+
+        .oss-section .section-h2 {
+            color: var(--white);
+        }
+
+        .oss-desc {
+            font-size: 16px;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.7;
+            margin-bottom: 24px;
+        }
+
+        .oss-features {
+            list-style: none;
+            margin-bottom: 32px;
+        }
+
+        .oss-features li {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .oss-features li:last-child {
+            border-bottom: none;
+        }
+
+        .oss-features li::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--green);
+            flex-shrink: 0;
+        }
+
+        .oss-quote {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: rgba(255,255,255,0.4);
+            margin-bottom: 28px;
+            letter-spacing: 0.01em;
+        }
+
+        /* ========================================
+           CTA SECTION
+           ======================================== */
+        .cta-section {
+            padding: 120px 0;
+            text-align: center;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .cta-section .section-h2 {
+            font-size: clamp(32px, 4vw, 48px);
+            margin-bottom: 16px;
+        }
+
+        .cta-desc {
+            font-size: 18px;
+            color: var(--gray-600);
+            margin-bottom: 32px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        .cta-meta {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 20px;
+        }
+
+        /* ========================================
+           FOOTER (DARK)
+           ======================================== */
+        .footer {
+            background: var(--dark);
+            color: rgba(255,255,255,0.4);
+            padding: 64px 0 40px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+            gap: 24px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .footer-brand {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--white);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .footer-brand-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.35);
+        }
+
+        .footer-heading {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 16px;
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 8px;
+        }
+
+        .footer-links a {
+            font-size: 13px;
+            color: rgba(255,255,255,0.45);
+            transition: color 0.15s;
+        }
+
+        .footer-links a:hover {
+            color: var(--white);
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 24px;
+        }
+
+        .footer-bottom-text {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: rgba(255,255,255,0.25);
+        }
+
+        .footer-bottom a {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: rgba(255,255,255,0.25);
+            transition: color 0.15s;
+        }
+
+        .footer-bottom a:hover {
+            color: var(--white);
+        }
+
+        /* ========================================
+           RESPONSIVE — TABLET
+           ======================================== */
+        @media (max-width: 1024px) {
+            :root {
+                --grid-padding: 32px;
+            }
+
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .cloud-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .industries-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .why-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .oss-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+                row-gap: 32px;
+            }
+
+            .footer-grid > div:first-child {
+                grid-column: 1 / -1;
+                padding-bottom: 24px;
+                border-bottom: 1px solid rgba(255,255,255,0.06);
+            }
+
+            .nav-center {
+                display: none;
+            }
+
+            .back-link {
+                display: none;
+            }
+        }
+
+        /* ========================================
+           RESPONSIVE — MOBILE
+           ======================================== */
+        @media (max-width: 640px) {
+            :root {
+                --grid-padding: 20px;
+            }
+
+            .nav {
+                height: 48px;
+            }
+
+            .nav-right a:not(:last-child):not(.btn) {
+                display: none;
+            }
+
+            .hero {
+                padding: 80px 0 64px;
+            }
+
+            .hero h1 {
+                font-size: 36px;
+            }
+
+            .hero-desc {
+                font-size: 16px;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .hero-card-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-card-stat {
+                border-right: none;
+                border-bottom: 1px solid var(--gray-200);
+            }
+
+            .hero-card-stat:last-child {
+                border-bottom: none;
+            }
+
+            .cloud-section,
+            .services-section,
+            .industries-section,
+            .why-section,
+            .oss-section {
+                padding: 64px 0;
+            }
+
+            .section-h2 {
+                font-size: 32px;
+            }
+
+            .cloud-features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .industries-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .why-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-section {
+                padding: 80px 0;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 8px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BACK LINK -->
+    <a href="index.html" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        All Designs
+    </a>
+
+    <!-- ============================================================
+         NAVIGATION
+         ============================================================ -->
+    <nav class="nav">
+        <div class="container nav-inner">
+            <a href="#" class="nav-logo">Signals</a>
+
+            <div class="nav-center">
+                <a href="#">Cloud</a>
+                <a href="#">Registry</a>
+                <a href="#">Network</a>
+                <a href="#">Intelligence</a>
+            </div>
+
+            <div class="nav-right">
+                <a href="#">Open Source</a>
+                <a href="#">Sign In</a>
+                <a href="#" class="btn btn-red-sm">Start Trial</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ============================================================
+         HERO (01)
+         ============================================================ -->
+    <section class="hero">
+        <div class="container">
+            <div class="section-num fade-up">01</div>
+            <div class="hero-grid">
+                <div class="hero-content">
+                    <div class="hero-label fade-up fade-up-d1">
+                        <span class="hero-label-dot"></span>
+                        Built on open source
+                    </div>
+                    <h1 class="fade-up fade-up-d2">Modern rental<br>management for<br>hire companies</h1>
+                    <p class="hero-desc fade-up fade-up-d3">Signals Cloud is a complete rental management system — quotes, orders, availability, prep lists, invoicing — deployed in seconds with zero IT overhead.</p>
+                    <div class="hero-buttons fade-up fade-up-d4">
+                        <a href="#" class="btn btn-red">Start Free Trial</a>
+                        <a href="#" class="btn btn-outline">Watch Demo</a>
+                    </div>
+                    <p class="hero-meta fade-up fade-up-d5">14-day free trial &middot; No credit card required &middot; UK-based support</p>
+                </div>
+
+                <div class="hero-card fade-up fade-up-d3">
+                    <div class="hero-card-header">
+                        <div class="hero-card-header-left">
+                            <span class="hero-card-title">Dashboard</span>
+                            <span class="hero-card-url">acme.signals.rent</span>
+                        </div>
+                        <span class="hero-card-badge">Live</span>
+                    </div>
+                    <div class="hero-card-stats">
+                        <div class="hero-card-stat">
+                            <div class="hero-card-stat-value">&pound;28.4k</div>
+                            <div class="hero-card-stat-label">This Month</div>
+                        </div>
+                        <div class="hero-card-stat">
+                            <div class="hero-card-stat-value">76%</div>
+                            <div class="hero-card-stat-label">Utilisation</div>
+                        </div>
+                        <div class="hero-card-stat">
+                            <div class="hero-card-stat-value">14</div>
+                            <div class="hero-card-stat-label">Active Jobs</div>
+                        </div>
+                    </div>
+                    <div class="hero-card-activity">
+                        <div class="hero-card-activity-title">Recent Activity</div>
+                        <div class="hero-card-activity-item">
+                            <span>Quote #1284 accepted</span>
+                            <span class="hero-card-activity-time">2m</span>
+                        </div>
+                        <div class="hero-card-activity-item">
+                            <span>Order dispatched to O2 Arena</span>
+                            <span class="hero-card-activity-time">18m</span>
+                        </div>
+                        <div class="hero-card-activity-item">
+                            <span>Invoice #892 payment received</span>
+                            <span class="hero-card-activity-time">1h</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         CLOUD (02) — DARK
+         ============================================================ -->
+    <section class="cloud-section">
+        <div class="container">
+            <div class="section-num" style="color: rgba(255,255,255,0.2);">02</div>
+            <div class="section-label">Start here</div>
+            <h2 class="section-h2">Your complete hire system,<br>in the cloud</h2>
+            <p class="section-desc" style="color: rgba(255,255,255,0.5);">Signals Cloud replaces spreadsheets, whiteboards, and legacy software with a single, elegant system designed from the ground up for equipment hire.</p>
+
+            <div class="cloud-grid">
+                <div class="cloud-card">
+                    <span class="cloud-card-badge">Managed hosting</span>
+                    <h3 class="cloud-card-title">Signals Cloud</h3>
+                    <p class="cloud-card-desc">Fully managed rental management — automatic updates, daily backups, SSL, and enterprise-grade hosting. No servers to maintain, no IT team required.</p>
+
+                    <div class="cloud-features-grid">
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> Real-time availability</div>
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> Quotes &amp; orders</div>
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> Prep &amp; dispatch</div>
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> Invoicing + Xero</div>
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> Daily backups</div>
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> 99.9% uptime SLA</div>
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> CRMS migration</div>
+                        <div class="cloud-feature"><span class="cloud-feature-check">&#10003;</span> UK phone support</div>
+                    </div>
+
+                    <a href="#" class="btn btn-red">Start 14-Day Free Trial</a>
+                </div>
+
+                <div class="cloud-mockup">
+                    <div class="cloud-mockup-row">
+                        <div>
+                            <div class="cloud-mockup-label">Quote BBC Studios</div>
+                            <div class="cloud-mockup-sub">#QT-1284 &middot; 48 items</div>
+                        </div>
+                        <span class="cloud-mockup-status status-pending">Pending</span>
+                    </div>
+                    <div class="cloud-mockup-row">
+                        <div>
+                            <div class="cloud-mockup-label">Order Wembley Arena</div>
+                            <div class="cloud-mockup-sub">#OR-0891 &middot; 124 items</div>
+                        </div>
+                        <span class="cloud-mockup-status status-dispatched">Dispatched</span>
+                    </div>
+                    <div class="cloud-mockup-row">
+                        <div>
+                            <div class="cloud-mockup-label">Return O2 Academy</div>
+                            <div class="cloud-mockup-sub">#RT-0456 &middot; 67 items</div>
+                        </div>
+                        <span class="cloud-mockup-status status-expected">Expected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         SERVICES (03)
+         ============================================================ -->
+    <section class="services-section">
+        <div class="container">
+            <div class="section-num">03</div>
+            <div class="services-header">
+                <div class="section-label">Extend when ready</div>
+                <h2 class="section-h2">Add powerful capabilities</h2>
+                <p class="section-desc">Start with Cloud. Add Registry, Network, or Intelligence as you grow.</p>
+            </div>
+
+            <div class="services-grid">
+                <div class="service-card">
+                    <span class="service-icon">&#128218;</span>
+                    <h3 class="service-title">Signals Registry</h3>
+                    <p class="service-desc">The definitive database for the UK equipment rental industry. Standardised product data, venue specs, and supplier information.</p>
+                    <ul class="service-features">
+                        <li>15,000+ standardised products</li>
+                        <li>Venue database with technical specs</li>
+                        <li>Company lookup and ratings</li>
+                        <li>One-click import to your system</li>
+                    </ul>
+                </div>
+
+                <div class="service-card">
+                    <span class="service-icon">&#128200;</span>
+                    <h3 class="service-title">Signals Network</h3>
+                    <p class="service-desc">Industry intelligence that connects the hire sector. Credit data, benchmarks, and demand signals for better decisions.</p>
+                    <ul class="service-features">
+                        <li>Credit scores and payment history</li>
+                        <li>Industry benchmarks and trends</li>
+                        <li>Demand signals and forecasting</li>
+                        <li>Pricing intelligence</li>
+                    </ul>
+                </div>
+
+                <div class="service-card">
+                    <span class="service-icon">&#129302;</span>
+                    <h3 class="service-title">Signals Intelligence</h3>
+                    <p class="service-desc">AI-powered insights purpose-built for hire companies. From natural language queries to predictive analytics.</p>
+                    <ul class="service-features">
+                        <li>AI assistant for natural language queries</li>
+                        <li>Custom automated reports</li>
+                        <li>Churn prediction and alerts</li>
+                        <li>Quote scoring and optimisation</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         INDUSTRIES (04)
+         ============================================================ -->
+    <section class="industries-section">
+        <div class="container">
+            <div class="section-num">04</div>
+            <div class="industries-header">
+                <div class="section-label">Built for hire</div>
+                <h2 class="section-h2">Equipment rental, done right</h2>
+                <p class="section-desc">Whether you're hiring out lighting, audio, staging, or tools — Signals speaks your language.</p>
+            </div>
+
+            <div class="industries-grid">
+                <div class="industry-card">
+                    <span class="industry-icon">&#128161;</span>
+                    <div class="industry-name">Lighting &amp; AV</div>
+                    <p class="industry-desc">Manage complex lighting rigs and AV packages with detailed specifications and sub-hire tracking.</p>
+                </div>
+                <div class="industry-card">
+                    <span class="industry-icon">&#127908;</span>
+                    <div class="industry-name">Audio &amp; PA</div>
+                    <p class="industry-desc">Track speakers, desks, and microphones across multiple events with serial-level asset management.</p>
+                </div>
+                <div class="industry-card">
+                    <span class="industry-icon">&#127916;</span>
+                    <div class="industry-name">Film &amp; Broadcast</div>
+                    <p class="industry-desc">Camera kits, grip equipment, and broadcast packages with insurance tracking and crew assignments.</p>
+                </div>
+                <div class="industry-card">
+                    <span class="industry-icon">&#127959;&#65039;</span>
+                    <div class="industry-name">Staging &amp; Structures</div>
+                    <p class="industry-desc">Stage builds, truss systems, and temporary structures with load calculations and site planning.</p>
+                </div>
+                <div class="industry-card">
+                    <span class="industry-icon">&#128268;</span>
+                    <div class="industry-name">Power &amp; Distribution</div>
+                    <p class="industry-desc">Generators, distribution boards, and cabling with power calculations and safety documentation.</p>
+                </div>
+                <div class="industry-card">
+                    <span class="industry-icon">&#128736;&#65039;</span>
+                    <div class="industry-name">Tools &amp; Plant</div>
+                    <p class="industry-desc">Construction tools and plant hire with certification tracking, PAT testing, and inspection schedules.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         WHY (05)
+         ============================================================ -->
+    <section class="why-section">
+        <div class="container">
+            <div class="section-num">05</div>
+            <div class="why-header">
+                <div class="section-label">Why Signals</div>
+                <h2 class="section-h2">Built for hire companies,<br>by hire people</h2>
+            </div>
+
+            <div class="why-grid">
+                <div class="why-item">
+                    <span class="why-icon">&#128640;</span>
+                    <h4 class="why-title">Up and running in a day</h4>
+                    <p class="why-desc">Sign up, import your data, and start taking orders. No six-month implementation projects or expensive consultants.</p>
+                </div>
+                <div class="why-item">
+                    <span class="why-icon">&#128183;</span>
+                    <h4 class="why-title">Honest pricing</h4>
+                    <p class="why-desc">Transparent, published pricing with no per-user fees. Your whole team gets access from day one.</p>
+                </div>
+                <div class="why-item">
+                    <span class="why-icon">&#128275;</span>
+                    <h4 class="why-title">Built on open source</h4>
+                    <p class="why-desc">The Signals Rental Framework is free and open source. Your data and processes are never locked in.</p>
+                </div>
+                <div class="why-item">
+                    <span class="why-icon">&#127468;&#127463;</span>
+                    <h4 class="why-title">UK-based support</h4>
+                    <p class="why-desc">Real people in Cambridge who understand hire. Phone, email, and chat — no offshore call centres.</p>
+                </div>
+                <div class="why-item">
+                    <span class="why-icon">&#128200;</span>
+                    <h4 class="why-title">Intelligence built in</h4>
+                    <p class="why-desc">AI-powered insights, demand forecasting, and automated reporting come standard with every plan.</p>
+                </div>
+                <div class="why-item">
+                    <span class="why-icon">&#128279;</span>
+                    <h4 class="why-title">Works with your tools</h4>
+                    <p class="why-desc">Integrates with Xero, Sage, QuickBooks, and hundreds of other tools through our open API.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         OPEN SOURCE (06) — DARK
+         ============================================================ -->
+    <section class="oss-section">
+        <div class="container">
+            <div class="section-num" style="color: rgba(255,255,255,0.2);">06</div>
+            <div class="oss-grid">
+                <div>
+                    <h2 class="section-h2">Prefer to self-host?</h2>
+                    <p class="oss-desc">The Signals Rental Framework is the open-source foundation that powers Signals Cloud. Download it, deploy it on your own servers, and customise it to your exact requirements. No licence fees, no restrictions, no catch.</p>
+                    <p class="oss-desc">Built with Laravel and designed for extension, the framework gives you complete control over your rental management system.</p>
+                </div>
+
+                <div>
+                    <ul class="oss-features">
+                        <li>Full rental management system</li>
+                        <li>Unlimited users, no licence fees</li>
+                        <li>Connect to Registry, Network &amp; Intelligence</li>
+                        <li>Active open-source community</li>
+                    </ul>
+                    <p class="oss-quote">Free forever. No strings attached.</p>
+                    <a href="#" class="btn btn-green">Download Signals Rental Framework &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         CTA (07)
+         ============================================================ -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="section-num">07</div>
+            <h2 class="section-h2">Ready to modernise your<br>hire operation?</h2>
+            <p class="cta-desc">Start a free trial today. Migrate from your current system in an afternoon.</p>
+            <a href="#" class="btn btn-red" style="padding: 14px 32px; font-size: 15px;">Start Free Trial</a>
+            <p class="cta-meta">14-day trial &middot; Full features &middot; UK support</p>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         FOOTER
+         ============================================================ -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">Signals</div>
+                    <p class="footer-brand-text">Modern rental management for hire companies. Built in Cambridge, UK. Powered by the open-source Signals Rental Framework.</p>
+                </div>
+
+                <div>
+                    <div class="footer-heading">Platform</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Signals Cloud</a></li>
+                        <li><a href="#">Features</a></li>
+                        <li><a href="#">Integrations</a></li>
+                        <li><a href="#">Security</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <div class="footer-heading">Resources</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">API Reference</a></li>
+                        <li><a href="#">Changelog</a></li>
+                        <li><a href="#">Status</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <div class="footer-heading">Company</div>
+                    <ul class="footer-links">
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Contact</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Privacy</a></li>
+                        <li><a href="#">Terms</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <div class="footer-heading">Open Source</div>
+                    <ul class="footer-links">
+                        <li><a href="#">Rental Framework</a></li>
+                        <li><a href="#">GitHub</a></li>
+                        <li><a href="#">Contributing</a></li>
+                        <li><a href="#">Community</a></li>
+                        <li><a href="#">Licence</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <span class="footer-bottom-text">&copy; 2026 Signals Ltd. Cambridge, UK.</span>
+                <a href="#">Open source at Signals Rental Framework</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

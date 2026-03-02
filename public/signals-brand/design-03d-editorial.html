@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 3D: Sunset Editorial</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,300;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #1a1612;
+            --bg-warm: #231e19;
+            --surface: #2d2620;
+            --terracotta: #c9845c;
+            --terracotta-light: #e8a77a;
+            --terracotta-dark: #a66b47;
+            --coral: #e07856;
+            --amber: #d4a853;
+            --cream: #f5f0e8;
+            --cream-warm: #f8f3ea;
+            --text-muted: #8a7d6f;
+            --gradient-sunset: linear-gradient(135deg, var(--coral) 0%, var(--terracotta) 50%, var(--amber) 100%);
+
+            --font-display: 'Fraunces', Georgia, serif;
+            --font-body: 'DM Sans', -apple-system, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--cream);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        ::selection {
+            background: var(--terracotta);
+            color: var(--bg);
+        }
+
+        .back-link {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 1000;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+            mix-blend-mode: difference;
+        }
+        .back-link:hover { color: var(--cream); }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 48px; }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 24px 0;
+            transition: all 0.4s ease;
+        }
+
+        nav.scrolled {
+            background: rgba(26, 22, 18, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 16px 0;
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 500;
+            font-style: italic;
+            color: var(--cream);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-mark {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--sunset-orange) 0%, var(--sunset-pink) 50%, var(--sunset-coral) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(255, 140, 97, 0.3);
+        }
+
+        .logo-mark::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: var(--cream);
+            animation: signal-pulse-sunset 2.5s ease-in-out infinite;
+        }
+
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            width: 55%;
+            height: 2px;
+            background: var(--cream);
+            opacity: 0.7;
+            top: 62%;
+            animation: signal-pulse-sunset 2.5s ease-in-out infinite 0.5s;
+        }
+
+        @keyframes signal-pulse-sunset {
+            0%, 100% { transform: scaleX(0.2); opacity: 0.5; }
+            50% { transform: scaleX(1); opacity: 1; }
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--cream);
+            text-decoration: none;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        .nav-links a:hover { opacity: 1; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 32px;
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 100px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border: none;
+        }
+
+        .btn-gradient {
+            background: var(--gradient-sunset);
+            color: var(--bg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-gradient::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .btn-gradient:hover::before {
+            left: 100%;
+        }
+
+        .btn-gradient:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 40px rgba(201, 132, 92, 0.4);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--cream);
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--terracotta);
+            color: var(--terracotta);
+        }
+
+        /* Hero - Full viewport editorial */
+        .hero {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            position: relative;
+        }
+
+        .hero-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 140px 80px 80px 48px;
+        }
+
+        .hero-label {
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--terracotta);
+            margin-bottom: 32px;
+            opacity: 0;
+            animation: fadeSlide 1s ease forwards 0.2s;
+        }
+
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(4rem, 8vw, 7rem);
+            font-weight: 300;
+            line-height: 0.95;
+            letter-spacing: -0.03em;
+            margin-bottom: 40px;
+            opacity: 0;
+            animation: fadeSlide 1s ease forwards 0.4s;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            font-weight: 500;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-text {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 400px;
+            line-height: 1.8;
+            margin-bottom: 48px;
+            opacity: 0;
+            animation: fadeSlide 1s ease forwards 0.6s;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 20px;
+            opacity: 0;
+            animation: fadeSlide 1s ease forwards 0.8s;
+        }
+
+        .hero-visual {
+            position: relative;
+            background: var(--gradient-sunset);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .hero-visual::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 30% 20%, rgba(255,255,255,0.2) 0%, transparent 40%),
+                radial-gradient(circle at 70% 80%, rgba(0,0,0,0.2) 0%, transparent 40%);
+        }
+
+        .hero-visual-text {
+            font-family: var(--font-display);
+            font-size: 20vw;
+            font-weight: 800;
+            color: var(--bg);
+            opacity: 0.15;
+            position: absolute;
+            white-space: nowrap;
+            animation: slideText 30s linear infinite;
+        }
+
+        @keyframes slideText {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+
+        .hero-stats {
+            position: absolute;
+            bottom: 60px;
+            left: 60px;
+            right: 60px;
+            display: flex;
+            gap: 48px;
+        }
+
+        .hero-stat {
+            color: var(--bg);
+        }
+
+        .hero-stat-value {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            font-weight: 600;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .hero-stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            opacity: 0.7;
+        }
+
+        /* Reveal animations */
+        .reveal {
+            opacity: 0;
+            transform: translateY(80px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-left {
+            opacity: 0;
+            transform: translateX(-80px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-left.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .reveal-right {
+            opacity: 0;
+            transform: translateX(80px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal-right.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .stagger-1 { transition-delay: 0.1s; }
+        .stagger-2 { transition-delay: 0.2s; }
+        .stagger-3 { transition-delay: 0.3s; }
+        .stagger-4 { transition-delay: 0.4s; }
+        .stagger-5 { transition-delay: 0.5s; }
+        .stagger-6 { transition-delay: 0.6s; }
+
+        /* Problem - Large editorial quote */
+        .problem {
+            padding: 200px 48px;
+            background: var(--bg-warm);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .problem::before {
+            content: '"';
+            font-family: var(--font-display);
+            font-size: 50vw;
+            font-weight: 800;
+            position: absolute;
+            top: -20%;
+            left: -10%;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            opacity: 0.05;
+            line-height: 1;
+        }
+
+        .problem-text {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            font-weight: 300;
+            line-height: 1.15;
+            max-width: 1000px;
+            position: relative;
+        }
+
+        .problem-text .dim {
+            color: var(--text-muted);
+        }
+
+        .problem-text em {
+            font-style: italic;
+            font-weight: 500;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Features - Horizontal scroll */
+        .features {
+            padding: 160px 0;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        .features-header {
+            padding: 0 48px;
+            margin-bottom: 80px;
+        }
+
+        .section-label {
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 6vw, 5rem);
+            font-weight: 300;
+            letter-spacing: -0.02em;
+        }
+
+        .section-title em {
+            font-style: italic;
+            font-weight: 500;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .features-track {
+            display: flex;
+            gap: 32px;
+            padding: 0 48px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            cursor: grab;
+        }
+
+        .features-track::-webkit-scrollbar { display: none; }
+        .features-track:active { cursor: grabbing; }
+
+        .feature-card {
+            flex: 0 0 380px;
+            background: var(--surface);
+            border-radius: 32px;
+            padding: 48px 40px;
+            scroll-snap-align: start;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-sunset);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s ease;
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+        }
+
+        .feature-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 300;
+            font-style: italic;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            opacity: 0.4;
+            line-height: 1;
+            margin-bottom: 24px;
+        }
+
+        .feature-card h3 {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 500;
+            margin-bottom: 16px;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        /* Case Study - Split layout */
+        .case-study {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 100vh;
+        }
+
+        .case-visual {
+            background: var(--gradient-sunset);
+            padding: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .case-visual::before {
+            content: 'RESULTS';
+            font-family: var(--font-display);
+            font-size: 15vw;
+            font-weight: 800;
+            color: var(--bg);
+            opacity: 0.1;
+            position: absolute;
+            bottom: -5%;
+            left: -5%;
+            white-space: nowrap;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
+            position: relative;
+        }
+
+        .metric {
+            background: rgba(26, 22, 18, 0.9);
+            padding: 40px 32px;
+            border-radius: 24px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .metric:hover {
+            transform: scale(1.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .metric-value {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            font-weight: 600;
+            color: var(--terracotta-light);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .metric-label {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .case-content {
+            background: var(--cream);
+            color: var(--bg);
+            padding: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .case-content h2 {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 4vw, 3.5rem);
+            font-weight: 400;
+            line-height: 1.15;
+            margin-bottom: 32px;
+            letter-spacing: -0.02em;
+        }
+
+        .case-content h2 em {
+            font-style: italic;
+            color: var(--terracotta-dark);
+        }
+
+        .case-content > p {
+            font-size: 1.125rem;
+            color: var(--text-muted);
+            line-height: 1.8;
+            margin-bottom: 48px;
+            max-width: 500px;
+        }
+
+        .case-quote {
+            padding: 40px;
+            background: var(--bg);
+            border-radius: 24px;
+            position: relative;
+        }
+
+        .case-quote::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 40px;
+            width: 60px;
+            height: 4px;
+            background: var(--gradient-sunset);
+        }
+
+        .case-quote p {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-style: italic;
+            color: var(--cream);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .case-quote cite {
+            font-style: normal;
+            font-size: 0.9375rem;
+            color: var(--terracotta);
+        }
+
+        /* Steps - Numbered timeline */
+        .steps-section {
+            padding: 200px 48px;
+            background: var(--bg);
+        }
+
+        .steps-header {
+            text-align: center;
+            margin-bottom: 120px;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 64px;
+            position: relative;
+        }
+
+        .steps-grid::before {
+            content: '';
+            position: absolute;
+            top: 80px;
+            left: 15%;
+            right: 15%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--coral), var(--terracotta), var(--amber));
+            opacity: 0.3;
+        }
+
+        .step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step-icon {
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .step-icon::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--gradient-sunset);
+            border-radius: 50%;
+            opacity: 0.15;
+            transform: scale(1);
+            transition: all 0.5s ease;
+        }
+
+        .step:hover .step-icon::before {
+            transform: scale(1.1);
+            opacity: 0.25;
+        }
+
+        .step-number {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            font-weight: 300;
+            font-style: italic;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+        }
+
+        .step h3 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 500;
+            margin-bottom: 16px;
+            letter-spacing: -0.01em;
+        }
+
+        .step p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            line-height: 1.7;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+
+        /* CTA */
+        .cta {
+            padding: 200px 48px;
+            background: var(--bg-warm);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150%;
+            height: 150%;
+            background: radial-gradient(ellipse at center, rgba(201, 132, 92, 0.1) 0%, transparent 50%);
+            animation: pulse-cta 10s ease-in-out infinite;
+        }
+
+        @keyframes pulse-cta {
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta h2 {
+            font-family: var(--font-display);
+            font-size: clamp(3.5rem, 8vw, 7rem);
+            font-weight: 300;
+            line-height: 1;
+            margin-bottom: 32px;
+            letter-spacing: -0.03em;
+        }
+
+        .cta h2 em {
+            font-style: italic;
+            font-weight: 500;
+            background: var(--gradient-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .cta p {
+            font-size: 1.375rem;
+            color: var(--text-muted);
+            margin-bottom: 56px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-form {
+            display: flex;
+            gap: 16px;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        .cta-form input {
+            flex: 1;
+            padding: 22px 28px;
+            font-family: var(--font-body);
+            font-size: 1rem;
+            background: var(--surface);
+            border: 2px solid transparent;
+            border-radius: 100px;
+            color: var(--cream);
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .cta-form input::placeholder { color: var(--text-muted); }
+        .cta-form input:focus {
+            border-color: var(--terracotta);
+        }
+
+        /* Footer */
+        footer {
+            padding: 60px 48px;
+            background: var(--bg);
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .footer-logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-style: italic;
+            color: var(--cream);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 40px;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .footer-links a:hover { color: var(--terracotta); }
+
+        @media (max-width: 1200px) {
+            .hero { grid-template-columns: 1fr; }
+            .hero-visual { display: none; }
+            .case-study { grid-template-columns: 1fr; }
+            .case-visual { min-height: 60vh; }
+        }
+
+        @media (max-width: 968px) {
+            .container { padding: 0 24px; }
+            .features-header, .problem, .steps-section, .cta, footer { padding-left: 24px; padding-right: 24px; }
+            .hero-content { padding: 140px 24px 80px; }
+            .steps-grid { grid-template-columns: 1fr; gap: 80px; }
+            .steps-grid::before { display: none; }
+            .nav-links { display: none; }
+            .case-visual, .case-content { padding: 48px 24px; }
+        }
+
+        @media (max-width: 640px) {
+            .metrics-grid { grid-template-columns: 1fr; }
+            .cta-form { flex-direction: column; }
+            .hero-cta { flex-direction: column; }
+            .hero-stats { flex-direction: column; gap: 24px; bottom: 40px; left: 40px; right: auto; }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Back to all designs</a>
+
+    <nav id="nav">
+        <div class="container">
+            <a href="#" class="logo">
+                    <div class="logo-mark"></div>
+                    Signals
+                </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#case-study">Results</a>
+                <a href="#steps">Process</a>
+                <a href="#cta" class="btn btn-gradient">Get Early Access</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <p class="hero-label">AI Intelligence for Rental</p>
+            <h1>See the <em>signals</em> others miss</h1>
+            <p class="hero-text">Transform your rental data into predictive intelligence. Understand customers, optimize assets, anticipate demand.</p>
+            <div class="hero-cta">
+                <a href="#cta" class="btn btn-gradient">Get Early Access</a>
+                <a href="#features" class="btn btn-outline">Explore Features</a>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="hero-visual-text">SIGNALS SIGNALS SIGNALS SIGNALS </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="hero-stat-value">50k+</div>
+                    <div class="hero-stat-label">Monthly Events</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">15%</div>
+                    <div class="hero-stat-label">Conversion Lift</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">137</div>
+                    <div class="hero-stat-label">Components</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="problem">
+        <div class="container">
+            <p class="problem-text reveal">
+                <span class="dim">Your RMS shows what happened.</span><br>
+                <em>Signals shows what's coming.</em>
+            </p>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="features-header reveal">
+            <p class="section-label">Capabilities</p>
+            <h2 class="section-title">Turn activity into <em>revenue</em></h2>
+        </div>
+        <div class="features-track">
+            <div class="feature-card">
+                <div class="feature-number">01</div>
+                <h3>Customer Intelligence</h3>
+                <p>LTV banding, growth trends, AOV segmentation, and similarity clustering. Know your customers before they know themselves.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">02</div>
+                <h3>Product Intelligence</h3>
+                <p>Health scores, utilisation bands, rate trends, and AI-powered affinity recommendations.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">03</div>
+                <h3>Activity Signals</h3>
+                <p>Every interaction captured—page views, searches, quotes. Turn behaviour into buying signals.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">04</div>
+                <h3>AI Predictions</h3>
+                <p>ML-powered utilisation forecasting, revenue predictions, and pricing optimisation.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">05</div>
+                <h3>Incentive Programs</h3>
+                <p>Automated loyalty tiers—Trade, Pro, Partner. Reward your best customers automatically.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">06</div>
+                <h3>Unified Data</h3>
+                <p>Connect RMS, CRM, Xero, and portal. One source of truth across every touchpoint.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="case-study" id="case-study">
+        <div class="case-visual">
+            <div class="metrics-grid">
+                <div class="metric reveal-left stagger-1">
+                    <div class="metric-value">50k+</div>
+                    <div class="metric-label">Events Monthly</div>
+                </div>
+                <div class="metric reveal-left stagger-2">
+                    <div class="metric-value">15%</div>
+                    <div class="metric-label">Conversion Lift</div>
+                </div>
+                <div class="metric reveal-left stagger-3">
+                    <div class="metric-value">3</div>
+                    <div class="metric-label">Loyalty Tiers</div>
+                </div>
+                <div class="metric reveal-left stagger-4">
+                    <div class="metric-value">137</div>
+                    <div class="metric-label">Components</div>
+                </div>
+            </div>
+        </div>
+        <div class="case-content">
+            <h2 class="reveal-right">A leading UK hire company <em>transformed</em> their intelligence</h2>
+            <p class="reveal-right stagger-1">Implementing Signals gave them visibility into customer behaviour across every digital touchpoint.</p>
+            <div class="case-quote reveal-right stagger-2">
+                <p>"We went from guessing what customers wanted to knowing before they did."</p>
+                <cite>— Operations Director</cite>
+            </div>
+        </div>
+    </section>
+
+    <section class="steps-section" id="steps">
+        <div class="steps-header reveal">
+            <p class="section-label">Process</p>
+            <h2 class="section-title">Three steps to <em>intelligence</em></h2>
+        </div>
+        <div class="steps-grid">
+            <div class="step reveal stagger-1">
+                <div class="step-icon">
+                    <span class="step-number">1</span>
+                </div>
+                <h3>Connect</h3>
+                <p>Integrate with your RMS, CRM, and accounting. Current RMS, Rentman, Xero—we support them all.</p>
+            </div>
+            <div class="step reveal stagger-2">
+                <div class="step-icon">
+                    <span class="step-number">2</span>
+                </div>
+                <h3>Analyse</h3>
+                <p>Our AI processes your data, identifies patterns, and builds predictive models specific to your business.</p>
+            </div>
+            <div class="step reveal stagger-3">
+                <div class="step-icon">
+                    <span class="step-number">3</span>
+                </div>
+                <h3>Act</h3>
+                <p>Receive recommendations, automate incentives, and make data-driven decisions with confidence.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta" id="cta">
+        <div class="cta-content reveal">
+            <h2>Start seeing the <em>signals</em></h2>
+            <p>Join the rental companies using AI to understand their customers better than ever.</p>
+            <form class="cta-form" onsubmit="event.preventDefault(); this.querySelector('button').textContent = 'Request sent!'; this.querySelector('button').style.background = 'linear-gradient(135deg, #5a6b4e, #7a8b6e)';">
+                <input type="email" placeholder="Enter your email" required>
+                <button type="submit" class="btn btn-gradient">Get Early Access</button>
+            </form>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">Signals</div>
+            <div class="footer-links">
+                <a href="#">Features</a>
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+            </div>
+            <div>© 2026 Signals</div>
+        </div>
+    </footer>
+
+    <script>
+        // Nav scroll effect
+        window.addEventListener('scroll', () => {
+            document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        // Scroll reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -100px 0px' });
+
+        document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => observer.observe(el));
+
+        // Horizontal scroll drag
+        const track = document.querySelector('.features-track');
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        track.addEventListener('mousedown', (e) => {
+            isDown = true;
+            startX = e.pageX - track.offsetLeft;
+            scrollLeft = track.scrollLeft;
+        });
+
+        track.addEventListener('mouseleave', () => isDown = false);
+        track.addEventListener('mouseup', () => isDown = false);
+
+        track.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - track.offsetLeft;
+            const walk = (x - startX) * 2;
+            track.scrollLeft = scrollLeft - walk;
+        });
+    </script>
+</body>
+</html>

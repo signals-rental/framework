@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals Availability Engine — Design Decisions Explained</title>
+<meta name="description" content="A technical walkthrough of the design decisions behind the Signals Availability Engine — companion to the full specification published as a GitHub Discussion.">
+<meta property="og:title" content="Signals Availability Engine — Design Decisions Explained">
+<meta property="og:description" content="A technical walkthrough of the design decisions behind the Signals Availability Engine. Pre-calculated snapshots, unified demand model, behavioural phases, and more.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   Signals Feature Focus: Availability Engine — Blueprint Design System
+   ========================================================================== */
+
+:root {
+    --base: #f8f9fb;
+    --white: #ffffff;
+    --navy: #0f172a;
+    --navy-mid: #1e293b;
+    --blue: #2563eb;
+    --blue-light: #3b82f6;
+    --red: #dc2626;
+    --grey: #64748b;
+    --grey-light: #94a3b8;
+    --grey-border: #e2e8f0;
+    --green: #059669;
+    --green-light: #34d399;
+    --sky: #0ea5e9;
+    --cyan: #0891b2;
+    --amber: #d97706;
+    --violet: #7c3aed;
+    --rose: #e11d48;
+    --slate: #475569;
+    --grid-fine: rgba(5, 150, 105, 0.05);
+    --grid-strong: rgba(5, 150, 105, 0.1);
+    --grid-dark-fine: rgba(148, 163, 184, 0.08);
+    --grid-dark-strong: rgba(148, 163, 184, 0.15);
+    --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Martian Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: var(--font-mono);
+    background: var(--navy);
+    color: var(--navy);
+    line-height: 1.7;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+/* --- Slide System --- */
+.deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.slide {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: translateY(12px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none; padding: 60px 48px 80px; overflow-y: auto;
+}
+.slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; z-index: 1; }
+.slide-inner { max-width: 1100px; width: 100%; min-height: 0; }
+
+.slide-dark {
+    background-color: var(--navy); color: var(--grey-light);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+}
+.slide-dark h1, .slide-dark h2, .slide-dark h3, .slide-dark h4 { color: var(--white); }
+.slide-light {
+    background-color: var(--base); color: var(--navy);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+}
+
+/* --- Logo Mark --- */
+.logo-mark { display: inline-block; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 2px solid currentColor; padding: 6px 16px; position: relative; text-decoration: none; color: inherit; }
+.logo-mark::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; }
+.color-green::after { background: var(--green); }
+
+/* --- Section Stamp --- */
+.section-stamp { display: inline-flex; align-items: stretch; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; }
+.stamp-num { background: var(--navy); color: var(--white); padding: 3px 8px; }
+.stamp-title { padding: 3px 8px; border: 1px solid currentColor; border-left: none; }
+.stamp-rev { padding: 3px 8px; border: 1px solid currentColor; border-left: none; opacity: 0.5; }
+.slide-dark .stamp-title, .slide-dark .stamp-rev { border-color: rgba(148, 163, 184, 0.25); }
+.slide-light .stamp-title, .slide-light .stamp-rev { border-color: var(--grey-border); }
+
+/* --- Shared --- */
+.annotation { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+.code-block { background: var(--navy-mid); border: 1px solid rgba(148, 163, 184, 0.15); overflow: hidden; }
+.code-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
+.code-dot { width: 6px; height: 6px; border-radius: 50%; }
+.code-body { padding: 16px; font-family: var(--font-mono); font-size: 0.6875rem; line-height: 1.8; color: var(--grey-light); overflow-x: auto; }
+.code-body .hl-kw { color: var(--green-light); }
+.code-body .hl-str { color: var(--amber); }
+.code-body .hl-cm { color: var(--grey); }
+.code-body .hl-fn { color: var(--sky); }
+.code-body .hl-num { color: var(--rose); }
+.trim-marks { position: relative; }
+.trim-tl, .trim-tr, .trim-bl, .trim-br { position: absolute; width: 12px; height: 12px; pointer-events: none; }
+.trim-tl { top: -1px; left: -1px; border-top: 1.5px solid var(--green); border-left: 1.5px solid var(--green); }
+.trim-tr { top: -1px; right: -1px; border-top: 1.5px solid var(--green); border-right: 1.5px solid var(--green); }
+.trim-bl { bottom: -1px; left: -1px; border-bottom: 1.5px solid var(--green); border-left: 1.5px solid var(--green); }
+.trim-br { bottom: -1px; right: -1px; border-bottom: 1.5px solid var(--green); border-right: 1.5px solid var(--green); }
+.dim-line-h { display: flex; align-items: center; gap: 0; margin: 0 auto; opacity: 0.3; }
+.dim-arrow-l, .dim-arrow-r { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; flex-shrink: 0; }
+.dim-arrow-l { border-right: 5px solid currentColor; }
+.dim-arrow-r { border-left: 5px solid currentColor; }
+.dim-rule { flex: 1; height: 1px; background: currentColor; }
+.iso-block { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border: 1px solid var(--grey-border); opacity: 0.5; }
+.fold-marks { }
+.fold-mark { position: absolute; width: 0; height: 0; pointer-events: none; }
+.fm-tl { top: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(5, 150, 105, 0.15); }
+.fm-tr { top: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(5, 150, 105, 0.15); }
+.fm-bl { bottom: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(5, 150, 105, 0.15); }
+.fm-br { bottom: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(5, 150, 105, 0.15); }
+
+/* --- Utilities --- */
+.mb-4 { margin-bottom: 4px; } .mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; } .mb-24 { margin-bottom: 24px; } .mb-32 { margin-bottom: 32px; }
+.mb-48 { margin-bottom: 48px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; } .mt-32 { margin-top: 32px; }
+
+/* --- Layouts --- */
+.slide-centered { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.slide-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.slide-two-col-wide { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: start; }
+.slide-headline { font-size: clamp(1.4rem, 2.8vw, 2rem); line-height: 1.1; margin-bottom: 8px; }
+.slide-headline em { font-style: italic; font-weight: 600; }
+.slide-subtitle { font-size: 0.75rem; line-height: 1.8; margin-bottom: 28px; }
+.slide-dark .slide-subtitle { color: var(--grey-light); }
+.slide-light .slide-subtitle { color: var(--grey); }
+
+/* --- S01 --- */
+.s1-headline { font-size: clamp(1.4rem, 3.5vw, 2.5rem); line-height: 1.05; max-width: 860px; }
+.s1-subtitle { font-size: 0.75rem; line-height: 1.8; max-width: 580px; color: var(--grey-light); margin-bottom: 32px; }
+.s1-hint { font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* --- Feature List --- */
+.feature-list { list-style: none; }
+.feature-row { display: flex; align-items: baseline; gap: 8px; font-size: 0.6875rem; line-height: 1.5; margin-bottom: 8px; }
+.chk { color: var(--green); font-weight: 700; flex-shrink: 0; font-size: 0.8rem; }
+.slide-dark .feature-row { color: var(--grey-light); }
+.slide-light .feature-row { color: var(--grey); }
+
+/* --- Dark Mockup --- */
+.dark-mockup { border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; background: rgba(148, 163, 184, 0.04); }
+.dark-mockup-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green); margin-bottom: 12px; }
+.dark-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.08); font-size: 0.6875rem; }
+.dark-stat-key { color: var(--grey-light); }
+.dark-stat-val { font-family: var(--font-display); font-weight: 600; color: var(--white); }
+
+/* --- Architecture Diagram --- */
+.arch-diagram { width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.arch-tier { width: 100%; border: 2px solid var(--navy); padding: 14px 20px; text-align: center; position: relative; background: var(--white); }
+.arch-tier-label { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.arch-tier-desc { font-size: 0.5625rem; color: var(--grey); margin-top: 2px; }
+.arch-connector { display: flex; flex-direction: column; align-items: center; padding: 4px 0; }
+.arch-conn-line { width: 2px; height: 12px; background: var(--grey-border); }
+.arch-conn-label { font-family: var(--font-mono); font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); padding: 2px 0; }
+.arch-mid { display: flex; gap: 10px; width: 100%; }
+.arch-mid-box { border: 2px solid var(--navy); padding: 10px 14px; text-align: center; background: var(--white); flex: 1; }
+
+/* --- CTA Paths --- */
+.s20-paths { display: flex; gap: 12px; width: 100%; max-width: 660px; margin-bottom: 24px; }
+.s20-path { flex: 1; border: 1.5px solid var(--grey-border); padding: 14px 12px; background: var(--white); text-align: left; }
+.s20-path.s20-featured { border-color: var(--green); border-width: 2px; }
+.s20-path-bar { width: 100%; height: 3px; margin-bottom: 10px; }
+.s20-path-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 2px; }
+.s20-path-desc { font-size: 0.625rem; color: var(--grey); line-height: 1.5; }
+.s20-cta-url { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--green); letter-spacing: 0.02em; }
+
+/* --- Phase Flow --- */
+.phase-flow { display: flex; align-items: stretch; gap: 0; width: 100%; max-width: 920px; }
+.phase-node { flex: 1; text-align: center; position: relative; }
+.phase-box { border: 2px solid var(--grey-border); padding: 12px 6px 8px; background: var(--white); height: 100%; }
+.phase-box.phase-active { border-color: var(--green); }
+.phase-box.phase-void { border-color: var(--grey-light); border-style: dashed; }
+.phase-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); }
+.phase-impact { font-size: 0.5rem; color: var(--grey); margin-top: 3px; line-height: 1.4; }
+.phase-states { font-size: 0.5rem; color: var(--green); margin-top: 6px; line-height: 1.3; font-family: var(--font-mono); letter-spacing: 0.02em; }
+.phase-arrow { display: flex; align-items: center; justify-content: center; width: 24px; flex-shrink: 0; }
+.phase-arrow svg { width: 14px; height: 14px; color: var(--grey-light); }
+
+/* --- Pipeline Steps --- */
+.pipeline-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 920px; }
+.pipe-card { padding: 14px; text-align: left; background: rgba(148, 163, 184, 0.06); border: 1px solid rgba(148, 163, 184, 0.1); position: relative; }
+.pipe-num { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.08em; color: var(--green); margin-bottom: 6px; display: block; }
+.pipe-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 4px; }
+.pipe-desc { font-size: 0.5625rem; color: var(--grey-light); line-height: 1.5; }
+
+/* --- Resolution Table --- */
+.res-table { width: 100%; font-size: 0.6875rem; border-collapse: collapse; margin-top: 12px; }
+.res-table th { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; font-size: 0.5625rem; letter-spacing: 0.06em; text-align: left; padding: 6px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.15); color: var(--grey); }
+.res-table td { padding: 6px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.06); }
+.res-table td:first-child { color: var(--white); font-weight: 500; }
+
+/* --- Contrast Diagram --- */
+.contrast-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 780px; }
+.contrast-panel { padding: 20px 18px; text-align: left; }
+.contrast-panel.panel-bad { border: 1.5px solid var(--red); border-style: dashed; background: rgba(220, 38, 38, 0.03); }
+.contrast-panel.panel-good { border: 1.5px solid var(--green); background: rgba(5, 150, 105, 0.03); }
+.contrast-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+.contrast-label.label-bad { color: var(--red); }
+.contrast-label.label-good { color: var(--green); }
+.contrast-body { font-size: 0.6875rem; color: var(--grey); line-height: 1.6; }
+.contrast-body code { font-family: var(--font-mono); font-size: 0.625rem; background: rgba(0,0,0,0.04); padding: 1px 4px; }
+
+/* --- Transfer Diagram --- */
+.transfer-diagram { display: flex; align-items: center; gap: 0; width: 100%; max-width: 620px; }
+.transfer-wh { flex: 1; padding: 16px; text-align: center; border: 2px solid var(--grey-border); background: var(--white); }
+.transfer-wh-name { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--navy); margin-bottom: 4px; }
+.transfer-wh-detail { font-size: 0.5625rem; color: var(--grey); line-height: 1.5; }
+.transfer-arrow-block { display: flex; flex-direction: column; align-items: center; padding: 0 12px; gap: 4px; }
+.transfer-arrow-line { width: 40px; height: 2px; background: var(--grey-border); position: relative; }
+.transfer-arrow-line::after { content: ''; position: absolute; right: -1px; top: -3px; border-left: 6px solid var(--grey-border); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.transfer-arrow-label { font-family: var(--font-mono); font-size: 0.4375rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+.transfer-transit { padding: 10px 14px; text-align: center; border: 2px dashed var(--amber); background: rgba(217, 119, 6, 0.04); }
+.transfer-transit-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; color: var(--amber); margin-bottom: 2px; }
+.transfer-transit-detail { font-size: 0.5rem; color: var(--grey); }
+
+/* --- Worked Example --- */
+.worked-example { border: 1px solid var(--grey-border); padding: 20px; background: var(--white); width: 100%; }
+.worked-example-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green); margin-bottom: 10px; }
+.worked-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(0,0,0,0.04); font-size: 0.6875rem; color: var(--grey); }
+.worked-row:last-child { border-bottom: none; font-weight: 500; color: var(--navy); }
+.worked-label { flex: 1; }
+.worked-val { font-family: var(--font-mono); font-weight: 600; color: var(--navy); min-width: 50px; text-align: right; }
+
+/* --- Explainer Box --- */
+.explainer { font-size: 0.6875rem; line-height: 1.7; }
+.slide-dark .explainer { color: var(--grey-light); }
+.slide-light .explainer { color: var(--grey); }
+.explainer strong { font-weight: 600; }
+.slide-dark .explainer strong { color: var(--white); }
+.slide-light .explainer strong { color: var(--navy); }
+.explainer-heading { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+.slide-dark .explainer-heading { color: var(--green-light); }
+.slide-light .explainer-heading { color: var(--green); }
+
+/* --- Nav Bar --- */
+.nav-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 12px 24px; transition: background 0.5s, color 0.5s; }
+.nav-bar.nav-light { background: rgba(248, 249, 251, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--grey-border); }
+.nav-bar.nav-dark { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(148, 163, 184, 0.12); }
+.nav-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.nav-light .nav-btn { color: var(--grey); } .nav-light .nav-btn:hover { color: var(--navy); border-color: var(--grey-border); }
+.nav-dark .nav-btn { color: var(--grey-light); } .nav-dark .nav-btn:hover { color: var(--white); border-color: rgba(148, 163, 184, 0.2); }
+.nav-btn:disabled { opacity: 0.25; cursor: default; } .nav-btn:disabled:hover { border-color: transparent; }
+.nav-btn svg { width: 14px; height: 14px; }
+.nav-dots { display: flex; align-items: center; gap: 4px; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; border: none; cursor: pointer; transition: all 0.3s; padding: 0; }
+.nav-light .nav-dot { background: var(--grey-border); } .nav-light .nav-dot.active { background: var(--green); width: 16px; border-radius: 3px; }
+.nav-light .nav-dot:hover:not(.active) { background: var(--grey-light); }
+.nav-dark .nav-dot { background: rgba(148, 163, 184, 0.25); } .nav-dark .nav-dot.active { background: var(--green); width: 16px; border-radius: 3px; }
+.nav-dark .nav-dot:hover:not(.active) { background: rgba(148, 163, 184, 0.5); }
+.nav-counter { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; min-width: 44px; text-align: center; }
+.nav-light .nav-counter { color: var(--grey); } .nav-dark .nav-counter { color: var(--grey-light); }
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+    .slide { padding: 48px 24px 72px; }
+    .slide-two-col, .slide-two-col-wide { grid-template-columns: 1fr; gap: 32px; }
+    .pipeline-grid { grid-template-columns: repeat(2, 1fr); }
+    .phase-flow { flex-wrap: wrap; gap: 8px; }
+    .phase-arrow { display: none; }
+    .phase-node { flex: 1 1 calc(50% - 4px); min-width: 120px; }
+    .contrast-grid { grid-template-columns: 1fr; }
+    .transfer-diagram { flex-direction: column; }
+    .transfer-arrow-block { transform: rotate(90deg); padding: 8px 0; }
+    .s20-paths { flex-wrap: wrap; } .s20-path { flex: 1 1 calc(50% - 6px); }
+    .arch-mid { flex-direction: column; }
+}
+@media (max-width: 600px) {
+    .slide { padding: 40px 16px 68px; }
+    .pipeline-grid { grid-template-columns: 1fr; }
+    .phase-node { flex: 1 1 100%; }
+    .s20-path { flex: 1 1 100%; }
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ================================================================ S01: Title -->
+<section class="slide slide-dark active fold-marks" data-bg="dark">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-32"><span class="stamp-num">SIG-AE01</span><span class="stamp-title">Availability Engine</span><span class="stamp-rev">Rev A</span></div>
+        <div class="logo-mark color-green mb-48" style="font-size:1.5rem;padding:8px 20px">Signals</div>
+        <h1 class="s1-headline mb-16">Availability Engine<br><span style="color:var(--grey-light);font-size:0.6em">Design Decisions Explained</span></h1>
+        <p class="s1-subtitle">A companion to the full specification. This deck walks through the key design decisions, trade-offs, and data model choices behind the Signals Availability Engine.</p>
+        <div class="dim-line-h" style="width:200px"><span class="dim-arrow-l"></span><span class="dim-rule"></span><span class="dim-arrow-r"></span></div>
+        <p class="s1-hint mt-24">The full spec is published as a GitHub Discussion &middot; Use arrow keys to navigate</p>
+    </div>
+</section>
+
+<!-- ================================================================ S02: The Core Question -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE02</span><span class="stamp-title">The Core Question</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Why Not Just <em style="color:var(--green)">Count at Query Time?</em></h2>
+        <p class="slide-subtitle" style="max-width:600px;margin-bottom:28px">The naive approach calculates availability on every request: count stock, subtract overlapping demands. It works &mdash; until it doesn&rsquo;t.</p>
+        <div class="contrast-grid">
+            <div class="contrast-panel panel-bad">
+                <div class="contrast-label label-bad">Computed on demand</div>
+                <div class="contrast-body">
+                    Every page load runs: <code>SELECT stock - SUM(demands) WHERE dates overlap</code>.<br><br>
+                    <strong>At 50 products &times; 30 days</strong>, that&rsquo;s 1,500 aggregate queries per grid view. Each query scans the demands table, joins stock levels, and groups by date.<br><br>
+                    Under concurrency, two users confirming bookings simultaneously can both see &ldquo;1 available&rdquo; and both succeed &mdash; creating an undetected shortage.
+                </div>
+            </div>
+            <div class="contrast-panel panel-good">
+                <div class="contrast-label label-good">Pre-calculated snapshots</div>
+                <div class="contrast-body">
+                    Availability is written to a snapshot table when demands change. Reading is a direct index scan: <code>WHERE product + warehouse + slot_start</code>.<br><br>
+                    <strong>At 50 products &times; 30 days</strong>, that&rsquo;s 1,500 rows from a single indexed table. No joins, no aggregation, no computation.<br><br>
+                    Writes acquire a lock per product/warehouse, so concurrent confirmations are serialised. No silent overbooking.
+                </div>
+            </div>
+        </div>
+        <p class="annotation mt-24">The trade-off: writes are more expensive. But reads vastly outnumber writes in rental software.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S03: Unified Demand Model -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE03</span><span class="stamp-title">Demand Model</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">One Table for <em style="color:var(--green)">Every</em> Demand Source</h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">Bookings, quarantines, transfers, plugin demands &mdash; they all write to the same <strong>unified demands table</strong>. The engine doesn&rsquo;t know or care what created the demand.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Why this matters</div>
+                    <p style="margin-bottom:10px">When the engine recalculates, it runs <strong>one query</strong>: give me all active demands for this product at this warehouse in this time range. It gets back everything &mdash; bookings, maintenance windows, transit holds, plugin demands &mdash; in a single result set.</p>
+                    <p style="margin-bottom:10px">Adding a new demand source (say, a future &ldquo;loans&rdquo; module) requires <strong>zero changes</strong> to the engine. Register the source, write demands to the table, and the engine picks them up automatically.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Sentinel dates</div>
+                    <p>Open-ended demands (overdue items with no return date) use <strong>2199-01-01</strong> instead of null. This eliminates null handling in every time-range query: <code style="color:var(--amber);background:none;padding:0">starts_at &lt;= :end AND ends_at &gt;= :start</code>. Clean range scans, always.</p>
+                </div>
+            </div>
+            <div>
+                <div class="dark-mockup" style="margin-bottom:16px">
+                    <div class="dark-mockup-label">Unified Demands Table</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">product_id</span><span class="dark-stat-val">1042</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">warehouse_id</span><span class="dark-stat-val">3</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">quantity</span><span class="dark-stat-val">5</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">starts_at</span><span class="dark-stat-val">2026-03-10 08:00</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">ends_at</span><span class="dark-stat-val">2026-03-17 18:00</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">source_type</span><span class="dark-stat-val" style="color:var(--sky)">opportunity_line_item</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">phase</span><span class="dark-stat-val" style="color:var(--green)">committed</span></div>
+                    <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">is_active</span><span class="dark-stat-val" style="color:var(--green)">true</span></div>
+                </div>
+                <p class="annotation">Same shape regardless of source type. Quarantines, transfers, and plugin demands look identical.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S04: Demand Sources -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE04</span><span class="stamp-title">Demand Sources</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Where Demands <em style="color:var(--green)">Come From</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">A <strong>demand source</strong> is anything that claims stock for a time period. The engine ships with three built-in sources, and plugins can register more.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Built-in sources</div>
+                    <p style="margin-bottom:10px"><strong>Opportunity Line Items</strong> &mdash; the primary demand. A booking with 5 speakers from March 10&ndash;17 creates a demand for 5 units across that range. Each line item is its own demand record.</p>
+                    <p style="margin-bottom:10px"><strong>Quarantines</strong> &mdash; maintenance holds, damage inspections, cleaning windows. A quarantine on 2 units for 3 days creates a demand identical in shape to a booking.</p>
+                    <p style="margin-bottom:10px"><strong>Transfers</strong> &mdash; stock movements between warehouses. Creates two demands (source outbound + destination inbound) to account for transit time.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Plugin sources</div>
+                    <p>Any plugin can register a new demand source. A &ldquo;loans&rdquo; module, a &ldquo;sub-hire&rdquo; tracker, a &ldquo;seasonal reservation&rdquo; system &mdash; they all write to the same demands table with their own <code style="color:var(--sky);background:none;padding:0">source_type</code>. The engine picks them up with zero changes.</p>
+                </div>
+            </div>
+            <div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+                    <div style="border:1.5px solid var(--grey-border);padding:12px;text-align:center;background:var(--white)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--navy)">Bookings</div>
+                        <div style="font-size:0.5rem;color:var(--grey);margin-top:2px;font-family:var(--font-mono)">opportunity_line_item</div>
+                    </div>
+                    <div style="border:1.5px solid var(--grey-border);padding:12px;text-align:center;background:var(--white)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--navy)">Quarantines</div>
+                        <div style="font-size:0.5rem;color:var(--grey);margin-top:2px;font-family:var(--font-mono)">quarantine</div>
+                    </div>
+                    <div style="border:1.5px solid var(--grey-border);padding:12px;text-align:center;background:var(--white)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--navy)">Transfers</div>
+                        <div style="font-size:0.5rem;color:var(--grey);margin-top:2px;font-family:var(--font-mono)">transfer</div>
+                    </div>
+                    <div style="border:1.5px dashed var(--violet);padding:12px;text-align:center;background:rgba(124,58,237,0.02)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--violet)">Plugin Source</div>
+                        <div style="font-size:0.5rem;color:var(--grey);margin-top:2px;font-family:var(--font-mono)">your_custom_type</div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0">
+                    <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                    <span style="font-family:var(--font-mono);font-size:0.4375rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--grey)">all write to</span>
+                    <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                </div>
+                <div style="border:2px solid var(--green);padding:16px;text-align:center;background:rgba(5,150,105,0.03)">
+                    <div style="font-family:var(--font-display);font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--green)">Unified Demands Table</div>
+                    <div style="font-size:0.5625rem;color:var(--grey);margin-top:4px">Same columns. Same phases. Same query.</div>
+                </div>
+                <p class="annotation mt-16">The demand_breakdown JSON in each snapshot preserves per-source totals, so the UI can show what&rsquo;s driving availability.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S05: Behavioural Phases -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE05</span><span class="stamp-title">Behavioural Phases</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-4">States Are Infinite. <em style="color:var(--green)">Phases Are Five.</em></h2>
+        <p class="slide-subtitle" style="max-width:620px;margin-bottom:28px">Every tenant configures different state names. &ldquo;Confirmed&rdquo;, &ldquo;Deposit Paid&rdquo;, &ldquo;Awaiting Collection&rdquo; &mdash; these all mean the same thing to the engine: stock is reserved. Phases are the fixed contract between configurable state machines and availability calculation.</p>
+        <div class="phase-flow" style="margin-bottom:20px">
+            <div class="phase-node">
+                <div class="phase-box">
+                    <div class="phase-name">Draft</div>
+                    <div class="phase-impact">Demand exists but is <strong>not active</strong>. No impact on availability.</div>
+                    <div class="phase-states">enquiry, quote, provisional, scoping</div>
+                </div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box phase-active">
+                    <div class="phase-name" style="color:var(--green)">Committed</div>
+                    <div class="phase-impact">Demand is <strong>active</strong>. Stock is reserved.</div>
+                    <div class="phase-states">confirmed, approved, deposit&nbsp;paid, pending</div>
+                </div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box phase-active">
+                    <div class="phase-name" style="color:var(--green)">Operational</div>
+                    <div class="phase-impact">Demand is <strong>active</strong>. Stock is out the door.</div>
+                    <div class="phase-states">dispatched, on&nbsp;hire, partially&nbsp;returned</div>
+                </div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box">
+                    <div class="phase-name">Closed</div>
+                    <div class="phase-impact">Demand <strong>released</strong>. Stock returns after turnaround.</div>
+                    <div class="phase-states">returned, checked, settled</div>
+                </div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box phase-void">
+                    <div class="phase-name" style="color:var(--grey-light)">Void</div>
+                    <div class="phase-impact">Demand <strong>erased</strong>. Immediate release, no turnaround.</div>
+                    <div class="phase-states">cancelled, rejected</div>
+                </div>
+            </div>
+        </div>
+        <p class="annotation">Default states have locked phase mappings. Custom states can be assigned to any phase. Phases cannot be added or removed.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S06: Snapshot Architecture -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE06</span><span class="stamp-title">Snapshot Model</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">The Snapshot Table Is the <em style="color:var(--green)">Read Model</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">One row per product &times; warehouse &times; time slot. The <strong>available</strong> column is the answer. No computation at query time.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Resolution is a setup-time decision</div>
+                    <p style="margin-bottom:8px">The slot width determines how many rows exist. It&rsquo;s chosen at installation and <strong>cannot be changed</strong> without a full rebuild.</p>
+                </div>
+                <table class="res-table" style="margin-top:16px">
+                    <thead><tr><th>Resolution</th><th>Slots/Day</th><th>Rows/Year (10k products &times; 2 WH)</th></tr></thead>
+                    <tbody>
+                        <tr><td>Daily</td><td style="color:var(--green)">1</td><td>~7.3M</td></tr>
+                        <tr><td>Quarterly (6h)</td><td style="color:var(--amber)">4</td><td>~29.2M</td></tr>
+                        <tr><td>Hourly</td><td style="color:var(--grey-light)">24</td><td>~175.2M</td></tr>
+                    </tbody>
+                </table>
+                <p class="annotation mt-16">All within PostgreSQL capabilities with monthly partitioning on slot_start.</p>
+            </div>
+            <div>
+                <div class="dark-mockup" style="margin-bottom:16px">
+                    <div class="dark-mockup-label">Snapshot Row</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">product_id</span><span class="dark-stat-val">1042</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">warehouse_id</span><span class="dark-stat-val">3</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">slot_start</span><span class="dark-stat-val">2026-03-15 00:00</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">total_stock</span><span class="dark-stat-val" style="color:var(--green)">50</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">total_demanded</span><span class="dark-stat-val" style="color:var(--amber)">32</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">available</span><span class="dark-stat-val" style="color:var(--green-light)">18</span></div>
+                    <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">demand_breakdown</span><span class="dark-stat-val" style="font-size:0.5625rem;color:var(--grey-light)">{"opportunity": 28, "quarantine": 2, "transfer": 2}</span></div>
+                </div>
+                <div class="code-block trim-marks"><div class="trim-tl"></div><div class="trim-tr"></div><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot" style="background:var(--red)"></span><span class="code-dot" style="background:var(--amber)"></span><span class="code-dot" style="background:var(--green)"></span></div>
+                    <div class="code-body"><span class="hl-cm">-- The read query. That&rsquo;s it.</span><br><span class="hl-kw">SELECT</span> <span class="hl-fn">available</span>, <span class="hl-fn">demand_breakdown</span><br><span class="hl-kw">FROM</span> availability_snapshots<br><span class="hl-kw">WHERE</span> product_id = <span class="hl-str">:product</span><br>&nbsp;&nbsp;<span class="hl-kw">AND</span> warehouse_id = <span class="hl-str">:warehouse</span><br>&nbsp;&nbsp;<span class="hl-kw">AND</span> slot_start <span class="hl-kw">BETWEEN</span> <span class="hl-str">:from</span> <span class="hl-kw">AND</span> <span class="hl-str">:to</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S07: Recalculation Pipeline -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE07</span><span class="stamp-title">Recalculation</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-4">How Snapshots Stay <em style="color:var(--green)">In Sync</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:24px">When a demand changes, recalculation targets only the affected product/warehouse/time range. The pipeline runs synchronously for single-entity changes (&lt; 300ms) and asynchronously for bulk operations.</p>
+        <div class="pipeline-grid">
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">01</span>
+                <div class="pipe-name" style="color:var(--navy)">Event Received</div>
+                <div class="pipe-desc" style="color:var(--grey)">A demand is created, updated, phase-transitioned, or released. Carries product_id, warehouse_id, and affected time range.</div>
+            </div>
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">02</span>
+                <div class="pipe-name" style="color:var(--navy)">Gather Stock</div>
+                <div class="pipe-desc" style="color:var(--grey)">Query stock level for this product at this warehouse, accounting for time-varying changes (scheduled purchases, planned write-offs).</div>
+            </div>
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">03</span>
+                <div class="pipe-name" style="color:var(--navy)">Gather Demands</div>
+                <div class="pipe-desc" style="color:var(--grey)">One query against the unified demands table: all active demands for this product/warehouse overlapping the affected range. All sources returned.</div>
+            </div>
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">04</span>
+                <div class="pipe-name" style="color:var(--navy)">Strategy Hook</div>
+                <div class="pipe-desc" style="color:var(--grey)">Optional plugin hook: modify the demand set before calculation (buffer stock, priority allocation). Default: pass-through.</div>
+            </div>
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">05</span>
+                <div class="pipe-name" style="color:var(--navy)">Calculate Slots</div>
+                <div class="pipe-desc" style="color:var(--grey)">For each slot in the range: sum overlapping demand quantities, subtract from stock. Produce available count and demand_breakdown JSON.</div>
+            </div>
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">06</span>
+                <div class="pipe-name" style="color:var(--navy)">Upsert Snapshots</div>
+                <div class="pipe-desc" style="color:var(--grey)">Write snapshot rows with a lock on (product_id, warehouse_id). Update daily summaries for sub-daily installations.</div>
+            </div>
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">07</span>
+                <div class="pipe-name" style="color:var(--navy)">Detect Shortages</div>
+                <div class="pipe-desc" style="color:var(--grey)">If any slot is newly negative: emit shortage_detected. If a previously negative slot recovers: emit shortage_resolved.</div>
+            </div>
+            <div class="pipe-card" style="background:var(--white);border-color:var(--grey-border)">
+                <span class="pipe-num" style="color:var(--green)">08</span>
+                <div class="pipe-name" style="color:var(--navy)">Broadcast</div>
+                <div class="pipe-desc" style="color:var(--grey)">Emit availability_changed to WebSocket channels, webhook queue, and event log. Notify kit dependents if this product is a component.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S08: Availability Strategies -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE08</span><span class="stamp-title">Strategies</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Availability Is <em style="color:var(--green)">Pluggable</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">The recalculation pipeline is fixed, but <strong>how</strong> availability is derived from stock and demands is defined by a <strong>strategy</strong>. The system ships a default. Plugins can replace it.</p>
+                    <div class="explainer-heading" style="margin-top:16px">System default</div>
+                    <p style="margin-bottom:10px">Simple subtraction: <strong>available = stock &minus; active demands</strong>. For each time slot, sum all active demand quantities and subtract from total stock. This is correct for most rental businesses.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Plugin strategies</div>
+                    <p style="margin-bottom:10px">A plugin registers its own strategy to change the calculation. The strategy receives the full demand set and stock level, and returns the availability figure per slot.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Examples</div>
+                    <ul class="feature-list" style="margin-top:6px">
+                        <li class="feature-row"><span class="chk">&rarr;</span> <span><strong>Buffer stock</strong> &mdash; always hold back N units as safety margin</span></li>
+                        <li class="feature-row"><span class="chk">&rarr;</span> <span><strong>Overbooking</strong> &mdash; allow N% more bookings than physical stock</span></li>
+                        <li class="feature-row"><span class="chk">&rarr;</span> <span><strong>Channel allocation</strong> &mdash; reserve portions of stock for specific sales channels</span></li>
+                        <li class="feature-row"><span class="chk">&rarr;</span> <span><strong>Priority tiers</strong> &mdash; VIP customer demands take precedence over standard</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div>
+                <div class="code-block trim-marks" style="margin-bottom:16px"><div class="trim-tl"></div><div class="trim-tr"></div><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot" style="background:var(--red)"></span><span class="code-dot" style="background:var(--amber)"></span><span class="code-dot" style="background:var(--green)"></span></div>
+                    <div class="code-body"><span class="hl-cm">// Strategy interface (simplified)</span><br><br><span class="hl-kw">interface</span> <span class="hl-fn">AvailabilityStrategy</span><br>{<br>&nbsp;&nbsp;<span class="hl-kw">public function</span> <span class="hl-fn">calculate</span>(<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-str">int</span> $totalStock,<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-str">Collection</span> $demands,<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-str">CarbonPeriod</span> $slot<br>&nbsp;&nbsp;): <span class="hl-str">int</span>; <span class="hl-cm">// &rarr; available</span><br>}</div>
+                </div>
+                <div class="dark-mockup" style="margin-bottom:16px">
+                    <div class="dark-mockup-label">Pipeline Position</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Step 3</span><span class="dark-stat-val">Gather demands</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key" style="color:var(--green)">Step 4</span><span class="dark-stat-val" style="color:var(--green)">&rarr; Strategy runs here</span></div>
+                    <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">Step 5</span><span class="dark-stat-val">Calculate slots</span></div>
+                </div>
+                <div class="dark-mockup">
+                    <div class="dark-mockup-label">Strategy Scope</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Global</span><span class="dark-stat-val">Applies to all products</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Per product</span><span class="dark-stat-val">Override for specific products</span></div>
+                    <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">Per warehouse</span><span class="dark-stat-val">Override for specific locations</span></div>
+                </div>
+                <p class="annotation mt-16">The default strategy is always available as a fallback. Plugins override at the scope they need.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S09: Extension Points -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE09</span><span class="stamp-title">Extension Points</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">How Plugins <em style="color:var(--green)">Interact</em> With the Engine</h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">The engine exposes four extension surfaces. Plugins can use any combination without modifying core code.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Events (read-only signals)</div>
+                    <p style="margin-bottom:10px">The engine emits events at every state change: <strong>demand_created</strong>, <strong>availability_changed</strong>, <strong>shortage_detected</strong>, <strong>shortage_resolved</strong>. Listeners react &mdash; send alerts, update dashboards, trigger webhooks &mdash; but cannot modify the calculation.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Hooks (pipeline intercepts)</div>
+                    <p style="margin-bottom:10px">Hooks modify data <strong>mid-pipeline</strong>. The strategy hook (step 4) is the most powerful &mdash; it can change how availability is calculated. Other hooks allow demand filtering and post-calculation transformations.</p>
+                    <div class="explainer-heading" style="margin-top:16px">APIs (query &amp; write)</div>
+                    <p style="margin-bottom:10px">REST and internal APIs for reading availability (snapshot queries) and writing demands (creating/updating demand records). All APIs enforce phase validation and trigger recalculation automatically.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Demand registration</div>
+                    <p>Plugins register new demand source types at boot. The engine validates the source_type exists before accepting demand writes. No schema changes required &mdash; all sources share the same table.</p>
+                </div>
+            </div>
+            <div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    <div style="border:2px solid var(--green);padding:14px 16px;background:rgba(5,150,105,0.03)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--green);margin-bottom:4px">Events</div>
+                        <div style="font-size:0.5625rem;color:var(--grey);line-height:1.5">
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">demand_created</code> &middot;
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">demand_updated</code> &middot;
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">phase_transitioned</code><br>
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">availability_changed</code> &middot;
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">shortage_detected</code> &middot;
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">shortage_resolved</code>
+                        </div>
+                    </div>
+                    <div style="border:2px solid var(--sky);padding:14px 16px;background:rgba(14,165,233,0.03)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--sky);margin-bottom:4px">Hooks</div>
+                        <div style="font-size:0.5625rem;color:var(--grey);line-height:1.5">
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">pre_calculate</code> &mdash; modify demands before calculation<br>
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">strategy</code> &mdash; replace the calculation itself<br>
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">post_calculate</code> &mdash; transform results before write
+                        </div>
+                    </div>
+                    <div style="border:2px solid var(--amber);padding:14px 16px;background:rgba(217,119,6,0.03)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--amber);margin-bottom:4px">APIs</div>
+                        <div style="font-size:0.5625rem;color:var(--grey);line-height:1.5">
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">GET /availability</code> &mdash; query snapshots<br>
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">POST /demands</code> &mdash; create demand records<br>
+                            <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">PATCH /demands/{id}/phase</code> &mdash; transition phase
+                        </div>
+                    </div>
+                    <div style="border:2px dashed var(--violet);padding:14px 16px;background:rgba(124,58,237,0.02)">
+                        <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;color:var(--violet);margin-bottom:4px">Demand Registration</div>
+                        <div style="font-size:0.5625rem;color:var(--grey);line-height:1.5">
+                            Plugins call <code style="font-size:0.5625rem;background:rgba(0,0,0,0.04);padding:1px 4px">registerDemandSource('my_type')</code> at boot.<br>
+                            The engine validates source_type on every demand write.
+                        </div>
+                    </div>
+                </div>
+                <p class="annotation mt-16">Events are fire-and-forget. Hooks are synchronous and can modify data. APIs validate and trigger recalculation.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S10: Line-Item Granularity -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE10</span><span class="stamp-title">Line-Item Granularity</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Why Track at the <em style="color:var(--green)">Line Item</em>, Not the Order?</h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">A large event booking has 40 line items. 38 come back on Friday; 2 remain out. Under an <strong>order-level model</strong>, all 40 items show as unavailable until the entire order closes. Under a <strong>line-item model</strong>, the 38 returned items release immediately.</p>
+
+                    <div class="explainer-heading" style="margin-top:16px">The ceiling principle</div>
+                    <p style="margin-bottom:10px">The opportunity&rsquo;s phase sets the <strong>maximum</strong> phase its line items can reach. When the opportunity is draft, all line items are draft. When it&rsquo;s committed, line items activate. Within that ceiling, line items move independently.</p>
+
+                    <div class="explainer-heading" style="margin-top:16px">Override mechanism</div>
+                    <p>Cancelling or closing an opportunity forces <strong>all</strong> its line items to that phase &mdash; regardless of their individual state. This is how a single cancellation action releases all demands.</p>
+                </div>
+            </div>
+            <div>
+                <div class="dark-mockup" style="margin-bottom:16px">
+                    <div class="dark-mockup-label">Example: Order ORD-2847 &mdash; 40 line items</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Lines dispatched</span><span class="dark-stat-val">40</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Lines returned Friday</span><span class="dark-stat-val" style="color:var(--green)">38</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Lines still on hire</span><span class="dark-stat-val" style="color:var(--amber)">2</span></div>
+                    <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">Availability released</span><span class="dark-stat-val" style="color:var(--green-light)">38 items</span></div>
+                </div>
+                <div class="dark-mockup">
+                    <div class="dark-mockup-label">Line-Item States &rarr; Phases</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Pending, Prepping</span><span class="dark-stat-val" style="color:var(--green)">Committed</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Dispatched, Off-hired</span><span class="dark-stat-val" style="color:var(--green)">Operational</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Returned, Checked, Lost</span><span class="dark-stat-val" style="color:var(--grey-light)">Closed</span></div>
+                    <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">Cancelled</span><span class="dark-stat-val" style="color:var(--grey)">Void</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S11: Kitting -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE11</span><span class="stamp-title">Kitting</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Why Kits Have <em style="color:var(--green)">No Snapshot Rows</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">A kit&rsquo;s availability depends on its components. Components are shared across kits and standalone bookings. Maintaining snapshot rows for kits would require <strong>cascade recalculation</strong> &mdash; every time any component changes, every kit containing it would need rebuilding.</p>
+
+                    <div class="explainer-heading" style="margin-top:16px">The alternative: calculate at read time</div>
+                    <p style="margin-bottom:10px">A kit with 15 components across 30 days reads <strong>at most 450 rows</strong> from the snapshot table. The arithmetic is trivial. This eliminates cascade propagation, deduplication of cascade triggers, and eventual consistency between component and kit snapshots.</p>
+
+                    <div class="explainer-heading" style="margin-top:16px">When a kit is booked</div>
+                    <p>Demands are created for each <strong>component</strong> at the required quantities. The kit itself generates no demand. Demand is always tracked at the leaf product level.</p>
+                </div>
+            </div>
+            <div>
+                <div class="worked-example" style="margin-bottom:16px">
+                    <div class="worked-example-label">Worked Example: PA System Package</div>
+                    <div class="worked-row"><span class="worked-label">Speakers (need 2/kit, 12 available)</span><span class="worked-val">FLOOR(12/2) = 6</span></div>
+                    <div class="worked-row"><span class="worked-label">Mixer (need 1/kit, 4 available)</span><span class="worked-val">FLOOR(4/1) = 4</span></div>
+                    <div class="worked-row"><span class="worked-label">XLR Cables (need 4/kit, 30 available)</span><span class="worked-val">FLOOR(30/4) = 7</span></div>
+                    <div class="worked-row"><span class="worked-label">Stands (need 2/kit, 9 available)</span><span class="worked-val">FLOOR(9/2) = 4</span></div>
+                    <div class="worked-row"><span class="worked-label"><strong>Kit available = MIN(6, 4, 7, 4)</strong></span><span class="worked-val" style="color:var(--green)"><strong>4 kits</strong></span></div>
+                </div>
+                <div class="code-block trim-marks"><div class="trim-tl"></div><div class="trim-tr"></div><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot" style="background:var(--red)"></span><span class="code-dot" style="background:var(--amber)"></span><span class="code-dot" style="background:var(--green)"></span></div>
+                    <div class="code-body"><span class="hl-cm">-- Kit availability formula</span><br>kit_available = <span class="hl-fn">MIN</span>(<br>&nbsp;&nbsp;<span class="hl-fn">FLOOR</span>(component.available<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/ kit.qty_required)<br>&nbsp;&nbsp;<span class="hl-kw">FOR EACH</span> component<br>)<br><br><span class="hl-cm">-- Nested kits resolve recursively</span><br><span class="hl-cm">-- Max depth: 3 (configurable)</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S12: Transfers & Multi-Warehouse -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE12</span><span class="stamp-title">Transfers</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">The <em style="color:var(--green)">Dual-Demand</em> Transfer Model</h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">A stock transfer between warehouses creates <strong>two demand records</strong>. During transit, the units are unavailable at both locations. This is the correct behaviour &mdash; stock in a van can&rsquo;t be hired from either warehouse.</p>
+
+                    <div class="explainer-heading" style="margin-top:16px">Source warehouse</div>
+                    <p style="margin-bottom:10px">A demand is created from departure time onward. Availability decreases at the source from the moment the stock leaves.</p>
+
+                    <div class="explainer-heading" style="margin-top:16px">Destination warehouse</div>
+                    <p style="margin-bottom:10px">Stock only becomes available after arrival <strong>plus check-in time</strong>. Before that, it exists in transit and is unavailable.</p>
+
+                    <div class="explainer-heading" style="margin-top:16px">Completion</div>
+                    <p>When the transfer completes (stock arrives and is checked in), the source demand closes and the destination stock level increases. Both warehouses&rsquo; snapshots recalculate independently.</p>
+                </div>
+            </div>
+            <div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+                    <div class="dark-mockup" style="width:100%">
+                        <div class="dark-mockup-label">Source: Warehouse A</div>
+                        <div class="dark-stat-row"><span class="dark-stat-key">Demand created</span><span class="dark-stat-val" style="color:var(--amber)">-5 units from departure</span></div>
+                        <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">Available drops</span><span class="dark-stat-val">50 &rarr; 45</span></div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0">
+                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                        <span style="font-family:var(--font-mono);font-size:0.4375rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--amber)">In transit &mdash; unavailable at both</span>
+                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                    </div>
+                    <div class="dark-mockup" style="width:100%">
+                        <div class="dark-mockup-label">Destination: Warehouse B</div>
+                        <div class="dark-stat-row"><span class="dark-stat-key">Stock available after</span><span class="dark-stat-val" style="color:var(--green)">arrival + check-in</span></div>
+                        <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">Available increases</span><span class="dark-stat-val">20 &rarr; 25</span></div>
+                    </div>
+                </div>
+                <p class="annotation mt-16">Each warehouse recalculates independently. Cross-warehouse totals aggregate at read time.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S13: CTA / Closing -->
+<section class="slide slide-light fold-marks" data-bg="light">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AE13</span><span class="stamp-title">Discussion</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">This Is a <em style="color:var(--green)">Draft Specification</em></h2>
+        <p class="slide-subtitle" style="max-width:560px;margin-bottom:28px">The full spec covers concurrency control, overdue handling, partial returns, damage handoffs, the strategy plugin interface, and more. It&rsquo;s published as a GitHub Discussion because we want your input before we build it.</p>
+        <div class="s20-paths">
+            <div class="s20-path s20-featured"><div class="s20-path-bar" style="background:var(--green)"></div><div class="s20-path-name">Read the Full Spec</div><div class="s20-path-desc">19 sections covering every design decision, data model choice, and trade-off. Published as a GitHub Discussion.</div></div>
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--sky)"></div><div class="s20-path-name">Challenge the Design</div><div class="s20-path-desc">Disagree with a decision? Found an edge case? Comment on the discussion. We want to know before we write code.</div></div>
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--green-light)"></div><div class="s20-path-name">Star the Repo</div><div class="s20-path-desc">Follow the project on GitHub. The framework is MIT licensed, open source, and built for the rental industry.</div></div>
+        </div>
+        <div class="s20-cta-url mb-16">framework.signals.rent</div>
+        <div class="iso-block"><span>SIG-AE-DECK-001</span> &middot; <span style="color:var(--green)">Rev A</span> &middot; <span>2026</span></div>
+    </div>
+</section>
+
+</div>
+
+<!-- Navigation Bar -->
+<nav class="nav-bar nav-dark" id="navBar">
+    <button class="nav-btn" id="prevBtn" aria-label="Previous slide" disabled>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10,3 5,8 10,13"/></svg>
+    </button>
+    <div class="nav-dots" id="navDots"></div>
+    <span class="nav-counter" id="navCounter">01 / 13</span>
+    <button class="nav-btn" id="nextBtn" aria-label="Next slide">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg>
+    </button>
+</nav>
+
+<script>
+(function() {
+    var slides = document.querySelectorAll('.slide');
+    var navBar = document.getElementById('navBar');
+    var navDots = document.getElementById('navDots');
+    var navCounter = document.getElementById('navCounter');
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var total = slides.length;
+    var current = 0;
+    var transitioning = false;
+
+    for (var i = 0; i < total; i++) {
+        (function(idx) {
+            var dot = document.createElement('button');
+            dot.className = 'nav-dot' + (idx === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', 'Go to slide ' + (idx + 1));
+            dot.addEventListener('click', function() { goToSlide(idx); });
+            navDots.appendChild(dot);
+        })(i);
+    }
+
+    function goToSlide(n) {
+        if (n < 0 || n >= total || n === current || transitioning) return;
+        transitioning = true;
+        slides[current].classList.remove('active');
+        current = n;
+        slides[current].classList.add('active');
+        updateNav();
+        setTimeout(function() { transitioning = false; }, 500);
+    }
+
+    function updateNav() {
+        var num = String(current + 1).padStart(2, '0');
+        var tot = String(total).padStart(2, '0');
+        navCounter.textContent = num + ' / ' + tot;
+        var dots = navDots.querySelectorAll('.nav-dot');
+        for (var i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle('active', i === current);
+        }
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current === total - 1;
+        var bg = slides[current].getAttribute('data-bg');
+        navBar.classList.remove('nav-light', 'nav-dark');
+        navBar.classList.add(bg === 'dark' ? 'nav-dark' : 'nav-light');
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goToSlide(current + 1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goToSlide(current - 1); }
+        else if (e.key === 'Home') { e.preventDefault(); goToSlide(0); }
+        else if (e.key === 'End') { e.preventDefault(); goToSlide(total - 1); }
+    });
+    prevBtn.addEventListener('click', function() { goToSlide(current - 1); });
+    nextBtn.addEventListener('click', function() { goToSlide(current + 1); });
+
+    var touchX = 0, touchY = 0;
+    document.addEventListener('touchstart', function(e) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+        var dx = e.changedTouches[0].clientX - touchX;
+        var dy = e.changedTouches[0].clientY - touchY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) { dx < 0 ? goToSlide(current + 1) : goToSlide(current - 1); }
+    }, { passive: true });
+
+    updateNav();
+})();
+</script>
+</body>
+</html>

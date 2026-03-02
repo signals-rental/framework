@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 10: Unexpected Type</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cream: #f5f0e8;
+            --cream-dark: #e8e0d4;
+            --ink: #1a1a1a;
+            --ink-light: #2d2d2d;
+            --ink-muted: #5c5c5c;
+            --terracotta: #c4684f;
+            --terracotta-dark: #a85640;
+            --olive: #5a6b4f;
+
+            --font-display: 'Playfair Display', Georgia, serif;
+            --font-body: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--cream);
+            color: var(--ink);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 1000;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--ink-muted);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.3s;
+        }
+        .back-link:hover { color: var(--ink); }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 20px 0;
+            background: var(--cream);
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 600;
+            font-style: italic;
+            color: var(--ink);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--ink-muted);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--ink); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 48px;
+            padding: 0 28px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--ink);
+            color: var(--cream);
+        }
+        .btn-primary:hover {
+            background: var(--ink-light);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--ink);
+            border: 1.5px solid var(--ink);
+        }
+        .btn-outline:hover {
+            background: var(--ink);
+            color: var(--cream);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 200px 0 140px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-eyebrow {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--terracotta);
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(4rem, 12vw, 10rem);
+            font-weight: 400;
+            font-style: italic;
+            letter-spacing: -0.03em;
+            line-height: 0.9;
+            margin-bottom: 48px;
+        }
+
+        .hero h1 .line-2 {
+            display: block;
+            margin-left: 15%;
+            font-style: normal;
+            font-weight: 700;
+        }
+
+        .hero-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .hero-subtitle {
+            font-size: 1.0625rem;
+            color: var(--ink-muted);
+            max-width: 400px;
+            line-height: 1.7;
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 16px;
+        }
+
+        /* Section */
+        section {
+            padding: 120px 0;
+        }
+
+        .section-dark {
+            background: var(--ink);
+            color: var(--cream);
+        }
+
+        .section-header {
+            margin-bottom: 64px;
+        }
+
+        .section-eyebrow {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: var(--terracotta);
+            margin-bottom: 16px;
+        }
+
+        .section-dark .section-eyebrow {
+            color: var(--terracotta);
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 400;
+            font-style: italic;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+
+        .section-title strong {
+            font-weight: 700;
+            font-style: normal;
+        }
+
+        /* Problem */
+        .problem {
+            border-top: 1px solid rgba(0,0,0,0.08);
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            text-align: center;
+            padding: 140px 0;
+        }
+
+        .problem-text {
+            font-family: var(--font-display);
+            font-size: clamp(1.75rem, 4vw, 3rem);
+            font-weight: 400;
+            line-height: 1.3;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .problem-text .dim {
+            color: var(--ink-muted);
+        }
+
+        .problem-text em {
+            font-style: italic;
+            color: var(--terracotta);
+        }
+
+        /* Features */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .feature-card {
+            background: var(--ink);
+            padding: 56px 48px;
+        }
+
+        .feature-number {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--terracotta);
+            opacity: 0.5;
+            line-height: 1;
+            margin-bottom: 24px;
+        }
+
+        .feature-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .feature-desc {
+            font-size: 0.9375rem;
+            color: var(--cream-dark);
+            line-height: 1.7;
+            opacity: 0.8;
+        }
+
+        /* Comparison */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 24px 20px;
+            text-align: left;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .comparison-table thead th {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--ink-muted);
+        }
+
+        .comparison-table thead th:nth-child(2) {
+            color: var(--terracotta);
+        }
+
+        .comparison-table tbody td {
+            font-size: 0.9375rem;
+        }
+
+        .comparison-table td:first-child {
+            font-weight: 500;
+        }
+
+        .comparison-table td:nth-child(2) {
+            background: rgba(196, 104, 79, 0.05);
+        }
+
+        .check {
+            color: var(--olive);
+            font-weight: 600;
+        }
+
+        .partial {
+            color: var(--ink-muted);
+        }
+
+        /* Case Study */
+        .case-study-layout {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 80px;
+            align-items: start;
+        }
+
+        .case-content h3 {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: var(--terracotta);
+            margin-bottom: 20px;
+        }
+
+        .case-content h4 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 400;
+            font-style: italic;
+            letter-spacing: -0.02em;
+            margin-bottom: 24px;
+            line-height: 1.2;
+        }
+
+        .case-content p {
+            color: var(--ink-muted);
+            line-height: 1.8;
+            margin-bottom: 40px;
+        }
+
+        .case-content blockquote {
+            padding: 32px;
+            background: var(--cream-dark);
+            border-left: 3px solid var(--terracotta);
+        }
+
+        .case-content blockquote p {
+            font-family: var(--font-display);
+            font-size: 1.125rem;
+            font-style: italic;
+            margin-bottom: 16px;
+            color: var(--ink);
+        }
+
+        .case-content cite {
+            font-style: normal;
+            font-size: 0.8125rem;
+            color: var(--ink-muted);
+        }
+
+        .case-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .stat-card {
+            padding: 40px 32px;
+            background: var(--ink);
+            color: var(--cream);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--terracotta);
+            margin-bottom: 8px;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            opacity: 0.7;
+        }
+
+        /* How It Works */
+        .how-it-works {
+            background: var(--cream-dark);
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 48px;
+        }
+
+        .step {
+            text-align: center;
+        }
+
+        .step-number {
+            font-family: var(--font-display);
+            font-size: 6rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--terracotta);
+            line-height: 1;
+            margin-bottom: 24px;
+            opacity: 0.3;
+        }
+
+        .step-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .step-desc {
+            font-size: 0.9375rem;
+            color: var(--ink-muted);
+            line-height: 1.7;
+        }
+
+        /* CTA */
+        .cta-section {
+            text-align: center;
+            padding: 180px 0;
+        }
+
+        .cta-section h2 {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 400;
+            font-style: italic;
+            letter-spacing: -0.02em;
+            margin-bottom: 24px;
+            line-height: 1;
+        }
+
+        .cta-section h2 strong {
+            font-weight: 700;
+            font-style: normal;
+            display: block;
+        }
+
+        .cta-section p {
+            font-size: 1.0625rem;
+            color: var(--ink-muted);
+            margin-bottom: 48px;
+        }
+
+        /* Footer */
+        footer {
+            padding: 48px 0;
+            border-top: 1px solid rgba(0,0,0,0.08);
+        }
+
+        footer .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-logo {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 600;
+            font-style: italic;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .footer-links a {
+            font-size: 0.8125rem;
+            color: var(--ink-muted);
+            text-decoration: none;
+        }
+        .footer-links a:hover { color: var(--ink); }
+
+        @media (max-width: 1024px) {
+            .features-grid { grid-template-columns: 1fr; }
+            .case-study-layout { grid-template-columns: 1fr; gap: 48px; }
+            .steps { grid-template-columns: 1fr; gap: 40px; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 0 24px; }
+            .nav-links { display: none; }
+            .case-stats { grid-template-columns: 1fr; }
+            section { padding: 80px 0; }
+            .hero { padding: 160px 0 100px; }
+            .hero-bottom { flex-direction: column; gap: 40px; align-items: flex-start; }
+            .hero h1 .line-2 { margin-left: 0; }
+            .cta-section { padding: 120px 0; }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Designs
+    </a>
+
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">Signals</a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#comparison">Compare</a>
+                <a href="#case-study">Case Study</a>
+                <a href="#how-it-works">Process</a>
+                <a href="#" class="btn btn-primary">Get Early Access</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-eyebrow">AI Intelligence Platform</div>
+                <h1>See the<br><span class="line-2">Signals</span></h1>
+                <div class="hero-bottom">
+                    <p class="hero-subtitle">Transform your rental data into predictive insights. Understand customers, optimize assets, and anticipate demand before it happens.</p>
+                    <div class="hero-ctas">
+                        <a href="#" class="btn btn-primary">Get Early Access</a>
+                        <a href="#" class="btn btn-outline">Watch Demo</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="problem">
+        <div class="container">
+            <p class="problem-text"><span class="dim">Your RMS shows what happened.</span><br><em>Signals shows what's coming.</em></p>
+        </div>
+    </section>
+
+    <section class="section-dark" id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-eyebrow">Capabilities</div>
+                <h2 class="section-title">Intelligence that<br><strong>drives results</strong></h2>
+            </div>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-number">01</div>
+                <h3 class="feature-title">AI-Powered Insights</h3>
+                <p class="feature-desc">Utilisation forecasting, revenue predictions, and pricing optimization powered by machine learning models.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">02</div>
+                <h3 class="feature-title">Customer Intelligence</h3>
+                <p class="feature-desc">Behavioural signals, LTV banding, growth trends, and AOV segmentation to know your customers.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">03</div>
+                <h3 class="feature-title">Product Intelligence</h3>
+                <p class="feature-desc">Health scores, utilisation bands, rental rate trends, and product affinities for every asset.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">04</div>
+                <h3 class="feature-title">Activity Signals</h3>
+                <p class="feature-desc">Every customer interaction captured and transformed into actionable intelligence.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">05</div>
+                <h3 class="feature-title">Incentive Programs</h3>
+                <p class="feature-desc">Trade, Pro, and Partner tiers based on spend. Automated rewards without manual work.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-number">06</div>
+                <h3 class="feature-title">Unified Data Layer</h3>
+                <p class="feature-desc">Connect RMS, CRM, accounting, and customer portal. One source of truth.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="comparison">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-eyebrow">Comparison</div>
+                <h2 class="section-title">Beyond<br><strong>traditional tools</strong></h2>
+            </div>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Capability</th>
+                        <th>Signals</th>
+                        <th>Traditional RMS</th>
+                        <th>Generic CRM</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Predictive Analytics</td>
+                        <td><span class="check">Yes</span></td>
+                        <td><span class="partial">—</span></td>
+                        <td><span class="partial">—</span></td>
+                    </tr>
+                    <tr>
+                        <td>Customer Behaviour</td>
+                        <td><span class="check">Full tracking</span></td>
+                        <td><span class="partial">Limited</span></td>
+                        <td><span class="check">Yes</span></td>
+                    </tr>
+                    <tr>
+                        <td>Asset Health</td>
+                        <td><span class="check">AI-powered</span></td>
+                        <td><span class="partial">Basic</span></td>
+                        <td><span class="partial">—</span></td>
+                    </tr>
+                    <tr>
+                        <td>Revenue Forecasting</td>
+                        <td><span class="check">ML models</span></td>
+                        <td><span class="partial">—</span></td>
+                        <td><span class="partial">—</span></td>
+                    </tr>
+                    <tr>
+                        <td>Rental Workflows</td>
+                        <td><span class="check">Native</span></td>
+                        <td><span class="check">Yes</span></td>
+                        <td><span class="partial">—</span></td>
+                    </tr>
+                    <tr>
+                        <td>AI Recommendations</td>
+                        <td><span class="check">Advanced</span></td>
+                        <td><span class="partial">—</span></td>
+                        <td><span class="partial">Basic</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section id="case-study">
+        <div class="container">
+            <div class="case-study-layout">
+                <div class="case-content">
+                    <h3>Case Study</h3>
+                    <h4>Transforming a leading UK hire company</h4>
+                    <p>A major equipment rental company deployed Signals to gain deeper insights into their customers and operations. The platform now processes thousands of signals daily, driving measurable improvements across the business.</p>
+                    <blockquote>
+                        <p>"Signals has transformed how we understand our customers. We went from guessing to knowing."</p>
+                        <cite>— Operations Director</cite>
+                    </blockquote>
+                </div>
+                <div class="case-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">137</div>
+                        <div class="stat-label">Components</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">50K+</div>
+                        <div class="stat-label">Monthly Events</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">15%</div>
+                        <div class="stat-label">Conversion Lift</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">Automated Tiers</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <div class="section-header" style="text-align: center;">
+                <div class="section-eyebrow">Process</div>
+                <h2 class="section-title">Three steps to<br><strong>intelligence</strong></h2>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">I</div>
+                    <h3 class="step-title">Connect</h3>
+                    <p class="step-desc">Integrate with your RMS, CRM, and accounting systems. Current RMS, Rentman, Xero, and more.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">II</div>
+                    <h3 class="step-title">Analyse</h3>
+                    <p class="step-desc">Our AI processes your data, identifies patterns, and builds predictive models.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">III</div>
+                    <h3 class="step-title">Act</h3>
+                    <p class="step-desc">Receive recommendations, automate incentives, and make data-driven decisions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <h2>Start seeing<br><strong>the signals</strong></h2>
+            <p>Join our early access program and transform your rental intelligence.</p>
+            <a href="#" class="btn btn-primary">Get Early Access</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-logo">Signals</div>
+            <div class="footer-links">
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

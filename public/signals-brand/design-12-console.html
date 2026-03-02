@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 12: The Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================================
+           THE CONSOLE — Mixing Desk / Control Surface Aesthetic
+           ============================================================ */
+
+        :root {
+            --base: #0c0c0e;
+            --panel: #161618;
+            --panel-raised: #1e1e22;
+            --border: #222228;
+            --border-subtle: #1a1a1e;
+            --screw: #333;
+            --screw-border: #444;
+
+            --amber: #ffb627;
+            --amber-dim: #cc9520;
+            --amber-glow: rgba(255, 182, 39, 0.3);
+            --amber-glow-soft: rgba(255, 182, 39, 0.12);
+            --amber-glow-faint: rgba(255, 182, 39, 0.06);
+
+            --blue: #4cc9f0;
+            --blue-glow: rgba(76, 201, 240, 0.3);
+            --blue-dim: #3aa8cc;
+
+            --red: #ef6461;
+            --red-glow: rgba(239, 100, 97, 0.3);
+
+            --green: #4ade80;
+            --green-glow: rgba(74, 222, 128, 0.35);
+            --green-dim: #22c55e;
+
+            --text: #e8e8ec;
+            --text-muted: #8b8b94;
+            --text-faint: #55555e;
+
+            --font-display: 'Syne', sans-serif;
+            --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
+
+            --knurl: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 1px,
+                rgba(255,255,255,0.015) 1px,
+                rgba(255,255,255,0.015) 2px
+            ),
+            repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 1px,
+                rgba(255,255,255,0.015) 1px,
+                rgba(255,255,255,0.015) 2px
+            );
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--base);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ---- Back Link ---- */
+        .back-link {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 200;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-faint);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.3s;
+        }
+        .back-link:hover { color: var(--text-muted); }
+
+        /* ---- Container ---- */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        /* ============================================================
+           NAVIGATION — Control Surface Soft-Key Bar
+           ============================================================ */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: var(--base);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.375rem;
+            font-weight: 800;
+            color: var(--text);
+            text-decoration: none;
+            letter-spacing: -0.02em;
+            text-transform: uppercase;
+        }
+
+        .nav-center {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .nav-key {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-decoration: none;
+            background: #111113;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .nav-key:hover {
+            color: var(--text);
+            border-color: #333;
+            background: var(--panel);
+        }
+
+        .nav-key.active {
+            color: var(--amber);
+            border-color: rgba(255, 182, 39, 0.25);
+            box-shadow: 0 2px 8px var(--amber-glow), inset 0 -1px 0 rgba(255, 182, 39, 0.15);
+        }
+
+        .nav-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+            margin: 0 8px;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-link {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 6px 12px;
+            transition: color 0.25s;
+        }
+        .nav-link:hover { color: var(--text); }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(180deg, var(--amber) 0%, var(--amber-dim) 100%);
+            color: #0c0c0e;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(180deg, #ffc44d 0%, var(--amber) 100%);
+            box-shadow: 0 2px 12px var(--amber-glow), 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn-primary:active {
+            background: linear-gradient(180deg, var(--amber-dim) 0%, #b8851a 100%);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--amber);
+            border: 1px solid #555;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .btn-ghost:hover {
+            border-color: var(--amber);
+            box-shadow: 0 0 12px var(--amber-glow-soft), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .btn-ghost:active {
+            background: rgba(255, 182, 39, 0.06);
+        }
+
+        .btn-green {
+            background: linear-gradient(180deg, var(--green) 0%, var(--green-dim) 100%);
+            color: #0c0c0e;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn-green:hover {
+            box-shadow: 0 2px 12px var(--green-glow), 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.8125rem;
+        }
+
+        /* ============================================================
+           LED INDICATORS
+           ============================================================ */
+        .led {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .led-green {
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green-glow), 0 0 12px rgba(74, 222, 128, 0.15);
+        }
+
+        .led-amber {
+            background: var(--amber);
+            box-shadow: 0 0 6px var(--amber-glow), 0 0 12px var(--amber-glow-soft);
+        }
+
+        .led-blue {
+            background: var(--blue);
+            box-shadow: 0 0 6px var(--blue-glow), 0 0 12px rgba(76, 201, 240, 0.15);
+        }
+
+        .led-red {
+            background: var(--red);
+            box-shadow: 0 0 6px var(--red-glow), 0 0 12px rgba(239, 100, 97, 0.15);
+        }
+
+        .led-pulse {
+            animation: ledPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes ledPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ============================================================
+           PANEL CARDS — With Screw Corners
+           ============================================================ */
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            position: relative;
+            background-image: var(--knurl);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: #2a2a30;
+        }
+
+        .panel-hover:hover {
+            border-color: rgba(255, 182, 39, 0.2);
+            box-shadow: 0 0 20px var(--amber-glow-faint), inset 0 0 20px rgba(255, 182, 39, 0.02);
+        }
+
+        .panel-screws::before,
+        .panel-screws::after,
+        .panel-screw-bl,
+        .panel-screw-br {
+            content: '';
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--screw);
+            border: 1px solid var(--screw-border);
+            z-index: 2;
+        }
+        .panel-screws::before { top: 8px; left: 8px; }
+        .panel-screws::after { top: 8px; right: 8px; }
+        .panel-screw-bl { bottom: 8px; left: 8px; }
+        .panel-screw-br { bottom: 8px; right: 8px; }
+
+        /* ============================================================
+           SECTION DIVIDERS — Jack Point Lines
+           ============================================================ */
+        .jack-divider {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding: 0 32px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .jack-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+            position: relative;
+        }
+
+        .jack-point {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #1a1a1e;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        /* ============================================================
+           SECTION LABELS
+           ============================================================ */
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--amber);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .section-label-line {
+            width: 24px;
+            height: 1px;
+            background: var(--amber);
+            opacity: 0.4;
+        }
+
+        /* ============================================================
+           STAT BLOCKS — Amber Segmented Numbers
+           ============================================================ */
+        .stat-number {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--amber);
+            letter-spacing: 0.04em;
+            text-shadow: 0 0 20px var(--amber-glow), 0 0 40px var(--amber-glow-faint);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        /* ============================================================
+           ANIMATIONS
+           ============================================================ */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes vuMeter {
+            0% { width: 0%; }
+            100% { width: var(--vu-width, 75%); }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .fade-up {
+            opacity: 0;
+            animation: fadeUp 0.7s ease forwards;
+        }
+
+        .fade-up-1 { animation-delay: 0.1s; }
+        .fade-up-2 { animation-delay: 0.2s; }
+        .fade-up-3 { animation-delay: 0.3s; }
+        .fade-up-4 { animation-delay: 0.4s; }
+        .fade-up-5 { animation-delay: 0.5s; }
+        .fade-up-6 { animation-delay: 0.6s; }
+
+        /* ============================================================
+           HERO SECTION
+           ============================================================ */
+        .hero {
+            padding: 140px 0 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: var(--knurl);
+            pointer-events: none;
+        }
+
+        .hero .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 64px;
+            align-items: center;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px 6px 10px;
+            background: rgba(74, 222, 128, 0.08);
+            border: 1px solid rgba(74, 222, 128, 0.15);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--green);
+            letter-spacing: 0.04em;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.08;
+            letter-spacing: -0.03em;
+            color: var(--text);
+            margin-bottom: 24px;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            color: var(--amber);
+        }
+
+        .hero-description {
+            font-size: 1.125rem;
+            line-height: 1.7;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            max-width: 520px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .hero-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+        }
+
+        .hero-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hero-meta .check {
+            color: var(--green);
+            font-size: 0.75rem;
+        }
+
+        /* ============================================================
+           HERO MOCKUP — Meter Bridge Display
+           ============================================================ */
+        .meter-bridge {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+            background-image: var(--knurl);
+            box-shadow:
+                0 4px 40px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+
+        .meter-bridge::before,
+        .meter-bridge::after {
+            content: '';
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--screw);
+            border: 1px solid var(--screw-border);
+            z-index: 5;
+        }
+        .meter-bridge::before { top: 10px; left: 10px; }
+        .meter-bridge::after { top: 10px; right: 10px; }
+
+        .mb-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+        }
+
+        .mb-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mb-title {
+            font-family: var(--font-display);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .mb-url {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+        }
+
+        .mb-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: var(--green);
+            letter-spacing: 0.05em;
+        }
+
+        .mb-body {
+            padding: 20px;
+        }
+
+        /* Stats Grid */
+        .mb-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .mb-stat {
+            background: #111113;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .mb-stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.375rem;
+            font-weight: 600;
+            color: var(--amber);
+            letter-spacing: 0.06em;
+            text-shadow: 0 0 15px var(--amber-glow);
+            line-height: 1.2;
+        }
+
+        .mb-stat-label {
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        /* VU Meters */
+        .mb-vu-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .mb-vu {
+            flex: 1;
+            height: 4px;
+            background: #111113;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .mb-vu-fill {
+            height: 100%;
+            border-radius: 2px;
+            animation: vuMeter 1.5s ease-out forwards;
+        }
+
+        .mb-vu-fill.vu-amber {
+            background: linear-gradient(90deg, var(--amber-dim), var(--amber));
+            box-shadow: 0 0 8px var(--amber-glow-soft);
+        }
+
+        .mb-vu-fill.vu-green {
+            background: linear-gradient(90deg, var(--green-dim), var(--green));
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.2);
+        }
+
+        .mb-vu-fill.vu-blue {
+            background: linear-gradient(90deg, var(--blue-dim), var(--blue));
+            box-shadow: 0 0 8px rgba(76, 201, 240, 0.2);
+        }
+
+        /* Activity List */
+        .mb-activity {
+            background: #111113;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .mb-activity-header {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .mb-activity-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(34, 34, 40, 0.5);
+            font-size: 0.8125rem;
+            opacity: 0;
+            animation: slideIn 0.4s ease forwards;
+        }
+
+        .mb-activity-item:nth-child(2) { animation-delay: 0.8s; }
+        .mb-activity-item:nth-child(3) { animation-delay: 1.1s; }
+        .mb-activity-item:nth-child(4) { animation-delay: 1.4s; }
+
+        .mb-activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .mb-activity-text {
+            flex: 1;
+            color: var(--text-muted);
+        }
+
+        .mb-activity-time {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--text-faint);
+            flex-shrink: 0;
+        }
+
+        /* Floating Indicators */
+        .mb-indicators {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .mb-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* ============================================================
+           SECTIONS
+           ============================================================ */
+        section {
+            padding: 80px 0;
+            position: relative;
+        }
+
+        section h2 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        section h2 em {
+            font-style: italic;
+            color: var(--amber);
+        }
+
+        .section-desc {
+            font-size: 1.0625rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+            max-width: 600px;
+            margin-bottom: 48px;
+        }
+
+        /* ============================================================
+           CLOUD SECTION
+           ============================================================ */
+        .cloud-section {
+            padding: 80px 0;
+        }
+
+        .cloud-panel {
+            padding: 40px;
+            position: relative;
+        }
+
+        .cloud-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(255, 182, 39, 0.1);
+            border: 1px solid rgba(255, 182, 39, 0.2);
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: var(--amber);
+            letter-spacing: 0.1em;
+            margin-bottom: 24px;
+        }
+
+        .cloud-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .feature-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.9375rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .feature-list .led {
+            margin-top: 6px;
+        }
+
+        .cloud-mockup {
+            background: #111113;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .cloud-mockup-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.3);
+        }
+
+        .cloud-mockup-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .cloud-mockup-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 16px;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(34, 34, 40, 0.5);
+            font-size: 0.8125rem;
+        }
+
+        .cloud-mockup-row:last-child { border-bottom: none; }
+
+        .cloud-mockup-id {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-faint);
+        }
+
+        .cloud-mockup-name {
+            color: var(--text-muted);
+        }
+
+        .cloud-mockup-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .cloud-mockup-amount {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--amber);
+            text-align: right;
+        }
+
+        /* ============================================================
+           SERVICES SECTION — 3-Column Cards
+           ============================================================ */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .service-card {
+            padding: 32px;
+        }
+
+        .service-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111113;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 1.125rem;
+        }
+
+        .service-card h3 {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .service-card p {
+            font-size: 0.9375rem;
+            color: var(--text-muted);
+            line-height: 1.65;
+            margin-bottom: 20px;
+        }
+
+        .service-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .service-features li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+        }
+
+        .service-features .led {
+            width: 5px;
+            height: 5px;
+        }
+
+        /* ============================================================
+           INDUSTRIES SECTION
+           ============================================================ */
+        .industries-section {
+            background: var(--panel);
+            background-image: var(--knurl);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .industries-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .industry-card {
+            background: #111113;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+
+        .industry-card:hover {
+            border-color: rgba(255, 182, 39, 0.15);
+            background: #141416;
+        }
+
+        .industry-icon {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .industry-card h4 {
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+
+        .industry-card span {
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+        }
+
+        /* ============================================================
+           WHY SECTION
+           ============================================================ */
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .why-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 24px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background-image: var(--knurl);
+            transition: border-color 0.3s ease;
+        }
+
+        .why-item:hover {
+            border-color: #2c2c34;
+        }
+
+        .why-led-wrap {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111113;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .why-item h4 {
+            font-family: var(--font-body);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .why-item p {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        /* ============================================================
+           OPEN SOURCE SECTION
+           ============================================================ */
+        .opensource-section {
+            background: var(--base);
+        }
+
+        .opensource-section h2 em {
+            color: var(--green);
+            text-shadow: 0 0 30px rgba(74, 222, 128, 0.2);
+        }
+
+        .opensource-panel {
+            background: #0e0e10;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 40px;
+            background-image: var(--knurl);
+        }
+
+        .opensource-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .opensource-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .opensource-features li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9375rem;
+            color: var(--text-muted);
+        }
+
+        .opensource-cta {
+            text-align: center;
+            padding: 32px;
+            background: rgba(74, 222, 128, 0.04);
+            border: 1px solid rgba(74, 222, 128, 0.12);
+            border-radius: 10px;
+        }
+
+        .opensource-cta p {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .opensource-cta span {
+            font-size: 0.875rem;
+            color: var(--text-faint);
+            display: block;
+            margin-bottom: 20px;
+        }
+
+        /* ============================================================
+           CTA SECTION
+           ============================================================ */
+        .cta-section {
+            text-align: center;
+            padding: 100px 0;
+        }
+
+        .cta-section h2 {
+            margin-bottom: 28px;
+        }
+
+        .cta-meta {
+            font-size: 0.875rem;
+            color: var(--text-faint);
+            margin-top: 20px;
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        footer {
+            background: var(--panel);
+            border-top: 1px solid var(--border);
+            background-image: var(--knurl);
+            padding: 64px 0 0;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.5fr repeat(4, 1fr);
+            gap: 40px;
+            padding-bottom: 48px;
+        }
+
+        .footer-brand .logo {
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
+        .footer-brand p {
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+            line-height: 1.65;
+            max-width: 260px;
+        }
+
+        .footer-col h5 {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: var(--text-faint);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 16px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .footer-col a {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-col a:hover { color: var(--amber); }
+
+        .footer-bottom {
+            border-top: 1px solid var(--border);
+            padding: 20px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-faint);
+        }
+
+        .footer-bottom-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-bottom-links a {
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-bottom-links a:hover { color: var(--text-muted); }
+
+        /* ============================================================
+           CHANNEL STRIP DIVIDERS
+           ============================================================ */
+        .channel-strip {
+            width: 1px;
+            background: var(--border);
+            align-self: stretch;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 1024px) {
+            .hero .container {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .hero h1 {
+                font-size: 2.75rem;
+            }
+
+            .cloud-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .industries-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .why-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .opensource-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 20px;
+            }
+
+            .nav-center { display: none; }
+
+            .hero {
+                padding: 110px 0 60px;
+            }
+
+            .hero h1 {
+                font-size: 2.25rem;
+            }
+
+            .hero-description {
+                font-size: 1rem;
+            }
+
+            .hero-meta {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .hero-buttons .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .mb-stats {
+                grid-template-columns: 1fr;
+            }
+
+            section h2 {
+                font-size: 2rem;
+            }
+
+            .industries-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .why-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+
+            .jack-divider {
+                padding: 0 20px;
+            }
+
+            .cloud-panel {
+                padding: 24px;
+            }
+
+            .opensource-panel {
+                padding: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 {
+                font-size: 1.875rem;
+            }
+
+            section h2 {
+                font-size: 1.75rem;
+            }
+
+            .mb-indicators {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+         BACK LINK
+         ============================================================ -->
+    <a href="index.html" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Designs
+    </a>
+
+    <!-- ============================================================
+         NAVIGATION
+         ============================================================ -->
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">Signals</a>
+
+            <div class="nav-center">
+                <a href="#cloud" class="nav-key active">Cloud</a>
+                <a href="#services" class="nav-key">Registry</a>
+                <a href="#services" class="nav-key">Network</a>
+                <a href="#services" class="nav-key">Intelligence</a>
+            </div>
+
+            <div class="nav-right">
+                <a href="#opensource" class="nav-link">Open Source</a>
+                <div class="nav-divider"></div>
+                <a href="#" class="nav-link">Sign In</a>
+                <a href="#" class="btn btn-primary btn-sm">Start Trial</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ============================================================
+         HERO
+         ============================================================ -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge fade-up fade-up-1">
+                    <span class="led led-green led-pulse"></span>
+                    Built on open source
+                </div>
+
+                <h1 class="fade-up fade-up-2">Modern rental management for <em>hire companies</em></h1>
+
+                <p class="hero-description fade-up fade-up-3">Signals Cloud is a complete rental management system &mdash; quotes, orders, availability, prep lists, invoicing &mdash; deployed in seconds with zero IT overhead.</p>
+
+                <div class="hero-buttons fade-up fade-up-4">
+                    <a href="#" class="btn btn-primary">Start Free Trial</a>
+                    <a href="#" class="btn btn-ghost">Watch Demo</a>
+                </div>
+
+                <div class="hero-meta fade-up fade-up-5">
+                    <span><span class="check">&#10003;</span> 14-day free trial</span>
+                    <span><span class="check">&#10003;</span> No credit card required</span>
+                    <span><span class="check">&#10003;</span> UK-based support</span>
+                </div>
+            </div>
+
+            <!-- METER BRIDGE MOCKUP -->
+            <div class="meter-bridge fade-up fade-up-3">
+                <div class="mb-header">
+                    <div class="mb-header-left">
+                        <span class="mb-title">Dashboard</span>
+                        <span class="mb-url">acme.signals.rent</span>
+                    </div>
+                    <div class="mb-live">
+                        <span class="led led-green led-pulse"></span>
+                        Live
+                    </div>
+                </div>
+
+                <div class="mb-body">
+                    <!-- Stats -->
+                    <div class="mb-stats">
+                        <div class="mb-stat">
+                            <div class="mb-stat-value">&pound;28.4k</div>
+                            <div class="mb-stat-label">This Month</div>
+                        </div>
+                        <div class="mb-stat">
+                            <div class="mb-stat-value">76%</div>
+                            <div class="mb-stat-label">Utilisation</div>
+                        </div>
+                        <div class="mb-stat">
+                            <div class="mb-stat-value">14</div>
+                            <div class="mb-stat-label">Active Jobs</div>
+                        </div>
+                    </div>
+
+                    <!-- VU Meters -->
+                    <div class="mb-vu-row">
+                        <div class="mb-vu"><div class="mb-vu-fill vu-amber" style="--vu-width: 72%"></div></div>
+                        <div class="mb-vu"><div class="mb-vu-fill vu-green" style="--vu-width: 88%"></div></div>
+                        <div class="mb-vu"><div class="mb-vu-fill vu-blue" style="--vu-width: 45%"></div></div>
+                        <div class="mb-vu"><div class="mb-vu-fill vu-amber" style="--vu-width: 65%"></div></div>
+                    </div>
+
+                    <!-- Activity -->
+                    <div class="mb-activity">
+                        <div class="mb-activity-header">Signal Routing</div>
+                        <div class="mb-activity-item">
+                            <span class="led led-green"></span>
+                            <span class="mb-activity-text">Quote #1284 accepted</span>
+                            <span class="mb-activity-time">2m ago</span>
+                        </div>
+                        <div class="mb-activity-item">
+                            <span class="led led-blue"></span>
+                            <span class="mb-activity-text">Order dispatched to O2 Arena</span>
+                            <span class="mb-activity-time">18m ago</span>
+                        </div>
+                        <div class="mb-activity-item">
+                            <span class="led led-amber"></span>
+                            <span class="mb-activity-text">Invoice #892 payment received</span>
+                            <span class="mb-activity-time">1h ago</span>
+                        </div>
+                    </div>
+
+                    <!-- Floating Indicators -->
+                    <div class="mb-indicators">
+                        <div class="mb-indicator">
+                            <span class="led led-green" style="width:6px;height:6px"></span>
+                            &#10003; Xero sync complete
+                        </div>
+                        <div class="mb-indicator">
+                            <span class="led led-blue" style="width:6px;height:6px"></span>
+                            &#128230; 42 items prepped
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIVIDER -->
+    <div class="jack-divider">
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+    </div>
+
+    <!-- ============================================================
+         CLOUD SECTION
+         ============================================================ -->
+    <section class="cloud-section" id="cloud">
+        <div class="container">
+            <div class="section-label fade-up">
+                <span class="section-label-line"></span>
+                START HERE
+                <span class="section-label-line"></span>
+            </div>
+
+            <h2 class="fade-up">Your complete hire system,<br>in the cloud</h2>
+
+            <p class="section-desc fade-up">Everything you need to manage quotes, orders, stock, prep, and invoicing. Deployed instantly, updated automatically, backed up continuously.</p>
+
+            <div class="cloud-panel panel panel-screws fade-up">
+                <div class="panel-screw-bl"></div>
+                <div class="panel-screw-br"></div>
+
+                <div class="cloud-badge">
+                    <span class="led led-amber" style="width:5px;height:5px;"></span>
+                    MANAGED HOSTING
+                </div>
+
+                <div class="cloud-grid">
+                    <ul class="feature-list">
+                        <li><span class="led led-amber"></span> Quotes &amp; orders with digital approval workflows</li>
+                        <li><span class="led led-amber"></span> Real-time stock availability &amp; clash detection</li>
+                        <li><span class="led led-amber"></span> Prep lists, pick sheets &amp; return processing</li>
+                        <li><span class="led led-amber"></span> Integrated invoicing with Xero &amp; QuickBooks sync</li>
+                        <li><span class="led led-amber"></span> Custom branding on all client-facing documents</li>
+                        <li><span class="led led-amber"></span> Sub-hire tracking &amp; purchase orders</li>
+                        <li><span class="led led-amber"></span> Multi-location warehouse management</li>
+                        <li><span class="led led-amber"></span> Crew scheduling &amp; transport planning</li>
+                    </ul>
+
+                    <div class="cloud-mockup">
+                        <div class="cloud-mockup-header">
+                            <span class="cloud-mockup-dot" style="background:var(--red);"></span>
+                            <span class="cloud-mockup-dot" style="background:var(--amber);"></span>
+                            <span class="cloud-mockup-dot" style="background:var(--green);"></span>
+                        </div>
+                        <div class="cloud-mockup-row">
+                            <span class="cloud-mockup-id">Q-1284</span>
+                            <span class="cloud-mockup-name">Glastonbury Main Stage</span>
+                            <span class="cloud-mockup-status"><span class="led led-green" style="width:5px;height:5px"></span> Accepted</span>
+                            <span class="cloud-mockup-amount">&pound;14,200</span>
+                        </div>
+                        <div class="cloud-mockup-row">
+                            <span class="cloud-mockup-id">O-0891</span>
+                            <span class="cloud-mockup-name">O2 Arena - Corporate Event</span>
+                            <span class="cloud-mockup-status"><span class="led led-blue" style="width:5px;height:5px"></span> Dispatched</span>
+                            <span class="cloud-mockup-amount">&pound;8,450</span>
+                        </div>
+                        <div class="cloud-mockup-row">
+                            <span class="cloud-mockup-id">O-0889</span>
+                            <span class="cloud-mockup-name">BBC Studios - Series Wrap</span>
+                            <span class="cloud-mockup-status"><span class="led led-amber" style="width:5px;height:5px"></span> Returning</span>
+                            <span class="cloud-mockup-amount">&pound;3,780</span>
+                        </div>
+                        <div class="cloud-mockup-row">
+                            <span class="cloud-mockup-id">Q-1285</span>
+                            <span class="cloud-mockup-name">Manchester Arena - Tour Support</span>
+                            <span class="cloud-mockup-status"><span class="led led-amber" style="width:5px;height:5px"></span> Pending</span>
+                            <span class="cloud-mockup-amount">&pound;22,600</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIVIDER -->
+    <div class="jack-divider">
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+    </div>
+
+    <!-- ============================================================
+         SERVICES SECTION
+         ============================================================ -->
+    <section id="services">
+        <div class="container">
+            <div class="section-label fade-up">
+                <span class="section-label-line"></span>
+                EXTEND WHEN READY
+                <span class="section-label-line"></span>
+            </div>
+
+            <h2 class="fade-up">Add capability as you grow</h2>
+
+            <p class="section-desc fade-up">Start with Cloud. Plug in additional modules when your business is ready. Each service is independent, all work together.</p>
+
+            <div class="services-grid">
+                <!-- Registry -->
+                <div class="service-card panel panel-screws panel-hover fade-up fade-up-1" style="padding: 32px;">
+                    <div class="panel-screw-bl"></div>
+                    <div class="panel-screw-br"></div>
+                    <div class="service-icon">
+                        <span class="led led-blue" style="width:10px;height:10px"></span>
+                    </div>
+                    <h3>Signals Registry</h3>
+                    <p>A shared product database connecting hire companies. Standardised equipment records with specifications, images, and weight data across the industry.</p>
+                    <ul class="service-features">
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Standardised product library</li>
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Shared specs &amp; weight data</li>
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Automatic product matching</li>
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Barcode &amp; serial tracking</li>
+                    </ul>
+                </div>
+
+                <!-- Network -->
+                <div class="service-card panel panel-screws panel-hover fade-up fade-up-2" style="padding: 32px;">
+                    <div class="panel-screw-bl"></div>
+                    <div class="panel-screw-br"></div>
+                    <div class="service-icon">
+                        <span class="led led-blue" style="width:10px;height:10px;background:var(--blue);box-shadow:0 0 6px var(--blue-glow)"></span>
+                    </div>
+                    <h3>Signals Network</h3>
+                    <p>Credit scores and performance benchmarks for the hire industry. Know who you're working with before committing stock or extending terms.</p>
+                    <ul class="service-features">
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Industry credit scores</li>
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Payment history benchmarks</li>
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Company verification</li>
+                        <li><span class="led led-blue" style="width:5px;height:5px"></span> Sub-hire partner ratings</li>
+                    </ul>
+                </div>
+
+                <!-- Intelligence -->
+                <div class="service-card panel panel-screws panel-hover fade-up fade-up-3" style="padding: 32px;">
+                    <div class="panel-screw-bl"></div>
+                    <div class="panel-screw-br"></div>
+                    <div class="service-icon">
+                        <span class="led led-amber" style="width:10px;height:10px"></span>
+                    </div>
+                    <h3>Signals Intelligence</h3>
+                    <p>AI-powered insights across your rental operations. Demand forecasting, pricing optimisation, and utilisation analytics that learn your business.</p>
+                    <ul class="service-features">
+                        <li><span class="led led-amber" style="width:5px;height:5px"></span> Demand forecasting</li>
+                        <li><span class="led led-amber" style="width:5px;height:5px"></span> Pricing optimisation</li>
+                        <li><span class="led led-amber" style="width:5px;height:5px"></span> Utilisation analytics</li>
+                        <li><span class="led led-amber" style="width:5px;height:5px"></span> Automated reporting</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIVIDER -->
+    <div class="jack-divider">
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+    </div>
+
+    <!-- ============================================================
+         INDUSTRIES SECTION
+         ============================================================ -->
+    <section class="industries-section">
+        <div class="container">
+            <div class="section-label fade-up">
+                <span class="section-label-line"></span>
+                BUILT FOR HIRE
+                <span class="section-label-line"></span>
+            </div>
+
+            <h2 class="fade-up">Whatever your kit,<br>we speak your language</h2>
+
+            <p class="section-desc fade-up">Purpose-built for companies that rent, hire, and deploy physical equipment. Not retrofitted project management.</p>
+
+            <div class="industries-grid">
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127903;</div>
+                    <div>
+                        <h4>Lighting &amp; AV</h4>
+                        <span>Moving heads, LED, control</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127908;</div>
+                    <div>
+                        <h4>Audio &amp; PA</h4>
+                        <span>Line arrays, monitors, desks</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127909;</div>
+                    <div>
+                        <h4>Film &amp; Broadcast</h4>
+                        <span>Cameras, lenses, grip</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#127919;</div>
+                    <div>
+                        <h4>Staging &amp; Structures</h4>
+                        <span>Truss, staging, barriers</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#9889;</div>
+                    <div>
+                        <h4>Power &amp; Distribution</h4>
+                        <span>Generators, distro, cable</span>
+                    </div>
+                </div>
+                <div class="industry-card fade-up">
+                    <div class="industry-icon">&#128295;</div>
+                    <div>
+                        <h4>Tools &amp; Plant</h4>
+                        <span>Access, tools, equipment</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIVIDER -->
+    <div class="jack-divider">
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+    </div>
+
+    <!-- ============================================================
+         WHY SECTION
+         ============================================================ -->
+    <section>
+        <div class="container">
+            <div class="section-label fade-up">
+                <span class="section-label-line"></span>
+                WHY SIGNALS
+                <span class="section-label-line"></span>
+            </div>
+
+            <h2 class="fade-up">Built different, on purpose</h2>
+
+            <p class="section-desc fade-up">Not another generic SaaS with a rental plugin. Every line of code is written for hire companies.</p>
+
+            <div class="why-grid">
+                <div class="why-item fade-up">
+                    <div class="why-led-wrap"><span class="led led-green"></span></div>
+                    <div>
+                        <h4>Up and running in a day</h4>
+                        <p>Import your stock, set your rates, and start quoting. No six-month implementation projects.</p>
+                    </div>
+                </div>
+                <div class="why-item fade-up">
+                    <div class="why-led-wrap"><span class="led led-amber"></span></div>
+                    <div>
+                        <h4>Honest pricing</h4>
+                        <p>Transparent per-user pricing. No hidden fees, no enterprise tax, no surprise invoices at renewal.</p>
+                    </div>
+                </div>
+                <div class="why-item fade-up">
+                    <div class="why-led-wrap"><span class="led led-green"></span></div>
+                    <div>
+                        <h4>Built on open source</h4>
+                        <p>Our core is open source. No vendor lock-in, no hostage situation. Your data is always yours.</p>
+                    </div>
+                </div>
+                <div class="why-item fade-up">
+                    <div class="why-led-wrap"><span class="led led-blue"></span></div>
+                    <div>
+                        <h4>UK-based support</h4>
+                        <p>Real people who understand the hire industry. Not a chatbot, not a call centre in another timezone.</p>
+                    </div>
+                </div>
+                <div class="why-item fade-up">
+                    <div class="why-led-wrap"><span class="led led-amber"></span></div>
+                    <div>
+                        <h4>Intelligence built in</h4>
+                        <p>AI that learns your business patterns. Smarter pricing, demand forecasting, and utilisation insights.</p>
+                    </div>
+                </div>
+                <div class="why-item fade-up">
+                    <div class="why-led-wrap"><span class="led led-blue"></span></div>
+                    <div>
+                        <h4>Works with your tools</h4>
+                        <p>Xero, QuickBooks, Google Workspace, and more. We connect to the tools you already rely on.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIVIDER -->
+    <div class="jack-divider">
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+    </div>
+
+    <!-- ============================================================
+         OPEN SOURCE SECTION
+         ============================================================ -->
+    <section class="opensource-section" id="opensource">
+        <div class="container">
+            <div class="section-label fade-up" style="color: var(--green);">
+                <span class="section-label-line" style="background: var(--green);"></span>
+                OPEN SOURCE
+                <span class="section-label-line" style="background: var(--green);"></span>
+            </div>
+
+            <h2 class="fade-up">Prefer to <em style="color: var(--green); text-shadow: 0 0 30px rgba(74,222,128,0.2);">self-host?</em></h2>
+
+            <p class="section-desc fade-up">Run Signals on your own infrastructure. Full control, full access, no restrictions. The same powerful core that runs Signals Cloud.</p>
+
+            <div class="opensource-panel fade-up">
+                <div class="opensource-grid">
+                    <div>
+                        <ul class="opensource-features">
+                            <li><span class="led led-green"></span> Full source code access on GitHub</li>
+                            <li><span class="led led-green"></span> Docker &amp; native deployment options</li>
+                            <li><span class="led led-green"></span> Community-driven development</li>
+                            <li><span class="led led-green"></span> No feature gating or artificial limits</li>
+                            <li><span class="led led-green"></span> MIT licensed &mdash; use it however you want</li>
+                            <li><span class="led led-green"></span> Commercial support available if needed</li>
+                        </ul>
+                    </div>
+
+                    <div class="opensource-cta">
+                        <p>Free forever. No strings attached.</p>
+                        <span>Download, deploy, and make it your own.</span>
+                        <a href="#" class="btn btn-green">View on GitHub</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIVIDER -->
+    <div class="jack-divider">
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+        <span class="jack-line"></span>
+        <span class="jack-point"></span>
+    </div>
+
+    <!-- ============================================================
+         CTA SECTION
+         ============================================================ -->
+    <section class="cta-section">
+        <div class="container">
+            <h2 class="fade-up">Ready to modernise your<br><em>hire operation?</em></h2>
+
+            <p class="section-desc fade-up" style="margin: 0 auto 36px; text-align: center;">Join hire companies across the UK already running on Signals.</p>
+
+            <div class="fade-up" style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+                <a href="#" class="btn btn-primary" style="box-shadow: 0 4px 24px var(--amber-glow), 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);">Start Free Trial</a>
+                <a href="#" class="btn btn-ghost">Talk to Sales</a>
+            </div>
+
+            <p class="cta-meta fade-up">14-day trial &middot; Full features &middot; UK support</p>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         FOOTER
+         ============================================================ -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="#" class="logo">Signals</a>
+                    <p>Modern rental management for hire companies. Built on open source, backed by people who understand the industry.</p>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Platform</h5>
+                    <ul>
+                        <li><a href="#">Signals Cloud</a></li>
+                        <li><a href="#">Registry</a></li>
+                        <li><a href="#">Network</a></li>
+                        <li><a href="#">Intelligence</a></li>
+                        <li><a href="#">Pricing</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Resources</h5>
+                    <ul>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">API Reference</a></li>
+                        <li><a href="#">Changelog</a></li>
+                        <li><a href="#">Status</a></li>
+                        <li><a href="#">Blog</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Company</h5>
+                    <ul>
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Contact</a></li>
+                        <li><a href="#">Privacy</a></li>
+                        <li><a href="#">Terms</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h5>Open Source</h5>
+                    <ul>
+                        <li><a href="#">GitHub</a></li>
+                        <li><a href="#">Contributing</a></li>
+                        <li><a href="#">Licence</a></li>
+                        <li><a href="#">Community</a></li>
+                        <li><a href="#">Self-hosting</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <span>&copy; 2026 Signals. All rights reserved.</span>
+                <div class="footer-bottom-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ============================================================
+         INTERSECTION OBSERVER — Fade-up on scroll
+         ============================================================ -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Intersection Observer for scroll-triggered animations
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.animationPlayState = 'running';
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                threshold: 0.1,
+                rootMargin: '0px 0px -40px 0px'
+            });
+
+            // Pause animations that aren't in the hero, observe them
+            document.querySelectorAll('.fade-up').forEach((el) => {
+                // Don't pause hero elements — let them play immediately
+                if (!el.closest('.hero') && !el.closest('nav')) {
+                    el.style.animationPlayState = 'paused';
+                }
+                observer.observe(el);
+            });
+
+            // Smooth scroll for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    const href = this.getAttribute('href');
+                    if (href === '#') return;
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>

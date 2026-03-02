@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Design 07: Laravel Cloud</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --zinc-950: #09090b;
+            --zinc-900: #18181b;
+            --zinc-800: #27272a;
+            --zinc-700: #3f3f46;
+            --zinc-600: #52525b;
+            --zinc-500: #71717a;
+            --zinc-400: #a1a1aa;
+            --zinc-300: #d4d4d8;
+            --zinc-200: #e4e4e7;
+            --zinc-100: #f4f4f5;
+            --white: #ffffff;
+            --violet-500: #8b5cf6;
+            --violet-400: #a78bfa;
+            --violet-300: #c4b5fd;
+            --indigo-500: #6366f1;
+            --rose-500: #f43f5e;
+
+            --font-main: 'Figtree', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--zinc-950);
+            color: var(--zinc-100);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 1000;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--zinc-500);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--zinc-100); }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 0;
+            background: rgba(9, 9, 11, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--zinc-800);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--white);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--violet-500), var(--indigo-500));
+            border-radius: 6px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--zinc-400);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--white); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 40px;
+            padding: 0 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--violet-500), var(--indigo-500));
+            color: var(--white);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+        }
+
+        .btn-secondary {
+            background: var(--zinc-800);
+            color: var(--zinc-100);
+            border: 1px solid var(--zinc-700);
+        }
+        .btn-secondary:hover {
+            background: var(--zinc-700);
+            border-color: var(--zinc-600);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 180px 0 120px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--zinc-900);
+            border: 1px solid var(--zinc-800);
+            border-radius: 100px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--zinc-300);
+            margin-bottom: 32px;
+        }
+
+        .hero-badge-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--violet-500);
+            border-radius: 50%;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 .gradient {
+            background: linear-gradient(90deg, var(--violet-400), var(--indigo-500), var(--rose-500));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.125rem;
+            color: var(--zinc-400);
+            max-width: 560px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        /* Section */
+        section {
+            padding: 120px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .section-eyebrow {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--violet-400);
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+
+        .section-subtitle {
+            font-size: 1rem;
+            color: var(--zinc-400);
+            margin-top: 12px;
+            max-width: 560px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Problem */
+        .problem {
+            text-align: center;
+            padding: 100px 0;
+            border-top: 1px solid var(--zinc-800);
+            border-bottom: 1px solid var(--zinc-800);
+        }
+
+        .problem-text {
+            font-size: clamp(1.25rem, 3vw, 1.75rem);
+            font-weight: 500;
+            line-height: 1.5;
+            max-width: 700px;
+            margin: 0 auto;
+            color: var(--zinc-300);
+        }
+
+        .problem-text strong {
+            color: var(--white);
+        }
+
+        .problem-text .highlight {
+            color: var(--violet-400);
+        }
+
+        /* Features */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .feature-card {
+            background: var(--zinc-900);
+            border: 1px solid var(--zinc-800);
+            border-radius: 12px;
+            padding: 28px;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--zinc-700);
+            background: var(--zinc-800);
+        }
+
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+            border-radius: 10px;
+            margin-bottom: 16px;
+            font-size: 1.25rem;
+        }
+
+        .feature-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--white);
+        }
+
+        .feature-desc {
+            font-size: 0.875rem;
+            color: var(--zinc-400);
+            line-height: 1.6;
+        }
+
+        /* Comparison */
+        .comparison {
+            background: var(--zinc-900);
+            border-top: 1px solid var(--zinc-800);
+            border-bottom: 1px solid var(--zinc-800);
+        }
+
+        .comparison-table-wrapper {
+            overflow-x: auto;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--zinc-800);
+        }
+
+        .comparison-table thead th {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--zinc-500);
+        }
+
+        .comparison-table thead th:nth-child(2) {
+            color: var(--violet-400);
+        }
+
+        .comparison-table tbody td {
+            font-size: 0.875rem;
+        }
+
+        .comparison-table td:first-child {
+            font-weight: 500;
+            color: var(--zinc-200);
+        }
+
+        .comparison-table td:nth-child(2) {
+            background: rgba(139, 92, 246, 0.05);
+        }
+
+        .check {
+            color: var(--violet-400);
+            font-weight: 600;
+        }
+
+        .partial {
+            color: var(--zinc-500);
+        }
+
+        /* Case Study */
+        .case-study-wrapper {
+            background: linear-gradient(135deg, var(--zinc-900), var(--zinc-950));
+            border: 1px solid var(--zinc-800);
+            border-radius: 16px;
+            padding: 48px;
+        }
+
+        .case-study-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .case-badge {
+            padding: 4px 12px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--violet-400);
+        }
+
+        .case-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .case-desc {
+            font-size: 1rem;
+            color: var(--zinc-400);
+            max-width: 600px;
+            margin-bottom: 40px;
+        }
+
+        .case-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 24px;
+            background: var(--zinc-900);
+            border: 1px solid var(--zinc-800);
+            border-radius: 12px;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--violet-400), var(--indigo-500));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.8125rem;
+            color: var(--zinc-500);
+        }
+
+        .case-quote {
+            padding: 24px;
+            background: var(--zinc-900);
+            border-left: 2px solid var(--violet-500);
+            border-radius: 0 8px 8px 0;
+        }
+
+        .case-quote blockquote {
+            font-size: 1rem;
+            font-style: italic;
+            color: var(--zinc-300);
+            margin-bottom: 12px;
+        }
+
+        .case-quote cite {
+            font-style: normal;
+            font-size: 0.875rem;
+            color: var(--zinc-500);
+        }
+
+        /* How It Works */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .step {
+            position: relative;
+            padding: 32px;
+            background: var(--zinc-900);
+            border: 1px solid var(--zinc-800);
+            border-radius: 12px;
+        }
+
+        .step-number {
+            position: absolute;
+            top: -12px;
+            left: 24px;
+            padding: 4px 12px;
+            background: linear-gradient(135deg, var(--violet-500), var(--indigo-500));
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .step-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            margin-top: 8px;
+        }
+
+        .step-desc {
+            font-size: 0.875rem;
+            color: var(--zinc-400);
+            line-height: 1.6;
+        }
+
+        /* CTA */
+        .cta-section {
+            text-align: center;
+            padding: 160px 0;
+            position: relative;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse at bottom, rgba(139, 92, 246, 0.1) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .cta-section h2 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .cta-section p {
+            font-size: 1rem;
+            color: var(--zinc-400);
+            margin-bottom: 32px;
+            position: relative;
+        }
+
+        .cta-section .btn {
+            position: relative;
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--zinc-800);
+        }
+
+        footer .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-text {
+            font-size: 0.8125rem;
+            color: var(--zinc-500);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .footer-links a {
+            font-size: 0.8125rem;
+            color: var(--zinc-500);
+            text-decoration: none;
+        }
+        .footer-links a:hover { color: var(--zinc-300); }
+
+        @media (max-width: 1024px) {
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .case-stats { grid-template-columns: repeat(2, 1fr); }
+            .steps { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 0 20px; }
+            .nav-links { display: none; }
+            .features-grid { grid-template-columns: 1fr; }
+            .case-stats { grid-template-columns: 1fr; }
+            section { padding: 80px 0; }
+            .hero { padding: 140px 0 80px; }
+            .hero-ctas { flex-direction: column; align-items: center; }
+            .case-study-wrapper { padding: 32px 24px; }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Designs
+    </a>
+
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">
+                <div class="logo-icon"></div>
+                Signals
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#comparison">Compare</a>
+                <a href="#case-study">Case Study</a>
+                <a href="#how-it-works">How it works</a>
+                <a href="#" class="btn btn-primary">Get Early Access</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="hero-badge-dot"></span>
+                    Now accepting early access
+                </div>
+                <h1>AI intelligence for<br><span class="gradient">equipment rental</span></h1>
+                <p class="hero-subtitle">Transform your rental data into predictive insights. Understand customers, optimize assets, and anticipate demand before it happens.</p>
+                <div class="hero-ctas">
+                    <a href="#" class="btn btn-primary">Get Early Access</a>
+                    <a href="#" class="btn btn-secondary">Watch Demo</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="problem">
+        <div class="container">
+            <p class="problem-text"><strong>Your RMS shows what happened.</strong><br><span class="highlight">Signals shows what's coming.</span></p>
+        </div>
+    </section>
+
+    <section id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-eyebrow">Capabilities</div>
+                <h2 class="section-title">Everything you need to understand your business</h2>
+                <p class="section-subtitle">Six pillars of rental intelligence, working together.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">AI-Powered Insights</h3>
+                    <p class="feature-desc">Utilisation forecasting, revenue predictions, and pricing optimization powered by machine learning.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">👥</div>
+                    <h3 class="feature-title">Customer Intelligence</h3>
+                    <p class="feature-desc">Behavioural signals, LTV banding, growth trends, and AOV segmentation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3 class="feature-title">Product Intelligence</h3>
+                    <p class="feature-desc">Health scores, utilisation bands, rental rate trends, and product affinities.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Activity Signals</h3>
+                    <p class="feature-desc">Every interaction captured and transformed into actionable insights.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">Incentive Programs</h3>
+                    <p class="feature-desc">Trade, Pro, and Partner tiers based on spend. Automated rewards.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3 class="feature-title">Unified Data Layer</h3>
+                    <p class="feature-desc">Connect RMS, CRM, accounting, and customer portal in one place.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="comparison" id="comparison">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-eyebrow">Comparison</div>
+                <h2 class="section-title">Why Signals is different</h2>
+            </div>
+            <div class="comparison-table-wrapper">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Capability</th>
+                            <th>Signals</th>
+                            <th>Traditional RMS</th>
+                            <th>Generic CRM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Predictive Analytics</td>
+                            <td><span class="check">✓ Built-in</span></td>
+                            <td><span class="partial">—</span></td>
+                            <td><span class="partial">—</span></td>
+                        </tr>
+                        <tr>
+                            <td>Customer Behaviour</td>
+                            <td><span class="check">✓ Full tracking</span></td>
+                            <td><span class="partial">Limited</span></td>
+                            <td><span class="check">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td>Asset Health</td>
+                            <td><span class="check">✓ AI-powered</span></td>
+                            <td><span class="partial">Basic</span></td>
+                            <td><span class="partial">—</span></td>
+                        </tr>
+                        <tr>
+                            <td>Revenue Forecasting</td>
+                            <td><span class="check">✓ ML models</span></td>
+                            <td><span class="partial">—</span></td>
+                            <td><span class="partial">—</span></td>
+                        </tr>
+                        <tr>
+                            <td>Rental Workflows</td>
+                            <td><span class="check">✓ Native</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td><span class="partial">—</span></td>
+                        </tr>
+                        <tr>
+                            <td>AI Recommendations</td>
+                            <td><span class="check">✓ Advanced</span></td>
+                            <td><span class="partial">—</span></td>
+                            <td><span class="partial">Basic</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section id="case-study">
+        <div class="container">
+            <div class="case-study-wrapper">
+                <div class="case-study-header">
+                    <span class="case-badge">Case Study</span>
+                </div>
+                <h3 class="case-title">Transforming a leading UK hire company</h3>
+                <p class="case-desc">A major equipment rental company deployed Signals to gain deeper insights into their customers and operations. The results speak for themselves.</p>
+                <div class="case-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">137</div>
+                        <div class="stat-label">Components deployed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">50K+</div>
+                        <div class="stat-label">Monthly events</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">15%</div>
+                        <div class="stat-label">Conversion lift</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">Automated tiers</div>
+                    </div>
+                </div>
+                <div class="case-quote">
+                    <blockquote>"Signals has transformed how we understand our customers. We went from guessing to knowing."</blockquote>
+                    <cite>— Operations Director</cite>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-eyebrow">How it works</div>
+                <h2 class="section-title">Three steps to intelligence</h2>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">Step 1</div>
+                    <h3 class="step-title">Connect</h3>
+                    <p class="step-desc">Integrate with your RMS, CRM, and accounting systems. We support Current RMS, Rentman, Xero, and more.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">Step 2</div>
+                    <h3 class="step-title">Analyse</h3>
+                    <p class="step-desc">Our AI processes your data, identifies patterns, and builds predictive models for your business.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">Step 3</div>
+                    <h3 class="step-title">Act</h3>
+                    <p class="step-desc">Receive recommendations, automate incentives, and make data-driven decisions with confidence.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <h2>Start seeing the signals</h2>
+            <p>Join our early access program and transform your rental intelligence.</p>
+            <a href="#" class="btn btn-primary">Get Early Access</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-text">© 2025 Signals. All rights reserved.</div>
+            <div class="footer-links">
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

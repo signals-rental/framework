@@ -132,6 +132,10 @@
                                 <flux:icon.cog-6-tooth class="mega-item-icon" />
                                 <span class="mega-item-label">Settings</span>
                             </a>
+                            <a href="{{ route('docs.index') }}" class="mega-item" target="_blank">
+                                <flux:icon.book-open class="mega-item-icon" />
+                                <span class="mega-item-label">Documentation</span>
+                            </a>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit" class="mega-item w-full">

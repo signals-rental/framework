@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals Brand System — Marks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --base: #f8f9fb;
+            --white: #ffffff;
+            --navy: #0f172a;
+            --navy-mid: #1e293b;
+            --blue: #2563eb;
+            --blue-light: #3b82f6;
+            --blue-pale: rgba(37, 99, 235, 0.08);
+            --red: #dc2626;
+            --grey: #64748b;
+            --grey-light: #94a3b8;
+            --grey-border: #e2e8f0;
+            --green: #059669;
+            --sky: #0ea5e9;
+            --cyan: #0891b2;
+            --amber: #d97706;
+            --violet: #7c3aed;
+            --rose: #e11d48;
+            --slate: #475569;
+            --grid-fine: rgba(59, 130, 246, 0.06);
+            --grid-strong: rgba(59, 130, 246, 0.12);
+            --grid-dark-fine: rgba(148, 163, 184, 0.08);
+            --grid-dark-strong: rgba(148, 163, 184, 0.15);
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-mono: 'Martian Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--base);
+            color: var(--navy);
+            line-height: 1.7;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================ */
+        /* NAVIGATION                                   */
+        /* ============================================ */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--navy);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+        .top-nav a {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--grey-light);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: var(--white); }
+        .top-nav .nav-center {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--grey);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .sub-nav {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            height: 44px;
+            background: var(--base);
+            border-bottom: 1px solid var(--grey-border);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            padding: 0 24px;
+        }
+        .sub-nav a {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--grey);
+            text-decoration: none;
+            padding: 10px 0;
+            border-bottom: 2px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .sub-nav a:hover { color: var(--navy); }
+        .sub-nav a.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+        }
+
+        /* ============================================ */
+        /* GRID BACKGROUNDS                             */
+        /* ============================================ */
+        .grid-bg-light {
+            background-color: var(--base);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .grid-bg-dark {
+            background-color: var(--navy);
+            color: var(--grey-light);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        /* ============================================ */
+        /* LAYOUT                                       */
+        /* ============================================ */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+        section { padding: 80px 0; position: relative; }
+
+        /* ============================================ */
+        /* SECTION STAMP                                */
+        /* ============================================ */
+        .section-stamp {
+            display: inline-flex;
+            align-items: stretch;
+            border: 2px solid var(--navy);
+            margin-bottom: 32px;
+            font-family: var(--font-display);
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stamp-num { background: var(--navy); color: var(--white); padding: 4px 10px; }
+        .stamp-title { padding: 4px 12px; color: var(--navy); border-right: 2px solid var(--navy); }
+        .stamp-rev { padding: 4px 10px; color: var(--red); font-weight: 700; }
+        .grid-bg-dark .section-stamp { border-color: var(--grey-light); }
+        .grid-bg-dark .stamp-num { background: var(--grey-light); color: var(--navy); }
+        .grid-bg-dark .stamp-title { color: var(--grey-light); border-color: var(--grey-light); }
+
+        /* ============================================ */
+        /* HEADINGS                                     */
+        /* ============================================ */
+        h1, h2, h3 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.01em; font-weight: 700; }
+        h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin-bottom: 16px; }
+        h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; margin-bottom: 16px; }
+        h3 { font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
+        h2 em, h1 em { font-style: italic; color: var(--blue); font-weight: 600; }
+
+        .subtitle { font-size: 0.8125rem; color: var(--grey); line-height: 1.8; max-width: 640px; }
+        .grid-bg-dark .subtitle { color: var(--grey-light); }
+
+        /* ============================================ */
+        /* DIMENSION LINE DIVIDERS                      */
+        /* ============================================ */
+        .dimension-line { display: flex; align-items: center; padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+        .dim-arrow-left, .dim-arrow-right { width: 0; height: 0; flex-shrink: 0; }
+        .dim-arrow-left { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 8px solid var(--blue); }
+        .dim-arrow-right { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 8px solid var(--blue); }
+        .dim-line { flex: 1; height: 1px; background: var(--blue); opacity: 0.3; }
+        .dim-label { padding: 0 16px; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); white-space: nowrap; }
+        .grid-bg-dark .dim-arrow-left { border-right-color: var(--blue-light); }
+        .grid-bg-dark .dim-arrow-right { border-left-color: var(--blue-light); }
+        .grid-bg-dark .dim-line { background: var(--blue-light); }
+        .grid-bg-dark .dim-label { color: var(--grey-light); }
+
+        /* ============================================ */
+        /* ANNOTATION LABELS                            */
+        /* ============================================ */
+        .annotation { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+        .grid-bg-dark .annotation { color: var(--grey-light); }
+
+        /* ============================================ */
+        /* LOGO MARK                                    */
+        /* ============================================ */
+        .logo-mark {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 2px solid currentColor;
+            padding: 6px 16px;
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+        }
+        .logo-mark.color-blue::after { background: var(--blue); }
+        .logo-mark.color-green::after { background: var(--green); }
+        .logo-mark.color-sky::after { background: var(--sky); }
+        .logo-mark.color-cyan::after { background: var(--cyan); }
+        .logo-mark.color-amber::after { background: var(--amber); }
+        .logo-mark.color-violet::after { background: var(--violet); }
+        .logo-mark.color-rose::after { background: var(--rose); }
+        .logo-mark.color-slate::after { background: var(--slate); }
+
+        .logo-mark.size-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+        .logo-mark.size-xl::after { width: 14px; height: 14px; }
+        .logo-mark.size-lg { font-size: 1.5rem; padding: 8px 20px; }
+        .logo-mark.size-lg::after { width: 10px; height: 10px; }
+        .logo-mark.size-md { font-size: 1rem; padding: 6px 16px; }
+        .logo-mark.size-sm { font-size: 0.75rem; padding: 4px 10px; }
+        .logo-mark.size-sm::after { width: 5px; height: 5px; }
+
+        /* ============================================ */
+        /* MONOGRAM                                     */
+        /* ============================================ */
+        .monogram {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 2px solid currentColor;
+            position: relative;
+        }
+        .monogram::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+        }
+        .monogram.color-blue::after { background: var(--blue); }
+        .monogram.color-green::after { background: var(--green); }
+        .monogram.color-sky::after { background: var(--sky); }
+        .monogram.color-cyan::after { background: var(--cyan); }
+        .monogram.color-amber::after { background: var(--amber); }
+        .monogram.color-violet::after { background: var(--violet); }
+        .monogram.color-rose::after { background: var(--rose); }
+        .monogram.color-slate::after { background: var(--slate); }
+        .monogram.mono-64 { width: 64px; height: 64px; font-size: 1.75rem; }
+        .monogram.mono-64::after { width: 10px; height: 10px; }
+        .monogram.mono-48 { width: 48px; height: 48px; font-size: 1.25rem; }
+        .monogram.mono-48::after { width: 8px; height: 8px; }
+        .monogram.mono-36 { width: 36px; height: 36px; font-size: 1rem; }
+        .monogram.mono-36::after { width: 6px; height: 6px; }
+
+        /* ============================================ */
+        /* CONSTRUCTION CARD                            */
+        /* ============================================ */
+        .construction-card {
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            position: relative;
+            overflow: hidden;
+        }
+        .construction-crosshair-h {
+            position: absolute;
+            top: 50%;
+            left: 32px;
+            right: 32px;
+            height: 1px;
+            background: var(--blue);
+            opacity: 0.1;
+        }
+        .construction-crosshair-v {
+            position: absolute;
+            left: 50%;
+            top: 32px;
+            bottom: 32px;
+            width: 1px;
+            background: var(--blue);
+            opacity: 0.1;
+        }
+
+        /* ============================================ */
+        /* VARIANT GRID                                 */
+        /* ============================================ */
+        .variant-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .variant-card {
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            padding: 40px;
+            text-align: center;
+        }
+        .variant-card .annotation { display: block; margin-bottom: 16px; }
+        .variant-desc { margin-top: 16px; font-size: 0.6875rem; color: var(--grey); }
+        .variant-dark {
+            padding: 40px;
+            text-align: center;
+        }
+
+        /* Wordmark (text only, no box) */
+        .wordmark {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* ============================================ */
+        /* CONSTRUCTION SECTION                         */
+        /* ============================================ */
+        .construction-frame {
+            background: var(--white);
+            border: 1px solid var(--grey-border);
+            position: relative;
+            padding: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Dashed clear-zone */
+        .clear-zone {
+            position: absolute;
+            border: 1px dashed var(--blue);
+            opacity: 0.4;
+        }
+
+        /* Dimension arrows */
+        .dim-annotation {
+            position: absolute;
+            font-family: var(--font-mono);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+        .dim-annotation.orange { color: var(--amber); }
+        .dim-annotation.blue { color: var(--blue); opacity: 0.7; }
+
+        /* Dimension bar (thin line with arrows) */
+        .dim-bar {
+            position: absolute;
+            display: flex;
+            align-items: center;
+        }
+        .dim-bar.horizontal { flex-direction: row; }
+        .dim-bar.vertical { flex-direction: column; }
+        .dim-bar .bar-line-h { height: 1px; background: var(--amber); flex: 1; }
+        .dim-bar .bar-line-v { width: 1px; background: var(--amber); flex: 1; }
+        .dim-bar .bar-arrow-left { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-right: 5px solid var(--amber); }
+        .dim-bar .bar-arrow-right { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 5px solid var(--amber); }
+        .dim-bar .bar-arrow-up { width: 0; height: 0; border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid var(--amber); }
+        .dim-bar .bar-arrow-down { width: 0; height: 0; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 5px solid var(--amber); }
+
+        /* Construction dashed guides */
+        .guide-dashed-h {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 0;
+            border-top: 1px dashed var(--blue);
+            opacity: 0.3;
+        }
+        .guide-dashed-v {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            border-left: 1px dashed var(--blue);
+            opacity: 0.3;
+        }
+
+        /* ============================================ */
+        /* SIZE SCALE                                   */
+        /* ============================================ */
+        .size-row {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            padding: 24px 0;
+            border-bottom: 1px solid var(--grey-border);
+        }
+        .size-row:last-child { border-bottom: none; }
+        .size-mark { flex-shrink: 0; min-width: 240px; display: flex; align-items: center; justify-content: center; }
+        .size-info { flex: 1; }
+        .size-label {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .size-meta {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            color: var(--grey);
+        }
+        .size-desc {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--grey);
+            margin-top: 4px;
+        }
+
+        /* ============================================ */
+        /* REVEAL ANIMATION                             */
+        /* ============================================ */
+        .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* ============================================ */
+        /* RESPONSIVE                                   */
+        /* ============================================ */
+        @media (max-width: 768px) {
+            .variant-grid { grid-template-columns: 1fr; }
+            .sub-nav { gap: 16px; flex-wrap: wrap; height: auto; padding: 8px 16px; }
+            .sub-nav a { font-size: 10px; padding: 6px 0; }
+            .construction-frame { padding: 48px 24px; }
+            section { padding: 60px 0; }
+            .size-row { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .size-mark { min-width: unset; justify-content: flex-start; }
+        }
+        @media (max-width: 480px) {
+            .top-nav { padding: 0 12px; }
+            .container { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- NAVIGATION                                   -->
+<!-- ============================================ -->
+<nav class="top-nav">
+    <a href="index.html">&larr; Brand System</a>
+    <span class="nav-center">BRD-001/002 &mdash; Marks</span>
+    <a href="colors.html">Colors &rarr;</a>
+</nav>
+
+<div class="sub-nav">
+    <a href="marks.html" class="active">Marks</a>
+    <a href="colors.html">Colors</a>
+    <a href="typography.html">Typography</a>
+    <a href="lockups.html">Lockups</a>
+    <a href="social.html">Social</a>
+    <a href="schemes.html">Schemes</a>
+    <a href="guidelines.html">Guidelines</a>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 1: MASTER MARK                       -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 120px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-001</span>
+            <span class="stamp-title">Brand Identity</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h1>Signals <em>Brand Mark</em></h1>
+        <p class="subtitle" style="margin-bottom: 48px;">The bordered rectangle and corner accent device form the core identity.</p>
+
+        <!-- Master mark construction display -->
+        <div class="construction-card" style="padding: 64px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+            <div class="construction-crosshair-h"></div>
+            <div class="construction-crosshair-v"></div>
+            <div style="text-align: center;">
+                <span class="logo-mark size-xl color-blue" style="font-size: 3rem; padding: 16px 36px; letter-spacing: 0.14em;">Signals</span>
+                <div style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--grey); letter-spacing: 0.05em;">MODERN RENTAL MANAGEMENT</div>
+            </div>
+            <span class="annotation" style="position: absolute; top: 12px; right: 16px;">[REF: MASTER-MARK]</span>
+            <span class="annotation" style="position: absolute; bottom: 12px; left: 16px;">SCALE: 1:1</span>
+        </div>
+        <span class="annotation">[BRD-001] Signals master brand mark with blueprint blue corner accent. The bordered rectangle and corner device are the core identity elements that persist across all products and contexts.</span>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 02 &mdash; Mark Variants</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 2: MARK VARIANTS                     -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-002</span>
+            <span class="stamp-title">Mark Variants</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2>Three <em>Mark Forms</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">Three mark variants for different contexts and sizes.</p>
+
+        <!-- Light variants -->
+        <div class="variant-grid" style="margin-bottom: 20px;">
+            <!-- Full Mark -->
+            <div class="variant-card">
+                <span class="annotation">[VAR-A] Full Mark</span>
+                <span class="logo-mark size-lg color-blue">Signals</span>
+                <div class="variant-desc">Primary logo. Use wherever space permits.</div>
+            </div>
+
+            <!-- Monogram -->
+            <div class="variant-card">
+                <span class="annotation">[VAR-B] Monogram</span>
+                <span class="monogram mono-64 color-blue" style="color: var(--navy);">S</span>
+                <div class="variant-desc">Compact form for icons, favicons, avatars.</div>
+            </div>
+
+            <!-- Wordmark -->
+            <div class="variant-card">
+                <span class="annotation">[VAR-C] Wordmark</span>
+                <span class="wordmark" style="color: var(--navy);">Signals</span>
+                <div class="variant-desc">Text only. For inline and co-branding use.</div>
+            </div>
+        </div>
+
+        <!-- Dark variants -->
+        <div class="variant-grid">
+            <div class="variant-dark grid-bg-dark">
+                <span class="logo-mark size-lg color-blue" style="color: var(--white);">Signals</span>
+            </div>
+            <div class="variant-dark grid-bg-dark">
+                <span class="monogram mono-64 color-blue" style="color: var(--white);">S</span>
+            </div>
+            <div class="variant-dark grid-bg-dark">
+                <span class="wordmark" style="color: var(--white);">Signals</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 03 &mdash; Mark Construction</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 3: MARK CONSTRUCTION                 -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-002b</span>
+            <span class="stamp-title">Mark Construction</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2>Mark <em>Construction</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">Detailed anatomy of the brand mark showing the modular unit system, spacing, and corner accent specifications.</p>
+
+        <!-- Construction diagram -->
+        <div class="construction-frame" style="min-height: 420px; margin-bottom: 24px;">
+
+            <!-- Dashed construction guides through the mark -->
+            <div class="guide-dashed-h" style="top: 50%;"></div>
+            <div class="guide-dashed-v" style="left: 50%;"></div>
+
+            <!-- Clear zone (dashed border around the mark area) -->
+            <div class="clear-zone" style="top: 50%; left: 50%; transform: translate(-50%, -50%); width: 420px; height: 140px;"></div>
+
+            <!-- Inner padding zone guides (tighter dashed lines) -->
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 340px; height: 80px; border: 1px dashed var(--blue); opacity: 0.2;"></div>
+
+            <!-- The mark itself -->
+            <div style="position: relative; z-index: 2;">
+                <span class="logo-mark size-xl color-blue" style="font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em;">Signals</span>
+            </div>
+
+            <!-- Corner accent annotation -->
+            <div class="dim-annotation orange" style="top: 50%; right: calc(50% - 195px); transform: translate(100%, -180%);">
+                <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <svg width="40" height="1" style="display: block;"><line x1="0" y1="0.5" x2="40" y2="0.5" stroke="var(--amber)" stroke-width="1"/></svg>
+                    14px &times; 14px
+                </span>
+            </div>
+
+            <!-- Border annotation (right side) -->
+            <div class="dim-annotation orange" style="top: 50%; right: 60px; transform: translateY(-50%);">
+                <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    <svg width="30" height="1" style="display: block;"><line x1="0" y1="0.5" x2="30" y2="0.5" stroke="var(--amber)" stroke-width="1"/></svg>
+                    2px solid
+                </span>
+            </div>
+
+            <!-- Horizontal padding dimension (top) -->
+            <div class="dim-bar horizontal" style="top: calc(50% - 55px); left: calc(50% - 170px); width: 28px; height: 12px;">
+                <span class="bar-arrow-left"></span>
+                <span class="bar-line-h"></span>
+                <span class="bar-arrow-right"></span>
+            </div>
+            <div class="dim-annotation orange" style="top: calc(50% - 72px); left: calc(50% - 174px);">28px</div>
+
+            <!-- Vertical padding dimension (left) -->
+            <div class="dim-bar vertical" style="left: calc(50% - 185px); top: calc(50% - 40px); width: 12px; height: 12px;">
+                <span class="bar-arrow-up"></span>
+                <span class="bar-line-v"></span>
+                <span class="bar-arrow-down"></span>
+            </div>
+            <div class="dim-annotation orange" style="left: calc(50% - 220px); top: calc(50% - 45px);">12px</div>
+
+            <!-- Clear zone annotation (bottom) -->
+            <div class="dim-annotation blue" style="bottom: calc(50% - 85px); left: 50%; transform: translateX(-50%);">
+                clear zone: 1x all sides (x = cap height of "S")
+            </div>
+
+            <!-- X unit annotation (top-left) -->
+            <div class="dim-annotation blue" style="top: calc(50% - 90px); left: calc(50% - 210px);">
+                x = cap height
+            </div>
+
+            <!-- Reference annotation -->
+            <span class="annotation" style="position: absolute; top: 12px; right: 16px;">[REF: CONSTRUCTION]</span>
+            <span class="annotation" style="position: absolute; bottom: 12px; left: 16px;">UNIT: x = CAP HEIGHT OF "S"</span>
+        </div>
+
+        <!-- Construction notes -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 32px;">
+            <div style="padding: 20px; background: var(--white); border: 1px solid var(--grey-border);">
+                <span class="annotation" style="display: block; margin-bottom: 12px; color: var(--blue);">Border</span>
+                <div style="font-size: 0.6875rem; color: var(--grey);">2px solid, using currentColor so the mark inherits text colour. Consistent at all sizes.</div>
+            </div>
+            <div style="padding: 20px; background: var(--white); border: 1px solid var(--grey-border);">
+                <span class="annotation" style="display: block; margin-bottom: 12px; color: var(--blue);">Corner Accent</span>
+                <div style="font-size: 0.6875rem; color: var(--grey);">Positioned top-right, overlapping the border by 2px. Scales with size variant: 5px (sm) to 14px (xl).</div>
+            </div>
+            <div style="padding: 20px; background: var(--white); border: 1px solid var(--grey-border);">
+                <span class="annotation" style="display: block; margin-bottom: 12px; color: var(--blue);">Clear Zone</span>
+                <div style="font-size: 0.6875rem; color: var(--grey);">Minimum clear space of 1x on all sides, where x equals the cap height of the letter "S" in the mark.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 04 &mdash; Size Scale</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 4: SIZE SCALE                        -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-002c</span>
+            <span class="stamp-title">Size Scale</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2>Size <em>Scale</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">Four predefined sizes ensure consistent rendering across all contexts, from hero banners to footnotes.</p>
+
+        <div style="background: var(--white); border: 1px solid var(--grey-border); padding: 32px;">
+            <!-- XL -->
+            <div class="size-row">
+                <div class="size-mark">
+                    <span class="logo-mark size-xl color-blue">Signals</span>
+                </div>
+                <div class="size-info">
+                    <div class="size-label">Extra Large</div>
+                    <div class="size-meta">font-size: 2.5rem &middot; padding: 12px 28px &middot; corner: 14px</div>
+                    <div class="size-desc">Hero sections, splash screens, keynote presentations.</div>
+                </div>
+            </div>
+
+            <!-- LG -->
+            <div class="size-row">
+                <div class="size-mark">
+                    <span class="logo-mark size-lg color-blue">Signals</span>
+                </div>
+                <div class="size-info">
+                    <div class="size-label">Large</div>
+                    <div class="size-meta">font-size: 1.5rem &middot; padding: 8px 20px &middot; corner: 10px</div>
+                    <div class="size-desc">Page headers, presentation decks, printed materials.</div>
+                </div>
+            </div>
+
+            <!-- MD -->
+            <div class="size-row">
+                <div class="size-mark">
+                    <span class="logo-mark size-md color-blue">Signals</span>
+                </div>
+                <div class="size-info">
+                    <div class="size-label">Medium</div>
+                    <div class="size-meta">font-size: 1rem &middot; padding: 6px 16px &middot; corner: 8px</div>
+                    <div class="size-desc">Navigation bars, card headers, sidebar branding.</div>
+                </div>
+            </div>
+
+            <!-- SM -->
+            <div class="size-row">
+                <div class="size-mark">
+                    <span class="logo-mark size-sm color-blue">Signals</span>
+                </div>
+                <div class="size-info">
+                    <div class="size-label">Small</div>
+                    <div class="size-meta">font-size: 0.75rem &middot; padding: 4px 10px &middot; corner: 5px</div>
+                    <div class="size-desc">Badges, footnotes, compact UI elements.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monogram sizes -->
+        <div style="margin-top: 32px;">
+            <span class="annotation" style="display: block; margin-bottom: 20px;">Monogram Sizes</span>
+            <div style="background: var(--white); border: 1px solid var(--grey-border); padding: 32px;">
+                <div style="display: flex; align-items: flex-end; gap: 32px; flex-wrap: wrap;">
+                    <div style="text-align: center;">
+                        <span class="monogram mono-64 color-blue" style="color: var(--navy);">S</span>
+                        <div style="margin-top: 12px;">
+                            <div class="size-meta">64px &middot; 1.75rem</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <span class="monogram mono-48 color-blue" style="color: var(--navy);">S</span>
+                        <div style="margin-top: 12px;">
+                            <div class="size-meta">48px &middot; 1.25rem</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <span class="monogram mono-36 color-blue" style="color: var(--navy);">S</span>
+                        <div style="margin-top: 12px;">
+                            <div class="size-meta">36px &middot; 1rem</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================ -->
+<!-- FOOTER                                       -->
+<!-- ============================================ -->
+<footer class="grid-bg-dark" style="padding: 48px 0;">
+    <div class="container" style="text-align: center;">
+        <span class="logo-mark size-sm color-blue" style="color: var(--grey-light); font-size: 0.625rem; border-color: var(--grey); margin-bottom: 20px;">Signals</span>
+        <div style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Signals Brand Guidelines &mdash; Version 1.0 &mdash; February 2026
+        </div>
+        <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Confidential &mdash; For internal and partner use
+        </div>
+    </div>
+</footer>
+
+<!-- ============================================ -->
+<!-- SCROLL REVEAL                                -->
+<!-- ============================================ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var els = document.querySelectorAll(
+        '.section-stamp, .construction-card, .variant-card, .variant-dark, ' +
+        '.construction-frame, .size-row, h1, h2'
+    );
+    var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                obs.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    els.forEach(function(el) {
+        el.classList.add('reveal');
+        obs.observe(el);
+    });
+});
+</script>
+
+</body>
+</html>

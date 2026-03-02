@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals Rental Framework — Implementation Roadmap</title>
+<meta name="description" content="A phased approach to building a complete rental management platform. Nine phases, from architectural foundations to a fully extensible plugin ecosystem.">
+<meta property="og:title" content="Signals Rental Framework — Implementation Roadmap">
+<meta property="og:description" content="Nine implementation phases covering 65+ tables, shared service layer, plugin SDK, and Current RMS drop-in compatibility.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   Signals Implementation Roadmap — Blueprint Design System
+   ========================================================================== */
+
+:root {
+    --base: #f8f9fb;
+    --white: #ffffff;
+    --navy: #0f172a;
+    --navy-mid: #1e293b;
+    --blue: #2563eb;
+    --blue-light: #3b82f6;
+    --red: #dc2626;
+    --grey: #64748b;
+    --grey-light: #94a3b8;
+    --grey-border: #e2e8f0;
+    --green: #059669;
+    --green-light: #34d399;
+    --sky: #0ea5e9;
+    --cyan: #0891b2;
+    --amber: #d97706;
+    --violet: #7c3aed;
+    --rose: #e11d48;
+    --slate: #475569;
+    --grid-fine: rgba(37, 99, 235, 0.05);
+    --grid-strong: rgba(37, 99, 235, 0.1);
+    --grid-dark-fine: rgba(148, 163, 184, 0.08);
+    --grid-dark-strong: rgba(148, 163, 184, 0.15);
+    --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Martian Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: var(--font-mono);
+    background: var(--navy);
+    color: var(--navy);
+    line-height: 1.7;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+/* --- Slide System --- */
+.deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.slide {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: translateY(12px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none; padding: 60px 48px 80px; overflow-y: auto;
+}
+.slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; z-index: 1; }
+.slide-inner { max-width: 1100px; width: 100%; min-height: 0; }
+
+.slide-dark {
+    background-color: var(--navy); color: var(--grey-light);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+}
+.slide-dark h1, .slide-dark h2, .slide-dark h3, .slide-dark h4 { color: var(--white); }
+.slide-light {
+    background-color: var(--base); color: var(--navy);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+}
+
+/* --- Logo Mark --- */
+.logo-mark { display: inline-block; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 2px solid currentColor; padding: 6px 16px; position: relative; text-decoration: none; color: inherit; }
+.logo-mark::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; }
+.color-green::after { background: var(--green); }
+
+/* --- Section Stamp --- */
+.section-stamp { display: inline-flex; align-items: stretch; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; }
+.stamp-num { background: var(--navy); color: var(--white); padding: 3px 8px; }
+.stamp-title { padding: 3px 8px; border: 1px solid currentColor; border-left: none; }
+.stamp-rev { padding: 3px 8px; border: 1px solid currentColor; border-left: none; opacity: 0.5; }
+.slide-dark .stamp-title, .slide-dark .stamp-rev { border-color: rgba(148, 163, 184, 0.25); }
+.slide-light .stamp-title, .slide-light .stamp-rev { border-color: var(--grey-border); }
+
+/* --- Shared --- */
+.annotation { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+.dim-line-h { display: flex; align-items: center; gap: 0; margin: 0 auto; opacity: 0.3; }
+.dim-arrow-l, .dim-arrow-r { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; flex-shrink: 0; }
+.dim-arrow-l { border-right: 5px solid currentColor; }
+.dim-arrow-r { border-left: 5px solid currentColor; }
+.dim-rule { flex: 1; height: 1px; background: currentColor; }
+.iso-block { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border: 1px solid var(--grey-border); opacity: 0.5; }
+.fold-marks { }
+.fold-mark { position: absolute; width: 0; height: 0; pointer-events: none; }
+.fm-tl { top: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(37, 99, 235, 0.15); }
+.fm-tr { top: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(37, 99, 235, 0.15); }
+.fm-bl { bottom: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(37, 99, 235, 0.15); }
+.fm-br { bottom: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(37, 99, 235, 0.15); }
+
+/* --- Utilities --- */
+.mb-4 { margin-bottom: 4px; } .mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; } .mb-24 { margin-bottom: 24px; } .mb-32 { margin-bottom: 32px; }
+.mb-48 { margin-bottom: 48px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; } .mt-32 { margin-top: 32px; }
+
+/* --- Layouts --- */
+.slide-centered { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.slide-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.slide-two-col-wide { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: start; }
+.slide-headline { font-size: clamp(1.4rem, 2.8vw, 2rem); line-height: 1.1; margin-bottom: 8px; }
+.slide-headline em { font-style: italic; font-weight: 600; color: var(--blue); }
+.slide-subtitle { font-size: 0.75rem; line-height: 1.8; margin-bottom: 28px; }
+.slide-dark .slide-subtitle { color: var(--grey-light); }
+.slide-light .slide-subtitle { color: var(--grey); }
+
+/* --- S01 --- */
+.s1-headline { font-size: clamp(1.4rem, 3.5vw, 2.5rem); line-height: 1.05; max-width: 860px; }
+.s1-subtitle { font-size: 0.75rem; line-height: 1.8; max-width: 580px; color: var(--grey-light); margin-bottom: 32px; }
+.s1-hint { font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* --- Dark Mockup --- */
+.dark-mockup { border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; background: rgba(148, 163, 184, 0.04); }
+.dark-mockup-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 12px; }
+.dark-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.08); font-size: 0.6875rem; }
+.dark-stat-key { color: var(--grey-light); }
+.dark-stat-val { font-family: var(--font-display); font-weight: 600; color: var(--white); }
+
+/* --- Explainer Box --- */
+.explainer { font-size: 0.6875rem; line-height: 1.7; }
+.slide-dark .explainer { color: var(--grey-light); }
+.slide-light .explainer { color: var(--grey); }
+.explainer strong { font-weight: 600; }
+.slide-dark .explainer strong { color: var(--white); }
+.slide-light .explainer strong { color: var(--navy); }
+.explainer-heading { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+.slide-dark .explainer-heading { color: var(--blue-light); }
+.slide-light .explainer-heading { color: var(--blue); }
+
+/* --- Phase Flow (Timeline) --- */
+.phase-flow { display: flex; align-items: stretch; gap: 0; width: 100%; max-width: 920px; }
+.phase-node { flex: 1; text-align: center; position: relative; }
+.phase-box { border: 2px solid var(--grey-border); padding: 12px 6px 8px; background: var(--white); height: 100%; }
+.phase-box.phase-active { border-color: var(--blue); }
+.phase-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); }
+.phase-num { font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); margin-bottom: 2px; letter-spacing: 0.04em; }
+.phase-arrow { display: flex; align-items: center; justify-content: center; width: 24px; flex-shrink: 0; }
+.phase-arrow svg { width: 14px; height: 14px; color: var(--grey-light); }
+
+/* --- Milestone Marker --- */
+.milestone-marker { display: flex; align-items: center; gap: 6px; padding: 4px 10px; margin-top: 8px; }
+.milestone-dot { width: 8px; height: 8px; flex-shrink: 0; }
+.milestone-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* --- Foundation Grid --- */
+.foundation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.foundation-card { border: 1px solid rgba(148, 163, 184, 0.12); padding: 14px; background: rgba(148, 163, 184, 0.04); }
+.foundation-card-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 2px; }
+.foundation-card-desc { font-size: 0.5rem; color: var(--grey-light); line-height: 1.5; font-family: var(--font-mono); }
+
+/* --- Pipeline Steps --- */
+.pipeline-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 920px; }
+.pipe-card { padding: 14px; text-align: left; background: rgba(148, 163, 184, 0.06); border: 1px solid rgba(148, 163, 184, 0.1); position: relative; }
+.pipe-num { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.08em; color: var(--blue); margin-bottom: 6px; display: block; }
+.pipe-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 4px; }
+.pipe-desc { font-size: 0.5625rem; color: var(--grey-light); line-height: 1.5; }
+
+/* --- Light Pipe Card --- */
+.pipe-card-light { padding: 14px; text-align: left; background: var(--white); border: 1px solid var(--grey-border); position: relative; }
+.pipe-card-light .pipe-num { color: var(--blue); }
+.pipe-card-light .pipe-name { color: var(--navy); }
+.pipe-card-light .pipe-desc { color: var(--grey); }
+
+/* --- CTA Paths --- */
+.s20-paths { display: flex; gap: 12px; width: 100%; max-width: 660px; margin-bottom: 24px; }
+.s20-path { flex: 1; border: 1.5px solid var(--grey-border); padding: 14px 12px; background: var(--white); text-align: left; }
+.s20-path.s20-featured { border-color: var(--blue); border-width: 2px; }
+.s20-path-bar { width: 100%; height: 3px; margin-bottom: 10px; }
+.s20-path-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 2px; }
+.s20-path-desc { font-size: 0.625rem; color: var(--grey); line-height: 1.5; }
+.s20-cta-url { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--blue); letter-spacing: 0.02em; }
+
+/* --- Hub and Spoke --- */
+.hub-spoke { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; max-width: 780px; }
+.hub-center { border: 2px solid var(--blue); padding: 16px 28px; text-align: center; background: rgba(37, 99, 235, 0.06); }
+.hub-center-name { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; text-transform: uppercase; color: var(--white); letter-spacing: 0.02em; }
+.hub-center-desc { font-size: 0.5625rem; color: var(--grey-light); margin-top: 2px; }
+.spoke-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.spoke-card { border: 1px solid rgba(148, 163, 184, 0.12); padding: 14px; background: rgba(148, 163, 184, 0.04); }
+.spoke-card-tag { font-family: var(--font-mono); font-size: 0.4375rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.spoke-card-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 2px; }
+.spoke-card-desc { font-size: 0.5rem; color: var(--grey-light); line-height: 1.5; font-family: var(--font-mono); }
+
+/* --- Milestone Cards --- */
+.milestone-row { display: flex; gap: 12px; width: 100%; max-width: 920px; }
+.milestone-card { flex: 1; border: 1px solid rgba(148, 163, 184, 0.12); padding: 16px; background: rgba(148, 163, 184, 0.04); text-align: left; }
+.milestone-card-bar { width: 100%; height: 3px; margin-bottom: 10px; }
+.milestone-card-name { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 2px; }
+.milestone-card-phases { font-family: var(--font-mono); font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grey); margin-bottom: 8px; }
+.milestone-card-desc { font-size: 0.5625rem; color: var(--grey-light); line-height: 1.6; }
+
+/* --- Member Diagram --- */
+.member-diagram { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.member-center { border: 2px solid var(--blue); padding: 14px 24px; text-align: center; background: rgba(37, 99, 235, 0.03); }
+.member-center-name { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--blue); }
+.member-center-desc { font-size: 0.5rem; color: var(--grey); margin-top: 2px; }
+.member-types { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+.member-type { border: 1.5px solid var(--grey-border); padding: 10px; text-align: center; background: var(--white); }
+.member-type-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; color: var(--navy); }
+.member-type-desc { font-size: 0.5rem; color: var(--grey); font-family: var(--font-mono); margin-top: 2px; }
+.member-nested { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
+.member-nested-card { border: 1px solid var(--grey-border); padding: 8px; text-align: center; background: var(--white); }
+.member-nested-name { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; color: var(--navy); letter-spacing: 0.04em; }
+
+/* --- Stack Diagram --- */
+.stack-diagram { display: flex; flex-direction: column; align-items: center; gap: 0; width: 100%; }
+.stack-tier { width: 100%; border: 2px solid rgba(148, 163, 184, 0.2); padding: 16px 20px; text-align: center; background: rgba(148, 163, 184, 0.04); }
+.stack-tier-name { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); }
+.stack-tier-desc { font-size: 0.5625rem; color: var(--grey-light); margin-top: 2px; }
+.stack-connector { display: flex; flex-direction: column; align-items: center; padding: 4px 0; }
+.stack-conn-line { width: 2px; height: 12px; background: rgba(148, 163, 184, 0.2); }
+
+/* --- Cycle Diagram --- */
+.cycle-row { display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; margin-bottom: 20px; }
+.cycle-step { border: 2px solid var(--grey-border); padding: 10px 14px; text-align: center; background: var(--white); }
+.cycle-step-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; color: var(--navy); }
+.cycle-arrow { display: flex; align-items: center; justify-content: center; width: 24px; flex-shrink: 0; }
+.cycle-arrow svg { width: 14px; height: 14px; color: var(--grey-light); }
+.engine-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.engine-card { border: 1.5px solid var(--grey-border); padding: 12px; background: var(--white); }
+.engine-card-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; color: var(--navy); margin-bottom: 2px; }
+.engine-card-desc { font-size: 0.5rem; color: var(--grey); line-height: 1.5; font-family: var(--font-mono); }
+
+/* --- Service Grid (2x2) --- */
+.service-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 860px; }
+.service-card { border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; background: rgba(148, 163, 184, 0.04); }
+.service-card-num { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.08em; color: var(--blue); margin-bottom: 6px; }
+.service-card-name { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 6px; }
+.service-card-desc { font-size: 0.5625rem; color: var(--grey-light); line-height: 1.6; }
+
+/* --- State Flow --- */
+.state-flow { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.state-row { display: flex; align-items: center; gap: 0; }
+.state-box { border: 1.5px solid var(--grey-border); padding: 8px 12px; text-align: center; background: var(--white); }
+.state-box-name { font-family: var(--font-display); font-size: 0.5625rem; font-weight: 700; text-transform: uppercase; color: var(--navy); }
+.state-arrow { display: flex; align-items: center; justify-content: center; width: 20px; flex-shrink: 0; }
+.state-arrow svg { width: 12px; height: 12px; color: var(--grey-light); }
+.scanning-bar { border: 2px solid var(--blue); padding: 12px 16px; text-align: center; background: rgba(37, 99, 235, 0.03); margin-top: 12px; }
+.scanning-bar-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; color: var(--blue); margin-bottom: 2px; }
+.scanning-bar-desc { font-size: 0.5rem; color: var(--grey); font-family: var(--font-mono); }
+
+/* --- Plugin Diagram --- */
+.plugin-diagram { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 780px; }
+.plugin-center { border: 2px solid var(--blue); padding: 18px 32px; text-align: center; background: rgba(37, 99, 235, 0.06); }
+.plugin-center-name { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; text-transform: uppercase; color: var(--white); letter-spacing: 0.02em; }
+.plugin-center-desc { font-size: 0.5625rem; color: var(--grey-light); margin-top: 2px; }
+.plugin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.plugin-card { border: 1px solid rgba(148, 163, 184, 0.12); padding: 12px; background: rgba(148, 163, 184, 0.04); }
+.plugin-card-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 2px; }
+.plugin-card-desc { font-size: 0.5rem; color: var(--grey-light); line-height: 1.5; font-family: var(--font-mono); }
+
+/* --- API Surface --- */
+.api-surface { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.api-main { border: 2px solid var(--blue); padding: 16px; text-align: center; background: rgba(37, 99, 235, 0.03); }
+.api-main-name { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--blue); margin-bottom: 2px; }
+.api-main-desc { font-size: 0.5rem; color: var(--grey); font-family: var(--font-mono); }
+.api-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.api-card { border: 1.5px solid var(--grey-border); padding: 12px; background: var(--white); }
+.api-card-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; color: var(--navy); margin-bottom: 2px; }
+.api-card-desc { font-size: 0.5rem; color: var(--grey); line-height: 1.5; font-family: var(--font-mono); }
+
+/* --- Pricing Pipeline --- */
+.pricing-pipeline { display: flex; flex-direction: column; gap: 0; width: 100%; }
+.pricing-step { border: 1.5px solid var(--grey-border); padding: 14px 16px; background: var(--white); display: flex; align-items: center; gap: 12px; }
+.pricing-step-num { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.08em; color: var(--blue); flex-shrink: 0; min-width: 20px; }
+.pricing-step-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; color: var(--navy); flex-shrink: 0; min-width: 140px; }
+.pricing-step-desc { font-size: 0.5rem; color: var(--grey); line-height: 1.5; font-family: var(--font-mono); }
+.pricing-connector { display: flex; justify-content: center; padding: 2px 0; }
+.pricing-conn-line { width: 2px; height: 8px; background: var(--grey-border); }
+
+/* --- Nav Bar --- */
+.nav-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 12px 24px; transition: background 0.5s, color 0.5s; }
+.nav-bar.nav-light { background: rgba(248, 249, 251, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--grey-border); }
+.nav-bar.nav-dark { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(148, 163, 184, 0.12); }
+.nav-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.nav-light .nav-btn { color: var(--grey); } .nav-light .nav-btn:hover { color: var(--navy); border-color: var(--grey-border); }
+.nav-dark .nav-btn { color: var(--grey-light); } .nav-dark .nav-btn:hover { color: var(--white); border-color: rgba(148, 163, 184, 0.2); }
+.nav-btn:disabled { opacity: 0.25; cursor: default; } .nav-btn:disabled:hover { border-color: transparent; }
+.nav-btn svg { width: 14px; height: 14px; }
+.nav-dots { display: flex; align-items: center; gap: 4px; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; border: none; cursor: pointer; transition: all 0.3s; padding: 0; }
+.nav-light .nav-dot { background: var(--grey-border); } .nav-light .nav-dot.active { background: var(--blue); width: 16px; border-radius: 3px; }
+.nav-light .nav-dot:hover:not(.active) { background: var(--grey-light); }
+.nav-dark .nav-dot { background: rgba(148, 163, 184, 0.25); } .nav-dark .nav-dot.active { background: var(--blue); width: 16px; border-radius: 3px; }
+.nav-dark .nav-dot:hover:not(.active) { background: rgba(148, 163, 184, 0.5); }
+.nav-counter { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; min-width: 44px; text-align: center; }
+.nav-light .nav-counter { color: var(--grey); } .nav-dark .nav-counter { color: var(--grey-light); }
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+    .slide { padding: 48px 24px 72px; }
+    .slide-two-col, .slide-two-col-wide { grid-template-columns: 1fr; gap: 32px; }
+    .pipeline-grid { grid-template-columns: repeat(2, 1fr); }
+    .phase-flow { flex-wrap: wrap; gap: 8px; }
+    .phase-arrow { display: none; }
+    .phase-node { flex: 1 1 calc(50% - 4px); min-width: 120px; }
+    .foundation-grid { grid-template-columns: 1fr; }
+    .service-grid { grid-template-columns: 1fr; }
+    .spoke-grid { grid-template-columns: 1fr 1fr; }
+    .plugin-grid { grid-template-columns: 1fr 1fr; }
+    .member-types { grid-template-columns: 1fr 1fr; }
+    .engine-cards { grid-template-columns: 1fr; }
+    .api-cards { grid-template-columns: 1fr; }
+    .s20-paths { flex-wrap: wrap; } .s20-path { flex: 1 1 calc(50% - 6px); }
+    .milestone-row { flex-wrap: wrap; } .milestone-card { flex: 1 1 calc(50% - 6px); }
+    .cycle-arrow { display: none; }
+    .cycle-row { gap: 6px; }
+}
+@media (max-width: 600px) {
+    .slide { padding: 40px 16px 68px; }
+    .pipeline-grid { grid-template-columns: 1fr; }
+    .phase-node { flex: 1 1 100%; }
+    .s20-path { flex: 1 1 100%; }
+    .milestone-card { flex: 1 1 100%; }
+    .spoke-grid { grid-template-columns: 1fr; }
+    .plugin-grid { grid-template-columns: 1fr; }
+    .member-types { grid-template-columns: 1fr; }
+    .member-nested { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ================================================================ S01: Title -->
+<section class="slide slide-dark active fold-marks" data-bg="dark">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-32"><span class="stamp-num">SIG-IR01</span><span class="stamp-title">Implementation Roadmap</span><span class="stamp-rev">Rev A</span></div>
+        <div class="logo-mark color-green mb-48" style="font-size:1.5rem;padding:8px 20px">Signals</div>
+        <h1 class="s1-headline mb-16">Signals Rental Framework<br><span style="color:var(--grey-light);font-size:0.6em">Implementation Roadmap</span></h1>
+        <p class="s1-subtitle">A phased approach to building a complete rental management platform. Nine phases, from architectural foundations to a fully extensible plugin ecosystem.</p>
+        <div class="dim-line-h" style="width:200px"><span class="dim-arrow-l"></span><span class="dim-rule"></span><span class="dim-arrow-r"></span></div>
+        <p class="s1-hint mt-24">Use arrow keys to navigate</p>
+    </div>
+</section>
+
+<!-- ================================================================ S02: The Big Picture -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR02</span><span class="stamp-title">Overview</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Nine Phases, <em>Four Milestones</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:24px">Each phase builds on the last. Four milestones mark when the system crosses capability thresholds &mdash; from first working prototype to a full platform competing with commercial alternatives.</p>
+        <div class="phase-flow" style="margin-bottom:12px">
+            <div class="phase-node">
+                <div class="phase-box"><div class="phase-num">0</div><div class="phase-name">Foundations</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box"><div class="phase-num">1</div><div class="phase-name">People</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box"><div class="phase-num">2</div><div class="phase-name">Catalogue</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box" style="border-color:var(--green)"><div class="phase-num">3</div><div class="phase-name">Operations</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box" style="border-color:var(--amber)"><div class="phase-num">4</div><div class="phase-name">Billing</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box" style="border-color:var(--sky)"><div class="phase-num">5</div><div class="phase-name">Services</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box"><div class="phase-num">6</div><div class="phase-name">Compliance</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box"><div class="phase-num">7</div><div class="phase-name">Extensibility</div></div>
+            </div>
+            <div class="phase-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="phase-node">
+                <div class="phase-box" style="border-color:var(--blue)"><div class="phase-num">8</div><div class="phase-name">Interfaces</div></div>
+            </div>
+        </div>
+        <!-- Milestone markers -->
+        <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:12px">
+            <div class="milestone-marker"><div class="milestone-dot" style="background:var(--green)"></div><div class="milestone-label" style="color:var(--green)">After Phase 3 &mdash; It Works</div></div>
+            <div class="milestone-marker"><div class="milestone-dot" style="background:var(--amber)"></div><div class="milestone-label" style="color:var(--amber)">After Phase 4 &mdash; It Bills</div></div>
+            <div class="milestone-marker"><div class="milestone-dot" style="background:var(--sky)"></div><div class="milestone-label" style="color:var(--sky)">After Phase 5 &mdash; Production Ready</div></div>
+            <div class="milestone-marker"><div class="milestone-dot" style="background:var(--blue)"></div><div class="milestone-label" style="color:var(--blue)">After Phase 8 &mdash; Platform</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S03: Phase 0 — Foundations -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR03</span><span class="stamp-title">Phase 0</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Phase 0: <em>Architectural Foundations</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">Every Phase 0 week saves three weeks in Phase 7. These are the <strong>load-bearing walls</strong> of the entire system &mdash; permissions, field metadata, event dispatch, and API conventions that every future feature will depend on.</p>
+                    <p style="margin-bottom:12px">Getting these contracts right means every subsequent phase slots in cleanly. Getting them wrong means cascading rewrites that compound with every new domain.</p>
+                    <p>This phase produces <strong>no visible features</strong> for end users, but without it, nothing else works. The engines, registries, and service contracts established here are the foundation everything builds upon.</p>
+                </div>
+            </div>
+            <div>
+                <div class="foundation-grid">
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">Permissions &amp; Auth</div>
+                        <div class="foundation-card-desc">Four-layer access control</div>
+                    </div>
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">Field Registry</div>
+                        <div class="foundation-card-desc">Unified field metadata catalog</div>
+                    </div>
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">Settings &amp; Admin</div>
+                        <div class="foundation-card-desc">Runtime configuration registry</div>
+                    </div>
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">Event Bus</div>
+                        <div class="foundation-card-desc">Shared dispatcher for 5 consumers</div>
+                    </div>
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">API Architecture</div>
+                        <div class="foundation-card-desc">Sanctum auth, Ransack queries, DTOs</div>
+                    </div>
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">Navigation &amp; UI Shell</div>
+                        <div class="foundation-card-desc">Sidebar, Livewire page patterns</div>
+                    </div>
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">Observability</div>
+                        <div class="foundation-card-desc">Nightwatch APM, health checks</div>
+                    </div>
+                    <div class="foundation-card">
+                        <div class="foundation-card-name">First-Run Setup</div>
+                        <div class="foundation-card-desc">CLI installer + web wizard</div>
+                    </div>
+                </div>
+                <p class="annotation mt-16">Eight foundational systems. Zero user-facing features. Every phase after this depends on them.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S04: Phase 1 — People & Places -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR04</span><span class="stamp-title">Phase 1</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Phase 1: <em>People &amp; Places</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">Members are the <strong>universal entity</strong>. Contacts, organisations, venues, and system users all live in one table differentiated by <strong>membership_type</strong>. This eliminates entity proliferation and enables powerful cross-entity features.</p>
+                    <p style="margin-bottom:12px">A single member can be a contact at one organisation, a user of the system, and the venue liaison for a location &mdash; all without data duplication.</p>
+                    <p>This phase also establishes <strong>localisation foundations</strong>: countries, currencies, timezones, and formatting rules that every financial and scheduling feature will use.</p>
+                </div>
+            </div>
+            <div>
+                <div class="member-diagram">
+                    <div class="member-center" style="width:100%">
+                        <div class="member-center-name">Members</div>
+                        <div class="member-center-desc">Universal entity &mdash; one table, four types</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0">
+                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                    </div>
+                    <div class="member-types">
+                        <div class="member-type"><div class="member-type-name">Contact</div><div class="member-type-desc">person</div></div>
+                        <div class="member-type"><div class="member-type-name">Organisation</div><div class="member-type-desc">company</div></div>
+                        <div class="member-type"><div class="member-type-name">Venue</div><div class="member-type-desc">location</div></div>
+                        <div class="member-type"><div class="member-type-name">User</div><div class="member-type-desc">system access</div></div>
+                    </div>
+                    <div style="padding:8px 0">
+                        <span class="annotation">Nested entities per member</span>
+                    </div>
+                    <div class="member-nested">
+                        <div class="member-nested-card"><div class="member-nested-name">Addresses</div></div>
+                        <div class="member-nested-card"><div class="member-nested-name">Emails</div></div>
+                        <div class="member-nested-card"><div class="member-nested-name">Phones</div></div>
+                    </div>
+                    <div class="member-nested" style="margin-top:8px">
+                        <div class="member-nested-card"><div class="member-nested-name">Links</div></div>
+                        <div class="member-nested-card"><div class="member-nested-name">Custom Fields</div></div>
+                        <div class="member-nested-card"><div class="member-nested-name">Localisation</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S05: Phase 2 — Product Catalogue -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR05</span><span class="stamp-title">Phase 2</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Phase 2: <em>Product Catalogue</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">Product groups (hierarchical), items (products + services), stock levels (serialised + bulk), accessories (bundling), kits (serialised components).</p>
+                    <p style="margin-bottom:12px">This phase also introduces the <strong>financial engines</strong> that underpin all pricing. Multi-currency support with lossless integer minor-unit storage, tax zone resolution, and the composable rate engine.</p>
+                    <p>Every financial calculation in the system &mdash; quotes, invoices, reports &mdash; flows through these engines. They must be correct before Phase 3 can build on them.</p>
+                </div>
+            </div>
+            <div>
+                <div class="stack-diagram">
+                    <div class="stack-tier" style="border-color:var(--blue)">
+                        <div class="stack-tier-name" style="color:var(--blue-light)">Multi-Currency &amp; Tax Engine</div>
+                        <div class="stack-tier-desc">Lossless integer minor-unit storage, tax zone resolution</div>
+                    </div>
+                    <div class="stack-connector"><div class="stack-conn-line"></div><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="0" x2="8" y2="8"/><polyline points="4,5 8,9 12,5"/></svg></div>
+                    <div class="stack-tier" style="border-color:var(--amber)">
+                        <div class="stack-tier-name" style="color:var(--amber)">Rate Engine</div>
+                        <div class="stack-tier-desc">Composable strategies: period-based, usage-based, fixed, hybrid</div>
+                    </div>
+                    <div class="stack-connector"><div class="stack-conn-line"></div><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="0" x2="8" y2="8"/><polyline points="4,5 8,9 12,5"/></svg></div>
+                    <div class="stack-tier" style="border-color:var(--green)">
+                        <div class="stack-tier-name" style="color:var(--green)">Product Catalogue</div>
+                        <div class="stack-tier-desc">Groups, items, stock levels, accessories, kits</div>
+                    </div>
+                </div>
+                <p class="annotation mt-16">Pricing flows upward: products define rates, rates produce prices, the tax engine handles currency and tax.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S06: Phase 3 — Core Operations -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR06</span><span class="stamp-title">Phase 3</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-4">Phase 3: <em>The Hard Part</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:20px">This is the make-or-break phase. Opportunity lifecycle, availability engine, shortage resolution, and serialised containers interact in complex ways.</p>
+        <!-- Rental Cycle -->
+        <div class="cycle-row" style="margin-bottom:16px">
+            <div class="cycle-step"><div class="cycle-step-name">Quote</div></div>
+            <div class="cycle-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="cycle-step"><div class="cycle-step-name">Order</div></div>
+            <div class="cycle-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="cycle-step"><div class="cycle-step-name">Allocate</div></div>
+            <div class="cycle-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="cycle-step"><div class="cycle-step-name">Dispatch</div></div>
+            <div class="cycle-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="cycle-step"><div class="cycle-step-name">On Hire</div></div>
+            <div class="cycle-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+            <div class="cycle-step"><div class="cycle-step-name">Return</div></div>
+        </div>
+        <!-- Engine callout cards -->
+        <div class="engine-cards" style="max-width:780px">
+            <div class="engine-card" style="border-color:var(--blue)">
+                <div class="engine-card-name" style="color:var(--blue)">Availability Engine</div>
+                <div class="engine-card-desc">Pre-calculated snapshots, unified demand model, behavioural phases</div>
+            </div>
+            <div class="engine-card" style="border-color:var(--amber)">
+                <div class="engine-card-name" style="color:var(--amber)">Shortage Resolution</div>
+                <div class="engine-card-desc">Detection, internal transfer, substitute items, sub-hire POs</div>
+            </div>
+            <div class="engine-card" style="border-color:var(--violet)">
+                <div class="engine-card-name" style="color:var(--violet)">Serialised Containers</div>
+                <div class="engine-card-desc">Template-driven kits, dissolve-on-dispatch, component tracking</div>
+            </div>
+            <div class="engine-card" style="border-color:var(--green)">
+                <div class="engine-card-name" style="color:var(--green)">File &amp; Attachment System</div>
+                <div class="engine-card-desc">S3 storage, signed URLs, thumbnails, virus scanning</div>
+            </div>
+        </div>
+        <p class="annotation mt-16">After Phase 3: manage inventory, create quotes, convert orders, dispatch and return. Core availability works.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S07: Event Bus Deep Dive -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR07</span><span class="stamp-title">Event Bus</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">One Event, <em>Five Reactions</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:28px">Every domain event flows through a single dispatcher. Five independent consumers react &mdash; each queued separately, each with its own failure handling.</p>
+        <div class="hub-spoke">
+            <div class="spoke-grid" style="grid-template-columns:repeat(3,1fr)">
+                <div class="spoke-card">
+                    <div class="spoke-card-tag" style="color:var(--green)">Sync</div>
+                    <div class="spoke-card-name">Audit Log</div>
+                    <div class="spoke-card-desc">Before/after snapshots, IP tracking, user agent</div>
+                </div>
+                <div class="spoke-card">
+                    <div class="spoke-card-tag" style="color:var(--amber)">Queued</div>
+                    <div class="spoke-card-name">Webhooks</div>
+                    <div class="spoke-card-desc">HMAC-signed, exponential backoff, 6 retries over 12 hours</div>
+                </div>
+                <div class="spoke-card">
+                    <div class="spoke-card-tag" style="color:var(--amber)">Queued</div>
+                    <div class="spoke-card-name">Workflows</div>
+                    <div class="spoke-card-desc">No-code automation handler chains, conditional branching</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="14" x2="8" y2="2"/><polyline points="4,6 8,2 12,6"/></svg>
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+            </div>
+            <div class="hub-center">
+                <div class="hub-center-name">Event Bus</div>
+                <div class="hub-center-desc">Single dispatcher &middot; domain events &middot; five consumer queues</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+            </div>
+            <div class="spoke-grid" style="grid-template-columns:1fr 1fr">
+                <div class="spoke-card">
+                    <div class="spoke-card-tag" style="color:var(--amber)">Queued</div>
+                    <div class="spoke-card-name">Notifications</div>
+                    <div class="spoke-card-desc">Multi-channel, preference-aware, template-driven</div>
+                </div>
+                <div class="spoke-card">
+                    <div class="spoke-card-tag" style="color:var(--amber)">Queued</div>
+                    <div class="spoke-card-name">Approval Chains</div>
+                    <div class="spoke-card-desc">Multi-stage gatekeeping, escalation rules</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S08: Phase 4 — Billing & Financial -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR08</span><span class="stamp-title">Phase 4</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Phase 4: <em>Billing &amp; Financial</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">Invoices, payments, credit notes, deposit and pro-forma invoicing. <strong>Complete quote-to-cash.</strong> A rental company could actually run their business on this.</p>
+                    <p style="margin-bottom:12px">The four-stage pricing pipeline ensures <strong>deterministic, auditable</strong> price calculation. Each stage transforms the price independently, producing a clear trail from list price to final charge.</p>
+                    <p>All money is stored as <strong>integers in minor units</strong> (pence, cents) using brick/money value objects. No floats, no rounding errors. API responses show decimal strings for CRMS compatibility.</p>
+                </div>
+            </div>
+            <div>
+                <div class="pricing-pipeline">
+                    <div class="pricing-step">
+                        <div class="pricing-step-num">01</div>
+                        <div class="pricing-step-name">Price Categories</div>
+                        <div class="pricing-step-desc">Customer-specific pricing tiers</div>
+                    </div>
+                    <div class="pricing-connector"><div class="pricing-conn-line"></div></div>
+                    <div class="pricing-step">
+                        <div class="pricing-step-num">02</div>
+                        <div class="pricing-step-name">Discount Rules</div>
+                        <div class="pricing-step-desc">Highest discount wins, no stacking</div>
+                    </div>
+                    <div class="pricing-connector"><div class="pricing-conn-line"></div></div>
+                    <div class="pricing-step">
+                        <div class="pricing-step-num">03</div>
+                        <div class="pricing-step-name">Surcharges</div>
+                        <div class="pricing-step-desc">Additive, independently toggleable</div>
+                    </div>
+                    <div class="pricing-connector"><div class="pricing-conn-line"></div></div>
+                    <div class="pricing-step">
+                        <div class="pricing-step-num">04</div>
+                        <div class="pricing-step-name">Manual Override</div>
+                        <div class="pricing-step-desc">Final authority per line item</div>
+                    </div>
+                </div>
+                <p class="annotation mt-16">Each stage is independent and auditable. The pipeline produces a deterministic result from list price to final charge.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S09: Phase 5 — Infrastructure Services -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR09</span><span class="stamp-title">Phase 5</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Phase 5: <em>Infrastructure Services</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:28px">The four services that make the system production-ready. Without these, it is a prototype. With them, companies can actually switch.</p>
+        <div class="service-grid">
+            <div class="service-card">
+                <div class="service-card-num">01</div>
+                <div class="service-card-name">Notification Engine</div>
+                <div class="service-card-desc">Multi-channel (email, SMS, in-app, push). Three-layer resolution: type defaults, tenant settings, member preferences. Template-driven with Blade rendering.</div>
+            </div>
+            <div class="service-card">
+                <div class="service-card-num">02</div>
+                <div class="service-card-name">Audit &amp; Event Projection</div>
+                <div class="service-card-desc">Complete mutation history. Before/after snapshots for every write. Temporal queries for point-in-time reconstruction. Configurable retention with scheduled pruning.</div>
+            </div>
+            <div class="service-card">
+                <div class="service-card-num">03</div>
+                <div class="service-card-name">Import / Export Engine</div>
+                <div class="service-card-desc">SQLite-staged migration pipeline. Pre-built CRMS field mappings for one-click migration. Dry-run validation. Rollback capability. Progress tracking via cache.</div>
+            </div>
+            <div class="service-card">
+                <div class="service-card-num">04</div>
+                <div class="service-card-name">Document Template Engine</div>
+                <div class="service-card-desc">Blade templates per store. PDF rendering via DomPDF. Field browser for template authors. Public sharing via signed URLs. Sequential document numbering.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S10: Phase 6 — Compliance & Fleet -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR10</span><span class="stamp-title">Phase 6</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Phase 6: <em>Compliance &amp; Fleet</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">Inspections (PAT testing, safety certificates), certifications with expiry tracking, quarantine management for damaged or under-repair assets, stock checks, and fleet vehicle management.</p>
+                    <p style="margin-bottom:12px">The <strong>scanning abstraction layer</strong> unifies barcode, QR code, RFID, and manual entry into a single pipeline. Three layers: input adapters normalise raw scans, the resolution engine identifies the entity, and context handlers execute the appropriate action.</p>
+                    <p>Assets follow a lifecycle from acquisition through active service, inspection, potential quarantine for repair, and eventual retirement or disposal.</p>
+                </div>
+            </div>
+            <div>
+                <!-- Asset lifecycle state flow -->
+                <div class="state-flow">
+                    <div class="state-row">
+                        <div class="state-box"><div class="state-box-name">Acquisition</div></div>
+                        <div class="state-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+                        <div class="state-box" style="border-color:var(--green)"><div class="state-box-name" style="color:var(--green)">Active Service</div></div>
+                        <div class="state-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+                        <div class="state-box" style="border-color:var(--blue)"><div class="state-box-name" style="color:var(--blue)">Inspection</div></div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;padding:2px 0">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="12"/><polyline points="4,8 8,12 12,8"/></svg>
+                    </div>
+                    <div class="state-row" style="justify-content:flex-end">
+                        <div class="state-box" style="border-color:var(--green)"><div class="state-box-name" style="color:var(--green)">Pass</div></div>
+                        <div style="width:20px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.5rem;color:var(--grey)">/</div>
+                        <div class="state-box" style="border-color:var(--red)"><div class="state-box-name" style="color:var(--red)">Fail</div></div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;padding:2px 0">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="12"/><polyline points="4,8 8,12 12,8"/></svg>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-box" style="border-color:var(--amber);border-style:dashed"><div class="state-box-name" style="color:var(--amber)">Quarantine</div></div>
+                        <div class="state-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+                        <div class="state-box"><div class="state-box-name">Repair</div></div>
+                        <div class="state-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg></div>
+                        <div class="state-box" style="border-color:var(--green)"><div class="state-box-name" style="color:var(--green)">Active Service</div></div>
+                    </div>
+                    <div style="padding:4px 0">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="12"/><polyline points="4,8 8,12 12,8"/></svg>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-box" style="border-color:var(--grey-light);border-style:dashed"><div class="state-box-name" style="color:var(--grey)">Retirement / Disposal</div></div>
+                    </div>
+                </div>
+                <!-- Scanning bar -->
+                <div class="scanning-bar">
+                    <div class="scanning-bar-name">Scanning Abstraction Layer</div>
+                    <div class="scanning-bar-desc">USB barcode, QR camera, RFID, manual entry &rarr; unified pipeline</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S11: Phase 7 — Extensibility & Automation -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR11</span><span class="stamp-title">Phase 7</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Phase 7: <em>SRF Becomes a Platform</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:28px">Everything before this phase builds a rental management system. This phase makes it extensible, automatable, and self-service.</p>
+        <div class="plugin-diagram">
+            <div class="plugin-grid">
+                <div class="plugin-card">
+                    <div class="plugin-card-name">Custom Views</div>
+                    <div class="plugin-card-desc">Saved queries, conditional formatting, per-user and shared</div>
+                </div>
+                <div class="plugin-card">
+                    <div class="plugin-card-name">Reporting Framework</div>
+                    <div class="plugin-card-desc">Dimensions, measures, scheduling, export to CSV/PDF</div>
+                </div>
+                <div class="plugin-card">
+                    <div class="plugin-card-name">Workflow Engine</div>
+                    <div class="plugin-card-desc">Event-driven handler chains, conditions, delays</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="14" x2="8" y2="2"/><polyline points="4,6 8,2 12,6"/></svg>
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+            </div>
+            <div class="plugin-center">
+                <div class="plugin-center-name">Plugin SDK</div>
+                <div class="plugin-center-desc">Composer packages &middot; YAML manifest &middot; fluent registration API &middot; mediated data access</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                <svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="rgba(148,163,184,0.2)" stroke-width="1.5"/></svg>
+            </div>
+            <div class="plugin-grid">
+                <div class="plugin-card">
+                    <div class="plugin-card-name">Approval Chains</div>
+                    <div class="plugin-card-desc">Multi-stage gatekeeping, escalation rules, timeout handling</div>
+                </div>
+                <div class="plugin-card">
+                    <div class="plugin-card-name">Dashboard</div>
+                    <div class="plugin-card-desc">Widget registry, real-time via Reverb, shared dashboards</div>
+                </div>
+                <div class="plugin-card">
+                    <div class="plugin-card-name">Webhooks</div>
+                    <div class="plugin-card-desc">HMAC-signed delivery, auto-disable on consecutive failure</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S12: Phase 8 — External Interfaces -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR12</span><span class="stamp-title">Phase 8</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Phase 8: <em>External Interfaces</em></h2>
+                <div class="explainer" style="margin-top:16px">
+                    <p style="margin-bottom:12px">The full REST API surface, scheduling and resource allocation engine, CRM features (activities, discussions, comments, tags), and global search.</p>
+                    <p style="margin-bottom:12px">The API is <strong>CRMS-compatible</strong> by design: identical field names, Ransack-compatible query syntax, matching response shapes. Existing integrations and reports built for Current RMS work with minimal changes.</p>
+                    <p>The scheduling engine handles <strong>crew, vehicles, facilities, and equipment</strong> as a unified resource model with conflict detection and optimisation suggestions.</p>
+                </div>
+            </div>
+            <div>
+                <div class="api-surface">
+                    <div class="api-main">
+                        <div class="api-main-name">REST API v1</div>
+                        <div class="api-main-desc">Full CRUD, Field Registry serialisation, Ransack filtering, Sanctum auth</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0">
+                        <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                    </div>
+                    <div class="api-cards">
+                        <div class="api-card">
+                            <div class="api-card-name">Scheduling Engine</div>
+                            <div class="api-card-desc">Crew + vehicle + facility + equipment allocation with conflict detection</div>
+                        </div>
+                        <div class="api-card">
+                            <div class="api-card-name">CRM Features</div>
+                            <div class="api-card-desc">Activities, discussions, comments, tags, contact history</div>
+                        </div>
+                        <div class="api-card">
+                            <div class="api-card-name">Global Search</div>
+                            <div class="api-card-desc">PostgreSQL tsvector/GIN indexes, unified search modal</div>
+                        </div>
+                    </div>
+                </div>
+                <p class="annotation mt-16">CRMS drop-in compatibility: same field names, same query syntax, same response shape.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S13: MVP Milestones -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR13</span><span class="stamp-title">Milestones</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Four Milestones to <em>Feature Complete</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:28px">Each milestone marks a capability threshold. The system becomes increasingly useful at each gate &mdash; from first working prototype to a full competitive platform.</p>
+        <div class="milestone-row">
+            <div class="milestone-card">
+                <div class="milestone-card-bar" style="background:var(--green)"></div>
+                <div class="milestone-card-name" style="color:var(--green-light)">It Works</div>
+                <div class="milestone-card-phases">Phases 0 &ndash; 3</div>
+                <div class="milestone-card-desc">Manage inventory, create quotes, convert orders, dispatch and return. Core availability works.</div>
+            </div>
+            <div class="milestone-card">
+                <div class="milestone-card-bar" style="background:var(--amber)"></div>
+                <div class="milestone-card-name" style="color:var(--amber)">It Bills</div>
+                <div class="milestone-card-phases">+ Phase 4</div>
+                <div class="milestone-card-desc">Complete quote-to-cash. Invoices, payments, credit notes, discounts. Could run a business.</div>
+            </div>
+            <div class="milestone-card">
+                <div class="milestone-card-bar" style="background:var(--sky)"></div>
+                <div class="milestone-card-name" style="color:var(--sky)">Production Ready</div>
+                <div class="milestone-card-phases">+ Phase 5</div>
+                <div class="milestone-card-desc">Notifications, audit trail, document templates, CRMS migration. Ready to switch.</div>
+            </div>
+            <div class="milestone-card">
+                <div class="milestone-card-bar" style="background:var(--blue)"></div>
+                <div class="milestone-card-name" style="color:var(--blue-light)">Platform</div>
+                <div class="milestone-card-phases">+ Phases 6 &ndash; 8</div>
+                <div class="milestone-card-desc">Plugin ecosystem, workflows, full API, custom views, scheduling. Competes with Current RMS.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S14: Closing / CTA -->
+<section class="slide slide-light fold-marks" data-bg="light">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-IR14</span><span class="stamp-title">Get Involved</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Built in the Open, <em>For the Industry</em></h2>
+        <p class="slide-subtitle" style="max-width:560px;margin-bottom:28px">The Signals Rental Framework is MIT licensed, open-source, and designed by people who understand rental.</p>
+        <div class="s20-paths">
+            <div class="s20-path s20-featured"><div class="s20-path-bar" style="background:var(--blue)"></div><div class="s20-path-name">Read the Specs</div><div class="s20-path-desc">40+ specification documents covering every engine, every design decision, every trade-off.</div></div>
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--sky)"></div><div class="s20-path-name">Star the Repo</div><div class="s20-path-desc">Follow the project on GitHub. Contributions welcome.</div></div>
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--green)"></div><div class="s20-path-name">Join the Discussion</div><div class="s20-path-desc">Shape the design before we write code. Comment on GitHub Discussions.</div></div>
+        </div>
+        <div class="s20-cta-url mb-16">framework.signals.rent</div>
+        <div class="iso-block"><span>SIG-IR-DECK-001</span> &middot; <span style="color:var(--blue)">Rev A</span> &middot; <span>2026</span></div>
+    </div>
+</section>
+
+</div>
+
+<!-- Navigation Bar -->
+<nav class="nav-bar nav-dark" id="navBar">
+    <button class="nav-btn" id="prevBtn" aria-label="Previous slide" disabled>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10,3 5,8 10,13"/></svg>
+    </button>
+    <div class="nav-dots" id="navDots"></div>
+    <span class="nav-counter" id="navCounter">01 / 14</span>
+    <button class="nav-btn" id="nextBtn" aria-label="Next slide">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg>
+    </button>
+</nav>
+
+<script>
+(function() {
+    var slides = document.querySelectorAll('.slide');
+    var navBar = document.getElementById('navBar');
+    var navDots = document.getElementById('navDots');
+    var navCounter = document.getElementById('navCounter');
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var total = slides.length;
+    var current = 0;
+    var transitioning = false;
+
+    for (var i = 0; i < total; i++) {
+        (function(idx) {
+            var dot = document.createElement('button');
+            dot.className = 'nav-dot' + (idx === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', 'Go to slide ' + (idx + 1));
+            dot.addEventListener('click', function() { goToSlide(idx); });
+            navDots.appendChild(dot);
+        })(i);
+    }
+
+    function goToSlide(n) {
+        if (n < 0 || n >= total || n === current || transitioning) return;
+        transitioning = true;
+        slides[current].classList.remove('active');
+        current = n;
+        slides[current].classList.add('active');
+        updateNav();
+        setTimeout(function() { transitioning = false; }, 500);
+    }
+
+    function updateNav() {
+        var num = String(current + 1).padStart(2, '0');
+        var tot = String(total).padStart(2, '0');
+        navCounter.textContent = num + ' / ' + tot;
+        var dots = navDots.querySelectorAll('.nav-dot');
+        for (var i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle('active', i === current);
+        }
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current === total - 1;
+        var bg = slides[current].getAttribute('data-bg');
+        navBar.classList.remove('nav-light', 'nav-dark');
+        navBar.classList.add(bg === 'dark' ? 'nav-dark' : 'nav-light');
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goToSlide(current + 1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goToSlide(current - 1); }
+        else if (e.key === 'Home') { e.preventDefault(); goToSlide(0); }
+        else if (e.key === 'End') { e.preventDefault(); goToSlide(total - 1); }
+    });
+    prevBtn.addEventListener('click', function() { goToSlide(current - 1); });
+    nextBtn.addEventListener('click', function() { goToSlide(current + 1); });
+
+    var touchX = 0, touchY = 0;
+    document.addEventListener('touchstart', function(e) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+        var dx = e.changedTouches[0].clientX - touchX;
+        var dy = e.changedTouches[0].clientY - touchY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) { dx < 0 ? goToSlide(current + 1) : goToSlide(current - 1); }
+    }, { passive: true });
+
+    updateNav();
+})();
+</script>
+</body>
+</html>

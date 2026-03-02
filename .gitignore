@@ -23,6 +23,8 @@ yarn-error.log
 /.zed
 /storage/phpstan
 /framework-plans
-/.claude
+/.claude/settings.local.json
+/.claude/projects
+/.claude/memory
 /.worktrees
 .DS_Store

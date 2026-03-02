@@ -31,7 +31,7 @@ Key architectural traits:
 - **Laravel Horizon** — Redis queue monitoring and management
 - **Laravel Reverb** — WebSocket broadcast for real-time features
 - **Laravel Nightwatch** — APM and observability
-- **Scribe (knuckleswtf/scribe)** — API documentation auto-generation
+- **Scramble (dedoc/scramble)** — OpenAPI documentation auto-generated from code (route definitions, PHPDoc, validation rules, return types)
 - **DomPDF** — PDF generation (Browsershot as optional alternative)
 - **pragmarx/google2fa-laravel** — TOTP-based 2FA
 
@@ -263,8 +263,8 @@ OSF ships single-tenant defaults (no-ops). Never add tenant awareness to core co
 ### Database
 
 - **PostgreSQL only.** Use JSONB (not JSON) for flexible columns. Use functional indexes.
-- **Money columns:** `DECIMAL(15, 4)` — 4 decimal places, 11 digits before decimal.
-- **Money in API responses:** decimal strings (`"125.5000"`), not floats. Match CRMS format.
+- **Money columns:** `INTEGER` — stored in minor units (pence, cents, fils). Use `brick/money` value objects with `finller/laravel-money` Eloquent casts. Never use floats or DECIMAL for money.
+- **Money in API responses:** decimal strings (`"125.50"`), not floats or raw integers. Match CRMS format. Conversion from minor units happens at the serialisation layer.
 - **Timestamps:** always `created_at` + `updated_at`. All stored in UTC.
 - **Primary keys:** auto-incrementing integers (`id`). Not UUIDs. CRMS compatibility.
 - **Foreign keys:** `{table_singular}_id` (e.g. `member_id`). Always constrained + indexed.
@@ -287,6 +287,7 @@ OSF ships single-tenant defaults (no-ops). Never add tenant awareness to core co
 - **Dates:** ISO 8601 format in UTC (`2026-01-15T14:30:00Z`).
 - **Errors:** Laravel default `{"message": "...", "errors": {"field": ["..."]}}`.
 - **Async operations:** return `202 Accepted` with `job_id`.
+- **API docs:** Scramble auto-generates OpenAPI specs from controllers. Use PHPDoc `@param`, `@response`, and typed return values to enrich docs. Access docs at `/docs/api`. Config: `config/scramble.php`.
 
 ### Livewire
 
@@ -365,7 +366,7 @@ OSF ships single-tenant defaults (no-ops). Never add tenant awareness to core co
 
 - `currencies` table (ISO 4217), `exchange_rates` table with effective dates.
 - Financial entities store `currency_code` + `exchange_rate` snapshot at creation time.
-- `Money` value object with bcmath arithmetic. Never use floats for money.
+- `brick/money` value objects with `RationalMoney` for lossless intermediate arithmetic. `finller/laravel-money` for Eloquent casts. Never use floats for money.
 - All dates stored UTC. Display in user's timezone via `Timezone` helper.
 - `@localdate` / `@localdatetime` Blade directives for display.
 - English-only UI (v1). All user-facing strings use `__()` for future i18n.
@@ -424,26 +425,43 @@ All architectural decisions are documented in `framework-plans/`. **Always consu
 
 | Plan | Key Topics |
 |------|-----------|
-| `api-architecture.md` | Shared service layer, DTOs, Ransack engine, Sanctum, webhooks |
+| `implementation-proposal.md` | 9-phase build order, spec inventory, dependency graph, MVP milestones |
 | `data-model-implementation.md` | 65+ tables across 8 phases, column definitions, dependency graph |
-| `plugin-system.md` | Plugin contract, PluginRegistrar, lifecycle, distribution |
+| `api-architecture.md` | Shared service layer, DTOs, Ransack engine, Sanctum, webhooks |
+| `field-registry-schema-engine.md` | Unified field metadata, three-source schema merge, consumer interface |
+| `permissions-authorisation-engine.md` | Four-layer auth: UI areas, actions, cost visibility, store scoping |
 | `custom-fields.md` | EAV storage, 17 field types, validation, visibility rules, auto-copy |
 | `settings-and-administration.md` | Admin panel, roles, settings registry, taxation, audit trail, templates |
 | `first-run-and-setup.md` | CLI installer, web wizard, module system, preset profiles |
-| `cloud-multi-tenancy.md` | DB-per-tenant, 3 contracts, tenant-ignorant OSF, SaaS provisioning |
-| `dashboard.md` | Section layout, widgets, real-time via Reverb, shared dashboards |
-| `custom-views.md` | Saved list configs (columns, filters, sort), visibility levels, API view_id |
 | `navigation-and-ui-shell.md` | Sidebar, NavigationService, Blade components, Livewire page patterns |
-| `notifications.md` | Multi-channel, registry, user preferences, email templates, broadcast |
+| `opportunity-lifecycle.md` | Two-axis state model, hybrid event sourcing via Verbs, quote versioning |
+| `availability-engine.md` | Demand-based availability, tstzrange snapshots, multi-store, plugin-extensible |
+| `rate-definitions-rate-engines.md` | Composable rate engine, calculation strategies, CRMS presets |
+| `discount-pricing-rules-engine.md` | Four-stage pricing pipeline, price categories, discount rules, surcharges |
+| `multi-currency-tax-engine.md` | brick/money, integer minor-unit storage, tax resolution engine, exchange rates |
+| `localisation-timezone-formatting.md` | Timezone helper, Formatter service, countries table, i18n architecture |
+| `serialised-containers.md` | Template-driven containers, dissolve-on-dispatch, scanning integration |
+| `shortage-resolution-sub-hires.md` | Shortage detection, resolver registry, virtual stock, sub-hire POs |
+| `scheduling-resource-allocation-engine.md` | Crew, vehicle, facility, equipment scheduling, conflict detection |
+| `approval-chain-engine.md` | Approval gates as workflow steps, multi-stage chains, escalation |
+| `maintenance-asset-lifecycle-engine.md` | Inspections, certifications, quarantine, cost tracking, disposal |
+| `scanning-abstraction-layer.md` | Three-layer scanning: input adapters, resolution, context handlers |
+| `document-template-engine.md` | Blade templates per store, rendering pipeline, field browser, public sharing, numbering |
+| `notification-communication-engine.md` | Multi-channel notifications, customer comms, three-layer resolution |
+| `import-export-migration-engine.md` | SQLite-staged import, field mapping, CRMS migration, cross-references |
+| `reporting-framework.md` | Aggregated queries, field registry integration, dimensions, measures |
+| `workflows.md` | No-code automation, handler system, events, conditions, delays |
+| `plugin-system.md` | Plugin SDK, YAML manifest, hooks, mediated data access, lifecycle |
+| `custom-views.md` | Saved list configs (columns, filters, sort), visibility levels, API view_id |
+| `dashboard.md` | Section layout, widgets, real-time via Reverb, shared dashboards |
 | `search.md` | PostgreSQL full-text search, tsvector/GIN, global search modal |
-| `reporting.md` | Standard reports + SQL query builder, exports, scheduling |
-| `localisation-and-multi-currency.md` | Money value object, exchange rates, timezone handling, Formatter |
 | `file-and-attachment-system.md` | S3 storage, polymorphic attachments, signed URLs, virus scanning |
 | `queue-and-job-infrastructure.md` | Redis/Horizon, named queues, job patterns, scheduling, progress tracking |
 | `caching-strategy.md` | Redis config, cache map, invalidation patterns, tenant isolation |
 | `sso-and-enterprise-auth.md` | Socialite, SAML 2.0, OIDC, SSO connections, MFA enforcement |
-| `backup-and-disaster-recovery.md` | pg_dump, WAL archiving, tenant export/import, DR procedures |
 | `observability.md` | Nightwatch, structured logging, health checks, error tracking, alerting |
+| `cloud-multi-tenancy.md` | DB-per-tenant, 3 contracts, tenant-ignorant OSF, SaaS provisioning |
+| `backup-and-disaster-recovery.md` | pg_dump, WAL archiving, tenant export/import, DR procedures |
 
 ## Pre-Commit Quality Gate
 
@@ -476,6 +494,7 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
 
 - php - 8.4.18
+- laravel/ai (AI) - v0
 - laravel/cashier (CASHIER) - v15
 - laravel/framework (LARAVEL) - v12
 - laravel/horizon (HORIZON) - v5
@@ -491,7 +510,9 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - livewire/livewire (LIVEWIRE) - v4
 - livewire/volt (VOLT) - v1
 - larastan/larastan (LARASTAN) - v3
+- laravel/boost (BOOST) - v2
 - laravel/mcp (MCP) - v0
+- laravel/pail (PAIL) - v1
 - laravel/pint (PINT) - v1
 - pestphp/pest (PEST) - v4
 - phpunit/phpunit (PHPUNIT) - v12
@@ -745,7 +766,7 @@ protected function isAccessible(User $user, ?string $path = null): bool
 
 # Laravel Pint Code Formatter
 
-- You must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
+- If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
 - Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
 
 === pest/core rules ===
@@ -772,4 +793,5 @@ protected function isAccessible(User $user, ?string $path = null): bool
 
 - This application uses the Laravel AI SDK (`laravel/ai`) for all AI functionality.
 - Activate the `developing-with-ai-sdk` skill when building, editing, updating, debugging, or testing AI agents, text generation, chat, streaming, structured output, tools, image generation, audio, transcription, embeddings, reranking, vector stores, files, conversation memory, or any AI provider integration (OpenAI, Anthropic, Gemini, Cohere, Groq, xAI, ElevenLabs, Jina, OpenRouter).
+
 </laravel-boost-guidelines>

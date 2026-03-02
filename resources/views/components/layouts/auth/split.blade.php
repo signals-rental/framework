@@ -153,7 +153,7 @@
                             Signals Rental Framework &mdash; Free &amp; Open Source &mdash; MIT License
                         </div>
                         <div style="display: flex; gap: 24px;">
-                            <a href="https://framework.signals.rent/docs" target="_blank">Documentation</a>
+                            <a href="{{ route('docs.index') }}" target="_blank">Documentation</a>
                             <a href="https://github.com/signals-rental/framework" target="_blank">GitHub</a>
                         </div>
                     </footer>

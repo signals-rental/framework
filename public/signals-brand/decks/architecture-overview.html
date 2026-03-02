@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals Rental Framework — Architecture Overview</title>
+<meta name="description" content="An OS-style architectural layer diagram showing all engines and subsystems of the Signals Rental Framework. Eight layers, thirty-two engines, one unified event system.">
+<meta property="og:title" content="Signals Rental Framework — Architecture Overview">
+<meta property="og:description" content="Eight architectural layers, thirty-two engines, one unified event system. This is how the Signals Rental Framework fits together.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   Signals Architecture Overview — Blueprint Design System
+   ========================================================================== */
+
+:root {
+    --base: #f8f9fb;
+    --white: #ffffff;
+    --navy: #0f172a;
+    --navy-mid: #1e293b;
+    --blue: #2563eb;
+    --blue-light: #3b82f6;
+    --red: #dc2626;
+    --grey: #64748b;
+    --grey-light: #94a3b8;
+    --grey-border: #e2e8f0;
+    --green: #059669;
+    --green-light: #34d399;
+    --sky: #0ea5e9;
+    --cyan: #0891b2;
+    --amber: #d97706;
+    --violet: #7c3aed;
+    --rose: #e11d48;
+    --slate: #475569;
+    --grid-fine: rgba(37, 99, 235, 0.05);
+    --grid-strong: rgba(37, 99, 235, 0.1);
+    --grid-dark-fine: rgba(148, 163, 184, 0.08);
+    --grid-dark-strong: rgba(148, 163, 184, 0.15);
+    --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Martian Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: var(--font-mono);
+    background: var(--navy);
+    color: var(--navy);
+    line-height: 1.7;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+/* --- Slide System --- */
+.deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.slide {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: translateY(12px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none; padding: 60px 48px 80px; overflow-y: auto;
+}
+.slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; z-index: 1; }
+.slide-inner { max-width: 1100px; width: 100%; min-height: 0; }
+
+.slide-dark {
+    background-color: var(--navy); color: var(--grey-light);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+}
+.slide-dark h1, .slide-dark h2, .slide-dark h3, .slide-dark h4 { color: var(--white); }
+.slide-light {
+    background-color: var(--base); color: var(--navy);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+}
+
+/* --- Logo Mark --- */
+.logo-mark { display: inline-block; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 2px solid currentColor; padding: 6px 16px; position: relative; text-decoration: none; color: inherit; }
+.logo-mark::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; }
+.color-green::after { background: var(--green); }
+
+/* --- Section Stamp --- */
+.section-stamp { display: inline-flex; align-items: stretch; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; }
+.stamp-num { background: var(--navy); color: var(--white); padding: 3px 8px; }
+.stamp-title { padding: 3px 8px; border: 1px solid currentColor; border-left: none; }
+.stamp-rev { padding: 3px 8px; border: 1px solid currentColor; border-left: none; opacity: 0.5; }
+.slide-dark .stamp-title, .slide-dark .stamp-rev { border-color: rgba(148, 163, 184, 0.25); }
+.slide-light .stamp-title, .slide-light .stamp-rev { border-color: var(--grey-border); }
+
+/* --- Shared --- */
+.annotation { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+.dim-line-h { display: flex; align-items: center; gap: 0; margin: 0 auto; opacity: 0.3; }
+.dim-arrow-l, .dim-arrow-r { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; flex-shrink: 0; }
+.dim-arrow-l { border-right: 5px solid currentColor; }
+.dim-arrow-r { border-left: 5px solid currentColor; }
+.dim-rule { flex: 1; height: 1px; background: currentColor; }
+.iso-block { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border: 1px solid var(--grey-border); opacity: 0.5; }
+.fold-marks { }
+.fold-mark { position: absolute; width: 0; height: 0; pointer-events: none; }
+.fm-tl { top: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(37, 99, 235, 0.15); }
+.fm-tr { top: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(37, 99, 235, 0.15); }
+.fm-bl { bottom: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(37, 99, 235, 0.15); }
+.fm-br { bottom: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(37, 99, 235, 0.15); }
+
+/* --- Utilities --- */
+.mb-4 { margin-bottom: 4px; } .mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; } .mb-24 { margin-bottom: 24px; } .mb-32 { margin-bottom: 32px; }
+.mb-48 { margin-bottom: 48px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; } .mt-32 { margin-top: 32px; }
+
+/* --- Layouts --- */
+.slide-centered { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.slide-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.slide-two-col-wide { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: start; }
+.slide-headline { font-size: clamp(1.4rem, 2.8vw, 2rem); line-height: 1.1; margin-bottom: 8px; }
+.slide-headline em { font-style: italic; color: var(--blue); font-weight: 600; }
+.slide-subtitle { font-size: 0.75rem; line-height: 1.8; margin-bottom: 28px; }
+.slide-dark .slide-subtitle { color: var(--grey-light); }
+.slide-light .slide-subtitle { color: var(--grey); }
+
+/* --- S01 --- */
+.s1-headline { font-size: clamp(1.4rem, 3.5vw, 2.5rem); line-height: 1.05; max-width: 860px; }
+.s1-subtitle { font-size: 0.75rem; line-height: 1.8; max-width: 580px; color: var(--grey-light); margin-bottom: 32px; }
+.s1-hint { font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* --- Dark Mockup --- */
+.dark-mockup { border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; background: rgba(148, 163, 184, 0.04); }
+.dark-mockup-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 12px; }
+.dark-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.08); font-size: 0.6875rem; }
+.dark-stat-key { color: var(--grey-light); }
+.dark-stat-val { font-family: var(--font-display); font-weight: 600; color: var(--white); }
+
+/* --- Explainer Box --- */
+.explainer { font-size: 0.6875rem; line-height: 1.7; }
+.slide-dark .explainer { color: var(--grey-light); }
+.slide-light .explainer { color: var(--grey); }
+.explainer strong { font-weight: 600; }
+.slide-dark .explainer strong { color: var(--white); }
+.slide-light .explainer strong { color: var(--navy); }
+.explainer-heading { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+.slide-dark .explainer-heading { color: var(--blue-light); }
+.slide-light .explainer-heading { color: var(--blue); }
+
+/* --- CTA Paths --- */
+.s20-paths { display: flex; gap: 12px; width: 100%; max-width: 660px; margin-bottom: 24px; }
+.s20-path { flex: 1; border: 1.5px solid var(--grey-border); padding: 14px 12px; background: var(--white); text-align: left; }
+.s20-path.s20-featured { border-color: var(--blue); border-width: 2px; }
+.s20-path-bar { width: 100%; height: 3px; margin-bottom: 10px; }
+.s20-path-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 2px; }
+.s20-path-desc { font-size: 0.625rem; color: var(--grey); line-height: 1.5; }
+.s20-cta-url { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--blue); letter-spacing: 0.02em; }
+
+/* --- Feature List --- */
+.feature-list { list-style: none; }
+.feature-row { display: flex; align-items: baseline; gap: 8px; font-size: 0.6875rem; line-height: 1.5; margin-bottom: 8px; }
+.chk { color: var(--blue); font-weight: 700; flex-shrink: 0; font-size: 0.8rem; }
+.slide-dark .feature-row { color: var(--grey-light); }
+.slide-light .feature-row { color: var(--grey); }
+
+/* ===================================================================
+   LAYER DIAGRAM
+   =================================================================== */
+.layer-stack { display: flex; flex-direction: column; gap: 0; width: 100%; }
+.layer-band { border: 1px solid rgba(148, 163, 184, 0.15); padding: 8px 12px; display: flex; align-items: center; gap: 10px; position: relative; }
+.slide-light .layer-band { border-color: var(--grey-border); background: var(--white); }
+.slide-dark .layer-band { border-color: rgba(148, 163, 184, 0.12); background: rgba(148, 163, 184, 0.03); }
+.layer-band + .layer-band { border-top: none; }
+.layer-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; min-width: 130px; flex-shrink: 0; }
+.slide-light .layer-label { color: var(--navy); }
+.slide-dark .layer-label { color: var(--grey-light); }
+.layer-label span { font-family: var(--font-mono); font-size: 0.4375rem; letter-spacing: 0.06em; opacity: 0.5; }
+.layer-engines { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.engine-badge { font-family: var(--font-display); font-size: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; padding: 3px 8px; white-space: nowrap; }
+.slide-light .engine-badge { border: 1px solid var(--grey-border); color: var(--navy); background: var(--base); }
+.slide-dark .engine-badge { border: 1px solid rgba(148, 163, 184, 0.15); color: var(--grey-light); background: rgba(148, 163, 184, 0.05); }
+.layer-band.event-bus-band {
+    border-style: dashed;
+    border-width: 1.5px;
+    justify-content: center;
+    text-align: center;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 12px;
+}
+.slide-light .event-bus-band { border-color: var(--blue); background: rgba(37, 99, 235, 0.03); }
+.slide-dark .event-bus-band { border-color: var(--blue); background: rgba(37, 99, 235, 0.06); }
+.event-bus-title { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); }
+.event-bus-sub { font-family: var(--font-mono); font-size: 0.4375rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.slide-light .event-bus-sub { color: var(--grey); }
+.slide-dark .event-bus-sub { color: var(--grey-light); }
+
+/* --- Engine Cards (Dark) --- */
+.engine-grid { display: grid; gap: 12px; }
+.engine-grid-3x2 { grid-template-columns: repeat(3, 1fr); }
+.engine-grid-2x4 { grid-template-columns: repeat(4, 1fr); }
+.engine-grid-4x1 { grid-template-columns: repeat(4, 1fr); }
+.engine-card { padding: 16px; text-align: left; position: relative; }
+.engine-card-dark { background: rgba(148, 163, 184, 0.04); border: 1px solid rgba(148, 163, 184, 0.1); }
+.engine-card-light { background: var(--white); border: 1px solid var(--grey-border); }
+.engine-card-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 6px; }
+.slide-dark .engine-card-name { color: var(--white); }
+.slide-light .engine-card-name { color: var(--navy); }
+.engine-card-desc { font-size: 0.5625rem; line-height: 1.6; }
+.slide-dark .engine-card-desc { color: var(--grey-light); }
+.slide-light .engine-card-desc { color: var(--grey); }
+.engine-card-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+
+/* --- Hub Spoke (Event Bus) --- */
+.hub-spoke { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; }
+.hub-center { border: 2px solid var(--blue); padding: 12px 32px; text-align: center; background: rgba(37, 99, 235, 0.08); position: relative; }
+.hub-center-label { font-family: var(--font-display); font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); }
+.spoke-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; }
+.spoke-card { padding: 12px; text-align: left; border: 1px solid rgba(148, 163, 184, 0.1); background: rgba(148, 163, 184, 0.04); position: relative; }
+.spoke-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.spoke-card.accent-green::before { background: var(--green); }
+.spoke-card.accent-amber::before { background: var(--amber); }
+.spoke-card.accent-sky::before { background: var(--sky); }
+.spoke-card.accent-violet::before { background: var(--violet); }
+.spoke-card.accent-rose::before { background: var(--rose); }
+.spoke-name { font-family: var(--font-display); font-size: 0.5625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 4px; }
+.spoke-desc { font-size: 0.5rem; color: var(--grey-light); line-height: 1.5; }
+.spoke-connector { display: flex; justify-content: space-around; width: 100%; padding: 0 40px; }
+.spoke-line { width: 1px; height: 16px; background: rgba(148, 163, 184, 0.3); }
+
+/* --- Pipeline (horizontal) --- */
+.pipeline-horiz { display: flex; align-items: stretch; gap: 0; width: 100%; }
+.pipeline-step { flex: 1; text-align: center; position: relative; }
+.pipeline-box { padding: 16px 10px; height: 100%; }
+.pipeline-box-dark { border: 1px solid rgba(148, 163, 184, 0.12); background: rgba(148, 163, 184, 0.04); }
+.pipeline-box-light { border: 1px solid var(--grey-border); background: var(--white); }
+.pipeline-box-accent { border-color: var(--blue); border-width: 2px; }
+.pipeline-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 6px; }
+.slide-dark .pipeline-name { color: var(--white); }
+.slide-light .pipeline-name { color: var(--navy); }
+.pipeline-desc { font-size: 0.5rem; line-height: 1.5; }
+.slide-dark .pipeline-desc { color: var(--grey-light); }
+.slide-light .pipeline-desc { color: var(--grey); }
+.pipeline-arrow { display: flex; align-items: center; justify-content: center; width: 28px; flex-shrink: 0; }
+.pipeline-arrow svg { width: 14px; height: 14px; }
+.pipeline-arrow-label { font-family: var(--font-mono); font-size: 0.375rem; text-transform: uppercase; letter-spacing: 0.06em; text-align: center; margin-top: 2px; }
+
+/* --- Flow Diagram (Slide 6) --- */
+.flow-center { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.flow-row { display: flex; align-items: center; gap: 12px; width: 100%; justify-content: center; }
+.flow-box { padding: 14px 16px; text-align: left; flex: 1; max-width: 260px; }
+.flow-box-light { border: 1.5px solid var(--grey-border); background: var(--white); }
+.flow-box-accent { border-color: var(--blue); border-width: 2px; background: rgba(37, 99, 235, 0.02); }
+.flow-name { font-family: var(--font-display); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 4px; }
+.flow-desc { font-size: 0.5rem; color: var(--grey); line-height: 1.5; }
+.flow-arrow { font-family: var(--font-mono); font-size: 0.4375rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grey); text-align: center; padding: 2px 8px; }
+.flow-arrow svg { width: 14px; height: 14px; color: var(--grey-light); }
+
+/* --- Schema Merge Diagram --- */
+.schema-merge { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.schema-sources { display: flex; gap: 8px; width: 100%; }
+.schema-source { flex: 1; padding: 10px; text-align: center; border: 1.5px solid var(--grey-border); background: var(--white); }
+.schema-source-name { font-family: var(--font-display); font-size: 0.5625rem; font-weight: 700; text-transform: uppercase; color: var(--navy); }
+.schema-source-desc { font-size: 0.4375rem; color: var(--grey); margin-top: 2px; font-family: var(--font-mono); }
+.schema-registry { padding: 12px 20px; text-align: center; border: 2px solid var(--blue); background: rgba(37, 99, 235, 0.03); width: 100%; }
+.schema-registry-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; color: var(--blue); }
+.schema-consumers { display: flex; gap: 6px; width: 100%; }
+.schema-consumer { flex: 1; padding: 8px; text-align: center; border: 1px solid var(--grey-border); background: var(--white); }
+.schema-consumer-name { font-family: var(--font-display); font-size: 0.5rem; font-weight: 600; text-transform: uppercase; color: var(--navy); }
+.schema-arrows { display: flex; justify-content: space-around; width: 80%; }
+.schema-arrow-line { width: 1px; height: 12px; background: var(--grey-border); }
+
+/* --- Extension Points Stack --- */
+.ext-stack { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.ext-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid rgba(148, 163, 184, 0.1); background: rgba(148, 163, 184, 0.03); }
+.ext-layer-name { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; color: var(--grey-light); min-width: 70px; flex-shrink: 0; }
+.ext-hooks { font-family: var(--font-mono); font-size: 0.4375rem; color: var(--grey-light); line-height: 1.5; flex: 1; }
+.ext-icon { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* --- Nav Bar --- */
+.nav-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 12px 24px; transition: background 0.5s, color 0.5s; }
+.nav-bar.nav-light { background: rgba(248, 249, 251, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--grey-border); }
+.nav-bar.nav-dark { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(148, 163, 184, 0.12); }
+.nav-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.nav-light .nav-btn { color: var(--grey); } .nav-light .nav-btn:hover { color: var(--navy); border-color: var(--grey-border); }
+.nav-dark .nav-btn { color: var(--grey-light); } .nav-dark .nav-btn:hover { color: var(--white); border-color: rgba(148, 163, 184, 0.2); }
+.nav-btn:disabled { opacity: 0.25; cursor: default; } .nav-btn:disabled:hover { border-color: transparent; }
+.nav-btn svg { width: 14px; height: 14px; }
+.nav-dots { display: flex; align-items: center; gap: 4px; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; border: none; cursor: pointer; transition: all 0.3s; padding: 0; }
+.nav-light .nav-dot { background: var(--grey-border); } .nav-light .nav-dot.active { background: var(--blue); width: 16px; border-radius: 3px; }
+.nav-light .nav-dot:hover:not(.active) { background: var(--grey-light); }
+.nav-dark .nav-dot { background: rgba(148, 163, 184, 0.25); } .nav-dark .nav-dot.active { background: var(--blue); width: 16px; border-radius: 3px; }
+.nav-dark .nav-dot:hover:not(.active) { background: rgba(148, 163, 184, 0.5); }
+.nav-counter { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; min-width: 44px; text-align: center; }
+.nav-light .nav-counter { color: var(--grey); } .nav-dark .nav-counter { color: var(--grey-light); }
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+    .slide { padding: 48px 24px 72px; }
+    .slide-two-col, .slide-two-col-wide { grid-template-columns: 1fr; gap: 32px; }
+    .engine-grid-3x2 { grid-template-columns: repeat(2, 1fr); }
+    .engine-grid-2x4 { grid-template-columns: repeat(2, 1fr); }
+    .engine-grid-4x1 { grid-template-columns: repeat(2, 1fr); }
+    .spoke-grid { grid-template-columns: repeat(2, 1fr); }
+    .pipeline-horiz { flex-wrap: wrap; gap: 8px; }
+    .pipeline-arrow { display: none; }
+    .pipeline-step { flex: 1 1 calc(33% - 6px); min-width: 160px; }
+    .s20-paths { flex-wrap: wrap; } .s20-path { flex: 1 1 calc(50% - 6px); }
+    .schema-sources { flex-wrap: wrap; }
+    .schema-consumers { flex-wrap: wrap; }
+    .layer-label { min-width: 90px; font-size: 0.4375rem; }
+    .flow-row { flex-wrap: wrap; }
+}
+@media (max-width: 600px) {
+    .slide { padding: 40px 16px 68px; }
+    .engine-grid-3x2 { grid-template-columns: 1fr; }
+    .engine-grid-2x4 { grid-template-columns: 1fr; }
+    .engine-grid-4x1 { grid-template-columns: 1fr; }
+    .spoke-grid { grid-template-columns: 1fr; }
+    .pipeline-step { flex: 1 1 100%; }
+    .s20-path { flex: 1 1 100%; }
+    .layer-band { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .layer-label { min-width: auto; }
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ================================================================ S01: Title -->
+<section class="slide slide-dark active fold-marks" data-bg="dark">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-32"><span class="stamp-num">SIG-AO01</span><span class="stamp-title">Architecture Overview</span><span class="stamp-rev">Rev A</span></div>
+        <div class="logo-mark color-green mb-48" style="font-size:1.5rem;padding:8px 20px">Signals</div>
+        <h1 class="s1-headline mb-16">Signals Rental Framework<br><span style="color:var(--grey-light);font-size:0.6em">Architecture Overview</span></h1>
+        <p class="s1-subtitle">An operating system for rental management. Eight architectural layers, thirty-two engines, one unified event system. This is how it all fits together.</p>
+        <div class="dim-line-h" style="width:200px"><span class="dim-arrow-l"></span><span class="dim-rule"></span><span class="dim-arrow-r"></span></div>
+        <p class="s1-hint mt-24">Use arrow keys to navigate</p>
+    </div>
+</section>
+
+<!-- ================================================================ S02: The Full Stack -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO02</span><span class="stamp-title">The Full Stack</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Eight Layers, <em>One System</em></h2>
+        <p class="slide-subtitle" style="max-width:620px;margin-bottom:20px">Each layer builds on the one below. Infrastructure at the foundation, plugins at the top.</p>
+        <div class="layer-stack">
+            <div class="layer-band">
+                <div class="layer-label"><span>L8</span> Extension Surface</div>
+                <div class="layer-engines">
+                    <div class="engine-badge">Plugin System</div>
+                </div>
+            </div>
+            <div class="layer-band">
+                <div class="layer-label"><span>L7</span> Intelligence &amp; Views</div>
+                <div class="layer-engines">
+                    <div class="engine-badge">Reporting</div>
+                    <div class="engine-badge">Custom Views</div>
+                    <div class="engine-badge">Search System</div>
+                    <div class="engine-badge">Dashboard</div>
+                </div>
+            </div>
+            <div class="layer-band">
+                <div class="layer-label"><span>L6</span> Service Systems</div>
+                <div class="layer-engines">
+                    <div class="engine-badge">Notifications</div>
+                    <div class="engine-badge">Documents</div>
+                    <div class="engine-badge">Import/Export</div>
+                    <div class="engine-badge">Scanning</div>
+                    <div class="engine-badge">Maintenance</div>
+                    <div class="engine-badge">Scheduling</div>
+                    <div class="engine-badge">Approvals</div>
+                    <div class="engine-badge">Workflows</div>
+                </div>
+            </div>
+            <div class="layer-band event-bus-band" style="border-top:none;">
+                <div class="event-bus-title">Event Bus (Cross-Cutting)</div>
+                <div class="event-bus-sub">Audit &middot; Webhooks &middot; Workflows &middot; Notifications &middot; Approvals</div>
+            </div>
+            <div class="layer-band" style="border-top:none;">
+                <div class="layer-label"><span>L4</span> Operational Core</div>
+                <div class="layer-engines">
+                    <div class="engine-badge">Availability Engine</div>
+                    <div class="engine-badge">Opportunity Lifecycle</div>
+                    <div class="engine-badge">Shortage Resolution</div>
+                    <div class="engine-badge">Containers</div>
+                </div>
+            </div>
+            <div class="layer-band">
+                <div class="layer-label"><span>L3</span> Money &amp; Localisation</div>
+                <div class="layer-engines">
+                    <div class="engine-badge">Multi-Currency &amp; Tax</div>
+                    <div class="engine-badge">Rate Engine</div>
+                    <div class="engine-badge">Discount &amp; Pricing</div>
+                </div>
+            </div>
+            <div class="layer-band">
+                <div class="layer-label"><span>L2</span> Data &amp; Schema</div>
+                <div class="layer-engines">
+                    <div class="engine-badge">Field Registry &amp; Schema</div>
+                    <div class="engine-badge">Custom Fields (EAV)</div>
+                    <div class="engine-badge">Permissions &amp; Auth</div>
+                    <div class="engine-badge">API</div>
+                </div>
+            </div>
+            <div class="layer-band">
+                <div class="layer-label"><span>L1</span> Infrastructure Kernel</div>
+                <div class="layer-engines">
+                    <div class="engine-badge">Queue</div>
+                    <div class="engine-badge">Caching</div>
+                    <div class="engine-badge">Settings</div>
+                    <div class="engine-badge">Observability</div>
+                    <div class="engine-badge">Auth</div>
+                    <div class="engine-badge">Files</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S03: Layer 1 — Infrastructure Kernel -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO03</span><span class="stamp-title">Infrastructure Kernel</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Layer 1: <em>Infrastructure Kernel</em></h2>
+        <p class="slide-subtitle" style="max-width:640px">The foundation that every other layer depends on. Invisible when it works, catastrophic when it doesn&rsquo;t.</p>
+        <div class="engine-grid engine-grid-3x2">
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Queue &amp; Job Infrastructure</div>
+                <div class="engine-card-desc">Redis primary (db0&ndash;db3), database fallback. Six named queues: default, webhooks, notifications, exports, imports, mail. Horizon dashboard. Batch and chain patterns.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Caching Strategy</div>
+                <div class="engine-card-desc">Redis cache-aside pattern. Tag-based invalidation. Settings cached indefinitely, navigation 1hr, widgets 5min. Invalidate on write, never rely on TTL alone.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Settings &amp; Administration</div>
+                <div class="engine-card-desc">Runtime configuration stored in database. settings('group.key') accessor. Grouped definitions. Indefinite cache with tag invalidation. Encrypted credentials.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Observability</div>
+                <div class="engine-card-desc">Laravel Nightwatch APM. Request tracing, slow query detection, error tracking. Health check endpoints for database, Redis, S3 connectivity.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">SSO &amp; Enterprise Auth</div>
+                <div class="engine-card-desc">Email/password native. Socialite OAuth (GitHub, Google). SAML 2.0 / OIDC for enterprise. Sanctum API tokens. TOTP-based MFA. JIT user provisioning.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">File &amp; Attachment System</div>
+                <div class="engine-card-desc">S3-only storage. UUID-based paths. Signed temporary URLs. Polymorphic attachments table. Optional ClamAV scanning. Thumbnails via Intervention Image.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S04: Layer 2 — Data & Schema -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO04</span><span class="stamp-title">Data &amp; Schema</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Layer 2: <em>Data &amp; Schema</em></h2>
+        <p class="slide-subtitle" style="max-width:640px">The metadata backbone. Field definitions, custom attributes, access control, and API conventions that every surface consumes.</p>
+        <div class="slide-two-col" style="margin-top:16px">
+            <div>
+                <div class="engine-card engine-card-light" style="margin-bottom:10px">
+                    <div class="engine-card-name">Field Registry &amp; Schema Engine</div>
+                    <div class="engine-card-desc">Three-source merge: core fields (migrations), computed fields (code), custom fields (EAV). Five consumers: Custom Views, Reporting, Import/Export, API, Plugins.</div>
+                </div>
+                <div class="engine-card engine-card-light" style="margin-bottom:10px">
+                    <div class="engine-card-name">Custom Fields (EAV)</div>
+                    <div class="engine-card-desc">17 field types. Typed value columns. Field groups, validation rules, visibility rules. Auto-copy between entities. Queryable via Ransack: q[cf.field_name_eq]=value</div>
+                </div>
+                <div class="engine-card engine-card-light" style="margin-bottom:10px">
+                    <div class="engine-card-name">Permissions &amp; Authorisation Engine</div>
+                    <div class="engine-card-desc">Four layers: UI areas, actions, cost visibility, store scoping. resource.action naming. Five built-in roles. Owner has implicit all-access. Gate checks in action classes.</div>
+                </div>
+                <div class="engine-card engine-card-light">
+                    <div class="engine-card-name">API Architecture</div>
+                    <div class="engine-card-desc">REST with CRMS drop-in compatibility. Spatie Data DTOs for input validation + response serialisation. Ransack-compatible query engine. Sanctum bearer tokens.</div>
+                </div>
+            </div>
+            <div>
+                <div class="schema-merge">
+                    <div class="schema-sources">
+                        <div class="schema-source">
+                            <div class="schema-source-name">Core Fields</div>
+                            <div class="schema-source-desc">Migrations</div>
+                        </div>
+                        <div class="schema-source">
+                            <div class="schema-source-name">Computed Fields</div>
+                            <div class="schema-source-desc">Code</div>
+                        </div>
+                        <div class="schema-source">
+                            <div class="schema-source-name">Custom Fields</div>
+                            <div class="schema-source-desc">EAV</div>
+                        </div>
+                    </div>
+                    <div class="schema-arrows">
+                        <div class="schema-arrow-line"></div>
+                        <div class="schema-arrow-line"></div>
+                        <div class="schema-arrow-line"></div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="12"/><polyline points="4,8 8,12 12,8"/></svg>
+                    <div class="schema-registry">
+                        <div class="schema-registry-name">Field Registry</div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="12"/><polyline points="4,8 8,12 12,8"/></svg>
+                    <div class="schema-arrows" style="width:90%">
+                        <div class="schema-arrow-line"></div>
+                        <div class="schema-arrow-line"></div>
+                        <div class="schema-arrow-line"></div>
+                        <div class="schema-arrow-line"></div>
+                        <div class="schema-arrow-line"></div>
+                    </div>
+                    <div class="schema-consumers">
+                        <div class="schema-consumer"><div class="schema-consumer-name">Custom Views</div></div>
+                        <div class="schema-consumer"><div class="schema-consumer-name">Reporting</div></div>
+                        <div class="schema-consumer"><div class="schema-consumer-name">Import / Export</div></div>
+                        <div class="schema-consumer"><div class="schema-consumer-name">API</div></div>
+                        <div class="schema-consumer"><div class="schema-consumer-name">Plugins</div></div>
+                    </div>
+                </div>
+                <p class="annotation mt-16">Three sources merge into one registry. Five consumers read from it. No consumer knows where a field came from.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S05: Layer 3 — Money & Localisation -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO05</span><span class="stamp-title">Money &amp; Localisation</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Layer 3: <em>Money &amp; Localisation</em></h2>
+        <p class="slide-subtitle" style="max-width:620px;margin-bottom:28px">Every monetary operation flows through these three engines. Lossless arithmetic from rate calculation through to invoice totals.</p>
+        <div class="pipeline-horiz" style="max-width:920px">
+            <div class="pipeline-step">
+                <div class="pipeline-box pipeline-box-dark" style="border-color:rgba(148,163,184,0.15)">
+                    <div class="pipeline-name">Rate Engine</div>
+                    <div class="pipeline-desc">Calculation strategies: period-based, usage-based, fixed, hybrid. Composable modifiers: multiplier (tiered), factor (volume). 12 CRMS-compatible presets.</div>
+                </div>
+            </div>
+            <div class="pipeline-arrow" style="flex-direction:column;gap:2px">
+                <svg viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg>
+                <div class="pipeline-arrow-label" style="color:var(--grey-light)">Base Price</div>
+            </div>
+            <div class="pipeline-step">
+                <div class="pipeline-box pipeline-box-dark pipeline-box-accent">
+                    <div class="pipeline-name" style="color:var(--blue-light)">Multi-Currency &amp; Tax Engine</div>
+                    <div class="pipeline-desc">brick/money value objects. Integer minor-unit storage. Temporal exchange rates. Tax zones &times; categories &rarr; rates. Per-line RationalMoney arithmetic.</div>
+                </div>
+            </div>
+            <div class="pipeline-arrow" style="flex-direction:column;gap:2px">
+                <svg viewBox="0 0 16 16" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg>
+                <div class="pipeline-arrow-label" style="color:var(--grey-light)">Taxes &amp; Currency</div>
+            </div>
+            <div class="pipeline-step">
+                <div class="pipeline-box pipeline-box-dark" style="border-color:rgba(148,163,184,0.15)">
+                    <div class="pipeline-name">Discount &amp; Pricing Rules</div>
+                    <div class="pipeline-desc">Four-stage pipeline: price categories &rarr; discounts &rarr; surcharges &rarr; manual override. Highest discount wins. Non-discountable flags. Deal pricing.</div>
+                </div>
+            </div>
+        </div>
+        <p class="annotation mt-24">Data flows left to right. Rate Engine produces the base price. Currency &amp; Tax converts. Discount rules apply final adjustments.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S06: Layer 4 — Operational Core -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO06</span><span class="stamp-title">Operational Core</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Layer 4: <em>Operational Core</em></h2>
+        <p class="slide-subtitle" style="max-width:640px;margin-bottom:24px">The heart of the rental system. Quote-to-return lifecycle, real-time availability, shortage detection, and kit management.</p>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;max-width:820px;width:100%">
+            <!-- Top: Opportunity Lifecycle -->
+            <div class="flow-box flow-box-accent" style="max-width:400px;width:100%;text-align:center">
+                <div class="flow-name" style="color:var(--blue)">Opportunity Lifecycle</div>
+                <div class="flow-desc">Two-axis state model (state &times; status). Verbs event sourcing. Quote versioning. Line-item granularity.</div>
+            </div>
+            <!-- Arrows down -->
+            <div style="display:flex;gap:120px;align-items:flex-start">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                    <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                    <span style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey)">demands</span>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                    <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                    <span style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey)">dispatch</span>
+                </div>
+            </div>
+            <!-- Middle row -->
+            <div style="display:flex;gap:16px;width:100%;justify-content:center;flex-wrap:wrap">
+                <div class="flow-box flow-box-light" style="flex:1;min-width:200px">
+                    <div class="flow-name">Availability Engine</div>
+                    <div class="flow-desc">Pre-calculated snapshots. Unified demand table. Five behavioural phases. tstzrange/GiST indexing.</div>
+                </div>
+                <div class="flow-box flow-box-light" style="flex:1;min-width:200px">
+                    <div class="flow-name">Serialised Containers</div>
+                    <div class="flow-desc">Template-driven kits. Strict vs flexible packing. Dissolve-on-dispatch. Scanning integration.</div>
+                </div>
+            </div>
+            <!-- Arrow down from Availability -->
+            <div style="display:flex;gap:120px;align-items:flex-start">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                    <svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="var(--grey-light)" stroke-width="1.5"><line x1="8" y1="2" x2="8" y2="14"/><polyline points="4,10 8,14 12,10"/></svg>
+                    <span style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey)">negative slots</span>
+                </div>
+            </div>
+            <!-- Bottom: Shortage Resolution -->
+            <div class="flow-box flow-box-light" style="max-width:400px;width:100%;text-align:center">
+                <div class="flow-name">Shortage Resolution</div>
+                <div class="flow-desc">Computed at query time. Resolver registry: internal transfer, substitute, sub-hire. Virtual stock. Resolution records flow back to Opportunity.</div>
+            </div>
+        </div>
+        <p class="annotation mt-16">Demands flow down from Opportunity to Availability. Negative slots trigger Shortage Resolution. Resolutions feed back to Opportunity.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S07: The Event Bus -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO07</span><span class="stamp-title">Event Bus</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">The Event Bus: <em>One Event, Five Reactions</em></h2>
+        <p class="slide-subtitle" style="max-width:620px;margin-bottom:24px">A cross-cutting concern that connects every layer. Every domain event flows through one dispatcher. Five independent consumers react.</p>
+        <div class="hub-spoke" style="max-width:920px">
+            <div class="hub-center">
+                <div class="hub-center-label">Event Bus</div>
+            </div>
+            <div class="spoke-connector">
+                <div class="spoke-line"></div>
+                <div class="spoke-line"></div>
+                <div class="spoke-line"></div>
+                <div class="spoke-line"></div>
+                <div class="spoke-line"></div>
+            </div>
+            <div class="spoke-grid">
+                <div class="spoke-card accent-green">
+                    <div class="spoke-name" style="color:var(--green)">Audit Log</div>
+                    <div class="spoke-desc">Synchronous. Before/after JSONB snapshots. IP address, user agent. Append-only. Configurable retention.</div>
+                </div>
+                <div class="spoke-card accent-amber">
+                    <div class="spoke-name" style="color:var(--amber)">Webhooks</div>
+                    <div class="spoke-desc">Queued. HMAC-SHA256 signed. Exponential backoff (6 retries, 12 hours). Auto-disable after 3 days of failures.</div>
+                </div>
+                <div class="spoke-card accent-sky">
+                    <div class="spoke-name" style="color:var(--sky)">Workflows</div>
+                    <div class="spoke-desc">Queued or synchronous. Handler-based step chains. Conditions, delays, halts. Loop protection.</div>
+                </div>
+                <div class="spoke-card accent-violet">
+                    <div class="spoke-name" style="color:var(--violet)">Notifications</div>
+                    <div class="spoke-desc">Queued. Multi-channel (email, SMS, in-app, push). Three-layer preference resolution. Template integration.</div>
+                </div>
+                <div class="spoke-card accent-rose">
+                    <div class="spoke-name" style="color:var(--rose)">Approval Chains</div>
+                    <div class="spoke-desc">Queued or synchronous. Two-event pattern. Quorum (any/all). Delegation, escalation, expiry.</div>
+                </div>
+            </div>
+        </div>
+        <p class="annotation mt-24">Each consumer operates independently. They share the bus but have no knowledge of each other.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S08: Layer 6 — Service Systems -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO08</span><span class="stamp-title">Service Systems</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Layer 6: <em>Service Systems</em></h2>
+        <p class="slide-subtitle" style="max-width:640px">Eight specialised engines that make the platform production-ready and operationally complete.</p>
+        <div class="engine-grid engine-grid-2x4" style="margin-top:16px">
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--violet)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Notification Engine</div>
+                <div class="engine-card-desc">Multi-channel messaging. Three-layer resolution. Template system. Delivery tracking.</div>
+            </div>
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--green)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Document Template Engine</div>
+                <div class="engine-card-desc">Blade templates per store. PDF rendering. Field browser. Public sharing.</div>
+            </div>
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--amber)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Import/Export Engine</div>
+                <div class="engine-card-desc">SQLite-staged migration. CRMS pre-built mappings. Dry-run validation.</div>
+            </div>
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--cyan)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Scanning Layer</div>
+                <div class="engine-card-desc">USB, QR, RFID, manual entry. Three-layer pipeline: input &rarr; resolve &rarr; context.</div>
+            </div>
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--red)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Maintenance Engine</div>
+                <div class="engine-card-desc">Time + usage inspections. Auto-quarantine. Certification tracking. TCO analysis.</div>
+            </div>
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--sky)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Scheduling Engine</div>
+                <div class="engine-card-desc">Crew, vehicle, facility, equipment. Conflict detection. Route management.</div>
+            </div>
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--rose)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Approval Chain Engine</div>
+                <div class="engine-card-desc">Multi-stage chains. Delegation, escalation. Internal and external approvers.</div>
+            </div>
+            <div class="engine-card engine-card-light">
+                <div class="engine-card-accent" style="background:var(--blue)"></div>
+                <div class="engine-card-name" style="margin-top:4px">Workflow Engine</div>
+                <div class="engine-card-desc">Event-driven automation. Handler registry. Conditions, delays, halts.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S09: Layer 7 — Intelligence & Views -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO09</span><span class="stamp-title">Intelligence &amp; Views</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Layer 7: <em>Intelligence &amp; Views</em></h2>
+        <p class="slide-subtitle" style="max-width:640px">The data consumption layer. Every system below generates data; this layer makes it visible, queryable, and actionable.</p>
+        <div class="engine-grid engine-grid-4x1" style="margin-top:16px">
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Reporting Framework</div>
+                <div class="engine-card-desc">Aggregated queries over shared field registry. Dimensions and measures. Comparison periods (YoY, MoM). Scheduled delivery.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Custom Views</div>
+                <div class="engine-card-desc">Saved list configurations: columns, filters, sort. Personal/shared/system visibility. Conditional formatting. Dynamic tokens.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Search System</div>
+                <div class="engine-card-desc">PostgreSQL tsvector/GIN full-text search. Global search modal. Entity-type scoping. Indexed across all key fields.</div>
+            </div>
+            <div class="engine-card engine-card-dark">
+                <div class="engine-card-name">Dashboard System</div>
+                <div class="engine-card-desc">Section layout. Widget registry (core + plugins). Real-time updates via Reverb WebSocket. Shared dashboards.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S10: Layer 8 — Extension Surface -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO10</span><span class="stamp-title">Extension Surface</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Layer 8: <em>Plugin System</em></h2>
+        <p class="slide-subtitle" style="max-width:640px">Every layer below exposes extension points. The Plugin System provides the SDK, lifecycle management, and mediated access that third-party developers use to extend every surface.</p>
+        <div class="slide-two-col" style="margin-top:16px">
+            <div>
+                <div class="explainer">
+                    <div class="explainer-heading" style="margin-top:0">YAML Manifest</div>
+                    <p style="margin-bottom:10px">Each plugin ships a <strong>signals.json</strong> manifest declaring name, version, permissions, events, custom fields, routes, and settings. The SDK validates this at discovery time.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Mediated Data Access</div>
+                    <p style="margin-bottom:10px">Plugins never import core models directly. All data access goes through the <strong>mediated API</strong> &mdash; query builders exposed by the SDK. This prevents breaking changes when core schema evolves.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Table Prefix</div>
+                    <p style="margin-bottom:10px">Plugin tables use the <strong>plugin_</strong> prefix. No plugin-owned migrations on core tables. Extend via custom fields and JSONB columns instead.</p>
+                    <div class="explainer-heading" style="margin-top:16px">PluginRegistrar API</div>
+                    <p style="margin-bottom:10px">Fluent registration interface for: routes, events, actions, custom fields, widgets, notifications, reports, nav items, permissions, settings.</p>
+                    <div class="explainer-heading" style="margin-top:16px">Lifecycle</div>
+                    <p><strong>Discover</strong> &rarr; <strong>Validate</strong> &rarr; <strong>Register</strong> &rarr; <strong>Activate</strong> &rarr; <strong>Boot</strong> &rarr; <strong>Disable</strong></p>
+                </div>
+            </div>
+            <div>
+                <div style="font-family:var(--font-display);font-size:0.625rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--navy);margin-bottom:10px">Extension Points by Layer</div>
+                <div class="ext-stack">
+                    <div class="ext-row" style="border-color:var(--grey-border);background:var(--white)">
+                        <div class="ext-layer-name" style="color:var(--navy)">Layer 7</div>
+                        <div class="ext-hooks" style="color:var(--grey)">Widget registry, report data sources</div>
+                        <svg class="ext-icon" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="15"/><line x1="1" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="15" y2="8"/></svg>
+                    </div>
+                    <div class="ext-row" style="border-color:var(--grey-border);background:var(--white)">
+                        <div class="ext-layer-name" style="color:var(--navy)">Layer 6</div>
+                        <div class="ext-hooks" style="color:var(--grey)">Notification types, channel drivers, workflow handlers, document types</div>
+                        <svg class="ext-icon" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="15"/><line x1="1" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="15" y2="8"/></svg>
+                    </div>
+                    <div class="ext-row" style="border-color:var(--blue);background:rgba(37,99,235,0.02)">
+                        <div class="ext-layer-name" style="color:var(--blue)">Event Bus</div>
+                        <div class="ext-hooks" style="color:var(--grey)">Custom events, demand sources</div>
+                        <svg class="ext-icon" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="15"/><line x1="1" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="15" y2="8"/></svg>
+                    </div>
+                    <div class="ext-row" style="border-color:var(--grey-border);background:var(--white)">
+                        <div class="ext-layer-name" style="color:var(--navy)">Layer 4</div>
+                        <div class="ext-hooks" style="color:var(--grey)">Availability strategies, demand source registration</div>
+                        <svg class="ext-icon" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="15"/><line x1="1" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="15" y2="8"/></svg>
+                    </div>
+                    <div class="ext-row" style="border-color:var(--grey-border);background:var(--white)">
+                        <div class="ext-layer-name" style="color:var(--navy)">Layer 3</div>
+                        <div class="ext-hooks" style="color:var(--grey)">Tax resolvers, rate strategies, discount sources</div>
+                        <svg class="ext-icon" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="15"/><line x1="1" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="15" y2="8"/></svg>
+                    </div>
+                    <div class="ext-row" style="border-color:var(--grey-border);background:var(--white)">
+                        <div class="ext-layer-name" style="color:var(--navy)">Layer 2</div>
+                        <div class="ext-hooks" style="color:var(--grey)">Custom field types, API endpoints, permission registration</div>
+                        <svg class="ext-icon" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="15"/><line x1="1" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="15" y2="8"/></svg>
+                    </div>
+                    <div class="ext-row" style="border-color:var(--grey-border);background:var(--white)">
+                        <div class="ext-layer-name" style="color:var(--navy)">Layer 1</div>
+                        <div class="ext-hooks" style="color:var(--grey)">Storage drivers, queue connections</div>
+                        <svg class="ext-icon" viewBox="0 0 16 16" fill="none" stroke="var(--blue)" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="15"/><line x1="1" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="15" y2="8"/></svg>
+                    </div>
+                </div>
+                <p class="annotation mt-16">No plugin-shipped views. Config-driven rendering only. No plugin-owned migrations on core tables.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S11: The Complete Picture -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO11</span><span class="stamp-title">Complete Picture</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">The <em>Complete Picture</em></h2>
+        <p class="slide-subtitle" style="max-width:620px;margin-bottom:20px">Every engine, every layer, every cross-cutting concern. The definitive reference diagram for the Signals Rental Framework architecture.</p>
+        <div style="display:flex;gap:20px;width:100%;max-width:1060px;align-items:stretch">
+            <!-- Left annotation column -->
+            <div style="display:flex;flex-direction:column;justify-content:space-between;padding:0;width:120px;flex-shrink:0">
+                <div style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey);text-align:right;padding:4px 0">
+                    <div style="margin-bottom:4px;color:var(--violet)">Plugin SDK connects to extension points at every layer</div>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey);text-align:right;padding:4px 0">
+                    <div style="margin-bottom:4px;color:var(--sky)">Field Registry provides metadata to Views, Reports, API</div>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey);text-align:right;padding:4px 0">
+                    <div style="color:var(--green)">Infrastructure services available to all layers above</div>
+                </div>
+            </div>
+            <!-- Main diagram -->
+            <div class="layer-stack" style="flex:1">
+                <div class="layer-band">
+                    <div class="layer-label"><span>L8</span> Extension</div>
+                    <div class="layer-engines">
+                        <div class="engine-badge">Plugin System</div>
+                    </div>
+                </div>
+                <div class="layer-band">
+                    <div class="layer-label"><span>L7</span> Intelligence</div>
+                    <div class="layer-engines">
+                        <div class="engine-badge">Reporting</div>
+                        <div class="engine-badge">Custom Views</div>
+                        <div class="engine-badge">Search</div>
+                        <div class="engine-badge">Dashboard</div>
+                    </div>
+                </div>
+                <div class="layer-band">
+                    <div class="layer-label"><span>L6</span> Services</div>
+                    <div class="layer-engines">
+                        <div class="engine-badge">Notifications</div>
+                        <div class="engine-badge">Documents</div>
+                        <div class="engine-badge">Import/Export</div>
+                        <div class="engine-badge">Scanning</div>
+                        <div class="engine-badge">Maintenance</div>
+                        <div class="engine-badge">Scheduling</div>
+                        <div class="engine-badge">Approvals</div>
+                        <div class="engine-badge">Workflows</div>
+                    </div>
+                </div>
+                <div class="layer-band event-bus-band" style="border-top:none">
+                    <div class="event-bus-title">Event Bus</div>
+                    <div class="event-bus-sub">Audit &middot; Webhooks &middot; Workflows &middot; Notifications &middot; Approvals</div>
+                </div>
+                <div class="layer-band" style="border-top:none">
+                    <div class="layer-label"><span>L4</span> Operations</div>
+                    <div class="layer-engines">
+                        <div class="engine-badge">Availability</div>
+                        <div class="engine-badge">Opportunity Lifecycle</div>
+                        <div class="engine-badge">Shortage Resolution</div>
+                        <div class="engine-badge">Containers</div>
+                    </div>
+                </div>
+                <div class="layer-band">
+                    <div class="layer-label"><span>L3</span> Money</div>
+                    <div class="layer-engines">
+                        <div class="engine-badge">Multi-Currency &amp; Tax</div>
+                        <div class="engine-badge">Rate Engine</div>
+                        <div class="engine-badge">Discount &amp; Pricing</div>
+                    </div>
+                </div>
+                <div class="layer-band">
+                    <div class="layer-label"><span>L2</span> Data</div>
+                    <div class="layer-engines">
+                        <div class="engine-badge">Field Registry</div>
+                        <div class="engine-badge">Custom Fields</div>
+                        <div class="engine-badge">Permissions</div>
+                        <div class="engine-badge">API</div>
+                    </div>
+                </div>
+                <div class="layer-band">
+                    <div class="layer-label"><span>L1</span> Kernel</div>
+                    <div class="layer-engines">
+                        <div class="engine-badge">Queue</div>
+                        <div class="engine-badge">Caching</div>
+                        <div class="engine-badge">Settings</div>
+                        <div class="engine-badge">Observability</div>
+                        <div class="engine-badge">Auth</div>
+                        <div class="engine-badge">Files</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Right annotation column -->
+            <div style="display:flex;flex-direction:column;justify-content:space-between;padding:0;width:120px;flex-shrink:0">
+                <div style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey);text-align:left;padding:4px 0">
+                    <div style="margin-bottom:4px;color:var(--amber)">Data flows upward from infrastructure through to plugins</div>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey);text-align:left;padding:4px 0">
+                    <div style="margin-bottom:4px;color:var(--blue)">Events flow through the Event Bus to all consumers</div>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:0.375rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--grey);text-align:left;padding:4px 0">
+                    <div style="color:var(--rose)">Demands flow up from Opportunity to Availability</div>
+                </div>
+            </div>
+        </div>
+        <p class="annotation mt-16">Each layer depends only on the layers below it. The Event Bus is the sole cross-cutting exception.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S12: Closing / CTA -->
+<section class="slide slide-light fold-marks" data-bg="light">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-AO12</span><span class="stamp-title">Get Involved</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Open Source. API-First. <em>Plugin-Extensible.</em></h2>
+        <p class="slide-subtitle" style="max-width:560px;margin-bottom:28px">32 engines. 8 layers. One unified event system. Built for the rental industry, designed for extensibility.</p>
+        <div class="s20-paths">
+            <div class="s20-path s20-featured"><div class="s20-path-bar" style="background:var(--blue)"></div><div class="s20-path-name">Read the Specs</div><div class="s20-path-desc">Every engine has a full specification document. 40+ plans covering design decisions and trade-offs.</div></div>
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--sky)"></div><div class="s20-path-name">Explore the Code</div><div class="s20-path-desc">MIT licensed. PostgreSQL + Laravel 12. Livewire 4. Pest 4.</div></div>
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--green)"></div><div class="s20-path-name">Build a Plugin</div><div class="s20-path-desc">SDK, YAML manifest, mediated access. Extend any layer without modifying core.</div></div>
+        </div>
+        <div class="s20-cta-url mb-16">framework.signals.rent</div>
+        <div class="iso-block"><span>SIG-AO-DECK-001</span> &middot; <span style="color:var(--blue)">Rev A</span> &middot; <span>2026</span></div>
+    </div>
+</section>
+
+</div>
+
+<!-- Navigation Bar -->
+<nav class="nav-bar nav-dark" id="navBar">
+    <button class="nav-btn" id="prevBtn" aria-label="Previous slide" disabled>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10,3 5,8 10,13"/></svg>
+    </button>
+    <div class="nav-dots" id="navDots"></div>
+    <span class="nav-counter" id="navCounter">01 / 12</span>
+    <button class="nav-btn" id="nextBtn" aria-label="Next slide">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg>
+    </button>
+</nav>
+
+<script>
+(function() {
+    var slides = document.querySelectorAll('.slide');
+    var navBar = document.getElementById('navBar');
+    var navDots = document.getElementById('navDots');
+    var navCounter = document.getElementById('navCounter');
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var total = slides.length;
+    var current = 0;
+    var transitioning = false;
+
+    for (var i = 0; i < total; i++) {
+        (function(idx) {
+            var dot = document.createElement('button');
+            dot.className = 'nav-dot' + (idx === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', 'Go to slide ' + (idx + 1));
+            dot.addEventListener('click', function() { goToSlide(idx); });
+            navDots.appendChild(dot);
+        })(i);
+    }
+
+    function goToSlide(n) {
+        if (n < 0 || n >= total || n === current || transitioning) return;
+        transitioning = true;
+        slides[current].classList.remove('active');
+        current = n;
+        slides[current].classList.add('active');
+        updateNav();
+        setTimeout(function() { transitioning = false; }, 500);
+    }
+
+    function updateNav() {
+        var num = String(current + 1).padStart(2, '0');
+        var tot = String(total).padStart(2, '0');
+        navCounter.textContent = num + ' / ' + tot;
+        var dots = navDots.querySelectorAll('.nav-dot');
+        for (var i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle('active', i === current);
+        }
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current === total - 1;
+        var bg = slides[current].getAttribute('data-bg');
+        navBar.classList.remove('nav-light', 'nav-dark');
+        navBar.classList.add(bg === 'dark' ? 'nav-dark' : 'nav-light');
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goToSlide(current + 1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goToSlide(current - 1); }
+        else if (e.key === 'Home') { e.preventDefault(); goToSlide(0); }
+        else if (e.key === 'End') { e.preventDefault(); goToSlide(total - 1); }
+    });
+    prevBtn.addEventListener('click', function() { goToSlide(current - 1); });
+    nextBtn.addEventListener('click', function() { goToSlide(current + 1); });
+
+    var touchX = 0, touchY = 0;
+    document.addEventListener('touchstart', function(e) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+        var dx = e.changedTouches[0].clientX - touchX;
+        var dy = e.changedTouches[0].clientY - touchY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) { dx < 0 ? goToSlide(current + 1) : goToSlide(current - 1); }
+    }, { passive: true });
+
+    updateNav();
+})();
+</script>
+</body>
+</html>

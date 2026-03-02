@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signals Rental Framework — Open Source Pitch Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   Signals OSS Pitch Deck — Blueprint Design System
+   ========================================================================== */
+
+:root {
+    --base: #f8f9fb;
+    --white: #ffffff;
+    --navy: #0f172a;
+    --navy-mid: #1e293b;
+    --blue: #2563eb;
+    --blue-light: #3b82f6;
+    --red: #dc2626;
+    --grey: #64748b;
+    --grey-light: #94a3b8;
+    --grey-border: #e2e8f0;
+    --green: #059669;
+    --green-light: #34d399;
+    --sky: #0ea5e9;
+    --cyan: #0891b2;
+    --amber: #d97706;
+    --violet: #7c3aed;
+    --rose: #e11d48;
+    --slate: #475569;
+    --grid-fine: rgba(5, 150, 105, 0.05);
+    --grid-strong: rgba(5, 150, 105, 0.1);
+    --grid-dark-fine: rgba(148, 163, 184, 0.08);
+    --grid-dark-strong: rgba(148, 163, 184, 0.15);
+    --font-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Martian Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: var(--font-mono);
+    background: var(--navy);
+    color: var(--navy);
+    line-height: 1.7;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+/* --- Slide System --- */
+.deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.slide {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: translateY(12px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none; padding: 60px 48px 80px; overflow-y: auto;
+}
+.slide.active { opacity: 1; transform: translateY(0); pointer-events: auto; z-index: 1; }
+.slide-inner { max-width: 1100px; width: 100%; min-height: 0; }
+
+.slide-dark {
+    background-color: var(--navy); color: var(--grey-light);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+}
+.slide-dark h1, .slide-dark h2, .slide-dark h3, .slide-dark h4 { color: var(--white); }
+.slide-light {
+    background-color: var(--base); color: var(--navy);
+    background-image:
+        repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+        repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+}
+
+/* --- Logo Mark --- */
+.logo-mark { display: inline-block; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 2px solid currentColor; padding: 6px 16px; position: relative; text-decoration: none; color: inherit; }
+.logo-mark::after { content: ''; position: absolute; top: -4px; right: -4px; width: 6px; height: 6px; border-radius: 50%; }
+.color-green::after { background: var(--green); }
+.logo-xl { font-size: 2.25rem; padding: 10px 28px; }
+
+/* --- Section Stamp --- */
+.section-stamp { display: inline-flex; align-items: stretch; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase; line-height: 1; }
+.stamp-num { background: var(--navy); color: var(--white); padding: 3px 8px; }
+.stamp-title { padding: 3px 8px; border: 1px solid currentColor; border-left: none; }
+.stamp-rev { padding: 3px 8px; border: 1px solid currentColor; border-left: none; opacity: 0.5; }
+.slide-dark .stamp-title, .slide-dark .stamp-rev { border-color: rgba(148, 163, 184, 0.25); }
+.slide-light .stamp-title, .slide-light .stamp-rev { border-color: var(--grey-border); }
+
+/* --- Buttons --- */
+.btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 20px; border: 1.5px solid transparent; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+.btn-green { background: var(--green); color: var(--white); }
+.btn-green:hover { background: #047857; }
+.btn-outline { background: transparent; border: 1.5px solid currentColor; }
+.slide-dark .btn-outline { color: var(--grey-light); }
+.slide-dark .btn-outline:hover { background: var(--white); color: var(--navy); }
+
+/* --- Shared --- */
+.annotation { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+.code-block { background: var(--navy-mid); border: 1px solid rgba(148, 163, 184, 0.15); overflow: hidden; }
+.code-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
+.code-dot { width: 6px; height: 6px; border-radius: 50%; }
+.code-body { padding: 16px; font-family: var(--font-mono); font-size: 0.6875rem; line-height: 1.8; color: var(--grey-light); overflow-x: auto; }
+.code-body .hl-kw { color: var(--green-light); }
+.code-body .hl-str { color: var(--amber); }
+.code-body .hl-cm { color: var(--grey); }
+.code-body .hl-fn { color: var(--sky); }
+.code-body .hl-num { color: var(--rose); }
+.trim-marks { position: relative; }
+.trim-tl, .trim-tr, .trim-bl, .trim-br { position: absolute; width: 12px; height: 12px; pointer-events: none; }
+.trim-tl { top: -1px; left: -1px; border-top: 1.5px solid var(--green); border-left: 1.5px solid var(--green); }
+.trim-tr { top: -1px; right: -1px; border-top: 1.5px solid var(--green); border-right: 1.5px solid var(--green); }
+.trim-bl { bottom: -1px; left: -1px; border-bottom: 1.5px solid var(--green); border-left: 1.5px solid var(--green); }
+.trim-br { bottom: -1px; right: -1px; border-bottom: 1.5px solid var(--green); border-right: 1.5px solid var(--green); }
+.dim-line-h { display: flex; align-items: center; gap: 0; margin: 0 auto; opacity: 0.3; }
+.dim-arrow-l, .dim-arrow-r { width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; flex-shrink: 0; }
+.dim-arrow-l { border-right: 5px solid currentColor; }
+.dim-arrow-r { border-left: 5px solid currentColor; }
+.dim-rule { flex: 1; height: 1px; background: currentColor; }
+.iso-block { font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border: 1px solid var(--grey-border); opacity: 0.5; }
+.fold-marks { /* children use slide's positioning context */ }
+.fold-mark { position: absolute; width: 0; height: 0; pointer-events: none; }
+.fm-tl { top: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(5, 150, 105, 0.15); }
+.fm-tr { top: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid rgba(5, 150, 105, 0.15); }
+.fm-bl { bottom: 0; left: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(5, 150, 105, 0.15); }
+.fm-br { bottom: 0; right: 24px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 5px solid rgba(5, 150, 105, 0.15); }
+
+/* --- Utilities --- */
+.mb-4 { margin-bottom: 4px; } .mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; } .mb-24 { margin-bottom: 24px; } .mb-32 { margin-bottom: 32px; }
+.mb-48 { margin-bottom: 48px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; } .mt-32 { margin-top: 32px; }
+
+/* --- Layouts --- */
+.slide-centered { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.slide-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+.slide-two-col-wide { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
+.slide-headline { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.1; margin-bottom: 8px; }
+.slide-headline em { font-style: italic; font-weight: 600; }
+.slide-subtitle { font-size: 0.75rem; line-height: 1.8; margin-bottom: 28px; }
+.slide-dark .slide-subtitle { color: var(--grey-light); }
+.slide-light .slide-subtitle { color: var(--grey); }
+
+/* --- S01 --- */
+.s1-headline { font-size: clamp(1.5rem, 4.5vw, 3rem); line-height: 1.05; max-width: 900px; }
+.s1-subtitle { font-size: 0.75rem; line-height: 1.8; max-width: 520px; color: var(--grey-light); margin-bottom: 32px; }
+.s1-hint { font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* --- S02: Problem Cards --- */
+.problem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; width: 100%; max-width: 780px; }
+.problem-card { border: 1.5px solid var(--grey-border); padding: 20px 18px; background: var(--white); text-align: left; }
+.problem-icon { width: 28px; height: 28px; margin-bottom: 10px; }
+.problem-icon svg { width: 100%; height: 100%; }
+.problem-name { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 4px; }
+.problem-desc { font-size: 0.6875rem; color: var(--grey); line-height: 1.6; }
+
+/* --- Feature List --- */
+.feature-list { list-style: none; }
+.feature-row { display: flex; align-items: baseline; gap: 8px; font-size: 0.6875rem; line-height: 1.5; margin-bottom: 8px; }
+.chk { color: var(--green); font-weight: 700; flex-shrink: 0; font-size: 0.8rem; }
+.slide-dark .feature-row { color: var(--grey-light); }
+.slide-light .feature-row { color: var(--grey); }
+
+/* --- Card Grids --- */
+.card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; width: 100%; max-width: 780px; }
+.card-grid-3 { grid-template-columns: repeat(3, 1fr); max-width: 860px; }
+.info-card { border: 1.5px solid var(--grey-border); padding: 20px 18px; background: var(--white); text-align: left; }
+.info-card-icon { width: 24px; height: 24px; margin-bottom: 8px; color: var(--green); }
+.info-card-icon svg { width: 100%; height: 100%; }
+.info-card-name { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 4px; }
+.info-card-desc { font-size: 0.6875rem; color: var(--grey); line-height: 1.6; }
+
+/* --- S05: Service Grid (dark) --- */
+.services-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 860px; }
+.svc-card { padding: 16px; text-align: left; background: rgba(148, 163, 184, 0.06); border: 1px solid rgba(148, 163, 184, 0.1); }
+.svc-accent { width: 24px; height: 3px; margin-bottom: 10px; }
+.svc-name { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 4px; }
+.svc-desc { font-size: 0.625rem; color: var(--grey-light); line-height: 1.6; }
+
+/* --- S08: Architecture --- */
+.arch-diagram { width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.arch-tier { width: 100%; border: 2px solid var(--navy); padding: 16px 20px; text-align: center; position: relative; background: var(--white); }
+.arch-tier-label { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.arch-tier-desc { font-size: 0.625rem; color: var(--grey); margin-top: 2px; }
+.arch-connector { display: flex; flex-direction: column; align-items: center; padding: 6px 0; }
+.arch-conn-line { width: 2px; height: 16px; background: var(--grey-border); }
+.arch-conn-label { font-family: var(--font-mono); font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); padding: 2px 0; }
+.arch-mid { display: flex; gap: 12px; width: 100%; }
+.arch-mid-box { border: 2px solid var(--navy); padding: 12px 16px; text-align: center; background: var(--white); flex: 1; }
+
+/* --- S09: Dashboard Mockup --- */
+.dash-mockup { border: 2px solid rgba(148, 163, 184, 0.2); padding: 16px; background: rgba(15, 23, 42, 0.6); position: relative; }
+.dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
+.dash-url { font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); }
+.dash-live { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; background: var(--green); color: var(--white); padding: 2px 8px; }
+.dash-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.stat-box { border: 1px solid rgba(148, 163, 184, 0.12); padding: 10px; }
+.stat-val { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--white); }
+.stat-lbl { font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); margin-top: 2px; }
+.dash-activity { border-top: 1px solid rgba(148, 163, 184, 0.1); padding-top: 10px; }
+.dash-activity-title { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey-light); margin-bottom: 6px; }
+
+/* --- S10: Deploy Cards --- */
+.deploy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; max-width: 780px; }
+.deploy-card { border: 1.5px solid var(--grey-border); padding: 20px 18px; background: var(--white); text-align: left; }
+.deploy-bar { width: 100%; height: 3px; margin-bottom: 12px; background: var(--green); }
+.deploy-name { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 4px; }
+.deploy-desc { font-size: 0.6875rem; color: var(--grey); line-height: 1.6; }
+
+/* --- S13: Quality Stats --- */
+.dark-mockup { border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; background: rgba(148, 163, 184, 0.04); }
+.dark-mockup-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green); margin-bottom: 12px; }
+.dark-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.08); font-size: 0.6875rem; }
+.dark-stat-key { color: var(--grey-light); }
+.dark-stat-val { font-family: var(--font-display); font-weight: 600; color: var(--white); }
+
+/* --- S15: Community Stats --- */
+.comm-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 720px; }
+.comm-stat { text-align: center; padding: 24px 16px; border: 1px solid rgba(148, 163, 184, 0.12); }
+.comm-stat-icon { margin-bottom: 8px; color: var(--green-light); }
+.comm-stat-label { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 6px; }
+.comm-stat-desc { font-size: 0.6875rem; color: var(--grey-light); line-height: 1.6; }
+.comm-stat.highlight { border-color: var(--green); background: rgba(5, 150, 105, 0.08); }
+
+/* --- S16: Commercial Ecosystem --- */
+.rev-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; width: 100%; max-width: 780px; }
+.rev-card { border: 1.5px solid var(--grey-border); padding: 20px; background: var(--white); text-align: left; }
+.rev-card-label { font-family: var(--font-display); font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green); margin-bottom: 6px; }
+.rev-card-name { font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 6px; }
+.rev-card-desc { font-size: 0.6875rem; color: var(--grey); line-height: 1.6; }
+.rev-callout { border: 1.5px solid var(--green); padding: 16px 20px; max-width: 780px; width: 100%; }
+.rev-callout p { font-size: 0.6875rem; color: var(--grey); line-height: 1.6; }
+.rev-callout strong { font-weight: 500; color: var(--navy); }
+
+/* --- S17: Audience Panels --- */
+.audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; max-width: 780px; }
+.audience-card { border: 1px solid rgba(148, 163, 184, 0.12); padding: 20px; background: rgba(148, 163, 184, 0.04); text-align: left; }
+.audience-name { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--white); margin-bottom: 8px; }
+.audience-meta { font-size: 0.625rem; color: var(--grey); line-height: 1.6; margin-bottom: 8px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); padding-bottom: 8px; }
+.audience-desc { font-size: 0.6875rem; color: var(--grey-light); line-height: 1.6; }
+
+/* --- S18: Roadmap --- */
+.roadmap-list { list-style: none; width: 100%; max-width: 360px; }
+.roadmap-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 0.6875rem; border-left: 3px solid transparent; margin-bottom: 4px; }
+.roadmap-item.shipped { border-left-color: var(--green); background: var(--white); color: var(--navy); }
+.roadmap-item.progress { border-left-color: var(--amber); background: var(--white); color: var(--navy); }
+.roadmap-item.planned { border-left-color: var(--grey-border); background: var(--white); color: var(--grey); }
+.roadmap-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* --- S20: Closing --- */
+.s20-paths { display: flex; gap: 12px; width: 100%; max-width: 660px; margin-bottom: 24px; }
+.s20-path { flex: 1; border: 1.5px solid var(--grey-border); padding: 14px 12px; background: var(--white); text-align: left; }
+.s20-path.s20-featured { border-color: var(--green); border-width: 2px; }
+.s20-path-bar { width: 100%; height: 3px; margin-bottom: 10px; }
+.s20-path-name { font-family: var(--font-display); font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--navy); margin-bottom: 2px; }
+.s20-path-price { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.04em; color: var(--grey); margin-bottom: 6px; }
+.s20-path-desc { font-size: 0.625rem; color: var(--grey); line-height: 1.5; }
+.s20-cta-url { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--green); letter-spacing: 0.02em; }
+.s20-footnote { font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); letter-spacing: 0.04em; margin-top: 16px; opacity: 0.6; }
+
+/* --- Nav Bar --- */
+.nav-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 12px 24px; transition: background 0.5s, color 0.5s; }
+.nav-bar.nav-light { background: rgba(248, 249, 251, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--grey-border); }
+.nav-bar.nav-dark { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(148, 163, 184, 0.12); }
+.nav-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.nav-light .nav-btn { color: var(--grey); } .nav-light .nav-btn:hover { color: var(--navy); border-color: var(--grey-border); }
+.nav-dark .nav-btn { color: var(--grey-light); } .nav-dark .nav-btn:hover { color: var(--white); border-color: rgba(148, 163, 184, 0.2); }
+.nav-btn:disabled { opacity: 0.25; cursor: default; } .nav-btn:disabled:hover { border-color: transparent; }
+.nav-btn svg { width: 14px; height: 14px; }
+.nav-dots { display: flex; align-items: center; gap: 4px; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; border: none; cursor: pointer; transition: all 0.3s; padding: 0; }
+.nav-light .nav-dot { background: var(--grey-border); } .nav-light .nav-dot.active { background: var(--green); width: 16px; border-radius: 3px; }
+.nav-light .nav-dot:hover:not(.active) { background: var(--grey-light); }
+.nav-dark .nav-dot { background: rgba(148, 163, 184, 0.25); } .nav-dark .nav-dot.active { background: var(--green); width: 16px; border-radius: 3px; }
+.nav-dark .nav-dot:hover:not(.active) { background: rgba(148, 163, 184, 0.5); }
+.nav-counter { font-family: var(--font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; text-transform: uppercase; min-width: 44px; text-align: center; }
+.nav-light .nav-counter { color: var(--grey); } .nav-dark .nav-counter { color: var(--grey-light); }
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+    .slide { padding: 48px 24px 72px; }
+    .slide-two-col, .slide-two-col-wide { grid-template-columns: 1fr; gap: 32px; }
+    .services-grid, .card-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .deploy-grid { grid-template-columns: 1fr; }
+    .comm-stats, .audience-grid { grid-template-columns: 1fr; max-width: 320px; }
+    .arch-mid { flex-direction: column; }
+    .rev-grid { grid-template-columns: 1fr; }
+    .s20-paths { flex-wrap: wrap; } .s20-path { flex: 1 1 calc(50% - 6px); }
+}
+@media (max-width: 600px) {
+    .slide { padding: 40px 16px 68px; }
+    .services-grid, .problem-grid, .card-grid, .card-grid-3 { grid-template-columns: 1fr; }
+    .s20-path { flex: 1 1 100%; }
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ================================================================ S01: Title -->
+<section class="slide slide-dark active fold-marks" data-bg="dark">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-32"><span class="stamp-num">SIG-F01</span><span class="stamp-title">Framework Pitch</span><span class="stamp-rev">Rev A</span></div>
+        <div class="logo-mark logo-xl color-green mb-48">Signals</div>
+        <h1 class="s1-headline mb-16"><span style="display:block">Professional Rental Software.</span>Free. Open Source. <em style="color:var(--green)">Forever.</em></h1>
+        <p class="s1-subtitle">A production-ready rental management framework. MIT licensed, self-hostable, plugin-extensible. Built for the rental industry from the ground up.</p>
+        <div class="dim-line-h" style="width:200px"><span class="dim-arrow-l"></span><span class="dim-rule"></span><span class="dim-arrow-r"></span></div>
+        <p class="s1-hint mt-24">Use arrow keys to navigate</p>
+    </div>
+</section>
+
+<!-- ================================================================ S02: The Problem -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F02</span><span class="stamp-title">The Problem</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Rental Software Wasn't <em style="color:var(--green)">Built for Rental</em></h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:32px">Most rental businesses run on software designed for something else &mdash; inventory tools, e-commerce platforms, ERPs with bolt-on modules.</p>
+        <div class="problem-grid">
+            <div class="problem-card">
+                <div class="problem-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div>
+                <div class="problem-name">Generic Tools</div>
+                <div class="problem-desc">Inventory systems adapted for hire. Availability is an afterthought. Scheduling is a spreadsheet.</div>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5"><rect x="7" y="11" width="10" height="10" rx="1"/><circle cx="12" cy="16" r="1.5"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
+                <div class="problem-name">Vendor Lock-in</div>
+                <div class="problem-desc">Proprietary SaaS with your data held hostage. No export, no API, no escape route.</div>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg></div>
+                <div class="problem-name">One Size Fits All</div>
+                <div class="problem-desc">Software built for the biggest operators. Sole traders and mid-market pay for complexity they don't need.</div>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+                <div class="problem-name">Closed &amp; Rigid</div>
+                <div class="problem-desc">No plugin system. No API. Every customisation is a support ticket and a change request fee.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S03: Framework Overview -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col-wide">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-F03</span><span class="stamp-title">The Solution</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline"><em style="color:var(--green)">Signals Rental</em> Framework</h2>
+                <p class="slide-subtitle">Production-ready rental management. Self-host forever. Plugin-extensible and API-first.</p>
+                <ul class="feature-list">
+                    <li class="feature-row"><span class="chk">&check;</span> Asset &amp; inventory management</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Quotes, orders &amp; invoicing</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Customer &amp; contact management</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Real-time availability &amp; scheduling</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Maintenance tracking &amp; kit prep</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Reporting, analytics &amp; REST API</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Plugin system for extensibility</li>
+                </ul>
+                <p class="annotation mt-16">MIT License &middot; Laravel + PHP &middot; PostgreSQL</p>
+            </div>
+            <div>
+                <div class="code-block trim-marks"><div class="trim-tl"></div><div class="trim-tr"></div><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot" style="background:var(--red)"></span><span class="code-dot" style="background:var(--amber)"></span><span class="code-dot" style="background:var(--green)"></span></div>
+                    <div class="code-body"><span class="hl-cm"># Install Signals</span><br>composer create-project \<br>&nbsp;&nbsp;signals/signals<br><br><span class="hl-cm"># Run setup</span><br>php artisan signals:install<br><br><span class="hl-cm"># Start developing</span><br>composer run dev<br><br><span class="hl-str">&gt; Signals is ready.</span><br><span class="hl-str">&gt; Visit your-app.test</span></div>
+                </div>
+                <p class="annotation mt-12">framework.signals.rent</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S04: Free Forever -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F04</span><span class="stamp-title">Free Forever</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Free Means <em style="color:var(--green)">Free</em></h2>
+        <p class="slide-subtitle" style="max-width:540px;margin-bottom:32px">MIT licensed. No open-core catch. No features held back for a paid edition. No time-limited trials. The same code for everyone.</p>
+        <div class="card-grid">
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div><div class="info-card-name">MIT Licensed</div><div class="info-card-desc">No restrictions on use, modification, or distribution. Use it commercially. Fork it. Redistribute it.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="12" x2="20" y2="12"/></svg></div><div class="info-card-name">One Version</div><div class="info-card-desc">Not a &lsquo;community edition&rsquo; and an &lsquo;enterprise edition.&rsquo; Every rental business runs the same complete code.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg></div><div class="info-card-name">No Vendor Lock-in</div><div class="info-card-desc">Your data, your servers, your rules. Leave anytime. You are never dependent on a single company.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></svg></div><div class="info-card-name">Fully Transparent</div><div class="info-card-desc">Every line of code visible. No black boxes. Audit security, review logic, understand what runs your business.</div></div>
+        </div>
+        <p class="annotation mt-24">The best rental software should be owned by the industry, not a vendor.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S05: Built for Rental -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F05</span><span class="stamp-title">Purpose-Built</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Built for <em style="color:var(--green)">Rental</em>, Not Adapted for It</h2>
+        <p class="slide-subtitle" style="max-width:560px;margin-bottom:32px">Availability, scheduling, maintenance cycles, kit prep, transport logistics, dry hire, wet hire, sub-hire, cross-hire. These aren't afterthoughts. They're the foundation.</p>
+        <div class="services-grid">
+            <div class="svc-card"><div class="svc-accent" style="background:var(--green)"></div><div class="svc-name">Availability Engine</div><div class="svc-desc">Real-time asset availability across all locations. Accounts for bookings, maintenance, and transit.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--green)"></div><div class="svc-name">Scheduling</div><div class="svc-desc">Built for hire periods, prep days, and turnaround times. Not a calendar with a rental skin.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--green)"></div><div class="svc-name">Maintenance &amp; Testing</div><div class="svc-desc">PAT testing, safety checks, service schedules. Track compliance per asset.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--green)"></div><div class="svc-name">Kit Prep &amp; Dispatch</div><div class="svc-desc">Pick lists, prep workflows, van loading. From warehouse to customer.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--green)"></div><div class="svc-name">Multi-Hire Types</div><div class="svc-desc">Dry hire, wet hire, sub-hire, cross-hire. Native support for how rental actually works.</div></div>
+            <div class="svc-card"><div class="svc-accent" style="background:var(--green)"></div><div class="svc-name">Quotes to Invoicing</div><div class="svc-desc">Quote, confirm, deliver, return, invoice. The full rental lifecycle, not just billing.</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S06: API-First -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-F06</span><span class="stamp-title">API</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline"><em style="color:var(--green)">API-First</em> by Design</h2>
+                <p class="slide-subtitle">Every capability is accessible programmatically. Not buried behind a UI with no way in.</p>
+                <ul class="feature-list">
+                    <li class="feature-row"><span class="chk">&check;</span> Full REST API for every resource</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Token-based authentication (Sanctum)</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Webhooks for real-time events</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Rate limiting &amp; pagination built in</li>
+                    <li class="feature-row"><span class="chk">&check;</span> OpenAPI specification included</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Build dashboards, mobile apps, integrations</li>
+                </ul>
+            </div>
+            <div>
+                <div class="code-block trim-marks"><div class="trim-tl"></div><div class="trim-tr"></div><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot" style="background:var(--red)"></span><span class="code-dot" style="background:var(--amber)"></span><span class="code-dot" style="background:var(--green)"></span></div>
+                    <div class="code-body"><span class="hl-cm">// GET /api/v1/assets</span><br>{<br>&nbsp;&nbsp;<span class="hl-fn">"data"</span>: [<br>&nbsp;&nbsp;&nbsp;&nbsp;{<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">"id"</span>: <span class="hl-num">1042</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">"name"</span>: <span class="hl-str">"LED Parcan 64"</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">"status"</span>: <span class="hl-str">"available"</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">"category"</span>: <span class="hl-str">"Lighting"</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">"daily_rate"</span>: <span class="hl-num">25.00</span><br>&nbsp;&nbsp;&nbsp;&nbsp;}<br>&nbsp;&nbsp;],<br>&nbsp;&nbsp;<span class="hl-fn">"meta"</span>: { <span class="hl-fn">"total"</span>: <span class="hl-num">847</span> }<br>}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S07: Plugin Architecture -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-F07</span><span class="stamp-title">Plugins</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline"><em style="color:var(--green)">Extend</em> Everything</h2>
+                <p class="slide-subtitle">The plugin architecture is a core design decision, not a bolted-on afterthought.</p>
+                <div style="margin-bottom:14px"><div style="font-family:var(--font-display);font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--green-light);margin-bottom:4px">Install Plugins</div><div style="font-size:0.6875rem;color:var(--grey-light);line-height:1.6">Community and commercial plugins install with a single command. Browse, install, configure.</div></div>
+                <div style="margin-bottom:14px"><div style="font-family:var(--font-display);font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--green-light);margin-bottom:4px">Build Plugins</div><div style="font-size:0.6875rem;color:var(--grey-light);line-height:1.6">Service providers, migrations, routes, views, config. Standard Laravel patterns. No proprietary SDK.</div></div>
+                <div><div style="font-family:var(--font-display);font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--green-light);margin-bottom:4px">Sell Plugins</div><div style="font-size:0.6875rem;color:var(--grey-light);line-height:1.6">Third parties can build and sell commercial plugins, themes, and integrations. Open source does not mean anti-business.</div></div>
+            </div>
+            <div>
+                <div class="code-block trim-marks"><div class="trim-tl"></div><div class="trim-tr"></div><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot" style="background:var(--red)"></span><span class="code-dot" style="background:var(--amber)"></span><span class="code-dot" style="background:var(--green)"></span></div>
+                    <div class="code-body"><span class="hl-cm">// plugins/acme-transport/</span><br><span class="hl-cm">//   src/ServiceProvider.php</span><br><br><span class="hl-kw">class</span> <span class="hl-fn">AcmeTransportProvider</span><br>&nbsp;&nbsp;<span class="hl-kw">extends</span> SignalsPlugin<br>{<br>&nbsp;&nbsp;<span class="hl-kw">public function</span> <span class="hl-fn">boot</span>(): <span class="hl-kw">void</span><br>&nbsp;&nbsp;{<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">$this</span>-&gt;<span class="hl-fn">registerRoutes</span>();<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">$this</span>-&gt;<span class="hl-fn">registerViews</span>();<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">$this</span>-&gt;<span class="hl-fn">publishMigrations</span>();<br>&nbsp;&nbsp;}<br>}</div>
+                </div>
+                <p class="annotation mt-12">Standard Laravel service providers</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S08: Plugin Ecosystem -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F08</span><span class="stamp-title">Ecosystem</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">A Plugin <em style="color:var(--green)">Ecosystem</em></h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:32px">The Framework provides strong defaults. Plugins provide everything else. Community, commercial, or private.</p>
+        <div class="arch-diagram">
+            <div class="arch-tier" style="border-color:var(--grey-border)"><div class="arch-tier-label">Your Business</div><div class="arch-tier-desc">Private plugins, custom workflows, internal tools</div></div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">installs</div><div class="arch-conn-line"></div></div>
+            <div class="arch-mid">
+                <div class="arch-mid-box" style="border-color:var(--green)"><div class="arch-tier-label" style="font-size:0.6875rem">Community</div><div class="arch-tier-desc">Free &amp; open source</div></div>
+                <div class="arch-mid-box" style="border-color:var(--navy)"><div class="arch-tier-label" style="font-size:0.6875rem">Commercial</div><div class="arch-tier-desc">Paid &amp; licensed</div></div>
+                <div class="arch-mid-box" style="border-color:var(--grey-border)"><div class="arch-tier-label" style="font-size:0.6875rem">Private</div><div class="arch-tier-desc">Your team only</div></div>
+            </div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">extends</div><div class="arch-conn-line"></div></div>
+            <div class="arch-tier" style="border-color:var(--green);border-width:2.5px"><div class="arch-tier-label" style="color:var(--green)">Signals Rental Framework</div><div class="arch-tier-desc">Core rental management &mdash; MIT licensed</div></div>
+        </div>
+        <p class="annotation mt-24">Open source does not mean anti-business. Commercial plugins are encouraged.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S09: Dashboard -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-F09</span><span class="stamp-title">Dashboard</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Your Rental <em style="color:var(--green)">Command Centre</em></h2>
+                <p class="slide-subtitle">Everything your hire desk needs. Real-time visibility across assets, orders, customers, and maintenance.</p>
+                <ul class="feature-list">
+                    <li class="feature-row"><span class="chk">&check;</span> Real-time dashboard with KPIs</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Order pipeline and status tracking</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Asset utilisation at a glance</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Overdue returns &amp; maintenance alerts</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Activity feed with team updates</li>
+                </ul>
+            </div>
+            <div>
+                <div class="dash-mockup">
+                    <div class="dash-header"><span class="dash-url">your-company.test/dashboard</span><span class="dash-live">Live</span></div>
+                    <div class="dash-stats">
+                        <div class="stat-box"><div class="stat-val" style="color:var(--green)">&pound;84.2k</div><div class="stat-lbl">Revenue MTD</div></div>
+                        <div class="stat-box"><div class="stat-val" style="color:var(--green-light)">78%</div><div class="stat-lbl">Utilisation</div></div>
+                        <div class="stat-box"><div class="stat-val">142</div><div class="stat-lbl">Active Jobs</div></div>
+                    </div>
+                    <div class="dash-activity">
+                        <div class="dash-activity-title">Recent Activity</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:0.625rem;border-left:3px solid var(--green);background:rgba(148,163,184,0.04);margin-bottom:3px"><span style="color:var(--grey-light)">ORD-2847 confirmed &mdash; Summit Productions</span><span style="color:var(--grey);font-size:0.5rem">2m ago</span></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:0.625rem;border-left:3px solid var(--amber);background:rgba(148,163,184,0.04);margin-bottom:3px"><span style="color:var(--grey-light)">PAT test due &mdash; Parcan Slim 7x10W (x12)</span><span style="color:var(--grey);font-size:0.5rem">15m ago</span></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:0.625rem;border-left:3px solid var(--sky);background:rgba(148,163,184,0.04)"><span style="color:var(--grey-light)">Return completed &mdash; Riverside Events</span><span style="color:var(--grey);font-size:0.5rem">1h ago</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S10: Self-Host -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F10</span><span class="stamp-title">Self-Hosting</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Self-Host <em style="color:var(--green)">Without Compromise</em></h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:32px">Your data, your servers, your infrastructure. Self-hosting is a first-class experience, not a second-class workaround.</p>
+        <div class="deploy-grid">
+            <div class="deploy-card"><div class="deploy-bar"></div><div class="deploy-name">Bare Metal / VPS</div><div class="deploy-desc">Any Linux server with PHP 8.4+, PostgreSQL, and Nginx or Caddy. Traditional deployment with full control. From &pound;5/month.</div></div>
+            <div class="deploy-card"><div class="deploy-bar"></div><div class="deploy-name">Docker</div><div class="deploy-desc">Official Docker images with docker-compose. Spin up a complete environment in minutes. Dev and production configs included.</div></div>
+            <div class="deploy-card"><div class="deploy-bar"></div><div class="deploy-name">Cloud Providers</div><div class="deploy-desc">Deploy to AWS, Azure, Google Cloud, or DigitalOcean. Laravel Forge and Ploi supported for automated provisioning.</div></div>
+        </div>
+        <p class="annotation mt-24">Documentation, tooling, and upgrade paths maintained with the same care as any managed offering.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S11: Opinionated Config -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-F11</span><span class="stamp-title">Configuration</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Opinionated but <em style="color:var(--green)">Not Rigid</em></h2>
+                <p class="slide-subtitle">Strong defaults that work out of the box. Deep configuration for when you need it. A plugin system for when configuration isn't enough.</p>
+                <div style="margin-bottom:14px"><div style="font-family:var(--font-display);font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--green-light);margin-bottom:4px">Defaults</div><div style="font-size:0.6875rem;color:var(--grey-light);line-height:1.6">Works immediately. Sensible settings for most rental businesses. No setup wizard required.</div></div>
+                <div style="margin-bottom:14px"><div style="font-family:var(--font-display);font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--green-light);margin-bottom:4px">Configuration</div><div style="font-size:0.6875rem;color:var(--grey-light);line-height:1.6">Toggle features, adjust workflows, customise terminology, set business rules. All in standard config files.</div></div>
+                <div><div style="font-family:var(--font-display);font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--green-light);margin-bottom:4px">Plugins</div><div style="font-size:0.6875rem;color:var(--grey-light);line-height:1.6">Override anything. Replace views, add routes, extend models, hook into events. The Framework gets out of your way.</div></div>
+            </div>
+            <div>
+                <div class="code-block trim-marks"><div class="trim-tl"></div><div class="trim-tr"></div><div class="trim-bl"></div><div class="trim-br"></div>
+                    <div class="code-header"><span class="code-dot" style="background:var(--red)"></span><span class="code-dot" style="background:var(--amber)"></span><span class="code-dot" style="background:var(--green)"></span></div>
+                    <div class="code-body"><span class="hl-cm">// config/signals.php</span><br><span class="hl-kw">return</span> [<br>&nbsp;&nbsp;<span class="hl-fn">'currency'</span> =&gt; <span class="hl-str">'GBP'</span>,<br>&nbsp;&nbsp;<span class="hl-fn">'tax_rate'</span> =&gt; <span class="hl-num">20.0</span>,<br>&nbsp;&nbsp;<span class="hl-fn">'hire_types'</span> =&gt; [<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-str">'dry'</span>, <span class="hl-str">'wet'</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-str">'sub'</span>, <span class="hl-str">'cross'</span>,<br>&nbsp;&nbsp;],<br>&nbsp;&nbsp;<span class="hl-fn">'maintenance'</span> =&gt; [<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">'pat_testing'</span> =&gt; <span class="hl-kw">true</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">'service_interval'</span> =&gt; <span class="hl-num">90</span>,<br>&nbsp;&nbsp;],<br>&nbsp;&nbsp;<span class="hl-fn">'features'</span> =&gt; [<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">'quotes'</span> =&gt; <span class="hl-kw">true</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">'transport'</span> =&gt; <span class="hl-kw">true</span>,<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl-fn">'portal'</span> =&gt; <span class="hl-kw">false</span>,<br>&nbsp;&nbsp;],<br>];</div>
+                </div>
+                <p class="annotation mt-12">Standard Laravel config files</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S12: Technology Stack -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F12</span><span class="stamp-title">Technology</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Built on <em style="color:var(--green)">Proven</em> Technology</h2>
+        <p class="slide-subtitle" style="max-width:540px;margin-bottom:32px">A modern, well-tested stack trusted by millions of developers worldwide.</p>
+        <div class="card-grid card-grid-3">
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h16M4 18h8"/></svg></div><div class="info-card-name">Laravel 12</div><div class="info-card-desc">The most popular PHP framework. Elegant, expressive, well-documented.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/><path d="M14 4l-4 16"/></svg></div><div class="info-card-name">PHP 8.4</div><div class="info-card-desc">Modern PHP with type safety, enums, fibers, and performance.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg></div><div class="info-card-name">PostgreSQL</div><div class="info-card-desc">Enterprise-grade relational database. Reliable, performant, feature-rich.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><div class="info-card-name">Livewire</div><div class="info-card-desc">Reactive UI components without leaving PHP. No JS framework required.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></div><div class="info-card-name">Tailwind CSS</div><div class="info-card-desc">Utility-first CSS. Consistent, maintainable, responsive by default.</div></div>
+            <div class="info-card"><div class="info-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div class="info-card-name">Pest</div><div class="info-card-desc">Elegant testing. Every feature tested. Quality earned through discipline.</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S13: Quality -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-F13</span><span class="stamp-title">Quality</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Quality Over <em style="color:var(--green)">Velocity</em></h2>
+                <p class="slide-subtitle">We ship when it's ready. Trust is earned in the mundane discipline of not breaking things.</p>
+                <ul class="feature-list">
+                    <li class="feature-row"><span class="chk">&check;</span> Comprehensive test suite (unit, feature, browser)</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Semantic versioning with clear upgrade guides</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Every release tested against real rental workflows</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Documentation as a first-class deliverable</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Security patches within 24 hours of disclosure</li>
+                </ul>
+            </div>
+            <div>
+                <div class="dark-mockup">
+                    <div class="dark-mockup-label">Quality Metrics</div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Test Coverage</span><span class="dark-stat-val" style="color:var(--green)">94%</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Test Count</span><span class="dark-stat-val">2,400+</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">PHPStan Level</span><span class="dark-stat-val">8</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Documentation Pages</span><span class="dark-stat-val">200+</span></div>
+                    <div class="dark-stat-row"><span class="dark-stat-key">Avg Release Cycle</span><span class="dark-stat-val">4 weeks</span></div>
+                    <div class="dark-stat-row" style="border-bottom:none"><span class="dark-stat-key">Breaking Changes</span><span class="dark-stat-val">Semver</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S14: Architecture -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F14</span><span class="stamp-title">Architecture</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Framework <em style="color:var(--green)">Architecture</em></h2>
+        <p class="slide-subtitle" style="max-width:480px;margin-bottom:32px">A layered, extensible architecture. Every layer is accessible, every boundary is clean.</p>
+        <div class="arch-diagram">
+            <div class="arch-tier" style="border-color:var(--grey-border)"><div class="arch-tier-label">Your Application</div><div class="arch-tier-desc">Custom views, routes, business logic</div></div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">extends</div><div class="arch-conn-line"></div></div>
+            <div class="arch-tier" style="border-color:var(--green)"><div class="arch-tier-label" style="color:var(--green)">Plugin Layer</div><div class="arch-tier-desc">Community, commercial, and private plugins</div></div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">hooks into</div><div class="arch-conn-line"></div></div>
+            <div class="arch-tier" style="border-color:var(--green);border-width:2.5px"><div class="arch-tier-label" style="color:var(--green)">Signals Core</div><div class="arch-tier-desc">Rental engine, API, event system, data models</div></div>
+            <div class="arch-connector"><div class="arch-conn-line"></div><div class="arch-conn-label">built on</div><div class="arch-conn-line"></div></div>
+            <div class="arch-tier" style="border-color:var(--grey-border)"><div class="arch-tier-label" style="color:var(--grey)">Laravel + PHP + PostgreSQL</div><div class="arch-tier-desc">Framework, runtime, database</div></div>
+        </div>
+        <p class="annotation mt-24">Clean boundaries. Override anything. Break nothing.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S15: Community -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F15</span><span class="stamp-title">Community</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Community-Shaped, <em style="color:var(--green)">Industry-Informed</em></h2>
+        <p class="slide-subtitle" style="max-width:520px;margin-bottom:36px">The roadmap is shaped by the people who use the software &mdash; rental operators, warehouse managers, hire desk staff, technicians, developers.</p>
+        <div class="comm-stats">
+            <div class="comm-stat">
+                <div class="comm-stat-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/><path d="M14 4l-4 16"/></svg></div>
+                <div class="comm-stat-label">Contribute</div>
+                <div class="comm-stat-desc">Bug reports, feature requests, pull requests. Built by the people who use it.</div>
+            </div>
+            <div class="comm-stat">
+                <div class="comm-stat-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+                <div class="comm-stat-label">Discuss</div>
+                <div class="comm-stat-desc">Open discussions, RFCs, roadmap votes. Every feature decision happens in the open.</div>
+            </div>
+            <div class="comm-stat highlight">
+                <div class="comm-stat-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
+                <div class="comm-stat-label">Share</div>
+                <div class="comm-stat-desc">Plugins, themes, integrations, knowledge. The rental industry helping the rental industry.</div>
+            </div>
+        </div>
+        <p class="annotation mt-24">Built in the spirit of an industry that already helps each other.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S16: Commercial Ecosystem -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F16</span><span class="stamp-title">Commercial</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Open Source <em style="color:var(--green)">Does Not</em> Mean Anti-Business</h2>
+        <p class="slide-subtitle" style="max-width:540px;margin-bottom:32px">The Framework is free. The ecosystem around it is open for business. Here's what you can build.</p>
+        <div class="rev-grid">
+            <div class="rev-card"><div class="rev-card-label">Build</div><div class="rev-card-name">Commercial Plugins</div><div class="rev-card-desc">Create and sell plugins, themes, and integrations. The API and plugin architecture exist to make this straightforward. Keep 100% of your revenue.</div></div>
+            <div class="rev-card"><div class="rev-card-label">Offer</div><div class="rev-card-name">Hosting Services</div><div class="rev-card-desc">Host Signals for clients. Managed hosting, white-label deployments, SLA support. No restrictions on commercial hosting.</div></div>
+            <div class="rev-card"><div class="rev-card-label">Deliver</div><div class="rev-card-name">Consulting &amp; Implementation</div><div class="rev-card-desc">Migration services, custom development, training, go-live support. Become a certified Signals partner.</div></div>
+            <div class="rev-card"><div class="rev-card-label">Provide</div><div class="rev-card-name">Support Contracts</div><div class="rev-card-desc">Offer paid support, maintenance, and SLA guarantees to businesses running Signals. The MIT licence allows it.</div></div>
+        </div>
+        <div class="rev-callout mt-24"><p><strong>Signals exists to make the rental industry better.</strong> Commercial activity around the Framework is not just allowed &mdash; it&rsquo;s encouraged.</p></div>
+    </div>
+</section>
+
+<!-- ================================================================ S17: Who It's For -->
+<section class="slide slide-dark" data-bg="dark">
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F17</span><span class="stamp-title">Audience</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">One Framework. <em style="color:var(--green)">Every</em> Rental Business.</h2>
+        <p class="slide-subtitle" style="max-width:540px;margin-bottom:36px">From a sole trader with a van to a national operation with ten depots. The same code, the same features.</p>
+        <div class="audience-grid">
+            <div class="audience-card"><div class="audience-name">Sole Trader</div><div class="audience-meta">Assets: 50&ndash;500 &middot; Staff: 1&ndash;3</div><div class="audience-desc">Run it on a &pound;5/month VPS. Full features, zero compromise. One person, one screen, total control.</div></div>
+            <div class="audience-card"><div class="audience-name">Mid-Market</div><div class="audience-meta">Assets: 500&ndash;5,000 &middot; Staff: 5&ndash;50</div><div class="audience-desc">Multi-depot support. Team permissions. Custom workflows via plugins. Growing without outgrowing.</div></div>
+            <div class="audience-card" style="border-color:var(--green)"><div class="audience-name">Enterprise</div><div class="audience-meta">Assets: 5,000+ &middot; Staff: 50+</div><div class="audience-desc">High availability deployment. Custom integrations. The same open-source core, scaled to your operation.</div></div>
+        </div>
+        <p class="annotation mt-24">The difference is what you build on top of it, not what we take away from it.</p>
+    </div>
+</section>
+
+<!-- ================================================================ S18: Roadmap -->
+<section class="slide slide-light" data-bg="light">
+    <div class="slide-inner">
+        <div class="slide-two-col">
+            <div>
+                <div class="section-stamp mb-24"><span class="stamp-num">SIG-F18</span><span class="stamp-title">Roadmap</span><span class="stamp-rev">Rev A</span></div>
+                <h2 class="slide-headline">Open <em style="color:var(--green)">Roadmap</em></h2>
+                <p class="slide-subtitle">Every planned feature is public. Every decision is discussable. No surprise deprecations.</p>
+                <ul class="feature-list">
+                    <li class="feature-row"><span class="chk">&check;</span> Public GitHub roadmap board</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Community RFC process for major changes</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Semantic versioning strictly followed</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Upgrade guides for every release</li>
+                    <li class="feature-row"><span class="chk">&check;</span> Breaking changes announced one major version ahead</li>
+                </ul>
+            </div>
+            <div>
+                <ul class="roadmap-list">
+                    <li class="roadmap-item shipped"><span class="roadmap-dot" style="background:var(--green)"></span> v1.0 &mdash; Core rental engine, API, plugin system</li>
+                    <li class="roadmap-item shipped"><span class="roadmap-dot" style="background:var(--green)"></span> v1.1 &mdash; Customer portal, advanced reporting</li>
+                    <li class="roadmap-item progress"><span class="roadmap-dot" style="background:var(--amber)"></span> v1.2 &mdash; Multi-depot, transport module</li>
+                    <li class="roadmap-item planned"><span class="roadmap-dot" style="background:var(--grey-border)"></span> v2.0 &mdash; Marketplace, advanced scheduling</li>
+                    <li class="roadmap-item planned"><span class="roadmap-dot" style="background:var(--grey-border)"></span> Community voted &mdash; Dark mode, mobile API</li>
+                </ul>
+                <p class="annotation mt-16">Signals is in active development. These principles guide every decision.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================ S19: Join the Movement -->
+<section class="slide slide-light fold-marks" data-bg="light">
+    <div class="fold-mark fm-tl"></div><div class="fold-mark fm-tr"></div><div class="fold-mark fm-bl"></div><div class="fold-mark fm-br"></div>
+    <div class="slide-inner slide-centered">
+        <div class="section-stamp mb-24"><span class="stamp-num">SIG-F19</span><span class="stamp-title">Join</span><span class="stamp-rev">Rev A</span></div>
+        <h2 class="slide-headline mb-8">Rental Deserves <em style="color:var(--green)">Better Software</em></h2>
+        <p class="slide-subtitle" style="max-width:480px;margin-bottom:28px">We're building the framework the rental industry never had. If that resonates, we'd love to have you.</p>
+        <div class="s20-paths">
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--green)"></div><div class="s20-path-name">Use It</div><div class="s20-path-price">Free / MIT</div><div class="s20-path-desc">Download, install, run your business. Free forever. No restrictions.</div></div>
+            <div class="s20-path"><div class="s20-path-bar" style="background:var(--green-light)"></div><div class="s20-path-name">Extend It</div><div class="s20-path-price">Open ecosystem</div><div class="s20-path-desc">Build plugins, integrations, tools. Share them freely or sell them commercially.</div></div>
+            <div class="s20-path s20-featured"><div class="s20-path-bar" style="background:var(--green)"></div><div class="s20-path-name">Shape It</div><div class="s20-path-price">Community</div><div class="s20-path-desc">Contribute code, report bugs, request features, join the discussion.</div></div>
+        </div>
+        <div class="s20-cta-url">framework.signals.rent</div>
+        <div class="s20-footnote">Optional managed hosting and platform services also available at signals.rent</div>
+        <div style="margin-top:16px">
+            <div class="iso-block" style="position:relative;bottom:auto;right:auto"><span>SIG-FWK-DECK-001</span> &middot; <span style="color:var(--green)">Rev A</span> &middot; <span>2026</span></div>
+        </div>
+    </div>
+</section>
+
+</div>
+
+<!-- Navigation Bar -->
+<nav class="nav-bar nav-dark" id="navBar">
+    <button class="nav-btn" id="prevBtn" aria-label="Previous slide" disabled>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10,3 5,8 10,13"/></svg>
+    </button>
+    <div class="nav-dots" id="navDots"></div>
+    <span class="nav-counter" id="navCounter">01 / 20</span>
+    <button class="nav-btn" id="nextBtn" aria-label="Next slide">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,3 11,8 6,13"/></svg>
+    </button>
+</nav>
+
+<script>
+(function() {
+    var slides = document.querySelectorAll('.slide');
+    var navBar = document.getElementById('navBar');
+    var navDots = document.getElementById('navDots');
+    var navCounter = document.getElementById('navCounter');
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var total = slides.length;
+    var current = 0;
+    var transitioning = false;
+
+    for (var i = 0; i < total; i++) {
+        (function(idx) {
+            var dot = document.createElement('button');
+            dot.className = 'nav-dot' + (idx === 0 ? ' active' : '');
+            dot.setAttribute('aria-label', 'Go to slide ' + (idx + 1));
+            dot.addEventListener('click', function() { goToSlide(idx); });
+            navDots.appendChild(dot);
+        })(i);
+    }
+
+    function goToSlide(n) {
+        if (n < 0 || n >= total || n === current || transitioning) return;
+        transitioning = true;
+        slides[current].classList.remove('active');
+        current = n;
+        slides[current].classList.add('active');
+        updateNav();
+        setTimeout(function() { transitioning = false; }, 500);
+    }
+
+    function updateNav() {
+        var num = String(current + 1).padStart(2, '0');
+        var tot = String(total).padStart(2, '0');
+        navCounter.textContent = num + ' / ' + tot;
+        var dots = navDots.querySelectorAll('.nav-dot');
+        for (var i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle('active', i === current);
+        }
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current === total - 1;
+        var bg = slides[current].getAttribute('data-bg');
+        navBar.classList.remove('nav-light', 'nav-dark');
+        navBar.classList.add(bg === 'dark' ? 'nav-dark' : 'nav-light');
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goToSlide(current + 1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goToSlide(current - 1); }
+        else if (e.key === 'Home') { e.preventDefault(); goToSlide(0); }
+        else if (e.key === 'End') { e.preventDefault(); goToSlide(total - 1); }
+    });
+    prevBtn.addEventListener('click', function() { goToSlide(current - 1); });
+    nextBtn.addEventListener('click', function() { goToSlide(current + 1); });
+
+    var touchX = 0, touchY = 0;
+    document.addEventListener('touchstart', function(e) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', function(e) {
+        var dx = e.changedTouches[0].clientX - touchX;
+        var dy = e.changedTouches[0].clientY - touchY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) { dx < 0 ? goToSlide(current + 1) : goToSlide(current - 1); }
+    }, { passive: true });
+
+    updateNav();
+})();
+</script>
+</body>
+</html>

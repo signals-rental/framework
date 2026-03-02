@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signals — Color System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --base: #f8f9fb;
+            --white: #ffffff;
+            --navy: #0f172a;
+            --navy-mid: #1e293b;
+            --blue: #2563eb;
+            --blue-light: #3b82f6;
+            --blue-pale: rgba(37, 99, 235, 0.08);
+            --red: #dc2626;
+            --grey: #64748b;
+            --grey-light: #94a3b8;
+            --grey-border: #e2e8f0;
+            --green: #059669;
+            --sky: #0ea5e9;
+            --cyan: #0891b2;
+            --amber: #d97706;
+            --violet: #7c3aed;
+            --rose: #e11d48;
+            --slate: #475569;
+            --grid-fine: rgba(59, 130, 246, 0.06);
+            --grid-strong: rgba(59, 130, 246, 0.12);
+            --grid-dark-fine: rgba(148, 163, 184, 0.08);
+            --grid-dark-strong: rgba(148, 163, 184, 0.15);
+            --font-display: 'Chakra Petch', sans-serif;
+            --font-mono: 'Martian Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--base);
+            color: var(--navy);
+            line-height: 1.7;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Grid backgrounds */
+        .grid-bg-light {
+            background-color: var(--base);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-fine) 0px, var(--grid-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-strong) 0px, var(--grid-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .grid-bg-dark {
+            background-color: var(--navy);
+            color: var(--grey-light);
+            background-image:
+                repeating-linear-gradient(0deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(90deg, var(--grid-dark-fine) 0px, var(--grid-dark-fine) 1px, transparent 1px, transparent 32px),
+                repeating-linear-gradient(0deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px),
+                repeating-linear-gradient(90deg, var(--grid-dark-strong) 0px, var(--grid-dark-strong) 1px, transparent 1px, transparent 160px);
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+        /* Top navigation */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--navy);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+        .top-nav a {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            color: var(--grey-light);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: var(--white); }
+        .top-nav-stamp {
+            font-family: var(--font-display);
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--grey);
+            border: 1px solid var(--grey);
+            padding: 2px 10px;
+        }
+
+        /* Secondary nav */
+        .sub-nav {
+            position: fixed;
+            top: 48px;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            background: var(--base);
+            border-bottom: 1px solid var(--grey-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            padding: 0 24px;
+            height: 40px;
+        }
+        .sub-nav a {
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--grey);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-bottom: 2px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            height: 40px;
+        }
+        .sub-nav a:hover { color: var(--navy); }
+        .sub-nav a.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+        }
+
+        /* Section stamp */
+        .section-stamp {
+            display: inline-flex;
+            align-items: stretch;
+            border: 2px solid var(--navy);
+            margin-bottom: 32px;
+            font-family: var(--font-display);
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stamp-num { background: var(--navy); color: var(--white); padding: 4px 10px; }
+        .stamp-title { padding: 4px 12px; color: var(--navy); border-right: 2px solid var(--navy); }
+        .stamp-rev { padding: 4px 10px; color: var(--red); font-weight: 700; }
+        .grid-bg-dark .section-stamp { border-color: var(--grey-light); }
+        .grid-bg-dark .stamp-num { background: var(--grey-light); color: var(--navy); }
+        .grid-bg-dark .stamp-title { color: var(--grey-light); border-color: var(--grey-light); }
+
+        /* Headings */
+        h1, h2, h3 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.01em; font-weight: 700; }
+        h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin-bottom: 16px; }
+        h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; margin-bottom: 16px; }
+        h3 { font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
+        h2 em, h1 em { font-style: italic; color: var(--blue); font-weight: 600; }
+
+        .subtitle { font-size: 0.8125rem; color: var(--grey); line-height: 1.8; max-width: 640px; }
+        .grid-bg-dark .subtitle { color: var(--grey-light); }
+
+        section { padding: 80px 0; position: relative; }
+
+        /* Dimension line dividers */
+        .dimension-line { display: flex; align-items: center; padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+        .dim-arrow-left, .dim-arrow-right { width: 0; height: 0; flex-shrink: 0; }
+        .dim-arrow-left { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 8px solid var(--blue); }
+        .dim-arrow-right { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 8px solid var(--blue); }
+        .dim-line { flex: 1; height: 1px; background: var(--blue); opacity: 0.3; }
+        .dim-label { padding: 0 16px; font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); white-space: nowrap; }
+        .grid-bg-dark .dim-arrow-left { border-right-color: var(--blue-light); }
+        .grid-bg-dark .dim-arrow-right { border-left-color: var(--blue-light); }
+        .grid-bg-dark .dim-line { background: var(--blue-light); }
+        .grid-bg-dark .dim-label { color: var(--grey-light); }
+
+        /* Annotation labels */
+        .annotation { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); }
+        .grid-bg-dark .annotation { color: var(--grey-light); }
+
+        /* Logo mark */
+        .logo-mark {
+            display: inline-block;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 2px solid currentColor;
+            padding: 6px 16px;
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+        }
+        .logo-mark.color-blue::after { background: var(--blue); }
+        .logo-mark.color-green::after { background: var(--green); }
+        .logo-mark.color-sky::after { background: var(--sky); }
+        .logo-mark.color-cyan::after { background: var(--cyan); }
+        .logo-mark.color-amber::after { background: var(--amber); }
+        .logo-mark.color-violet::after { background: var(--violet); }
+        .logo-mark.color-rose::after { background: var(--rose); }
+        .logo-mark.color-slate::after { background: var(--slate); }
+
+        .logo-mark.size-xl { font-size: 2.5rem; padding: 12px 28px; letter-spacing: 0.12em; }
+        .logo-mark.size-xl::after { width: 14px; height: 14px; }
+        .logo-mark.size-lg { font-size: 1.5rem; padding: 8px 20px; }
+        .logo-mark.size-lg::after { width: 10px; height: 10px; }
+        .logo-mark.size-md { font-size: 1rem; padding: 6px 16px; }
+        .logo-mark.size-sm { font-size: 0.75rem; padding: 4px 10px; }
+        .logo-mark.size-sm::after { width: 5px; height: 5px; }
+
+        /* Monogram */
+        .monogram {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 2px solid currentColor;
+            position: relative;
+        }
+        .monogram::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+        }
+        .monogram.mono-64 { width: 64px; height: 64px; font-size: 1.75rem; }
+        .monogram.mono-64::after { width: 10px; height: 10px; }
+        .monogram.mono-48 { width: 48px; height: 48px; font-size: 1.25rem; }
+        .monogram.mono-48::after { width: 8px; height: 8px; }
+        .monogram.mono-36 { width: 36px; height: 36px; font-size: 1rem; }
+        .monogram.mono-36::after { width: 6px; height: 6px; }
+
+        /* Swatch cards */
+        .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+        .swatch-card { border: 1px solid var(--grey-border); background: var(--white); overflow: hidden; }
+        .swatch-block { height: 100px; position: relative; }
+        .swatch-block .swatch-label { position: absolute; bottom: 8px; right: 8px; font-size: 9px; font-family: var(--font-mono); letter-spacing: 0.05em; padding: 2px 6px; border-radius: 2px; }
+        .swatch-info { padding: 14px 16px; }
+        .swatch-name { font-family: var(--font-display); font-weight: 700; font-size: 0.8125rem; text-transform: uppercase; margin-bottom: 4px; }
+        .swatch-hex { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--grey); }
+        .swatch-tints { display: flex; gap: 4px; margin-top: 8px; }
+        .swatch-tint { width: 100%; height: 20px; }
+
+        /* Color on background grid */
+        .bg-demo-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        .bg-demo-card {
+            border: 1px solid var(--grey-border);
+            background: var(--white);
+            overflow: hidden;
+        }
+        .bg-demo-header {
+            padding: 10px 14px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-bottom: 1px solid var(--grey-border);
+        }
+        .bg-demo-swatches {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+        }
+        .bg-demo-swatch {
+            padding: 16px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .bg-demo-swatch .dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+        .bg-demo-label {
+            font-family: var(--font-mono);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            text-align: center;
+            padding: 4px 0;
+            color: var(--grey);
+        }
+        .bg-demo-text {
+            padding: 12px 14px;
+            border-top: 1px solid var(--grey-border);
+        }
+        .bg-demo-text span {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* Accessible pairings */
+        .a11y-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .a11y-row {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 2px;
+        }
+        .a11y-stripe {
+            flex: 1;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            min-height: 48px;
+        }
+        .a11y-badge {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            padding: 3px 8px;
+            border-radius: 2px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .a11y-badge.pass {
+            background: rgba(5, 150, 105, 0.15);
+            color: var(--green);
+        }
+        .a11y-badge.fail {
+            background: rgba(220, 38, 38, 0.15);
+            color: var(--red);
+        }
+        .a11y-badge.display-only {
+            background: rgba(217, 119, 6, 0.15);
+            color: var(--amber);
+        }
+
+        /* UI context mocks */
+        .ui-mock-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        /* Reveal */
+        .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .swatch-grid { grid-template-columns: 1fr 1fr; }
+            .bg-demo-grid { grid-template-columns: 1fr 1fr; }
+            .ui-mock-grid { grid-template-columns: 1fr; }
+            .sub-nav { overflow-x: auto; justify-content: flex-start; }
+            .sub-nav a { white-space: nowrap; padding: 8px 10px; font-size: 10px; }
+            section { padding: 60px 0; }
+        }
+        @media (max-width: 480px) {
+            .swatch-grid { grid-template-columns: 1fr; }
+            .bg-demo-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- TOP NAVIGATION                               -->
+<!-- ============================================ -->
+<nav class="top-nav">
+    <a href="index.html">&larr; Brand System</a>
+    <span class="top-nav-stamp">BRD-003 &mdash; Colors</span>
+    <a href="typography.html">Typography &rarr;</a>
+</nav>
+
+<!-- ============================================ -->
+<!-- SECONDARY NAVIGATION                         -->
+<!-- ============================================ -->
+<div class="sub-nav">
+    <a href="marks.html">Marks</a>
+    <a href="colors.html" class="active">Colors</a>
+    <a href="typography.html">Typography</a>
+    <a href="lockups.html">Lockups</a>
+    <a href="social.html">Social</a>
+    <a href="schemes.html">Schemes</a>
+    <a href="guidelines.html">Guidelines</a>
+</div>
+
+<!-- ============================================ -->
+<!-- CORE PALETTE (dark bg)                       -->
+<!-- ============================================ -->
+<section class="grid-bg-dark" style="padding-top: 120px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-003</span>
+            <span class="stamp-title">Color Specification</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+
+        <h1 style="color: var(--white);">Color <em>System</em></h1>
+        <p class="subtitle" style="margin-bottom: 48px;">Each Signals product owns a unique accent color. The corner accent on the brand mark shifts to match, creating instant product recognition.</p>
+
+        <h3 style="color: var(--white); margin-bottom: 20px; font-size: 0.8125rem;">Core Palette</h3>
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 48px;">
+            <div>
+                <div style="height: 64px; background: var(--navy); border: 1px solid var(--grey);"></div>
+                <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light);">Navy<br>#0f172a</div>
+            </div>
+            <div>
+                <div style="height: 64px; background: var(--blue);"></div>
+                <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light);">Blue<br>#2563eb</div>
+            </div>
+            <div>
+                <div style="height: 64px; background: var(--red);"></div>
+                <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light);">Red<br>#dc2626</div>
+            </div>
+            <div>
+                <div style="height: 64px; background: var(--base); border: 1px solid var(--grey);"></div>
+                <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light);">Base<br>#f8f9fb</div>
+            </div>
+            <div>
+                <div style="height: 64px; background: var(--white); border: 1px solid var(--grey);"></div>
+                <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light);">White<br>#ffffff</div>
+            </div>
+            <div>
+                <div style="height: 64px; background: var(--grey);"></div>
+                <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.625rem; color: var(--grey-light);">Grey<br>#64748b</div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--white); margin-bottom: 20px; font-size: 0.8125rem;">Product Accent Colors</h3>
+        <div class="swatch-grid">
+            <!-- Signals Master -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #2563eb;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">MASTER</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Signals</div>
+                    <div class="swatch-hex">#2563eb &middot; rgb(37, 99, 235)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(37,99,235,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(37,99,235,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(37,99,235,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(37,99,235,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Rental Framework -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #059669;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">FRAMEWORK</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Rental Framework</div>
+                    <div class="swatch-hex">#059669 &middot; rgb(5, 150, 105)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(5,150,105,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(5,150,105,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(5,150,105,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(5,150,105,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Cloud -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #0ea5e9;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">CLOUD</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Cloud</div>
+                    <div class="swatch-hex">#0ea5e9 &middot; rgb(14, 165, 233)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(14,165,233,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(14,165,233,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(14,165,233,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(14,165,233,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Network -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #0891b2;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">NETWORK</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Network</div>
+                    <div class="swatch-hex">#0891b2 &middot; rgb(8, 145, 178)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(8,145,178,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(8,145,178,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(8,145,178,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(8,145,178,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Intelligence -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #d97706;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">INTELLIGENCE</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Intelligence</div>
+                    <div class="swatch-hex">#d97706 &middot; rgb(217, 119, 6)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(217,119,6,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(217,119,6,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(217,119,6,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(217,119,6,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Registry -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #7c3aed;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">REGISTRY</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Registry</div>
+                    <div class="swatch-hex">#7c3aed &middot; rgb(124, 58, 237)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(124,58,237,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(124,58,237,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(124,58,237,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(124,58,237,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Connect -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #e11d48;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">CONNECT</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Connect</div>
+                    <div class="swatch-hex">#e11d48 &middot; rgb(225, 29, 72)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(225,29,72,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(225,29,72,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(225,29,72,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(225,29,72,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Transport -->
+            <div class="swatch-card">
+                <div class="swatch-block" style="background: #475569;"><span class="swatch-label" style="color: white; background: rgba(0,0,0,0.2);">TRANSPORT</span></div>
+                <div class="swatch-info">
+                    <div class="swatch-name">Transport</div>
+                    <div class="swatch-hex">#475569 &middot; rgb(71, 85, 105)</div>
+                    <div class="swatch-tints">
+                        <div class="swatch-tint" style="background: rgba(71,85,105,0.1);"></div>
+                        <div class="swatch-tint" style="background: rgba(71,85,105,0.25);"></div>
+                        <div class="swatch-tint" style="background: rgba(71,85,105,0.5);"></div>
+                        <div class="swatch-tint" style="background: rgba(71,85,105,0.75);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 02 &mdash; Background Application</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- COLOR ON BACKGROUND                          -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-003b</span>
+            <span class="stamp-title">Background Application</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2>Color on <em>Background</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">How each product accent renders across the three standard backgrounds and as text on white.</p>
+
+        <div class="bg-demo-grid">
+            <!-- Signals -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Signals</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #2563eb;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #2563eb;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #2563eb;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #2563eb;">Signals Text</span></div>
+            </div>
+
+            <!-- Framework -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Rental Framework</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #059669;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #059669;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #059669;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #059669;">Framework Text</span></div>
+            </div>
+
+            <!-- Cloud -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Cloud</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #0ea5e9;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #0ea5e9;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #0ea5e9;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #0ea5e9;">Cloud Text</span></div>
+            </div>
+
+            <!-- Network -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Network</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #0891b2;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #0891b2;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #0891b2;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #0891b2;">Network Text</span></div>
+            </div>
+
+            <!-- Intelligence -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Intelligence</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #d97706;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #d97706;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #d97706;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #d97706;">Intelligence Text</span></div>
+            </div>
+
+            <!-- Registry -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Registry</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #7c3aed;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #7c3aed;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #7c3aed;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #7c3aed;">Registry Text</span></div>
+            </div>
+
+            <!-- Connect -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Connect</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #e11d48;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #e11d48;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #e11d48;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #e11d48;">Connect Text</span></div>
+            </div>
+
+            <!-- Transport -->
+            <div class="bg-demo-card">
+                <div class="bg-demo-header">Transport</div>
+                <div class="bg-demo-swatches">
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--white);"><div class="dot" style="background: #475569;"></div></div>
+                        <div class="bg-demo-label">On White</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--navy);"><div class="dot" style="background: #475569;"></div></div>
+                        <div class="bg-demo-label">On Navy</div>
+                    </div>
+                    <div>
+                        <div class="bg-demo-swatch" style="background: var(--base);"><div class="dot" style="background: #475569;"></div></div>
+                        <div class="bg-demo-label">On Base</div>
+                    </div>
+                </div>
+                <div class="bg-demo-text"><span style="color: #475569;">Transport Text</span></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-light">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 03 &mdash; Accessibility</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- ACCESSIBLE PAIRINGS                          -->
+<!-- ============================================ -->
+<section class="grid-bg-light" style="padding-top: 40px;">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-003c</span>
+            <span class="stamp-title">Accessibility</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2>Accessible <em>Pairings</em></h2>
+        <p class="subtitle" style="margin-bottom: 16px;">WCAG AA compliance for text on colored backgrounds. Check marks indicate safe pairings for body text; amber notes indicate display-size only.</p>
+
+        <!-- Column headers -->
+        <div style="display: grid; grid-template-columns: 140px 1fr 1fr; gap: 2px; margin-bottom: 4px; padding: 0 0 8px 0;">
+            <div></div>
+            <div style="font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); text-align: center;">White Text on Color</div>
+            <div style="font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey); text-align: center;">Navy Text on Color</div>
+        </div>
+
+        <!-- Signals Blue -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Signals</div>
+            <div class="a11y-stripe" style="background: #2563eb; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+            <div class="a11y-stripe" style="background: #2563eb; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge fail">&#10007; Fail</span>
+            </div>
+        </div>
+
+        <!-- Framework Green -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Framework</div>
+            <div class="a11y-stripe" style="background: #059669; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+            <div class="a11y-stripe" style="background: #059669; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+        </div>
+
+        <!-- Cloud Sky -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Cloud</div>
+            <div class="a11y-stripe" style="background: #0ea5e9; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge display-only">&#9888; Display Only</span>
+            </div>
+            <div class="a11y-stripe" style="background: #0ea5e9; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+        </div>
+
+        <!-- Network Cyan -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Network</div>
+            <div class="a11y-stripe" style="background: #0891b2; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+            <div class="a11y-stripe" style="background: #0891b2; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+        </div>
+
+        <!-- Intelligence Amber -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Intelligence</div>
+            <div class="a11y-stripe" style="background: #d97706; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge display-only">&#9888; Display Only</span>
+            </div>
+            <div class="a11y-stripe" style="background: #d97706; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+        </div>
+
+        <!-- Registry Violet -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Registry</div>
+            <div class="a11y-stripe" style="background: #7c3aed; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+            <div class="a11y-stripe" style="background: #7c3aed; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge fail">&#10007; Fail</span>
+            </div>
+        </div>
+
+        <!-- Connect Rose -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Connect</div>
+            <div class="a11y-stripe" style="background: #e11d48; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+            <div class="a11y-stripe" style="background: #e11d48; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge fail">&#10007; Fail</span>
+            </div>
+        </div>
+
+        <!-- Transport Slate -->
+        <div class="a11y-row">
+            <div style="width: 140px; display: flex; align-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--navy); padding-right: 12px;">Transport</div>
+            <div class="a11y-stripe" style="background: #475569; color: #ffffff;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge pass">&#10003; AA Pass</span>
+            </div>
+            <div class="a11y-stripe" style="background: #475569; color: #0f172a;">
+                <span>Aa Sample Text</span>
+                <span class="a11y-badge fail">&#10007; Fail</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 24px;">
+            <span class="annotation">[BRD-003c] Key: &#10003; AA Pass = safe for body text (4.5:1+). &#9888; Display Only = large text only (3:1+). &#10007; Fail = do not use for text.</span>
+        </div>
+    </div>
+</section>
+
+<!-- Dimension Divider -->
+<div class="grid-bg-dark">
+    <div class="dimension-line">
+        <span class="dim-arrow-left"></span><span class="dim-line"></span>
+        <span class="dim-label">Section 04 &mdash; UI Context</span>
+        <span class="dim-line"></span><span class="dim-arrow-right"></span>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- COLOR IN UI CONTEXT                          -->
+<!-- ============================================ -->
+<section class="grid-bg-dark">
+    <div class="container">
+        <div class="section-stamp">
+            <span class="stamp-num">BRD-003d</span>
+            <span class="stamp-title">UI Application</span>
+            <span class="stamp-rev">REV A</span>
+        </div>
+        <h2 style="color: var(--white);">Color in <em>UI Context</em></h2>
+        <p class="subtitle" style="margin-bottom: 48px;">Mini mockups showing how each product accent integrates into the standard Signals UI shell. The layout stays constant; only the accent shifts.</p>
+
+        <div class="ui-mock-grid">
+            <!-- Framework mock -->
+            <div style="border: 1px solid var(--grey-border); overflow: hidden;">
+                <div style="background: var(--navy); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span class="logo-mark size-sm color-green" style="color: white; font-size: 0.625rem;">Signals</span>
+                    <span style="background: #059669; color: white; font-family: var(--font-display); font-size: 0.5625rem; font-weight: 600; padding: 4px 12px; text-transform: uppercase;">Get Started</span>
+                </div>
+                <div style="padding: 24px 20px; background: var(--base);">
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; text-transform: uppercase; color: var(--navy); margin-bottom: 4px;">Rental Framework</div>
+                    <div style="font-size: 0.625rem; color: var(--grey);">Open source &middot; MIT License</div>
+                    <div style="margin-top: 12px; height: 3px; background: #059669; width: 40%;"></div>
+                </div>
+            </div>
+
+            <!-- Cloud mock -->
+            <div style="border: 1px solid var(--grey-border); overflow: hidden;">
+                <div style="background: var(--navy); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span class="logo-mark size-sm color-sky" style="color: white; font-size: 0.625rem;">Signals</span>
+                    <span style="background: #0ea5e9; color: white; font-family: var(--font-display); font-size: 0.5625rem; font-weight: 600; padding: 4px 12px; text-transform: uppercase;">Start Trial</span>
+                </div>
+                <div style="padding: 24px 20px; background: var(--base);">
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; text-transform: uppercase; color: var(--navy); margin-bottom: 4px;">Cloud Hosting</div>
+                    <div style="font-size: 0.625rem; color: var(--grey);">Managed &middot; 99.9% Uptime</div>
+                    <div style="margin-top: 12px; height: 3px; background: #0ea5e9; width: 60%;"></div>
+                </div>
+            </div>
+
+            <!-- Intelligence mock -->
+            <div style="border: 1px solid var(--grey-border); overflow: hidden;">
+                <div style="background: var(--navy); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span class="logo-mark size-sm color-amber" style="color: white; font-size: 0.625rem;">Signals</span>
+                    <span style="background: #d97706; color: white; font-family: var(--font-display); font-size: 0.5625rem; font-weight: 600; padding: 4px 12px; text-transform: uppercase;">Learn More</span>
+                </div>
+                <div style="padding: 24px 20px; background: var(--base);">
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; text-transform: uppercase; color: var(--navy); margin-bottom: 4px;">Intelligence</div>
+                    <div style="font-size: 0.625rem; color: var(--grey);">AI Analytics &middot; Predictions</div>
+                    <div style="margin-top: 12px; height: 3px; background: #d97706; width: 45%;"></div>
+                </div>
+            </div>
+
+            <!-- Network mock -->
+            <div style="border: 1px solid var(--grey-border); overflow: hidden;">
+                <div style="background: var(--navy); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <span class="logo-mark size-sm color-cyan" style="color: white; font-size: 0.625rem;">Signals</span>
+                    <span style="background: #0891b2; color: white; font-family: var(--font-display); font-size: 0.5625rem; font-weight: 600; padding: 4px 12px; text-transform: uppercase;">Explore</span>
+                </div>
+                <div style="padding: 24px 20px; background: var(--base);">
+                    <div style="font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; text-transform: uppercase; color: var(--navy); margin-bottom: 4px;">Network</div>
+                    <div style="font-size: 0.625rem; color: var(--grey);">Credit Scores &middot; Benchmarks</div>
+                    <div style="margin-top: 12px; height: 3px; background: #0891b2; width: 55%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================ -->
+<!-- FOOTER                                       -->
+<!-- ============================================ -->
+<footer class="grid-bg-dark" style="padding: 48px 0; border-top: 1px solid rgba(148,163,184,0.1);">
+    <div class="container" style="text-align: center;">
+        <span class="logo-mark size-sm color-blue" style="color: var(--grey-light); font-size: 0.625rem; border-color: var(--grey); margin-bottom: 20px;">Signals</span>
+        <div style="margin-top: 20px; font-family: var(--font-mono); font-size: 0.5625rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Signals Brand Guidelines &mdash; Color System &mdash; Version 1.0 &mdash; February 2026
+        </div>
+        <div style="margin-top: 8px; font-family: var(--font-mono); font-size: 0.5rem; color: var(--grey); text-transform: uppercase; letter-spacing: 0.06em;">
+            Confidential &mdash; For internal and partner use
+        </div>
+    </div>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var els = document.querySelectorAll('.section-stamp, .swatch-card, .bg-demo-card, .a11y-row, .ui-mock-grid > div');
+    var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+            if (e.isIntersecting) {
+                e.target.classList.add('visible');
+                obs.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    els.forEach(function(el) {
+        el.classList.add('reveal');
+        obs.observe(el);
+    });
+});
+</script>
+
+</body>
+</html>
