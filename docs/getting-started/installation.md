@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install Signals with the guided CLI wizard or quick-start script.
+description: Install Signals Rental Framework with the guided CLI wizard or quick-start script.
 ---
 
 ## Requirements

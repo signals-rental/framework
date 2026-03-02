@@ -5,7 +5,7 @@ description: Configure your company, stores, branding, and modules with the web 
 
 ## Application Setup
 
-After installing infrastructure with `signals:install`, configure your application with the setup wizard. Signals offers two ways to complete setup — a guided **web wizard** and a **terminal command**. Both produce identical results.
+After installing infrastructure with `signals:install`, configure your application with the setup wizard. Signals Rental Framework offers two ways to complete setup — a guided **web wizard** and a **terminal command**. Both produce identical results.
 
 > **Note:** Setup can only run once. To re-run the terminal command, use `--force` to overwrite existing settings.
 

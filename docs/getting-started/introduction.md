@@ -1,19 +1,19 @@
 ---
 title: Introduction
-description: Signals is an open-source rental management framework. Free, self-hostable, and plugin-extensible.
+description: Signals Rental Framework is an open-source rental management framework. Free, self-hostable, and plugin-extensible.
 ---
 
-## What is Signals?
+## What is Signals Rental Framework?
 
-Signals is a production-ready rental management framework built for the equipment rental and event hire industry. It covers the full rental lifecycle — quoting, ordering, invoicing, asset management, availability, scheduling, maintenance, and customer relationships.
+Signals Rental Framework is a production-ready rental management framework built for the equipment rental and event hire industry. It covers the full rental lifecycle — quoting, ordering, invoicing, asset management, availability, scheduling, maintenance, and customer relationships.
 
 It's MIT licensed, self-hostable, and plugin-extensible. The same complete code for every rental business, from a sole trader with a van to a national operation with ten depots.
 
-## Why Signals?
+## Why Signals Rental Framework?
 
 Most rental businesses run on software designed for something else — inventory tools, e-commerce platforms, or ERPs with bolt-on modules. Availability is an afterthought. Scheduling is a spreadsheet. Every customisation is a support ticket.
 
-Signals is different:
+Signals Rental Framework is different:
 
 - **Purpose-built for rental** — availability, scheduling, maintenance cycles, kit prep, dry hire, wet hire, sub-hire, and cross-hire are the foundation, not afterthoughts
 - **Free forever** — MIT licensed with no open-core catch, no features held back for a paid edition, and no time-limited trials
@@ -38,7 +38,7 @@ Signals is different:
 
 ## Architecture
 
-Signals follows a layered, extensible architecture:
+Signals Rental Framework follows a layered, extensible architecture:
 
 | Layer | Purpose |
 |-------|---------|
@@ -70,7 +70,7 @@ Self-hosting is a first-class experience. Deploy to any environment:
 
 ## Who Is It For?
 
-Signals serves every size of rental business with the same code and the same features:
+Signals Rental Frameworkserves every size of rental business with the same code and the same features:
 
 | Segment | Profile |
 |---------|---------|
@@ -88,4 +88,4 @@ composer setup
 
 This installs dependencies, configures your infrastructure, and launches the setup wizard. See the [Installation](/docs/getting-started/installation) guide for full details.
 
-> **Note:** Signals is under active development. The roadmap is public, every decision is discussable, and breaking changes follow semantic versioning.
+> **Note:** Signals Rental Frameworkis under active development. The roadmap is public, every decision is discussable, and breaking changes follow semantic versioning.

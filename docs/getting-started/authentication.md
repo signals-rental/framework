@@ -5,7 +5,7 @@ description: Log in, reset your password, and manage your profile, password, and
 
 ## Overview
 
-Signals uses Laravel's built-in authentication with Sanctum for API tokens. All authentication pages are accessible without logging in, while settings pages require an active session.
+Signals Rental Framework uses Laravel's built-in authentication with Sanctum for API tokens. All authentication pages are accessible without logging in, while settings pages require an active session.
 
 ## Login
 
