@@ -295,12 +295,12 @@
         <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
             @if(config('signals.installed') && config('signals.setup_complete'))
                 <a href="{{ route('login') }}" class="btn btn-primary">Log In</a>
-                <a href="https://framework.signals.rent/docs" class="btn btn-outline" target="_blank">Documentation</a>
+                <a href="https://docs.signals.rent" class="btn btn-outline" target="_blank">Documentation</a>
             @elseif(config('signals.installed'))
                 <a href="{{ url('/setup') }}" class="btn btn-primary">Complete Setup</a>
                 <a href="{{ route('login') }}" class="btn btn-outline">Log In</a>
             @else
-                <a href="https://framework.signals.rent/docs" class="btn btn-primary" target="_blank">Get Started</a>
+                <a href="https://docs.signals.rent" class="btn btn-primary" target="_blank">Get Started</a>
                 <a href="https://github.com/signals-rental/framework" class="btn btn-outline" target="_blank">GitHub</a>
             @endif
         </div>
@@ -356,7 +356,7 @@
             Signals Rental Framework &mdash; Free &amp; Open Source &mdash; MIT License
         </div>
         <div style="margin-top: 12px; display: flex; gap: 24px; justify-content: center;">
-            <a href="https://framework.signals.rent/docs" style="font-size: 0.5625rem; text-decoration: none; text-transform: uppercase; letter-spacing: 0.06em;">Documentation</a>
+            <a href="https://docs.signals.rent" style="font-size: 0.5625rem; text-decoration: none; text-transform: uppercase; letter-spacing: 0.06em;">Documentation</a>
             <a href="https://github.com/signals-rental/framework" style="font-size: 0.5625rem; text-decoration: none; text-transform: uppercase; letter-spacing: 0.06em;">GitHub</a>
         </div>
     </div>

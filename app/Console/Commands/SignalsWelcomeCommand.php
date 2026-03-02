@@ -30,7 +30,7 @@ class SignalsWelcomeCommand extends Command
         $this->line('  <fg=white>php artisan signals:status</>     Check connection health');
         $this->newLine();
 
-        $this->line('  <fg=gray>Documentation:</>  <fg=white>https://framework.signals.rent/docs</>');
+        $this->line('  <fg=gray>Documentation:</>  <fg=white>https://docs.signals.rent</>');
         $this->line('  <fg=gray>GitHub:</>         <fg=white>https://github.com/signals-rental/framework</>');
         $this->newLine();
 
