@@ -115,6 +115,34 @@ class DocsService
     }
 
     /**
+     * Load all changelog entries, sorted newest-first by version.
+     *
+     * @return array<int, array{version: string, date: string, title: ?string, html: string}>
+     */
+    public function getChangelog(): array
+    {
+        if (App::environment('local')) {
+            return $this->loadChangelogEntries();
+        }
+
+        return Cache::remember('docs:changelog', 3600, fn (): array => $this->loadChangelogEntries());
+    }
+
+    /**
+     * Check whether any changelog entries exist.
+     */
+    public function changelogExists(): bool
+    {
+        $dir = base_path('docs/changelog');
+
+        if (! is_dir($dir)) {
+            return false;
+        }
+
+        return count(glob($dir.'/*.md') ?: []) > 0;
+    }
+
+    /**
      * Build a search index with plain text content for all documentation pages.
      *
      * @return array<int, array{title: string, section: string, url: string, content: string}>
@@ -328,7 +356,69 @@ class DocsService
             }
         }
 
+        foreach ($this->loadChangelogEntries() as $entry) {
+            $plainText = preg_replace('/\s+/', ' ', strip_tags($entry['html'])) ?? '';
+
+            $index[] = [
+                'title' => $entry['version'].($entry['title'] ? ' — '.$entry['title'] : ''),
+                'section' => 'Changelog',
+                'url' => route('docs.changelog').'#v'.$entry['version'],
+                'content' => trim($plainText),
+            ];
+        }
+
         return $index;
+    }
+
+    /**
+     * Load and parse all changelog markdown files.
+     *
+     * @return array<int, array{version: string, date: string, title: ?string, html: string}>
+     */
+    private function loadChangelogEntries(): array
+    {
+        $dir = base_path('docs/changelog');
+
+        if (! is_dir($dir)) {
+            return [];
+        }
+
+        $files = glob($dir.'/*.md') ?: [];
+        $entries = [];
+
+        foreach ($files as $file) {
+            $markdown = file_get_contents($file);
+            if ($markdown === false) {
+                continue;
+            }
+
+            $result = $this->getConverter()->convert($markdown);
+
+            $frontMatter = [];
+            if ($result instanceof RenderedContentWithFrontMatter) {
+                $frontMatter = $result->getFrontMatter();
+            }
+
+            if (! isset($frontMatter['version'], $frontMatter['date'])) {
+                continue;
+            }
+
+            $date = $frontMatter['date'];
+            if (is_int($date)) {
+                $date = date('Y-m-d', $date);
+            }
+
+            $entries[] = [
+                'version' => (string) $frontMatter['version'],
+                'date' => (string) $date,
+                'title' => isset($frontMatter['title']) ? (string) $frontMatter['title'] : null,
+                'html' => (string) $result,
+            ];
+        }
+
+        usort($entries, fn (array $a, array $b): int => version_compare($b['version'], $a['version']));
+
+        return $entries;
     }
 
     /**

@@ -1135,6 +1135,19 @@ select:focus[data-flux-control] {
     font-size: 10px;
 }
 
+.docs-changelog-date {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: -8px;
+    margin-bottom: 16px;
+}
+
+.docs-changelog-title {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
 /* ================================================================ */
 /*  DOCS MOBILE NAV                                                  */
 /* ================================================================ */
@@ -1351,6 +1364,42 @@ select:focus[data-flux-control] {
 .docs-prose h2:hover .docs-heading-anchor,
 .docs-prose h3:hover .docs-heading-anchor {
     opacity: 1;
+}
+
+/* Article header with copy button */
+.docs-article-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.docs-article-header h1 {
+    flex: 1;
+    min-width: 0;
+}
+
+.docs-copy-md-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--table-header-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.docs-copy-md-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
 }
 
 /* ================================================================ */

@@ -1,2 +1,9 @@
 User-agent: *
-Disallow:
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /setup
+Disallow: /api/
+Disallow: /livewire/
+
+Sitemap: https://docs.signals.rent/docs/sitemap.xml

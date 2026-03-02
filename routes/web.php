@@ -72,6 +72,9 @@ Route::prefix('prototypes')->group(function () {
 
 Route::prefix('docs')->group(function () {
     Route::get('/', [DocsController::class, 'index'])->name('docs.index');
+    Route::get('changelog', [DocsController::class, 'changelog'])->name('docs.changelog');
+    Route::get('sitemap.xml', [DocsController::class, 'sitemap'])->name('docs.sitemap');
+    Route::get('robots.txt', [DocsController::class, 'robots'])->name('docs.robots');
     Route::get('images/{path}', [DocsController::class, 'image'])
         ->name('docs.image')
         ->where('path', '.+');

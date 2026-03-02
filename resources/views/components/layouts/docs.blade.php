@@ -1,8 +1,58 @@
+@props(['pageTitle' => '', 'pageDescription' => '', 'canonicalUrl' => '', 'currentSection' => ''])
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
-        @include('partials.head')
+        @include('partials.head', ['title' => 'Signals Rental Framework - Documentation' . ($pageTitle ? ' | ' . $pageTitle : '')])
+
+        @if ($pageDescription)
+            <meta name="description" content="{{ $pageDescription }}">
+        @endif
+        <link rel="canonical" href="{{ $canonicalUrl ?: request()->url() }}">
+
+        {{-- Open Graph --}}
+        <meta property="og:type" content="article">
+        <meta property="og:site_name" content="Signals Rental Framework">
+        <meta property="og:title" content="{{ $pageTitle ?: 'Documentation' }}">
+        @if ($pageDescription)
+            <meta property="og:description" content="{{ $pageDescription }}">
+        @endif
+        <meta property="og:url" content="{{ $canonicalUrl ?: request()->url() }}">
+
+        {{-- Twitter Card --}}
+        <meta name="twitter:card" content="summary">
+        <meta name="twitter:title" content="{{ $pageTitle ?: 'Documentation' }}">
+        @if ($pageDescription)
+            <meta name="twitter:description" content="{{ $pageDescription }}">
+        @endif
+
+        {{-- JSON-LD: BreadcrumbList (show pages) --}}
+        @if ($currentSection)
+            <script type="application/ld+json">
+            {
+                "@@context": "https://schema.org",
+                "@@type": "BreadcrumbList",
+                "itemListElement": [
+                    {"@@type": "ListItem", "position": 1, "name": "Documentation", "item": "{{ route('docs.index') }}"},
+                    {"@@type": "ListItem", "position": 2, "name": "{{ $currentSection }}", "item": "{{ request()->url() }}"},
+                    {"@@type": "ListItem", "position": 3, "name": "{{ $pageTitle }}"}
+                ]
+            }
+            </script>
+        @endif
+
+        {{-- JSON-LD: WebSite --}}
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "WebSite",
+            "name": "Signals Rental Framework Documentation",
+            "url": "{{ route('docs.index') }}"
+        }
+        </script>
+
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.min.js" defer></script>
     </head>
     <body class="min-h-screen bg-[var(--content-bg)] text-[13px] leading-normal text-[var(--text-primary)] antialiased">
 
@@ -139,6 +189,32 @@
             });
 
             document.addEventListener('alpine:init', () => {
+                Alpine.data('copyMarkdown', () => ({
+                    copied: false,
+                    copy() {
+                        const article = document.querySelector('.docs-prose');
+                        if (!article) return;
+
+                        const clone = article.cloneNode(true);
+                        clone.querySelectorAll('.docs-article-header button, .docs-heading-anchor').forEach(el => el.remove());
+
+                        const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+                        turndown.addRule('fencedCodeBlock', {
+                            filter: (node) => node.nodeName === 'PRE' && node.querySelector('code'),
+                            replacement: (content, node) => {
+                                const code = node.querySelector('code');
+                                const lang = (code.className.match(/language-(\S+)/) || [])[1] || '';
+                                return '\n\n```' + lang + '\n' + code.textContent.trimEnd() + '\n```\n\n';
+                            }
+                        });
+
+                        const markdown = turndown.turndown(clone.innerHTML);
+                        navigator.clipboard.writeText(markdown);
+                        this.copied = true;
+                        setTimeout(() => { this.copied = false; }, 2000);
+                    }
+                }));
+
                 Alpine.data('docsSearch', () => ({
                     query: '',
                     open: false,

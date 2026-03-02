@@ -45,7 +45,7 @@ test('getPage returns title html toc and description', function () {
     expect($page)->toBeArray()
         ->and($page)->toHaveKeys(['title', 'html', 'toc', 'description'])
         ->and($page['title'])->toBe('Introduction')
-        ->and($page['description'])->toBe('Signals is an open-source rental management framework. Free, self-hostable, and plugin-extensible.')
+        ->and($page['description'])->toBe('Signals Rental Framework is an open-source rental management framework. Free, self-hostable, and plugin-extensible.')
         ->and($page['html'])->toContain('<h2')
         ->and($page['toc'])->toBeArray()->toHaveCount(8);
 });
@@ -100,15 +100,19 @@ test('first page has null prev', function () {
         ->and($adjacent['next'])->not->toBeNull();
 });
 
-test('getSearchIndex returns entries with content for all pages', function () {
+test('getSearchIndex returns entries with content for all pages and changelog', function () {
     $service = app(DocsService::class);
     $index = $service->getSearchIndex();
 
-    expect($index)->toBeArray()->toHaveCount(6)
+    expect($index)->toBeArray()->toHaveCount(7)
         ->and($index[0])->toHaveKeys(['title', 'section', 'url', 'content'])
         ->and($index[0]['title'])->toBe('Introduction')
         ->and($index[0]['section'])->toBe('Getting Started')
         ->and(strlen($index[0]['content']))->toBeGreaterThan(0);
+
+    $changelogEntry = collect($index)->firstWhere('section', 'Changelog');
+    expect($changelogEntry)->not->toBeNull()
+        ->and($changelogEntry['title'])->toContain('0.1.0');
 });
 
 test('last page has null next', function () {
@@ -117,4 +121,37 @@ test('last page has null next', function () {
 
     expect($adjacent['next'])->toBeNull()
         ->and($adjacent['prev'])->not->toBeNull();
+});
+
+test('getChangelog returns entries sorted newest first', function () {
+    $service = app(DocsService::class);
+    $entries = $service->getChangelog();
+
+    expect($entries)->toBeArray()
+        ->and(count($entries))->toBeGreaterThan(0)
+        ->and($entries[0])->toHaveKeys(['version', 'date', 'title', 'html'])
+        ->and($entries[0]['version'])->toBe('0.1.0');
+});
+
+test('getChangelog extracts frontmatter correctly', function () {
+    $service = app(DocsService::class);
+    $entries = $service->getChangelog();
+
+    expect($entries[0]['version'])->toBe('0.1.0')
+        ->and($entries[0]['date'])->toBe('2026-03-02')
+        ->and($entries[0]['title'])->toBe('Initial Alpha');
+});
+
+test('getChangelog renders markdown to html', function () {
+    $service = app(DocsService::class);
+    $entries = $service->getChangelog();
+
+    expect($entries[0]['html'])->toContain('<h3')
+        ->and($entries[0]['html'])->toContain('Added');
+});
+
+test('changelogExists returns true when entries exist', function () {
+    $service = app(DocsService::class);
+
+    expect($service->changelogExists())->toBeTrue();
 });
