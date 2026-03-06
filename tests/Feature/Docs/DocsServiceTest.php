@@ -7,7 +7,7 @@ test('getNavigation returns sections with pages', function () {
     $nav = $service->getNavigation();
 
     expect($nav)->toHaveKey('sections')
-        ->and($nav['sections'])->toBeArray()->toHaveCount(3)
+        ->and($nav['sections'])->toBeArray()->toHaveCount(4)
         ->and($nav['sections'][0])->toHaveKeys(['title', 'slug', 'pages'])
         ->and($nav['sections'][0]['pages'])->toBeArray()->toHaveCount(4)
         ->and($nav['sections'][0]['pages'][0])->toHaveKeys(['title', 'slug']);
@@ -104,7 +104,7 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
     $service = app(DocsService::class);
     $index = $service->getSearchIndex();
 
-    expect($index)->toBeArray()->toHaveCount(7)
+    expect($index)->toBeArray()->toHaveCount(8)
         ->and($index[0])->toHaveKeys(['title', 'section', 'url', 'content'])
         ->and($index[0]['title'])->toBe('Introduction')
         ->and($index[0]['section'])->toBe('Getting Started')
@@ -117,7 +117,7 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
 
 test('last page has null next', function () {
     $service = app(DocsService::class);
-    $adjacent = $service->getAdjacentPages('api', 'overview');
+    $adjacent = $service->getAdjacentPages('development', 'library');
 
     expect($adjacent['next'])->toBeNull()
         ->and($adjacent['prev'])->not->toBeNull();
@@ -154,4 +154,40 @@ test('changelogExists returns true when entries exist', function () {
     $service = app(DocsService::class);
 
     expect($service->changelogExists())->toBeTrue();
+});
+
+test('pageExists returns true for blade-type pages', function () {
+    $service = app(DocsService::class);
+
+    expect($service->pageExists('development', 'library'))->toBeTrue();
+});
+
+test('getPage returns blade metadata for blade-type pages', function () {
+    $service = app(DocsService::class);
+    $page = $service->getPage('development', 'library');
+
+    expect($page)->toBeArray()
+        ->and($page['type'])->toBe('blade')
+        ->and($page['view'])->toBe('docs.components.library')
+        ->and($page['title'])->toBe('Component Library')
+        ->and($page['html'])->toBeNull()
+        ->and($page['toc'])->toBeEmpty();
+});
+
+test('getSearchIndex excludes blade-type pages', function () {
+    $service = app(DocsService::class);
+    $index = $service->getSearchIndex();
+
+    $bladeEntry = collect($index)->firstWhere('title', 'Component Library');
+    expect($bladeEntry)->toBeNull();
+});
+
+test('getPage returns markdown content for development getting-started', function () {
+    $service = app(DocsService::class);
+    $page = $service->getPage('development', 'getting-started');
+
+    expect($page)->toBeArray()
+        ->and($page['title'])->toBe('Getting Started')
+        ->and($page['html'])->toContain('Component System Overview')
+        ->and($page['toc'])->not->toBeEmpty();
 });

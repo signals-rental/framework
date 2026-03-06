@@ -3,7 +3,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="flex min-h-screen flex-col overflow-hidden bg-[var(--content-bg)] text-[13px] leading-normal text-[var(--text-primary)] antialiased"
+    <body class="flex h-screen flex-col overflow-hidden bg-[var(--content-bg)] text-[13px] leading-normal text-[var(--text-primary)] antialiased"
           x-data="{ mobileNav: false }">
 
         {{-- ============================================================ --}}
@@ -106,6 +106,7 @@
                            placeholder="Search orders, members...">
                 </div>
 
+                @auth
                 {{-- Notifications --}}
                 <button class="header-icon-btn" title="Notifications" aria-label="Notifications">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6a4 4 0 0 1 8 0c0 3 1.5 4.5 2 5H2c.5-.5 2-2 2-5z"/><path d="M6 11v.5a2 2 0 0 0 4 0V11"/></svg>
@@ -146,6 +147,7 @@
                         </div>
                     </div>
                 </div>
+                @endauth
             </div>
         </header>
 

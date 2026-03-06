@@ -35,10 +35,23 @@ class DocsService
     /**
      * Parse a markdown file and return rendered content with metadata.
      *
-     * @return array{title: string, description: ?string, html: string, toc: array<int, array{level: int, id: string, text: string}>}|null
+     * @return array{title: string, description: ?string, html: ?string, toc: array<int, array{level: int, id: string, text: string}>, type?: string, view?: string}|null
      */
     public function getPage(string $section, string $page): ?array
     {
+        $entry = $this->getManifestPageEntry($section, $page);
+
+        if ($entry !== null && ($entry['type'] ?? null) === 'blade') {
+            return [
+                'title' => $entry['title'],
+                'description' => $entry['description'] ?? null,
+                'html' => null,
+                'toc' => [],
+                'type' => 'blade',
+                'view' => $entry['view'],
+            ];
+        }
+
         $filePath = $this->resolveFilePath($section, $page);
 
         if ($filePath === null) {
@@ -165,6 +178,12 @@ class DocsService
     {
         if (! $this->isInManifest($section, $page)) {
             return false;
+        }
+
+        $entry = $this->getManifestPageEntry($section, $page);
+
+        if ($entry !== null && ($entry['type'] ?? null) === 'blade') {
+            return true;
         }
 
         return $this->resolveFilePath($section, $page) !== null;
@@ -311,6 +330,18 @@ class DocsService
      */
     private function getManifestTitle(string $section, string $page): ?string
     {
+        $entry = $this->getManifestPageEntry($section, $page);
+
+        return $entry['title'] ?? null;
+    }
+
+    /**
+     * Retrieve the full page entry from the manifest, including type and view keys.
+     *
+     * @return array{title: string, slug: string, type?: string, view?: string, description?: string}|null
+     */
+    private function getManifestPageEntry(string $section, string $page): ?array
+    {
         $navigation = $this->getNavigation();
 
         foreach ($navigation['sections'] as $s) {
@@ -320,7 +351,7 @@ class DocsService
 
             foreach ($s['pages'] as $p) {
                 if ($p['slug'] === $page) {
-                    return $p['title'];
+                    return $p;
                 }
             }
         }
@@ -341,7 +372,7 @@ class DocsService
         foreach ($navigation['sections'] as $section) {
             foreach ($section['pages'] as $page) {
                 $content = $this->getPage($section['slug'], $page['slug']);
-                if ($content === null) {
+                if ($content === null || ($content['type'] ?? null) === 'blade') {
                     continue;
                 }
 

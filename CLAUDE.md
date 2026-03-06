@@ -216,6 +216,14 @@ OSF ships single-tenant defaults (no-ops). Never add tenant awareness to core co
 - Don't create documentation files unless explicitly requested.
 - Consult `framework-plans/` for architectural decisions before implementing a feature.
 
+### UI Components
+
+- Check `framework-plans/component-library.md` before building any interface.
+- Use `<x-signals.*>` Blade components for structural containers (card, panel, page-header, etc.).
+- Use `s-*` CSS classes directly for inline elements (badge, btn, chip, status, etc.).
+- Never create custom styling that duplicates an existing `s-` component.
+- All `s-` CSS is globally available via `app.css` — do not add `s-` tokens to page `<style>` blocks.
+
 ### PHP
 
 - Always use curly braces for control structures, even single-line.

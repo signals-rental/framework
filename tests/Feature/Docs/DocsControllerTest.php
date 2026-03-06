@@ -65,7 +65,7 @@ test('first docs page has no previous link', function () {
 });
 
 test('last docs page has no next link', function () {
-    get(route('docs.show', ['api', 'overview']))
+    get(route('docs.show', ['development', 'library']))
         ->assertDontSee('Next &rarr;', false);
 });
 
@@ -223,6 +223,48 @@ test('changelog page does not include breadcrumb json-ld', function () {
     get(route('docs.changelog'))
         ->assertOk()
         ->assertDontSee('"@type": "BreadcrumbList"', false);
+});
+
+test('blade-type docs page returns 200 with blade view', function () {
+    get(route('docs.show', ['development', 'library']))
+        ->assertOk()
+        ->assertViewIs('docs.blade')
+        ->assertSee('Component Reference');
+});
+
+test('blade-type docs page includes sidebar navigation', function () {
+    get(route('docs.show', ['development', 'library']))
+        ->assertSee('Development')
+        ->assertSee('Component Library');
+});
+
+test('blade-type docs page includes search data', function () {
+    get(route('docs.show', ['development', 'library']))
+        ->assertSee('docs-search-data', false);
+});
+
+test('blade-type docs page includes pagination', function () {
+    get(route('docs.show', ['development', 'library']))
+        ->assertSee('Previous');
+});
+
+test('development getting-started page returns 200', function () {
+    get(route('docs.show', ['development', 'getting-started']))
+        ->assertOk()
+        ->assertViewIs('docs.show')
+        ->assertSee('Component System Overview');
+});
+
+test('development section appears in sidebar', function () {
+    get(route('docs.show', ['getting-started', 'introduction']))
+        ->assertSee('Development')
+        ->assertSee('Getting Started', false)
+        ->assertSee('Component Library');
+});
+
+test('component-reference prototype redirects to docs', function () {
+    get('/prototypes/component-reference')
+        ->assertRedirect('/docs/development/library');
 });
 
 test('docs robots.txt route returns text content', function () {

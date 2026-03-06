@@ -53,6 +53,8 @@ Route::middleware(['signals.setup-complete', 'auth'])->group(function () {
 */
 
 Route::prefix('prototypes')->group(function () {
+    Volt::route('/', 'prototypes.index')
+        ->name('prototypes.index');
     Volt::route('document-editor', 'prototypes.document-editor')
         ->name('prototypes.document-editor');
     Volt::route('grid', 'prototypes.grid')
@@ -62,6 +64,38 @@ Route::prefix('prototypes')->group(function () {
         ->name('prototypes.availability');
     Volt::route('availability-opportunity', 'prototypes.availability-opportunity')
         ->name('prototypes.availability-opportunity');
+    Volt::route('workflow-editor', 'prototypes.workflow-editor')
+        ->name('prototypes.workflow-editor');
+    Volt::route('workflow-editor-split', 'prototypes.workflow-editor-split')
+        ->name('prototypes.workflow-editor-split');
+    Volt::route('workflow-editor-timeline', 'prototypes.workflow-editor-timeline')
+        ->name('prototypes.workflow-editor-timeline');
+    Volt::route('workflow-editor-minimal', 'prototypes.workflow-editor-minimal')
+        ->name('prototypes.workflow-editor-minimal');
+    Volt::route('field-registry', 'prototypes.field-registry')
+        ->name('prototypes.field-registry');
+    Volt::route('notification-admin', 'prototypes.notification-admin')
+        ->name('prototypes.notification-admin');
+    Volt::route('rate-engine', 'prototypes.rate-engine')
+        ->name('prototypes.rate-engine');
+    Volt::route('reporting', 'prototypes.reporting')
+        ->name('prototypes.reporting');
+    Volt::route('custom-views', 'prototypes.custom-views')
+        ->name('prototypes.custom-views');
+    Volt::route('import-export', 'prototypes.import-export')
+        ->name('prototypes.import-export');
+    Volt::route('permissions', 'prototypes.permissions')
+        ->name('prototypes.permissions');
+    Volt::route('settings-admin', 'prototypes.settings-admin')
+        ->name('prototypes.settings-admin');
+    Volt::route('shortage-resolution', 'prototypes.shortage-resolution')
+        ->name('prototypes.shortage-resolution');
+    Volt::route('plugin-system', 'prototypes.plugin-system')
+        ->name('prototypes.plugin-system');
+    Volt::route('opportunity-lifecycle', 'prototypes.opportunity-lifecycle')
+        ->name('prototypes.opportunity-lifecycle');
+    Route::redirect('component-reference', '/docs/development/library')
+        ->name('prototypes.component-reference');
 });
 
 /*

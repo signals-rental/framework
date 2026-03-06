@@ -1,0 +1,1355 @@
+/* ================================================================ */
+/*  SIGNALS COMPONENT LIBRARY (s- prefix)                           */
+/*  Canonical source — all s-* tokens and components live here.     */
+/*  Imported via app.css. Do NOT duplicate these in page <style>.   */
+/* ================================================================ */
+
+/* ================================================================ */
+/*  SHARED TOKENS                                                    */
+/* ================================================================ */
+
+:root {
+  /* Surface & hover */
+  --s-hover: rgba(0, 0, 0, 0.03);
+  --s-subtle: var(--base);
+  --s-border-sub: #ecedf1;
+  --s-faint: #b0b4c3;
+  --s-accent-light: rgba(5, 150, 105, 0.04);
+
+  /* Status backgrounds (light) */
+  --s-green-bg: #ecfdf3;   --s-green-bdr: #bbf7d0;
+  --s-amber-bg: #fffbeb;   --s-amber-bdr: #fde68a;
+  --s-red-bg: #fef2f2;     --s-red-bdr: #fecaca;
+  --s-blue-bg: #eff6ff;    --s-blue-bdr: #bfdbfe;
+  --s-violet-bg: #f5f3ff;  --s-violet-bdr: #ddd6fe;
+
+  /* Shadows */
+  --s-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --s-shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.13);
+}
+
+.dark {
+  --s-hover: rgba(255, 255, 255, 0.05);
+  --s-subtle: rgba(255, 255, 255, 0.04);
+  --s-border-sub: #283040;
+  --s-faint: #475569;
+  --s-accent-light: rgba(5, 150, 105, 0.06);
+
+  --s-green-bg: rgba(22, 163, 74, 0.15);   --s-green-bdr: rgba(22, 163, 74, 0.3);
+  --s-amber-bg: rgba(217, 119, 6, 0.15);   --s-amber-bdr: rgba(217, 119, 6, 0.3);
+  --s-red-bg: rgba(220, 38, 38, 0.15);     --s-red-bdr: rgba(220, 38, 38, 0.3);
+  --s-blue-bg: rgba(37, 99, 235, 0.15);    --s-blue-bdr: rgba(37, 99, 235, 0.3);
+  --s-violet-bg: rgba(124, 58, 237, 0.15); --s-violet-bdr: rgba(124, 58, 237, 0.3);
+
+  --s-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+  --s-shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* ================================================================ */
+/*  1. PAGE HEADER                                                   */
+/* ================================================================ */
+
+.s-page-header {
+  padding: 18px 24px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.s-breadcrumb {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.s-breadcrumb a { color: var(--text-muted); text-decoration: none; }
+.s-breadcrumb a:hover { color: var(--text-secondary); }
+
+.s-page-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.s-page-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 3px;
+}
+
+.s-page-meta span { display: flex; align-items: center; gap: 4px; }
+
+.s-page-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ================================================================ */
+/*  2. BUTTONS                                                       */
+/* ================================================================ */
+
+.s-btn {
+  padding: 7px 14px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: var(--shadow-card);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  text-decoration: none;
+}
+
+.s-btn:hover {
+  background: var(--s-hover);
+  color: var(--text-primary);
+  border-color: var(--navy-light);
+}
+
+.s-btn svg { width: 14px; height: 14px; }
+
+/* Primary (green) */
+.s-btn-primary {
+  background: var(--green);
+  color: #ffffff;
+  border-color: var(--green);
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.3);
+}
+
+.s-btn-primary:hover {
+  background: #06b07a;
+  border-color: #06b07a;
+  color: #ffffff;
+}
+
+/* Danger (red) */
+.s-btn-danger {
+  background: var(--card-bg);
+  color: var(--red);
+  border-color: var(--s-red-bdr);
+}
+
+.s-btn-danger:hover {
+  background: var(--s-red-bg);
+  border-color: var(--red);
+}
+
+/* Ghost (no border, no bg) */
+.s-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.s-btn-ghost:hover {
+  background: var(--s-hover);
+  border-color: transparent;
+}
+
+/* Small variant */
+.s-btn-sm {
+  padding: 4px 10px;
+  font-size: 10px;
+}
+
+/* ================================================================ */
+/*  3. TOOLBAR CHIP (filter toggle)                                  */
+/* ================================================================ */
+
+.s-chip {
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+
+.s-chip:hover { border-color: var(--navy-light); color: var(--text-primary); }
+
+.s-chip.on {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-muted);
+}
+
+.s-chip svg { width: 12px; height: 12px; }
+
+/* ================================================================ */
+/*  4. BADGES                                                        */
+/* ================================================================ */
+
+.s-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+}
+
+.s-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.s-badge-green  { background: var(--s-green-bg);  color: #16a34a; }
+.s-badge-amber  { background: var(--s-amber-bg);  color: var(--amber); }
+.s-badge-red    { background: var(--s-red-bg);     color: var(--red); }
+.s-badge-blue   { background: var(--s-blue-bg);    color: #2563eb; }
+.s-badge-violet { background: var(--s-violet-bg);  color: var(--violet); }
+
+/* Opportunity lifecycle badge variants */
+.s-badge-draft  { background: rgba(100, 116, 139, 0.08); color: var(--grey); }
+.s-badge-quote  { background: rgba(37, 99, 235, 0.08);   color: var(--blue); }
+.s-badge-order  { background: rgba(5, 150, 105, 0.08);   color: var(--green); }
+.s-badge-cyan   { background: rgba(8, 145, 178, 0.08);   color: var(--cyan); }
+
+.dark .s-badge-draft { background: rgba(100, 116, 139, 0.15); }
+.dark .s-badge-quote { background: rgba(37, 99, 235, 0.12); }
+.dark .s-badge-order { background: rgba(5, 150, 105, 0.12); }
+.dark .s-badge-cyan  { background: rgba(8, 145, 178, 0.12); }
+
+/* ================================================================ */
+/*  5. STATUS CELL (inline status in tables)                         */
+/* ================================================================ */
+
+.s-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+
+.s-status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+.s-status-green  { background: var(--s-green-bg);  color: #16a34a; }
+.s-status-amber  { background: var(--s-amber-bg);  color: var(--amber); }
+.s-status-red    { background: var(--s-red-bg);     color: var(--red); }
+.s-status-blue   { background: var(--s-blue-bg);    color: #2563eb; }
+
+/* ================================================================ */
+/*  6. TABS                                                          */
+/* ================================================================ */
+
+.s-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--s-border-sub);
+}
+
+.s-tab {
+  padding: 8px 14px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.s-tab:hover { color: var(--text-secondary); }
+
+.s-tab.on {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+
+.s-tab-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--s-faint);
+}
+
+.s-tab.on .s-tab-count { color: var(--green); opacity: 0.6; }
+
+/* ================================================================ */
+/*  7. TABLE                                                         */
+/* ================================================================ */
+
+.s-table-wrap {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.s-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.s-table thead { position: sticky; top: 0; z-index: 10; }
+
+.s-table th {
+  background: var(--s-subtle);
+  padding: 9px 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-align: left;
+  border-bottom: 1px solid var(--card-border);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.s-table th.sortable { cursor: pointer; }
+.s-table th.sortable:hover { color: var(--text-secondary); }
+
+.s-table tbody tr { transition: background 0.08s; }
+.s-table tbody tr:hover { background: var(--s-accent-light); }
+.s-table tbody tr.selected { background: var(--green-muted); }
+
+.s-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--s-border-sub);
+  vertical-align: middle;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.s-table tbody tr:last-child td { border-bottom: none; }
+
+/* Mono cell for IDs, refs, dates, numbers */
+.s-table .s-cell-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Link cell */
+.s-table .s-cell-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 400;
+}
+
+.s-table .s-cell-link:hover { text-decoration: underline; }
+
+/* Amount cell (right-aligned) */
+.s-table .s-cell-amount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: right;
+}
+
+/* Checkbox column */
+.s-table .s-col-check { width: 36px; text-align: center; }
+
+/* ================================================================ */
+/*  8. CHECKBOX                                                      */
+/* ================================================================ */
+
+.s-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--navy-light);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--card-bg);
+  flex-shrink: 0;
+}
+
+.s-checkbox:hover { border-color: var(--green); }
+
+.s-checkbox.checked {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.s-checkbox svg { width: 10px; height: 10px; color: #ffffff; display: none; }
+.s-checkbox.checked svg { display: block; }
+
+/* ================================================================ */
+/*  9. SEARCH INPUT                                                  */
+/* ================================================================ */
+
+.s-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--card-border);
+  padding: 4px 10px;
+  background: var(--card-bg);
+  min-width: 180px;
+  transition: border-color 0.15s;
+}
+
+.s-search:focus-within { border-color: var(--green); }
+
+.s-search svg { width: 13px; height: 13px; color: var(--s-faint); flex-shrink: 0; }
+
+.s-search input {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  outline: none;
+  width: 100%;
+}
+
+.s-search input::placeholder { color: var(--s-faint); }
+
+/* ================================================================ */
+/*  10. TOOLBAR                                                      */
+/* ================================================================ */
+
+.s-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 10px 24px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.s-toolbar-sep { width: 1px; height: 20px; background: var(--card-border); margin: 0 4px; }
+.s-toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ================================================================ */
+/*  11. DROPDOWN / POPOVER                                           */
+/* ================================================================ */
+
+.s-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--s-shadow-lg);
+  z-index: 50;
+  padding: 4px;
+}
+
+.s-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--text-primary);
+}
+
+.s-dropdown-item:hover { background: var(--s-hover); }
+
+.s-dropdown-group {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--s-faint);
+  padding: 10px 10px 4px;
+}
+
+.s-dropdown-sep {
+  border: none;
+  border-top: 1px solid var(--s-border-sub);
+  margin: 4px 0;
+}
+
+/* ================================================================ */
+/*  12. AVAILABILITY BAR                                             */
+/* ================================================================ */
+
+.s-avail { display: flex; align-items: center; gap: 6px; }
+
+.s-avail-track {
+  width: 48px;
+  height: 5px;
+  background: var(--s-subtle);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.s-avail-fill { height: 100%; border-radius: 3px; }
+.s-avail-fill-green  { background: #16a34a; }
+.s-avail-fill-amber  { background: var(--amber); }
+.s-avail-fill-red    { background: var(--red); }
+
+.s-avail-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); white-space: nowrap; }
+
+/* ================================================================ */
+/*  13. CONFLICT INDICATOR                                           */
+/* ================================================================ */
+
+.s-conflict {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--red);
+  background: var(--s-red-bg);
+  border: 1px solid var(--s-red-bdr);
+  padding: 2px 7px;
+}
+
+.s-conflict svg { width: 10px; height: 10px; }
+
+/* ================================================================ */
+/*  14. TOAST NOTIFICATION                                           */
+/* ================================================================ */
+
+.s-toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--navy);
+  border: 1px solid var(--card-border);
+  padding: 8px 16px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.s-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
+.s-toast-icon { color: var(--green); }
+
+/* ================================================================ */
+/*  15. SAVE INDICATOR                                               */
+/* ================================================================ */
+
+.s-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: #16a34a;
+  background: var(--s-green-bg);
+  border: 1px solid var(--s-green-bdr);
+  padding: 4px 12px;
+}
+
+.s-save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  animation: s-pulse 1s infinite;
+}
+
+@keyframes s-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ================================================================ */
+/*  16. KEYBOARD HINT                                                */
+/* ================================================================ */
+
+.s-kbd {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--s-subtle);
+  border: 1px solid var(--card-border);
+  padding: 0 4px;
+  line-height: 1.6;
+}
+
+.s-kbd-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--s-faint);
+}
+
+/* ================================================================ */
+/*  17. BULK ACTION BAR (fixed bottom)                               */
+/* ================================================================ */
+
+.s-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--green-muted);
+  border: 1px solid var(--green);
+}
+
+.s-bulk-count {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green);
+  white-space: nowrap;
+}
+
+.s-bulk-actions { display: flex; gap: 6px; flex: 1; }
+
+.s-bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.s-bulk-btn:hover { border-color: var(--text-muted); color: var(--text-primary); }
+.s-bulk-btn svg { width: 13px; height: 13px; }
+.s-bulk-btn-danger { color: var(--red); border-color: var(--s-red-bdr); }
+.s-bulk-btn-danger:hover { background: var(--s-red-bg); border-color: var(--red); }
+
+.s-bulk-clear {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+  transition: color 0.12s;
+}
+
+.s-bulk-clear:hover { color: var(--text-primary); }
+
+.s-bulk-sep { width: 1px; height: 24px; background: var(--card-border); }
+
+.s-bulk-action {
+  padding: 6px 12px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.s-bulk-action:hover { background: var(--s-hover); }
+.s-bulk-action-danger:hover { background: var(--s-red-bg); color: var(--red); }
+
+/* ================================================================ */
+/*  18. SUMMARY BAR                                                  */
+/* ================================================================ */
+
+.s-summary-bar {
+  flex-shrink: 0;
+  height: 32px;
+  background: var(--card-bg);
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 20px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--s-faint);
+}
+
+.s-summary-bar span { display: flex; align-items: center; gap: 4px; }
+
+.s-summary-val { font-weight: 600; color: var(--text-secondary); }
+.s-summary-alert { color: var(--red); font-weight: 600; }
+.s-summary-ok { color: #16a34a; font-weight: 600; }
+
+/* ================================================================ */
+/*  19. LEGEND / KEY                                                 */
+/* ================================================================ */
+
+.s-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 24px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--s-faint);
+  border-top: 1px solid var(--card-border);
+}
+
+.s-legend-label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.s-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+
+.s-legend-swatch { width: 16px; height: 10px; }
+.s-legend-ok   { background: rgba(22, 163, 74, 0.12); border: 1px solid rgba(22, 163, 74, 0.25); }
+.s-legend-warn { background: rgba(217, 119, 6, 0.12); border: 1px solid rgba(217, 119, 6, 0.25); }
+.s-legend-crit { background: rgba(220, 38, 38, 0.12); border: 1px solid rgba(220, 38, 38, 0.25); }
+.s-legend-na   { background: var(--s-subtle); border: 1px solid var(--s-border-sub); }
+
+/* ================================================================ */
+/*  20. TOOLTIP                                                      */
+/* ================================================================ */
+
+.s-tooltip {
+  position: fixed;
+  background: var(--navy);
+  color: #e2e8f0;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.6;
+  z-index: 200;
+  pointer-events: none;
+  box-shadow: var(--s-shadow-lg);
+  max-width: 220px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.s-tooltip.visible { opacity: 1; }
+
+.s-tooltip-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.s-tooltip-row { display: flex; justify-content: space-between; gap: 16px; }
+.s-tooltip-label { color: var(--grey-light); }
+.s-tooltip-val { font-weight: 500; color: #fff; }
+
+.s-tooltip-sep { border: none; border-top: 1px solid #334155; margin: 5px 0; }
+
+/* ================================================================ */
+/*  21. PRODUCT CELL                                                 */
+/* ================================================================ */
+
+.s-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.s-product-thumb {
+  width: 30px;
+  height: 30px;
+  background: var(--s-subtle);
+  border: 1px solid var(--s-border-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.s-product-name {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.s-product-sku {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* ================================================================ */
+/*  22. SECTION LABEL (mono uppercase)                               */
+/* ================================================================ */
+
+.s-section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* ================================================================ */
+/*  23. EMPTY STATE                                                  */
+/* ================================================================ */
+
+.s-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
+.s-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+.s-empty-title { font-weight: 600; font-size: 13px; color: var(--text-secondary); }
+.s-empty-desc { font-size: 12px; }
+
+/* ================================================================ */
+/*  24. CARD                                                         */
+/* ================================================================ */
+
+.s-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-card);
+}
+
+.s-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.s-card-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
+.s-card-body { padding: 16px; }
+
+/* ================================================================ */
+/*  25. ANIMATIONS                                                   */
+/* ================================================================ */
+
+@keyframes s-fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes s-dropIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes s-flash {
+  0% { background: rgba(5, 150, 105, 0.08); }
+  100% { background: transparent; }
+}
+
+.s-animate-in { animation: s-fadeInUp 0.2s ease both; }
+.s-animate-drop { animation: s-dropIn 0.15s ease; }
+.s-animate-flash { animation: s-flash 0.6s ease; }
+
+/* ================================================================ */
+/*  26. VERSION TREE                                                 */
+/* ================================================================ */
+
+.s-vt-tree { position: relative; padding-left: 24px; }
+
+.s-vt-node {
+  position: relative; padding: 12px 16px; margin-bottom: 8px; margin-left: 20px;
+  border: 1px solid var(--card-border); background: var(--card-bg);
+  cursor: pointer; transition: all 0.15s;
+}
+
+.s-vt-node:hover { border-color: var(--text-muted); background: var(--s-hover); }
+
+.s-vt-node-active { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+
+.s-vt-node-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.s-vt-version-label { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.s-vt-version-name { font-family: var(--font-sans); font-size: 13px; color: var(--text-secondary); }
+.s-vt-version-total { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text-primary); margin-left: auto; }
+.s-vt-version-date { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.s-vt-children { margin-left: 24px; padding-left: 20px; border-left: 2px solid var(--s-border-sub); }
+.s-vt-confirmed-marker { font-family: var(--font-display); font-size: 11px; color: var(--green); font-weight: 700; letter-spacing: 0.04em; }
+
+/* ================================================================ */
+/*  27. PANEL                                                        */
+/* ================================================================ */
+
+.s-panel { background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; box-shadow: var(--shadow-card); }
+.s-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--card-border); background: var(--table-header-bg); }
+.s-panel-title { font-family: var(--font-display); font-size: 13px; font-weight: 600; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.04em; }
+.s-panel-body { padding: 20px; }
+
+/* ================================================================ */
+/*  28. EVENT STREAM                                                 */
+/* ================================================================ */
+
+.s-es-event-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--table-border); cursor: pointer; transition: background 0.1s; position: relative; }
+.s-es-event-row:hover { background: var(--table-row-hover); }
+.s-es-event-border { width: 3px; min-height: 36px; border-radius: 2px; flex-shrink: 0; align-self: stretch; }
+.s-es-border-create { background: var(--green); }
+.s-es-border-update { background: var(--blue); }
+.s-es-border-status { background: var(--amber); }
+.s-es-event-body { flex: 1; min-width: 0; }
+.s-es-event-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.s-es-event-name { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.s-es-event-actor { font-size: 12px; color: var(--text-secondary); font-family: var(--font-sans); }
+.s-es-event-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+.s-es-event-payload { margin-top: 8px; padding: 10px 14px; background: var(--base); border: 1px solid var(--s-border-sub); font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.s-es-payload-key { color: var(--text-muted); font-weight: 600; }
+
+/* ================================================================ */
+/*  29. STATE DIAGRAM                                                */
+/* ================================================================ */
+
+.s-sm-grid { display: grid; grid-template-columns: 200px 260px 1fr; gap: 20px; align-items: flex-start; }
+.s-sm-column { border: 2px solid var(--card-border); overflow: hidden; }
+.s-sm-column-draft { border-color: var(--grey); }
+.s-sm-column-quote { border-color: var(--blue); }
+.s-sm-column-order { border-color: var(--green); }
+.s-sm-col-header { padding: 12px 16px; font-family: var(--font-display); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 8px; }
+.s-sm-col-header-draft { background: rgba(100, 116, 139, 0.08); color: var(--grey); }
+.s-sm-col-header-quote { background: rgba(37, 99, 235, 0.08); color: var(--blue); }
+.s-sm-col-header-order { background: rgba(5, 150, 105, 0.08); color: var(--green); }
+.s-sm-col-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.s-sm-status-box { padding: 10px 14px; border: 1px solid var(--s-border-sub); cursor: pointer; transition: all 0.15s; background: var(--card-bg); position: relative; }
+.s-sm-status-box:hover { border-color: var(--text-muted); background: var(--s-hover); }
+.s-sm-status-box-active { border-color: var(--green); background: var(--green-muted); box-shadow: 0 0 0 1px var(--green); }
+.s-sm-status-name { font-family: var(--font-display); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.s-sm-status-value { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ================================================================ */
+/*  30. STAT CARDS                                                   */
+/* ================================================================ */
+
+.s-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.s-stat-card { background: var(--card-bg); border: 1px solid var(--card-border); padding: 14px 16px; display: flex; align-items: center; gap: 12px; transition: border-color 0.15s, box-shadow 0.15s; }
+.s-stat-card:hover { border-color: var(--s-border-sub); box-shadow: var(--shadow-card); }
+.s-stat-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.s-stat-icon svg { width: 18px; height: 18px; }
+.s-stat-icon-blue { background: var(--s-blue-bg); color: #2563eb; }
+.s-stat-icon-green { background: var(--s-green-bg); color: #16a34a; }
+.s-stat-icon-amber { background: var(--s-amber-bg); color: var(--amber); }
+.s-stat-icon-violet { background: var(--s-violet-bg); color: var(--violet); }
+.s-stat-label { font-family: var(--font-display); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+.s-stat-value { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+
+/* ================================================================ */
+/*  31. BUTTON DROPDOWN (select-style)                               */
+/* ================================================================ */
+
+.s-select {
+  font-family: var(--font-display); font-size: 12px; font-weight: 600;
+  padding: 7px 32px 7px 12px; background: var(--card-bg); border: 1px solid var(--card-border);
+  color: var(--text-primary); cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; transition: border-color 0.15s;
+}
+.s-select:hover { border-color: var(--green); }
+.s-select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 2px var(--green-muted); }
+
+/* ================================================================ */
+/*  32. MULTI-PANE                                                   */
+/* ================================================================ */
+
+.s-multi-pane { display: flex; gap: 20px; align-items: flex-start; }
+.s-multi-pane-sidebar { width: 260px; flex-shrink: 0; background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; }
+.s-multi-pane-sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--card-border); background: var(--table-header-bg); }
+.s-multi-pane-sidebar-title { font-family: var(--font-display); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.s-multi-pane-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--card-border); transition: background 0.15s; }
+.s-multi-pane-item:last-child { border-bottom: none; }
+.s-multi-pane-item:hover { background: var(--s-hover); }
+.s-multi-pane-item.active { background: var(--green); color: #ffffff; }
+.s-multi-pane-item-name { font-family: var(--font-sans); font-size: 13px; font-weight: 600; }
+.s-multi-pane-editor { flex: 1; min-width: 0; }
+
+/* ================================================================ */
+/*  33. TOGGLE                                                       */
+/* ================================================================ */
+
+.s-toggle { position: relative; width: 36px; height: 20px; background: var(--s-border-sub); border-radius: 10px; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+.s-toggle.on { background: var(--green); }
+.s-toggle-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.s-toggle.on .s-toggle-knob { transform: translateX(16px); }
+
+/* ================================================================ */
+/*  34. SIDEBAR                                                      */
+/* ================================================================ */
+
+.s-sidebar { width: 260px; flex-shrink: 0; background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; box-shadow: var(--shadow-card); }
+.s-sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--card-border); background: var(--table-header-bg); }
+.s-sidebar-title { font-family: var(--font-display); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.s-sidebar-group-label { font-family: var(--font-mono); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 12px 16px 6px; }
+.s-sidebar-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.12s; }
+.s-sidebar-item:hover { background: var(--s-hover); }
+.s-sidebar-item.active { background: var(--green-muted); border-left-color: var(--green); }
+.s-sidebar-item-name { flex: 1; font-family: var(--font-sans); font-size: 12px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-sidebar-item-badge { font-family: var(--font-display); font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; white-space: nowrap; }
+.s-sidebar-item-badge-system { background: var(--s-blue-bg); color: #2563eb; }
+.s-sidebar-item-badge-personal { background: var(--s-green-bg); color: #16a34a; }
+.s-sidebar-item-badge-role { background: var(--s-amber-bg); color: var(--amber); }
+
+/* ================================================================ */
+/*  35. COLUMN CONFIG                                                */
+/* ================================================================ */
+
+.s-column-config { background: var(--card-bg); border: 1px solid var(--card-border); padding: 16px; box-shadow: var(--shadow-card); }
+.s-column-config-title { font-family: var(--font-display); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-primary); margin-bottom: 12px; }
+.s-column-config-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--s-border-sub); }
+.s-column-config-item:last-child { border-bottom: none; }
+.s-column-config-handle { width: 16px; height: 16px; color: var(--text-muted); cursor: grab; opacity: 0.5; }
+.s-column-config-name { flex: 1; font-family: var(--font-sans); font-size: 12px; color: var(--text-primary); }
+
+/* ================================================================ */
+/*  36. UNSAVED BAR                                                  */
+/* ================================================================ */
+
+.s-unsaved-bar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--navy); color: #ffffff; }
+.s-unsaved-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); animation: s-pulse 2s ease-in-out infinite; flex-shrink: 0; }
+.s-unsaved-text { font-family: var(--font-display); font-size: 12px; font-weight: 600; flex: 1; }
+
+/* ================================================================ */
+/*  37. TOGGLE ROW                                                   */
+/* ================================================================ */
+
+.s-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--s-border-sub); }
+.s-toggle-row:last-child { border-bottom: none; }
+.s-toggle-label { font-family: var(--font-sans); font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.s-toggle-desc { font-family: var(--font-sans); font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ================================================================ */
+/*  38. COLOUR PICKER                                                */
+/* ================================================================ */
+
+.s-colour-picker { display: flex; align-items: center; gap: 10px; }
+.s-colour-swatch { width: 36px; height: 36px; border: 2px solid var(--s-border-sub); cursor: pointer; transition: border-color 0.15s; }
+.s-colour-swatch:hover { border-color: var(--green); }
+.s-colour-value { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+
+/* ================================================================ */
+/*  39. UPLOAD ZONE                                                  */
+/* ================================================================ */
+
+.s-upload-zone { width: 160px; height: 100px; border: 2px dashed var(--s-border-sub); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: border-color 0.15s, background 0.15s; background: var(--base); }
+.s-upload-zone:hover { border-color: var(--green); background: var(--s-green-bg); }
+.s-upload-icon { width: 24px; height: 24px; color: var(--text-muted); }
+.s-upload-label { font-family: var(--font-display); font-size: 11px; color: var(--text-muted); font-weight: 500; }
+
+/* ================================================================ */
+/*  40. MATRIX                                                       */
+/* ================================================================ */
+
+.s-matrix { border: 1px solid var(--card-border); overflow-x: auto; }
+.s-matrix table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.s-matrix th { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); background: var(--table-header-bg); padding: 8px 12px; border: 1px solid var(--card-border); text-align: center; }
+.s-matrix td { padding: 8px 12px; border: 1px solid var(--s-border-sub); text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+
+/* ================================================================ */
+/*  41. STATUS BADGE                                                 */
+/* ================================================================ */
+
+.s-status-badge { display: inline-flex; align-items: center; font-family: var(--font-display); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 10px; white-space: nowrap; }
+.s-status-active { background: var(--s-green-bg); color: #16a34a; }
+.s-status-disabled { background: var(--s-amber-bg); color: var(--amber); }
+.s-status-error { background: var(--s-red-bg); color: var(--red); }
+
+/* ================================================================ */
+/*  42. STARS                                                        */
+/* ================================================================ */
+
+.s-stars { display: flex; align-items: center; gap: 2px; }
+.s-star { width: 12px; height: 12px; }
+.s-star-filled { color: #fbbf24; }
+.s-star-empty { color: var(--s-border-sub); }
+
+/* ================================================================ */
+/*  43. JSON VIEWER                                                  */
+/* ================================================================ */
+
+.s-json-viewer { background: rgba(15, 23, 42, 0.96); padding: 16px 20px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: #e2e8f0; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.s-json-key { color: #7dd3fc; }
+.s-json-string { color: #86efac; }
+.s-json-number { color: #fbbf24; }
+.s-json-bool { color: #c084fc; }
+.s-json-null { color: #94a3b8; }
+
+/* ================================================================ */
+/*  44. PARSED VIEW                                                  */
+/* ================================================================ */
+
+.s-parsed-view { background: rgba(15, 23, 42, 0.96); max-height: 500px; overflow-y: auto; }
+.s-parsed-view-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.s-parsed-view-title { font-family: var(--font-display); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; }
+.s-parsed-section { border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.s-parsed-section:last-child { border-bottom: none; }
+.s-parsed-section-header { display: flex; align-items: center; gap: 8px; padding: 10px 16px; cursor: pointer; transition: background 0.12s; }
+.s-parsed-section-header:hover { background: rgba(255, 255, 255, 0.04); }
+.s-parsed-section-name { font-family: var(--font-display); font-size: 12px; font-weight: 600; color: #e2e8f0; }
+.s-parsed-section-body { padding: 0 16px 12px; }
+.s-parsed-kv { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; font-size: 11px; }
+.s-parsed-kv-key { font-family: var(--font-display); color: #94a3b8; font-weight: 500; }
+.s-parsed-kv-val { font-family: var(--font-mono); color: #e2e8f0; }
+
+/* ================================================================ */
+/*  45. FORM SECTION                                                 */
+/* ================================================================ */
+
+.s-form-section { background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--shadow-card); }
+.s-form-section-header { padding: 12px 16px; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; }
+.s-form-section-title { font-family: var(--font-display); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.s-form-section-title svg { width: 14px; height: 14px; color: var(--text-muted); }
+.s-form-section-body { padding: 16px; }
+
+/* ================================================================ */
+/*  46. MULTIPLIER TABLE                                             */
+/* ================================================================ */
+
+.s-multiplier-table { width: 100%; border-collapse: collapse; }
+.s-multiplier-table th { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--card-border); }
+.s-multiplier-table td { padding: 6px 10px; border-bottom: 1px solid var(--s-border-sub); vertical-align: middle; }
+.s-multiplier-input { width: 80px; padding: 5px 8px; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--s-border-sub); background: var(--card-bg); color: var(--text-primary); text-align: right; transition: border-color 0.15s; }
+.s-multiplier-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 2px var(--green-muted); }
+
+/* ================================================================ */
+/*  47. STRATEGY SELECTOR                                            */
+/* ================================================================ */
+
+.s-strategy-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.s-strategy-card { padding: 16px; border: 2px solid var(--card-border); background: var(--card-bg); cursor: pointer; transition: all 0.15s; text-align: center; }
+.s-strategy-card:hover { border-color: var(--text-muted); }
+.s-strategy-card.selected { border-color: var(--green); background: var(--green-muted); }
+.s-strategy-icon { width: 36px; height: 36px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; }
+.s-strategy-icon svg { width: 20px; height: 20px; }
+.s-strategy-icon-period { background: var(--s-green-bg); color: #16a34a; }
+.s-strategy-icon-usage { background: var(--s-amber-bg); color: var(--amber); }
+.s-strategy-icon-fixed { background: var(--s-blue-bg); color: #2563eb; }
+.s-strategy-icon-hybrid { background: var(--s-violet-bg); color: var(--violet); }
+.s-strategy-name { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.s-strategy-desc { font-family: var(--font-sans); font-size: 10px; color: var(--text-muted); line-height: 1.4; }
+
+/* ================================================================ */
+/*  48. BAR CHART                                                    */
+/* ================================================================ */
+
+.s-bar-chart { background: var(--card-bg); border: 1px solid var(--card-border); padding: 20px; }
+.s-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.s-bar-row:last-child { margin-bottom: 0; }
+.s-bar-label { font-family: var(--font-display); font-size: 12px; font-weight: 600; color: var(--text-primary); min-width: 100px; text-align: right; }
+.s-bar-track { flex: 1; height: 24px; background: var(--s-hover); position: relative; overflow: hidden; }
+.s-bar-fill { height: 100%; display: flex; align-items: center; padding-left: 8px; min-width: 30px; }
+.s-bar-fill-red { background: var(--red); }
+.s-bar-fill-amber { background: var(--amber); }
+.s-bar-fill-green { background: var(--green); }
+.s-bar-fill-blue { background: #2563eb; }
+.s-bar-value { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: white; }
+
+/* ================================================================ */
+/*  49. QTY BAR                                                      */
+/* ================================================================ */
+
+.s-qty-bar { display: flex; flex-direction: column; gap: 4px; }
+.s-qty-bar-track { height: 8px; background: rgba(220, 38, 38, 0.15); overflow: hidden; display: flex; }
+.s-qty-bar-fill { height: 100%; background: var(--green); transition: width 0.4s ease; }
+.s-qty-bar-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+
+/* ================================================================ */
+/*  50. DISPATCH URGENCY                                             */
+/* ================================================================ */
+
+.s-dispatch-urgency { font-family: var(--font-display); font-size: 11px; font-weight: 700; }
+.s-dispatch-critical { color: var(--red); }
+.s-dispatch-warning { color: var(--amber); }
+.s-dispatch-normal { color: var(--text-secondary); }
+
+/* ================================================================ */
+/*  51. GRID TABLE                                                   */
+/* ================================================================ */
+
+.s-grid-table { background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; }
+.s-grid-table-header { display: grid; background: var(--table-header-bg); border-bottom: 1px solid var(--table-border); padding: 0 16px; }
+.s-grid-th { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 10px 8px; }
+.s-grid-table-row { display: grid; padding: 0 16px; border-bottom: 1px solid var(--table-border); transition: background 0.1s; align-items: center; }
+.s-grid-table-row:last-child { border-bottom: none; }
+.s-grid-table-row:hover { background: var(--table-row-hover); }
+.s-grid-td { padding: 10px 8px; font-family: var(--font-sans); font-size: 13px; color: var(--text-primary); }
+.s-grid-td-mono { font-family: var(--font-mono); font-size: 12px; }
+.s-grid-td-muted { color: var(--text-muted); font-size: 12px; }
+
+/* ================================================================ */
+/*  52. WYSIWYG                                                      */
+/* ================================================================ */
+
+.s-editor-toolbar { display: flex; align-items: center; gap: 2px; padding: 8px 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-bottom: none; }
+.s-toolbar-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid transparent; cursor: pointer; color: var(--text-secondary); transition: all 0.12s; }
+.s-toolbar-btn:hover { background: var(--s-hover); border-color: var(--s-border-sub); color: var(--text-primary); }
+.s-toolbar-btn svg { width: 14px; height: 14px; }
+.s-editor-textarea { width: 100%; min-height: 200px; padding: 16px; font-family: var(--font-mono); font-size: 13px; line-height: 1.8; color: var(--text-primary); border: 1px solid var(--card-border); background: var(--card-bg); resize: vertical; outline: none; transition: border-color 0.15s; }
+.s-editor-textarea:focus { border-color: var(--green); }
+
+/* ================================================================ */
+/*  53. VIZ BUTTONS                                                  */
+/* ================================================================ */
+
+.s-viz-btns { display: flex; align-items: center; background: var(--base); padding: 2px; gap: 2px; }
+.s-viz-btn { width: 30px; height: 26px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; color: var(--text-muted); transition: all 0.12s; }
+.s-viz-btn:hover { color: var(--text-primary); background: var(--s-hover); }
+.s-viz-btn.active { color: var(--text-primary); background: var(--card-bg); box-shadow: var(--shadow-card); }
+.s-viz-btn svg { width: 14px; height: 14px; }
+
+/* ================================================================ */
+/*  54. REPORT SIDEBAR                                               */
+/* ================================================================ */
+
+.s-report-sidebar { width: 280px; flex-shrink: 0; background: var(--card-bg); border: 1px solid var(--card-border); display: flex; flex-direction: column; overflow: hidden; }
+.s-report-sidebar-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+.s-report-group-label { font-family: var(--font-display); font-weight: 600; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); padding: 12px 16px 6px; }
+.s-report-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.12s; }
+.s-report-item:hover { background: var(--s-hover); }
+.s-report-item.active { background: var(--green-muted); border-left-color: var(--green); }
+.s-report-name { flex: 1; font-family: var(--font-sans); font-size: 12px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-report-source { font-family: var(--font-display); font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; background: var(--s-blue-bg); color: #2563eb; white-space: nowrap; }
+
+/* ================================================================ */
+/*  55. PIN                                                          */
+/* ================================================================ */
+
+.s-pin-btn { background: none; border: none; cursor: pointer; padding: 2px; color: var(--text-muted); opacity: 0.4; transition: opacity 0.15s, color 0.15s; display: flex; align-items: center; }
+.s-pin-btn:hover, .s-pin-btn.pinned { opacity: 1; color: var(--amber); }
+
+/* ================================================================ */
+/*  56. COLLAPSIBLE                                                  */
+/* ================================================================ */
+
+.s-collapsible { background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--shadow-card); }
+.s-collapsible-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; user-select: none; transition: background 0.12s; }
+.s-collapsible-toggle:hover { background: var(--s-hover); }
+.s-collapsible-label { font-family: var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+.s-collapsible-chevron { width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s; }
+.s-collapsible-chevron.open { transform: rotate(180deg); }
+.s-collapsible-body { padding: 0 16px 16px; }
+
+/* ================================================================ */
+/*  57. ZOOM CONTROLS                                                */
+/* ================================================================ */
+
+.s-zoom { display: inline-flex; align-items: center; border: 1px solid var(--card-border); background: var(--card-bg); }
+.s-zoom-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; color: var(--text-secondary); transition: all 0.12s; }
+.s-zoom-btn:hover { background: var(--s-hover); color: var(--text-primary); }
+.s-zoom-btn svg { width: 14px; height: 14px; }
+.s-zoom-level { padding: 0 8px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); border-left: 1px solid var(--card-border); border-right: 1px solid var(--card-border); display: flex; align-items: center; height: 28px; min-width: 40px; justify-content: center; }
+
+/* ================================================================ */
+/*  58. STEPPER                                                      */
+/* ================================================================ */
+
+.s-stepper { display: flex; align-items: center; justify-content: center; gap: 0; padding: 16px 0; }
+.s-stepper-stage { display: flex; align-items: center; gap: 0; }
+.s-stepper-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 12px; font-weight: 700; border: 2px solid var(--s-border-sub); color: var(--text-muted); background: var(--card-bg); transition: all 0.3s; position: relative; z-index: 2; }
+.s-stepper-circle.done { border-color: var(--green); background: var(--green); color: #ffffff; }
+.s-stepper-circle.active { border-color: var(--green); color: var(--green); box-shadow: 0 0 0 3px var(--green-muted); }
+.s-stepper-circle svg { width: 14px; height: 14px; }
+.s-stepper-label { font-family: var(--font-display); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.s-stepper-circle.active .s-stepper-label, .s-stepper-circle.done .s-stepper-label { color: var(--text-secondary); }
+.s-stepper-line { width: 60px; height: 2px; background: var(--s-border-sub); transition: background 0.3s; z-index: 1; }
+.s-stepper-line.done { background: var(--green); }
+
+/* ================================================================ */
+/*  59. DROPZONE                                                     */
+/* ================================================================ */
+
+.s-dropzone { border: 2px dashed var(--s-border-sub); padding: 40px 24px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.s-dropzone:hover { border-color: var(--green); background: var(--green-muted); }
+.s-dropzone-icon { width: 40px; height: 40px; margin: 0 auto 12px; color: var(--text-muted); opacity: 0.5; }
+.s-dropzone-text { font-family: var(--font-sans); font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+.s-dropzone-hint { font-family: var(--font-sans); font-size: 11px; color: var(--text-muted); }
+
+/* ================================================================ */
+/*  60. FORMAT SELECTOR                                              */
+/* ================================================================ */
+
+.s-format-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.s-format-card { padding: 14px; border: 2px solid var(--card-border); background: var(--card-bg); cursor: pointer; text-align: center; transition: all 0.15s; }
+.s-format-card:hover { border-color: var(--text-muted); }
+.s-format-card.selected { border-color: var(--green); background: var(--green-muted); }
+.s-format-card-icon { font-size: 20px; margin-bottom: 6px; }
+.s-format-card-label { font-family: var(--font-display); font-size: 11px; font-weight: 600; color: var(--text-primary); }
+
+/* ================================================================ */
+/*  61. PROGRESS BAR                                                 */
+/* ================================================================ */
+
+.s-progress { height: 6px; background: rgba(0, 0, 0, 0.06); overflow: hidden; width: 100%; }
+.dark .s-progress { background: rgba(255, 255, 255, 0.08); }
+.s-progress-bar { height: 100%; background: var(--green); transition: width 0.4s ease; }
+.s-progress-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.s-progress-text { font-family: var(--font-display); font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.s-progress-pct { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--green); }

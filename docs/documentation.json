@@ -23,6 +23,14 @@
             "pages": [
                 { "title": "API Overview", "slug": "overview" }
             ]
+        },
+        {
+            "title": "Development",
+            "slug": "development",
+            "pages": [
+                { "title": "Getting Started", "slug": "getting-started" },
+                { "title": "Component Library", "slug": "library", "type": "blade", "view": "docs.components.library" }
+            ]
         }
     ]
 }

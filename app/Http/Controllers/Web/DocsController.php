@@ -119,11 +119,9 @@ class DocsController extends Controller
         $sectionTitle = collect($navigation['sections'])
             ->firstWhere('slug', $section)['title'] ?? $section;
 
-        return view('docs.show', [
+        $viewData = [
             'title' => $content['title'],
             'description' => $content['description'],
-            'html' => $content['html'],
-            'toc' => $content['toc'],
             'navigation' => $navigation,
             'currentSection' => $section,
             'currentPage' => $page,
@@ -131,6 +129,17 @@ class DocsController extends Controller
             'prev' => $adjacent['prev'],
             'next' => $adjacent['next'],
             'searchDataJson' => json_encode($this->docs->getSearchIndex(), JSON_THROW_ON_ERROR),
-        ]);
+        ];
+
+        if (($content['type'] ?? null) === 'blade') {
+            return view('docs.blade', array_merge($viewData, [
+                'bladeView' => $content['view'],
+            ]));
+        }
+
+        return view('docs.show', array_merge($viewData, [
+            'html' => $content['html'],
+            'toc' => $content['toc'],
+        ]));
     }
 }
