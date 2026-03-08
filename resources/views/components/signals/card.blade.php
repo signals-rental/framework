@@ -10,4 +10,7 @@
     <div class="s-card-body">
         {{ $slot }}
     </div>
+    @isset($footer)
+        <div class="s-card-footer">{{ $footer }}</div>
+    @endisset
 </div>
