@@ -37,6 +37,18 @@ new #[Layout('components.layouts.auth')] class extends Component {
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        if (Auth::user()->hasTwoFactorEnabled()) {
+            $userId = Auth::id();
+            Auth::logout();
+            Session::forget('two_factor_confirmed');
+            Session::regenerate();
+            Session::put('two_factor_user_id', $userId);
+            $this->redirect(route('two-factor.challenge'), navigate: true);
+
+            return;
+        }
+
         Session::regenerate();
 
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);

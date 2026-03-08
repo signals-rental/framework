@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
             'signals.setup-required' => \App\Http\Middleware\EnsureSetupRequired::class,
             'signals.setup-complete' => \App\Http\Middleware\EnsureSetupComplete::class,
+            '2fa' => \App\Http\Middleware\EnsureTwoFactorAuthenticated::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

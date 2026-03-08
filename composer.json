@@ -22,6 +22,7 @@
         "php": "^8.4",
         "ext-pdo_pgsql": "*",
         "ext-redis": "*",
+        "bacon/bacon-qr-code": "^3.0",
         "dedoc/scramble": "^0.13.14",
         "laravel/ai": "^0.2",
         "laravel/cashier": "^15.0",
@@ -40,6 +41,7 @@
         "livewire/flux": "^2.0",
         "livewire/livewire": "^4.0",
         "livewire/volt": "^1.6",
+        "pragmarx/google2fa-laravel": "^2.3",
         "symfony/yaml": "^8.0"
     },
     "require-dev": {

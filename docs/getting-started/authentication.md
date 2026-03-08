@@ -29,6 +29,33 @@ The reset link expires after 60 minutes. Click the link in the email to set a ne
 
 When email verification is enabled, new users and users who change their email address will be prompted to verify before continuing. A verification email is sent automatically, and can be resent from the verification page.
 
+## Two-Factor Authentication
+
+Two-factor authentication (2FA) adds an extra layer of security by requiring a time-based one-time code from an authenticator app in addition to your password.
+
+### Enabling 2FA
+
+1. Go to **Settings → Profile** and scroll to the **Two-Factor Authentication** section.
+2. Click **Enable** and confirm your password.
+3. Scan the QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.), or enter the setup key manually.
+4. Enter the 6-digit code from your app to confirm setup.
+
+### Recovery Codes
+
+After confirming 2FA, you'll be shown 8 recovery codes. Save these somewhere secure — they are the only way to regain access if you lose your authenticator app. Each code can only be used once.
+
+You can view your current recovery codes or generate a fresh set from the 2FA section at any time.
+
+### Login with 2FA
+
+When 2FA is enabled, after entering your email and password you'll be redirected to a verification page. Enter the 6-digit code from your authenticator app to complete sign-in.
+
+If you don't have access to your authenticator app, click **Use a recovery code instead** and enter one of your saved recovery codes.
+
+### Disabling 2FA
+
+Click **Disable** in the Two-Factor Authentication section and confirm your password. This immediately removes 2FA from your account.
+
 ## Settings
 
 Once logged in, access your account settings from the user dropdown in the top-right corner. Settings are organised into three tabs.
@@ -39,7 +66,7 @@ Once logged in, access your account settings from the user dropdown in the top-r
 
 Update your display name and email address. If you change your email, you'll need to re-verify it before the change takes full effect.
 
-This page also includes the option to **delete your account** — this permanently removes your user and all associated data. You must confirm with your current password.
+The Profile page also contains the **Two-Factor Authentication** section (see above) and the option to **delete your account** — this permanently removes your user and all associated data. You must confirm with your current password.
 
 ### Password
 

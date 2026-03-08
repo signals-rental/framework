@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
 Route::middleware('signals.setup-complete')->group(function () {
+    Volt::route('two-factor-challenge', 'auth.two-factor-challenge')
+        ->name('two-factor.challenge');
+
     Route::middleware('guest')->group(function () {
         Volt::route('login', 'auth.login')
             ->name('login');

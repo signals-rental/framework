@@ -2,9 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use PragmaRX\Google2FA\Google2FA;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
@@ -61,5 +64,21 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'is_admin' => true,
         ]);
+    }
+
+    /**
+     * Indicate the user has two-factor authentication fully enabled.
+     */
+    public function withTwoFactor(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            $secret = app(Google2FA::class)->generateSecretKey();
+            $recoveryCodes = Collection::times(8, fn () => Str::upper(Str::random(4)).'-'.Str::upper(Str::random(4)))->toJson();
+
+            $user->forceFill([
+                'two_factor_secret' => $secret,
+                'two_factor_recovery_codes' => $recoveryCodes,
+            ])->save();
+        });
     }
 }
