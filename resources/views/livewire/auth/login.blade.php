@@ -87,38 +87,33 @@ new #[Layout('components.layouts.auth')] class extends Component {
 <div class="flex flex-col gap-6">
     <x-auth-header title="Log in to your account" description="Enter your email and password below to log in" />
 
-    <!-- Session Status -->
-    <x-auth-session-status class="text-center" :status="session('status')" />
+    @if (session('status'))
+        <x-signals.alert type="success">{{ session('status') }}</x-signals.alert>
+    @endif
 
-    <form wire:submit="login" class="flex flex-col gap-6">
-        <!-- Email Address -->
-        <flux:input wire:model="email" label="{{ __('Email address') }}" type="email" name="email" required autofocus autocomplete="email" placeholder="email@example.com" />
-
-        <!-- Password -->
-        <div class="relative">
-            <flux:input
-                wire:model="password"
-                label="{{ __('Password') }}"
-                type="password"
-                name="password"
-                required
-                autocomplete="current-password"
-                placeholder="Password"
-            />
-
-            @if (Route::has('password.request'))
-                <x-text-link class="absolute right-0 top-0" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
-                </x-text-link>
-            @endif
+    <form wire:submit="login" class="flex flex-col gap-5">
+        <div class="s-field !mb-0 {{ $errors->has('email') ? 'has-error' : '' }}">
+            <label class="s-field-label">{{ __('Email address') }}</label>
+            <input wire:model="email" type="email" name="email" class="s-input" required autofocus autocomplete="email" placeholder="email@example.com">
+            @error('email') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
 
-        <!-- Remember Me -->
-        <flux:checkbox wire:model="remember" label="{{ __('Remember me') }}" />
-
-        <div class="flex items-center justify-end">
-            <flux:button variant="primary" type="submit" class="w-full">{{ __('Log in') }}</flux:button>
+        <div class="s-field !mb-0 {{ $errors->has('password') ? 'has-error' : '' }}">
+            <div class="flex items-center justify-between">
+                <label class="s-field-label">{{ __('Password') }}</label>
+                @if (Route::has('password.request'))
+                    <a href="{{ route('password.request') }}" wire:navigate class="signals-auth-description underline hover:opacity-80 transition-opacity">{{ __('Forgot your password?') }}</a>
+                @endif
+            </div>
+            <input wire:model="password" type="password" name="password" class="s-input" required autocomplete="current-password" placeholder="Password">
+            @error('password') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
+
+        <label class="flex items-center gap-2 cursor-pointer">
+            <x-signals.checkbox x-bind:class="{ 'checked': $wire.remember }" x-on:click="$wire.remember = !$wire.remember" />
+            <span class="signals-auth-description">{{ __('Remember me') }}</span>
+        </label>
+
+        <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Log in') }}</button>
     </form>
-
 </div>

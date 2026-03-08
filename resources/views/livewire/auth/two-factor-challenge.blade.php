@@ -135,46 +135,30 @@ new #[Layout('components.layouts.auth')] class extends Component {
         description="{{ $useRecovery ? __('Enter one of your recovery codes to continue.') : __('Enter the authentication code from your app to continue.') }}"
     />
 
-    <form wire:submit="authenticate" class="flex flex-col gap-6">
+    <form wire:submit="authenticate" class="flex flex-col gap-5">
         @if (! $useRecovery)
-            <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium text-[var(--text-primary)]">{{ __('Authentication code') }}</label>
+            <div class="s-field !mb-0 {{ $errors->has('code') ? 'has-error' : '' }}">
+                <label class="s-field-label">{{ __('Authentication code') }}</label>
                 <x-signals.otp-input
                     length="6"
                     x-on:otp-complete="$wire.set('code', $event.detail.code)"
                 />
-                @error('code')
-                    <p class="text-sm text-red-600">{{ $message }}</p>
-                @enderror
+                @error('code') <div class="s-field-error">{{ $message }}</div> @enderror
             </div>
         @else
-            <flux:input
-                wire:model="recoveryCode"
-                label="{{ __('Recovery code') }}"
-                type="text"
-                name="recovery_code"
-                required
-                autocomplete="one-time-code"
-                placeholder="XXXX-XXXX"
-            />
+            <div class="s-field !mb-0 {{ $errors->has('recoveryCode') ? 'has-error' : '' }}">
+                <label class="s-field-label">{{ __('Recovery code') }}</label>
+                <input wire:model="recoveryCode" type="text" name="recovery_code" class="s-input" required autocomplete="one-time-code" placeholder="XXXX-XXXX">
+                @error('recoveryCode') <div class="s-field-error">{{ $message }}</div> @enderror
+            </div>
         @endif
 
-        <flux:button variant="primary" type="submit" class="w-full">
-            {{ __('Verify') }}
-        </flux:button>
+        <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Verify') }}</button>
     </form>
 
     <div class="text-center">
-        <button
-            wire:click="toggleRecovery"
-            type="button"
-            class="text-sm text-[var(--text-secondary)] underline hover:text-[var(--text-primary)]"
-        >
-            @if ($useRecovery)
-                {{ __('Use an authentication app instead') }}
-            @else
-                {{ __('Use a recovery code instead') }}
-            @endif
+        <button wire:click="toggleRecovery" type="button" class="s-btn s-btn-ghost s-btn-sm">
+            {{ $useRecovery ? __('Use an authentication app instead') : __('Use a recovery code instead') }}
         </button>
     </div>
 </div>

@@ -71,47 +71,29 @@ new #[Layout('components.layouts.auth')] class extends Component {
 <div class="flex flex-col gap-6">
     <x-auth-header title="Reset password" description="Please enter your new password below" />
 
-    <!-- Session Status -->
-    <x-auth-session-status class="text-center" :status="session('status')" />
+    @if (session('status'))
+        <x-signals.alert type="success">{{ session('status') }}</x-signals.alert>
+    @endif
 
-    <form wire:submit="resetPassword" class="flex flex-col gap-6">
-        <!-- Email Address -->
-        <div class="grid gap-2">
-            <flux:input wire:model="email" id="email" label="{{ __('Email') }}" type="email" name="email" required autocomplete="email" />
+    <form wire:submit="resetPassword" class="flex flex-col gap-5">
+        <div class="s-field !mb-0 {{ $errors->has('email') ? 'has-error' : '' }}">
+            <label class="s-field-label">{{ __('Email') }}</label>
+            <input wire:model="email" type="email" name="email" class="s-input" required autocomplete="email">
+            @error('email') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
 
-        <!-- Password -->
-        <div class="grid gap-2">
-            <flux:input
-                wire:model="password"
-                id="password"
-                label="{{ __('Password') }}"
-                type="password"
-                name="password"
-                required
-                autocomplete="new-password"
-                placeholder="Password"
-            />
+        <div class="s-field !mb-0 {{ $errors->has('password') ? 'has-error' : '' }}">
+            <label class="s-field-label">{{ __('Password') }}</label>
+            <input wire:model="password" type="password" name="password" class="s-input" required autocomplete="new-password" placeholder="Password">
+            @error('password') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
 
-        <!-- Confirm Password -->
-        <div class="grid gap-2">
-            <flux:input
-                wire:model="password_confirmation"
-                id="password_confirmation"
-                label="{{ __('Confirm password') }}"
-                type="password"
-                name="password_confirmation"
-                required
-                autocomplete="new-password"
-                placeholder="Confirm password"
-            />
+        <div class="s-field !mb-0 {{ $errors->has('password_confirmation') ? 'has-error' : '' }}">
+            <label class="s-field-label">{{ __('Confirm password') }}</label>
+            <input wire:model="password_confirmation" type="password" name="password_confirmation" class="s-input" required autocomplete="new-password" placeholder="Confirm password">
+            @error('password_confirmation') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
 
-        <div class="flex items-center justify-end">
-            <flux:button type="submit" variant="primary" class="w-full">
-                {{ __('Reset password') }}
-            </flux:button>
-        </div>
+        <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Reset password') }}</button>
     </form>
 </div>

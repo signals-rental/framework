@@ -38,24 +38,17 @@ new #[Layout('components.layouts.auth')] class extends Component {
         description="This is a secure area of the application. Please confirm your password before continuing."
     />
 
-    <!-- Session Status -->
-    <x-auth-session-status class="text-center" :status="session('status')" />
+    @if (session('status'))
+        <x-signals.alert type="success">{{ session('status') }}</x-signals.alert>
+    @endif
 
-    <form wire:submit="confirmPassword" class="flex flex-col gap-6">
-        <!-- Password -->
-        <div class="grid gap-2">
-            <flux:input
-                wire:model="password"
-                id="password"
-                label="{{ __('Password') }}"
-                type="password"
-                name="password"
-                required
-                autocomplete="new-password"
-                placeholder="Password"
-            />
+    <form wire:submit="confirmPassword" class="flex flex-col gap-5">
+        <div class="s-field !mb-0 {{ $errors->has('password') ? 'has-error' : '' }}">
+            <label class="s-field-label">{{ __('Password') }}</label>
+            <input wire:model="password" type="password" name="password" class="s-input" required autocomplete="current-password" placeholder="Password">
+            @error('password') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
 
-        <flux:button variant="primary" type="submit" class="w-full">{{ __('Confirm') }}</flux:button>
+        <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Confirm') }}</button>
     </form>
 </div>
