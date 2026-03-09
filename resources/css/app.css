@@ -764,8 +764,7 @@ select:focus[data-flux-control] {
 /* ================================================================ */
 
 .app-footer {
-    position: sticky;
-    bottom: 0;
+    margin-top: auto;
     z-index: 20;
     padding: 24px 32px;
     display: flex;

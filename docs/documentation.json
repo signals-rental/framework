@@ -14,7 +14,8 @@
             "title": "Platform",
             "slug": "platform",
             "pages": [
-                { "title": "Dashboard", "slug": "dashboard" }
+                { "title": "Dashboard", "slug": "dashboard" },
+                { "title": "Admin Panel", "slug": "admin-panel" }
             ]
         },
         {

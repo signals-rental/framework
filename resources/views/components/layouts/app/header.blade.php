@@ -133,6 +133,12 @@
                                 <flux:icon.cog-6-tooth class="mega-item-icon" />
                                 <span class="mega-item-label">Settings</span>
                             </a>
+                            @if(auth()->user()?->is_admin || auth()->user()?->is_owner)
+                                <a href="{{ route('admin.settings.company') }}" class="mega-item" wire:navigate>
+                                    <flux:icon.wrench-screwdriver class="mega-item-icon" />
+                                    <span class="mega-item-label">Admin</span>
+                                </a>
+                            @endif
                             <a href="{{ route('docs.index') }}" class="mega-item" target="_blank">
                                 <flux:icon.book-open class="mega-item-icon" />
                                 <span class="mega-item-label">Documentation</span>
@@ -173,35 +179,71 @@
                 <flux:icon.x-mark class="!size-5" />
             </button>
 
-            <div class="sidebar-group-label">Platform</div>
-            <a class="sidebar-item {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
-                <flux:icon.squares-2x2 class="!size-[15px]" /> Dashboard
-            </a>
+            @if(request()->is('admin*'))
+                {{-- Admin mobile sidebar --}}
+                <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.arrow-left class="!size-[15px]" /> Back to app
+                </a>
 
-            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
-            <div class="sidebar-group-label">Operations</div>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.queue-list class="!size-[15px]" /> Opportunities</a>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.cube class="!size-[15px]" /> Products</a>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.archive-box class="!size-[15px]" /> Stock</a>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.document-text class="!size-[15px]" /> Invoices</a>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.calendar-days class="!size-[15px]" /> Schedule</a>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.truck class="!size-[15px]" /> Transport</a>
+                <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+                <div class="sidebar-group-label">Admin</div>
+                <a class="sidebar-item {{ request()->is('admin/settings*') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.cog-6-tooth class="!size-[15px]" /> Settings
+                </a>
+            @elseif(request()->routeIs('settings.*'))
+                {{-- Settings mobile sidebar --}}
+                <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.arrow-left class="!size-[15px]" /> Back to app
+                </a>
 
-            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
-            <div class="sidebar-group-label">CRM</div>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.user-group class="!size-[15px]" /> Members</a>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.calendar-days class="!size-[15px]" /> Activities</a>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.folder class="!size-[15px]" /> Projects</a>
+                <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+                <div class="sidebar-group-label">Settings</div>
+                <a class="sidebar-item {{ request()->routeIs('settings.profile') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.user class="!size-[15px]" /> Profile
+                </a>
+                <a class="sidebar-item {{ request()->routeIs('settings.password') ? 'active' : '' }}" href="{{ route('settings.password') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.key class="!size-[15px]" /> Password
+                </a>
+                <a class="sidebar-item {{ request()->routeIs('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.swatch class="!size-[15px]" /> Appearance
+                </a>
+            @else
+                {{-- Normal mobile sidebar --}}
+                <div class="sidebar-group-label">Platform</div>
+                <a class="sidebar-item {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.squares-2x2 class="!size-[15px]" /> Dashboard
+                </a>
 
-            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
-            <div class="sidebar-group-label">Insights</div>
-            <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.chart-bar class="!size-[15px]" /> Reports</a>
+                <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+                <div class="sidebar-group-label">Operations</div>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.queue-list class="!size-[15px]" /> Opportunities</a>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.cube class="!size-[15px]" /> Products</a>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.archive-box class="!size-[15px]" /> Stock</a>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.document-text class="!size-[15px]" /> Invoices</a>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.calendar-days class="!size-[15px]" /> Schedule</a>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.truck class="!size-[15px]" /> Transport</a>
 
-            <div class="flex-1"></div>
-            <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
-            <a class="sidebar-item {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate x-on:click="mobileNav = false">
-                <flux:icon.cog-6-tooth class="!size-[15px]" /> Settings
-            </a>
+                <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+                <div class="sidebar-group-label">CRM</div>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.user-group class="!size-[15px]" /> Members</a>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.calendar-days class="!size-[15px]" /> Activities</a>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.folder class="!size-[15px]" /> Projects</a>
+
+                <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+                <div class="sidebar-group-label">Insights</div>
+                <a class="sidebar-item" href="#" x-on:click="mobileNav = false"><flux:icon.chart-bar class="!size-[15px]" /> Reports</a>
+
+                <div class="flex-1"></div>
+                <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
+                @if(auth()->user()?->is_admin || auth()->user()?->is_owner)
+                    <a class="sidebar-item" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.wrench-screwdriver class="!size-[15px]" /> Admin
+                    </a>
+                @endif
+                <a class="sidebar-item" href="{{ route('settings.profile') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.cog-6-tooth class="!size-[15px]" /> Settings
+                </a>
+            @endif
         </aside>
 
         {{-- ============================================================ --}}
@@ -210,60 +252,109 @@
         <div class="app-layout">
             {{-- Desktop sidebar --}}
             <aside class="app-sidebar hidden lg:flex">
-                <div class="sidebar-group-label">Platform</div>
+                @if(request()->is('admin*'))
+                    {{-- Admin sidebar --}}
+                    <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate>
+                        <flux:icon.arrow-left class="!size-[15px]" />
+                        Back to app
+                    </a>
 
-                <a class="sidebar-item {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" wire:navigate>
-                    <flux:icon.squares-2x2 class="!size-[15px]" />
-                    Dashboard
-                </a>
+                    <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
+                    <div class="sidebar-group-label">Admin</div>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.bell class="!size-[15px]" />
-                    Notifications
-                </a>
+                    <a class="sidebar-item {{ request()->is('admin/settings*') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate>
+                        <flux:icon.cog-6-tooth class="!size-[15px]" />
+                        Settings
+                    </a>
+                @elseif(request()->routeIs('settings.*'))
+                    {{-- Settings sidebar --}}
+                    <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate>
+                        <flux:icon.arrow-left class="!size-[15px]" />
+                        Back to app
+                    </a>
 
-                <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
-                <div class="sidebar-group-label">Operations</div>
+                    <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
+                    <div class="sidebar-group-label">Settings</div>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.queue-list class="!size-[15px]" />
-                    Opportunities
-                </a>
+                    <a class="sidebar-item {{ request()->routeIs('settings.profile') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate>
+                        <flux:icon.user class="!size-[15px]" />
+                        Profile
+                    </a>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.cube class="!size-[15px]" />
-                    Products
-                </a>
+                    <a class="sidebar-item {{ request()->routeIs('settings.password') ? 'active' : '' }}" href="{{ route('settings.password') }}" wire:navigate>
+                        <flux:icon.key class="!size-[15px]" />
+                        Password
+                    </a>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.archive-box class="!size-[15px]" />
-                    Stock
-                </a>
+                    <a class="sidebar-item {{ request()->routeIs('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate>
+                        <flux:icon.swatch class="!size-[15px]" />
+                        Appearance
+                    </a>
+                @else
+                    {{-- Normal sidebar --}}
+                    <div class="sidebar-group-label">Platform</div>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.document-text class="!size-[15px]" />
-                    Invoices
-                </a>
+                    <a class="sidebar-item {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" wire:navigate>
+                        <flux:icon.squares-2x2 class="!size-[15px]" />
+                        Dashboard
+                    </a>
 
-                <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
-                <div class="sidebar-group-label">CRM</div>
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.bell class="!size-[15px]" />
+                        Notifications
+                    </a>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.user-group class="!size-[15px]" />
-                    Members
-                </a>
+                    <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
+                    <div class="sidebar-group-label">Operations</div>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.calendar-days class="!size-[15px]" />
-                    Activities
-                </a>
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.queue-list class="!size-[15px]" />
+                        Opportunities
+                    </a>
 
-                <a class="sidebar-item" href="#">
-                    <flux:icon.folder class="!size-[15px]" />
-                    Projects
-                </a>
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.cube class="!size-[15px]" />
+                        Products
+                    </a>
 
-                <div class="h-3 shrink-0"></div>
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.archive-box class="!size-[15px]" />
+                        Stock
+                    </a>
+
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.document-text class="!size-[15px]" />
+                        Invoices
+                    </a>
+
+                    <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
+                    <div class="sidebar-group-label">CRM</div>
+
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.user-group class="!size-[15px]" />
+                        Members
+                    </a>
+
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.calendar-days class="!size-[15px]" />
+                        Activities
+                    </a>
+
+                    <a class="sidebar-item" href="#">
+                        <flux:icon.folder class="!size-[15px]" />
+                        Projects
+                    </a>
+
+                    <div class="flex-1"></div>
+                    @if(auth()->user()?->is_admin || auth()->user()?->is_owner)
+                        <a class="sidebar-item" href="{{ route('admin.settings.company') }}" wire:navigate>
+                            <flux:icon.wrench-screwdriver class="!size-[15px]" />
+                            Admin
+                        </a>
+                    @endif
+
+                    <div class="h-3 shrink-0"></div>
+                @endif
             </aside>
 
             {{-- Main content area --}}

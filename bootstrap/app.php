@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureAdmin::class,
             'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
             'signals.setup-required' => \App\Http\Middleware\EnsureSetupRequired::class,
             'signals.setup-complete' => \App\Http\Middleware\EnsureSetupComplete::class,

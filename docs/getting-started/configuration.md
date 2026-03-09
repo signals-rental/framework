@@ -52,7 +52,7 @@ Select your country to auto-populate sensible defaults for timezone, currency, t
 
 Every Signals instance requires at least one **store** — a physical location or warehouse. Add your default store and optionally create additional locations. Each store has a name, full address, and country.
 
-You can designate any store as the **default** and add or remove stores at any time during setup. Store details can be updated later from the admin panel.
+You can designate any store as the **default** and add or remove stores at any time during setup. Store details can be updated later from the [Admin Panel](/docs/platform/admin-panel).
 
 ### Step 3: Feature Profile
 
@@ -159,7 +159,7 @@ Options with country-based defaults (timezone, currency, tax, date formats) are 
 | Projects | No | Yes | Yes | Yes | No |
 | Inspections | Yes | Yes | No | Yes | No |
 
-You can change module toggles at any time from the admin panel.
+You can change module toggles at any time from the [Admin Panel](/docs/platform/admin-panel).
 
 ## Runtime Settings
 

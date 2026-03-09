@@ -48,6 +48,22 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa'])->group(function () 
 
 /*
 |--------------------------------------------------------------------------
+| Admin Panel
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(function () {
+    Route::redirect('admin', 'admin/settings/company');
+    Route::redirect('admin/settings', 'admin/settings/company');
+
+    Volt::route('admin/settings/company', 'admin.settings.company')->name('admin.settings.company');
+    Volt::route('admin/settings/stores', 'admin.settings.stores')->name('admin.settings.stores');
+    Volt::route('admin/settings/branding', 'admin.settings.branding')->name('admin.settings.branding');
+    Volt::route('admin/settings/modules', 'admin.settings.modules')->name('admin.settings.modules');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Prototypes
 |--------------------------------------------------------------------------
 */
