@@ -48,6 +48,18 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa'])->group(function () 
 
 /*
 |--------------------------------------------------------------------------
+| Invitation Acceptance (signed URL, no auth required)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['signals.setup-complete'])->group(function () {
+    Volt::route('invitation/{user}', 'auth.accept-invitation')
+        ->name('invitation.accept')
+        ->middleware('signed');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Admin Panel
 |--------------------------------------------------------------------------
 */
@@ -56,10 +68,23 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
     Route::redirect('admin', 'admin/settings/company');
     Route::redirect('admin/settings', 'admin/settings/company');
 
+    // Account
     Volt::route('admin/settings/company', 'admin.settings.company')->name('admin.settings.company');
     Volt::route('admin/settings/stores', 'admin.settings.stores')->name('admin.settings.stores');
     Volt::route('admin/settings/branding', 'admin.settings.branding')->name('admin.settings.branding');
     Volt::route('admin/settings/modules', 'admin.settings.modules')->name('admin.settings.modules');
+
+    // Users & Security
+    Volt::route('admin/settings/users', 'admin.settings.users')->name('admin.settings.users');
+    Volt::route('admin/settings/users/{user}/edit', 'admin.settings.user-form')->name('admin.settings.users.edit');
+    Volt::route('admin/settings/roles', 'admin.settings.roles')->name('admin.settings.roles');
+    Volt::route('admin/settings/roles/create', 'admin.settings.role-form')->name('admin.settings.roles.create');
+    Volt::route('admin/settings/roles/{role}/edit', 'admin.settings.role-form')->name('admin.settings.roles.edit');
+    Volt::route('admin/settings/permissions', 'admin.settings.permissions')->name('admin.settings.permissions');
+    Volt::route('admin/settings/security', 'admin.settings.security')->name('admin.settings.security');
+
+    // Preferences
+    Volt::route('admin/settings/email', 'admin.settings.email')->name('admin.settings.email');
 });
 
 /*
