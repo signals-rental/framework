@@ -102,7 +102,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
             <div class="flex items-center justify-between">
                 <label class="s-field-label">{{ __('Password') }}</label>
                 @if (Route::has('password.request'))
-                    <a href="{{ route('password.request') }}" wire:navigate class="signals-auth-description underline hover:opacity-80 transition-opacity">{{ __('Forgot your password?') }}</a>
+                    <a href="{{ route('password.request') }}" wire:navigate class="s-auth-description underline hover:opacity-80 transition-opacity">{{ __('Forgot your password?') }}</a>
                 @endif
             </div>
             <input wire:model="password" type="password" name="password" class="s-input" required autocomplete="current-password" placeholder="Password">
@@ -111,7 +111,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         <label class="flex items-center gap-2 cursor-pointer">
             <x-signals.checkbox x-bind:class="{ 'checked': $wire.remember }" x-on:click="$wire.remember = !$wire.remember" />
-            <span class="signals-auth-description">{{ __('Remember me') }}</span>
+            <span class="s-auth-description">{{ __('Remember me') }}</span>
         </label>
 
         <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Log in') }}</button>

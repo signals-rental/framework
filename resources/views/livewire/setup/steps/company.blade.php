@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
     <div class="flex w-full flex-col gap-2">
-        <h1 class="signals-setup-heading">Company Details</h1>
-        <p class="signals-setup-description">Tell us about your business. Select your country to auto-fill regional defaults.</p>
+        <h1 class="s-auth-heading">Company Details</h1>
+        <p class="s-auth-description">Tell us about your business. Select your country to auto-fill regional defaults.</p>
     </div>
 
     <flux:select wire:model.live="countryCode" label="Country" placeholder="Select your country">

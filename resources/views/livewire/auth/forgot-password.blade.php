@@ -39,7 +39,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
         <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Email password reset link') }}</button>
     </form>
 
-    <p class="signals-auth-description">
+    <p class="s-auth-description">
         Or, <a href="{{ route('login') }}" wire:navigate class="underline hover:opacity-80 transition-opacity">return to log in</a>
     </p>
 </div>

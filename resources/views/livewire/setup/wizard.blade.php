@@ -248,8 +248,8 @@ new #[Layout('components.layouts.setup')] class extends Component {
         {{-- Infrastructure pre-flight checks failed --}}
         <div class="flex flex-col gap-6">
             <div class="flex w-full flex-col gap-2">
-                <h1 class="signals-setup-heading">Infrastructure Check</h1>
-                <p class="signals-setup-description">The following services must be running before setup can begin.</p>
+                <h1 class="s-auth-heading">Infrastructure Check</h1>
+                <p class="s-auth-description">The following services must be running before setup can begin.</p>
             </div>
 
             <div class="flex flex-col gap-3">
@@ -285,25 +285,30 @@ new #[Layout('components.layouts.setup')] class extends Component {
         </div>
     @else
         {{-- Step indicator --}}
-        <div class="flex items-center justify-between">
-            <div class="signals-step-indicator">
-                Step {{ $currentStep }} of 6
-            </div>
-            <div class="flex gap-1.5">
-                @for ($i = 1; $i <= 6; $i++)
+        <x-signals.stepper>
+            @for ($i = 1; $i <= 6; $i++)
+                <div class="s-stepper-stage">
+                    @if ($i > 1)
+                        <div @class(['s-stepper-line', 'done' => $i <= $currentStep])></div>
+                    @endif
                     <button
                         wire:click="goToStep({{ $i }})"
                         @class([
-                            'h-1.5 rounded-full transition-all duration-300',
-                            'w-6 bg-emerald-500' => $i === $currentStep,
-                            'w-4 bg-emerald-500/60' => $i < $currentStep,
-                            'w-4 bg-zinc-300 dark:bg-zinc-600' => $i > $currentStep,
+                            's-stepper-circle',
+                            'done' => $i < $currentStep,
+                            'active' => $i === $currentStep,
                         ])
                         @if($i > $currentStep) disabled @endif
-                    ></button>
-                @endfor
-            </div>
-        </div>
+                    >
+                        @if ($i < $currentStep)
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        @else
+                            {{ $i }}
+                        @endif
+                    </button>
+                </div>
+            @endfor
+        </x-signals.stepper>
 
         {{-- Step content — keyed to force full DOM replacement between steps --}}
         {{-- (prevents wire:ignore on Flux file inputs from persisting across steps) --}}

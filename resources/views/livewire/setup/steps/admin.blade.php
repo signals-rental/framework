@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
     <div class="flex w-full flex-col gap-2">
-        <h1 class="signals-setup-heading">Admin Account</h1>
-        <p class="signals-setup-description">Create your owner account. This will be the primary administrator.</p>
+        <h1 class="s-auth-heading">Admin Account</h1>
+        <p class="s-auth-description">Create your owner account. This will be the primary administrator.</p>
     </div>
 
     <flux:input wire:model="adminName" label="Full Name" type="text" placeholder="Jane Smith" required autofocus />

@@ -1,20 +1,20 @@
 <div class="flex flex-col gap-6">
     <div class="flex w-full flex-col gap-2">
-        <h1 class="signals-setup-heading">Stores &amp; Locations</h1>
-        <p class="signals-setup-description">Add at least one store or warehouse. You can add more later.</p>
+        <h1 class="s-auth-heading">Stores &amp; Locations</h1>
+        <p class="s-auth-description">Add at least one store or warehouse. You can add more later.</p>
     </div>
 
     @foreach ($stores as $index => $store)
         <div wire:key="store-{{ $index }}" class="flex flex-col gap-4 rounded border border-zinc-200 p-4 dark:border-zinc-700">
             <div class="flex items-center justify-between">
-                <span class="signals-step-indicator">Store {{ $index + 1 }}</span>
+                <span class="s-auth-label">Store {{ $index + 1 }}</span>
                 <div class="flex items-center gap-3">
                     @if (! $store['is_default'])
-                        <button wire:click="setDefaultStore({{ $index }})" type="button" class="signals-step-indicator hover:text-emerald-500 transition-colors">
+                        <flux:button wire:click="setDefaultStore({{ $index }})" variant="ghost" size="xs">
                             Set as default
-                        </button>
+                        </flux:button>
                     @else
-                        <span class="signals-step-indicator text-emerald-500">Default</span>
+                        <span class="s-badge s-badge-green">Default</span>
                     @endif
 
                     @if (count($stores) > 1)
