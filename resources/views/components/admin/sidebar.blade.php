@@ -49,6 +49,11 @@
             <flux:icon.lock-closed class="s-admin-nav-icon" />
             Security
         </a>
+        <a href="{{ route('admin.settings.api') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.api') ? 'active' : '' }}">
+            <flux:icon.code-bracket class="s-admin-nav-icon" />
+            API Tokens
+        </a>
     @endif
 
     {{-- Preferences --}}
@@ -105,6 +110,11 @@
            class="s-admin-nav-item {{ request()->routeIs('admin.settings.seeders') ? 'active' : '' }}">
             <flux:icon.circle-stack class="s-admin-nav-icon" />
             Database Seeders
+        </a>
+        <a href="{{ route('admin.settings.webhooks') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.webhooks') ? 'active' : '' }}">
+            <flux:icon.signal class="s-admin-nav-icon" />
+            Webhooks
         </a>
     @endif
 </nav>

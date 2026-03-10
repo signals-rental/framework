@@ -23,7 +23,9 @@
             "title": "API",
             "slug": "api",
             "pages": [
-                { "title": "API Overview", "slug": "overview" }
+                { "title": "API Overview", "slug": "overview" },
+                { "title": "Authentication", "slug": "authentication" },
+                { "title": "Webhooks", "slug": "webhooks" }
             ]
         },
         {

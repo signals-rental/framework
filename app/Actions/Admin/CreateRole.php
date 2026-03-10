@@ -31,6 +31,10 @@ class CreateRole
             $role->syncPermissions($data['permissions']);
         }
 
+        app(\App\Services\Api\WebhookService::class)->dispatch('role.created', [
+            'role' => ['id' => $role->id, 'name' => $role->name],
+        ]);
+
         return $role;
     }
 }

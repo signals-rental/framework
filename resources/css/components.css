@@ -2142,6 +2142,7 @@
   flex: 1; padding: 28px 40px; max-width: 960px; overflow-y: auto;
 }
 @media (max-width: 768px) { .s-admin-main { padding: 20px 16px; } }
+.s-admin-main-wide { max-width: none; }
 
 .s-admin-section-header { margin-bottom: 24px; }
 .s-admin-section-title {

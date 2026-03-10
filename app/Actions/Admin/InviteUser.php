@@ -28,6 +28,10 @@ class InviteUser
 
         $user->notify(new UserInvitedNotification);
 
+        app(\App\Services\Api\WebhookService::class)->dispatch('user.created', [
+            'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
+        ]);
+
         return $user;
     }
 }

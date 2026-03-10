@@ -66,6 +66,7 @@ class PermissionSeeder extends Seeder
             'reports.export' => ['label' => 'Export Reports', 'description' => 'Export report data', 'group' => 'Reports'],
 
             // System
+            'system.read' => ['label' => 'Read System Info', 'description' => 'Access system health and diagnostics via API', 'group' => 'System'],
             'action-log.view' => ['label' => 'View Action Log', 'description' => 'View the audit trail', 'group' => 'System'],
             'email-templates.manage' => ['label' => 'Manage Email Templates', 'description' => 'Edit email templates and content', 'group' => 'System'],
             'notifications.manage' => ['label' => 'Manage Notifications', 'description' => 'Configure notification types and channels', 'group' => 'System'],

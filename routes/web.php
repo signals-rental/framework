@@ -83,6 +83,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
     Volt::route('admin/settings/permissions', 'admin.settings.permissions')->name('admin.settings.permissions');
     Volt::route('admin/settings/security', 'admin.settings.security')->name('admin.settings.security');
 
+    // API
+    Volt::route('admin/settings/api', 'admin.settings.api')->name('admin.settings.api');
+
     // Preferences
     Volt::route('admin/settings/preferences', 'admin.settings.preferences')->name('admin.settings.preferences');
     Volt::route('admin/settings/email', 'admin.settings.email')->name('admin.settings.email');
@@ -96,6 +99,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
     Volt::route('admin/settings/system-health', 'admin.settings.system-health')->name('admin.settings.system-health');
     Volt::route('admin/settings/infrastructure', 'admin.settings.infrastructure')->name('admin.settings.infrastructure');
     Volt::route('admin/settings/seeders', 'admin.settings.seeders')->name('admin.settings.seeders');
+
+    // Webhooks
+    Volt::route('admin/settings/webhooks', 'admin.settings.webhooks')->name('admin.settings.webhooks');
 });
 
 /*

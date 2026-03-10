@@ -37,6 +37,10 @@ class UpdateUser
             event(new AuditableEvent($user, 'updated', $oldValues, $newValues));
         }
 
+        app(\App\Services\Api\WebhookService::class)->dispatch('user.updated', [
+            'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
+        ]);
+
         return $user;
     }
 }

@@ -27,11 +27,12 @@ API requests are authenticated with **Bearer tokens** issued via Laravel Sanctum
 
 ```bash
 curl -H "Authorization: Bearer {your-token}" \
-     -H "Accept: application/json" \
-     {your-app-url}/api/v1/opportunities
+     {your-app-url}/api/v1/users
 ```
 
-Tokens are scoped with abilities using the `resource:action` pattern (e.g. `opportunities:read`, `invoices:write`). A request will be rejected if the token lacks the required ability for that endpoint.
+Tokens are scoped with abilities that control which endpoints they can access. A request will be rejected with a `403` response if the token lacks the required ability.
+
+See [Authentication](/docs/api/authentication) for full details on creating tokens, available abilities, and rate limiting.
 
 ## Response Format
 
@@ -76,12 +77,24 @@ Signals supports Ransack-compatible query syntax for filtering collections:
 | `_cont` / `_not_cont` | Contains / does not contain |
 | `_start` / `_end` | Starts with / ends with |
 | `_null` / `_not_null` | Is null / is not null |
+| `_present` / `_blank` | Not null and not empty / null or empty |
 | `_in` / `_not_in` | In list / not in list |
 | `_true` / `_false` | Boolean true / false |
 
+## Sorting
+
+Sort collections by a single field with the `sort` parameter. Prefix with `-` for descending order:
+
+```
+?sort=created_at        (ascending)
+?sort=-created_at       (descending)
+```
+
+Each endpoint defines which fields are sortable. Sorting on unsupported fields is silently ignored.
+
 ## Pagination
 
-Collections use offset-based pagination:
+Collections use offset-based pagination. Defaults to 20 items per page, maximum 100:
 
 ```
 ?page=2&per_page=20

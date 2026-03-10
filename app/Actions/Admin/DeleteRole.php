@@ -24,6 +24,12 @@ class DeleteRole
             ]);
         }
 
+        $roleData = ['id' => $role->id, 'name' => $role->name];
+
         $role->delete();
+
+        app(\App\Services\Api\WebhookService::class)->dispatch('role.deleted', [
+            'role' => $roleData,
+        ]);
     }
 }

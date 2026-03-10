@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Signals\PHPStan;
 
 use Closure;
+use Illuminate\Testing\PendingCommand;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -51,5 +52,36 @@ class PestTestCase extends TestCase
     public function spy($abstract, ?Closure $mock = null)
     {
         return parent::spy($abstract, $mock);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Model|string  $table
+     * @param  array<string, mixed>  $data
+     */
+    public function assertDatabaseHas($table, array $data, ?string $connection = null): static
+    {
+        return parent::assertDatabaseHas($table, $data, $connection);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Model|string  $table
+     * @param  array<string, mixed>  $data
+     */
+    public function assertDatabaseMissing($table, array $data, ?string $connection = null): static
+    {
+        return parent::assertDatabaseMissing($table, $data, $connection);
+    }
+
+    /**
+     * @param  array<string, mixed>  $arguments
+     */
+    public function artisan(string $command, array $arguments = []): PendingCommand
+    {
+        return parent::artisan($command, $arguments);
+    }
+
+    public function seed(mixed ...$class): static
+    {
+        return parent::seed(...$class);
     }
 }

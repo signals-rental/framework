@@ -22,10 +22,16 @@ class UpdateRole
             ]);
         }
 
-        $role->update(array_filter([
-            'name' => $data['name'] ?? null,
-            'description' => array_key_exists('description', $data) ? $data['description'] : null,
-        ], fn ($value) => $value !== null));
+        $updates = [];
+        if (isset($data['name'])) {
+            $updates['name'] = $data['name'];
+        }
+        if (array_key_exists('description', $data)) {
+            $updates['description'] = $data['description'];
+        }
+        if ($updates !== []) {
+            $role->update($updates);
+        }
 
         if (isset($data['permissions'])) {
             foreach ($data['permissions'] as $permission) {
@@ -34,6 +40,13 @@ class UpdateRole
             $role->syncPermissions($data['permissions']);
         }
 
-        return $role->fresh();
+        /** @var \Spatie\Permission\Models\Role $freshRole */
+        $freshRole = $role->fresh();
+
+        app(\App\Services\Api\WebhookService::class)->dispatch('role.updated', [
+            'role' => ['id' => $freshRole->id, 'name' => $freshRole->name],
+        ]);
+
+        return $freshRole;
     }
 }

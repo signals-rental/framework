@@ -1,9 +1,9 @@
-@props(['group' => 'setup', 'title' => '', 'description' => ''])
+@props(['group' => 'setup', 'title' => '', 'description' => '', 'wide' => false])
 
 <div class="s-admin-layout">
     <x-admin.sidebar :group="$group" />
 
-    <div class="s-admin-main">
+    <div class="s-admin-main {{ $wide ? 's-admin-main-wide' : '' }}">
         <div class="s-admin-section-header">
             <div class="flex items-center justify-between">
                 <div>

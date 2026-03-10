@@ -23,11 +23,16 @@ class DeactivateUser
             'deactivated_at' => now(),
         ]);
 
-        // Revoke all API tokens if Sanctum is configured
-        if (method_exists($user, 'tokens')) {
-            $user->tokens()->delete();
-        }
+        // Revoke all API tokens
+        $user->tokens()->delete();
 
-        return $user->fresh();
+        /** @var User $user */
+        $user = $user->fresh();
+
+        app(\App\Services\Api\WebhookService::class)->dispatch('user.deactivated', [
+            'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
+        ]);
+
+        return $user;
     }
 }

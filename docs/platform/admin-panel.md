@@ -160,6 +160,21 @@ Configure password policies and two-factor authentication requirements.
 | 2FA for Admins | Require two-factor authentication for admin users |
 | 2FA for All Users | Require two-factor authentication for all users |
 
+### API Tokens
+
+**Route:** `/admin/settings/api`
+
+Manage API tokens for programmatic access to the Signals API. Each token has a name, a set of abilities controlling which endpoints it can access, and usage tracking.
+
+| Action | Description |
+|--------|-------------|
+| Create Token | Generate a new API token with selected abilities |
+| Revoke | Permanently delete a token |
+
+Token values are shown once at creation and cannot be retrieved later. If a token is lost, revoke it and create a new one.
+
+> **Note:** API tokens inherit the creating user's account permissions. A token cannot exceed the abilities granted to it.
+
 ## Preferences
 
 ### General
@@ -272,6 +287,24 @@ Click **Refresh** to re-run all checks. Failed checks report the error message f
 Each section has a **Test Connection** button to verify credentials before saving. This page also provides access to run Artisan `migrate` and clear application caches.
 
 > **Note:** This page is only visible to the account owner.
+
+### Webhooks
+
+**Route:** `/admin/settings/webhooks`
+
+Manage webhook subscriptions that notify external services when events occur in Signals. Webhooks are delivered via HTTP POST with HMAC-SHA256 signed payloads.
+
+| Action | Description |
+|--------|-------------|
+| Create Webhook | Register a new endpoint URL with selected event subscriptions |
+| Edit | Update URL, events, or active status |
+| Re-enable | Reactivate a disabled webhook and reset its failure counter |
+| View Logs | See delivery history with response codes and retry attempts |
+| Delete | Permanently remove a webhook subscription |
+
+Webhooks are automatically disabled after 18 consecutive delivery failures (approximately 3 days). Re-enable from this page after fixing the receiving endpoint.
+
+> **Note:** Webhook secrets are shown once at creation and cannot be retrieved later. If lost, delete the webhook and create a new one.
 
 ### Database Seeders
 

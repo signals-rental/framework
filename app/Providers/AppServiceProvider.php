@@ -11,10 +11,12 @@ use App\Services\PermissionRegistry;
 use Carbon\CarbonImmutable;
 use Database\Seeders\NotificationTypeSeeder;
 use Database\Seeders\PermissionSeeder;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -43,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAuthorization();
+        $this->configureRateLimiting();
 
         Event::listen(AuditableEvent::class, LogAction::class);
     }
@@ -90,6 +93,26 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('owner', function (User $user): bool {
             return $user->isOwner();
+        });
+    }
+
+    /**
+     * Configure API rate limiting using settings-driven limits.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('api', function ($request) {
+            try {
+                $limit = max((int) settings('api.rate_limit', 60), 1);
+                $unauthLimit = max((int) settings('api.rate_limit_unauthenticated', 20), 1);
+            } catch (\Throwable) {
+                $limit = 60;
+                $unauthLimit = 20;
+            }
+
+            return $request->user()
+                ? Limit::perMinute($limit)->by($request->user()->id)
+                : Limit::perMinute($unauthLimit)->by($request->ip());
         });
     }
 }
