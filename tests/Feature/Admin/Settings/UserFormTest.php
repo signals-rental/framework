@@ -160,10 +160,10 @@ it('returns 403 for non-admin users', function () {
         ->assertForbidden();
 });
 
-it('hides roles section for owner', function () {
+it('shows roles section for owner with explanation', function () {
     Volt::test('admin.settings.user-form', ['user' => $this->owner])
         ->assertSet('isOwner', true)
-        ->assertDontSee('s-checkbox');
+        ->assertSee('Owners have implicit access to everything');
 });
 
 it('shows roles section for non-owner', function () {
@@ -171,7 +171,7 @@ it('shows roles section for non-owner', function () {
 
     Volt::test('admin.settings.user-form', ['user' => $user])
         ->assertSet('isOwner', false)
-        ->assertSee('s-checkbox', escape: false);
+        ->assertSee('Roles');
 });
 
 it('prevents deactivating the owner', function () {

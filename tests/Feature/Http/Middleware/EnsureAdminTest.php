@@ -50,3 +50,15 @@ it('redirects /admin/settings to /admin/settings/company', function () {
         ->get('/admin/settings')
         ->assertRedirect('/admin/settings/company');
 });
+
+it('allows users with Admin Spatie role to access admin routes', function () {
+    $this->seed(\Database\Seeders\PermissionSeeder::class);
+    $this->seed(\Database\Seeders\RoleSeeder::class);
+
+    $user = User::factory()->create();
+    $user->assignRole('Admin');
+
+    $this->actingAs($user)
+        ->get('/admin/settings/company')
+        ->assertOk();
+});

@@ -57,5 +57,13 @@
             <flux:icon.envelope class="s-admin-nav-icon" />
             Email
         </a>
+
+        {{-- System --}}
+        <div class="s-admin-nav-group-label">System</div>
+        <a href="{{ route('admin.settings.seeders') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.seeders') ? 'active' : '' }}">
+            <flux:icon.circle-stack class="s-admin-nav-icon" />
+            Database Seeders
+        </a>
     @endif
 </nav>

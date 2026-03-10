@@ -42,7 +42,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function openInviteModal(): void
     {
-        if (Role::where('name', '!=', 'Owner')->count() === 0) {
+        if (Role::query()->count() === 0) {
+            $this->addError('invite', 'Please create at least one role before inviting users.');
+
             return;
         }
 
@@ -136,13 +138,11 @@ new #[Layout('components.layouts.app')] class extends Component {
                     @foreach($users as $user)
                         <tr wire:key="user-{{ $user->id }}">
                             <td class="font-medium">
-                                @if($user->is_owner)
+                                <a href="{{ route('admin.settings.users.edit', $user) }}" wire:navigate class="hover:underline">
                                     {{ $user->name }}
+                                </a>
+                                @if($user->is_owner)
                                     <span class="s-badge s-badge-amber ml-1">Owner</span>
-                                @else
-                                    <a href="{{ route('admin.settings.users.edit', $user) }}" wire:navigate class="hover:underline">
-                                        {{ $user->name }}
-                                    </a>
                                 @endif
                             </td>
                             <td>{{ $user->email }}</td>
@@ -164,44 +164,49 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 {{ $user->last_login_at?->diffForHumans() ?? 'Never' }}
                             </td>
                             <td>
-                                @if(! $user->is_owner)
-                                    <div x-data="{ open: false }" class="relative">
-                                        <button @click="open = !open" class="s-btn s-btn-ghost s-btn-sm">
-                                            <flux:icon.ellipsis-vertical class="w-4 h-4" />
-                                        </button>
-                                        <div x-show="open" @click.away="open = false" x-cloak
-                                             class="s-dropdown" style="right: 0; top: 100%;">
-                                            <a class="s-dropdown-item" href="{{ route('admin.settings.users.edit', $user) }}" wire:navigate>
-                                                Edit
-                                            </a>
-                                            @if($user->invited_at && ! $user->invitation_accepted_at)
-                                                <button class="s-dropdown-item" wire:click="resendInvitation({{ $user->id }})" @click="open = false">
-                                                    Resend Invitation
-                                                </button>
-                                            @endif
-                                            @if($user->isActive() && $user->password)
-                                                <button class="s-dropdown-item" wire:click="sendPasswordReset({{ $user->id }})" @click="open = false">
-                                                    Send Password Reset
-                                                </button>
-                                            @endif
-                                            <div class="s-dropdown-separator"></div>
-                                            @if($user->isActive())
-                                                <button class="s-dropdown-item text-red-600" wire:click="$set('confirmingDeactivation', {{ $user->id }})" @click="open = false">
-                                                    Deactivate
-                                                </button>
-                                            @else
-                                                <button class="s-dropdown-item" wire:click="reactivate({{ $user->id }})" @click="open = false">
-                                                    Reactivate
-                                                </button>
-                                            @endif
-                                            @if(auth()->user()->is_owner)
-                                                <button class="s-dropdown-item" wire:click="$set('confirmingTransfer', {{ $user->id }})" @click="open = false">
-                                                    Transfer Ownership
-                                                </button>
-                                            @endif
+                                <div class="flex items-center gap-1">
+                                    <a href="{{ route('admin.settings.users.edit', $user) }}" wire:navigate class="s-btn s-btn-ghost s-btn-sm" title="Edit">
+                                        <flux:icon.pencil-square class="w-4 h-4" />
+                                    </a>
+                                    @if(! $user->is_owner)
+                                        <div x-data="{ open: false }" class="relative">
+                                            <button @click="open = !open" class="s-btn s-btn-ghost s-btn-sm">
+                                                <flux:icon.ellipsis-vertical class="w-4 h-4" />
+                                            </button>
+                                            <div x-show="open" @click.away="open = false" x-cloak
+                                                 class="s-dropdown" style="right: 0; top: 100%;">
+                                                <a class="s-dropdown-item" href="{{ route('admin.settings.users.edit', $user) }}" wire:navigate>
+                                                    Edit
+                                                </a>
+                                                @if($user->invited_at && ! $user->invitation_accepted_at)
+                                                    <button class="s-dropdown-item" wire:click="resendInvitation({{ $user->id }})" @click="open = false">
+                                                        Resend Invitation
+                                                    </button>
+                                                @endif
+                                                @if($user->isActive() && $user->password)
+                                                    <button class="s-dropdown-item" wire:click="sendPasswordReset({{ $user->id }})" @click="open = false">
+                                                        Send Password Reset
+                                                    </button>
+                                                @endif
+                                                <div class="s-dropdown-separator"></div>
+                                                @if($user->isActive())
+                                                    <button class="s-dropdown-item text-red-600" wire:click="$set('confirmingDeactivation', {{ $user->id }})" @click="open = false">
+                                                        Deactivate
+                                                    </button>
+                                                @else
+                                                    <button class="s-dropdown-item" wire:click="reactivate({{ $user->id }})" @click="open = false">
+                                                        Reactivate
+                                                    </button>
+                                                @endif
+                                                @if(auth()->user()->is_owner)
+                                                    <button class="s-dropdown-item" wire:click="$set('confirmingTransfer', {{ $user->id }})" @click="open = false">
+                                                        Transfer Ownership
+                                                    </button>
+                                                @endif
+                                            </div>
                                         </div>
-                                    </div>
-                                @endif
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @endforeach

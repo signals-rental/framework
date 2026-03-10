@@ -13,6 +13,8 @@ class SettingsService
 
     /**
      * Get a setting value by dot-notation key (group.key) or all settings for a group.
+     *
+     * Falls back to registry defaults when a value is not stored in the database.
      */
     public function get(string $key, mixed $default = null): mixed
     {
@@ -24,13 +26,27 @@ class SettingsService
 
         [$group, $settingKey] = explode('.', $key, 2);
 
-        if (! isset($this->cache[$group]) || ! is_array($this->cache[$group])) {
-            return $default;
+        if (isset($this->cache[$group]) && is_array($this->cache[$group]) && array_key_exists($settingKey, $this->cache[$group])) {
+            return $this->cache[$group][$settingKey];
         }
 
-        return array_key_exists($settingKey, $this->cache[$group])
-            ? $this->cache[$group][$settingKey]
-            : $default;
+        return $this->getRegistryDefault($group, $settingKey) ?? $default;
+    }
+
+    /**
+     * Get all settings for a group, merging DB values with registry defaults.
+     *
+     * @return array<string, mixed>
+     */
+    public function group(string $group): array
+    {
+        $this->loadIfNeeded();
+
+        $registry = app(SettingsRegistry::class);
+        $defaults = $registry->defaults($group);
+        $stored = $this->cache[$group] ?? [];
+
+        return array_merge($defaults, $stored);
     }
 
     /**
@@ -194,18 +210,58 @@ class SettingsService
         return match ($type) {
             'boolean' => $value === 'true' || $value === '1',
             'integer' => (int) $value,
-            'json' => json_decode($value, true),
-            'encrypted' => Crypt::decryptString($value),
+            'json' => $this->safeJsonDecode($value),
+            'encrypted' => $this->safeDecrypt($value),
             default => $value,
         };
+    }
+
+    private function safeJsonDecode(string $value): mixed
+    {
+        $decoded = json_decode($value, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            logger()->error('Failed to decode JSON setting value.', [
+                'error' => json_last_error_msg(),
+            ]);
+
+            return null;
+        }
+
+        return $decoded;
+    }
+
+    private function safeDecrypt(string $value): ?string
+    {
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            logger()->error('Failed to decrypt setting value. The APP_KEY may have been rotated.', [
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     private function supportsTags(): bool
     {
         try {
             return Cache::getStore() instanceof \Illuminate\Cache\TaggableStore;
-        } catch (\Exception) {
+        } catch (\Exception $e) {
+            logger()->warning('Cache store unavailable for tag support check.', [
+                'exception' => $e->getMessage(),
+            ]);
+
             return false;
         }
+    }
+
+    /**
+     * Get a default value from the settings registry.
+     */
+    private function getRegistryDefault(string $group, string $key): mixed
+    {
+        return app(SettingsRegistry::class)->defaults($group)[$key] ?? null;
     }
 }

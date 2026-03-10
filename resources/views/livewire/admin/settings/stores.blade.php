@@ -144,7 +144,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <td>{{ $store->country_code }}</td>
                             <td>
                                 @if($store->is_default)
-                                    <span class="s-badge-green">Default</span>
+                                    <span class="s-badge s-badge-green">Default</span>
                                 @else
                                     <button wire:click="setDefault({{ $store->id }})" class="s-btn-ghost s-btn-xs">
                                         Set Default

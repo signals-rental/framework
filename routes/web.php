@@ -85,6 +85,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
 
     // Preferences
     Volt::route('admin/settings/email', 'admin.settings.email')->name('admin.settings.email');
+
+    // System
+    Volt::route('admin/settings/seeders', 'admin.settings.seeders')->name('admin.settings.seeders');
 });
 
 /*

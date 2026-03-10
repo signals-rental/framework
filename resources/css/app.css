@@ -44,14 +44,14 @@
 /* ================================================================ */
 
 :root {
-    --navy: #0f172a;
-    --navy-mid: #1e293b;
-    --navy-light: #334155;
+    --navy: var(--brand-primary, #1e3a5f);
+    --navy-mid: color-mix(in srgb, var(--brand-primary, #1e3a5f), #1e293b 50%);
+    --navy-light: color-mix(in srgb, var(--brand-primary, #1e3a5f), #94a3b8 30%);
     --base: #f8f9fb;
     --white: #ffffff;
-    --blue: #2563eb;
-    --blue-light: #3b82f6;
-    --blue-pale: rgba(37, 99, 235, 0.08);
+    --blue: var(--brand-accent, #3b82f6);
+    --blue-light: color-mix(in srgb, var(--brand-accent, #3b82f6), white 20%);
+    --blue-pale: color-mix(in srgb, var(--brand-accent, #3b82f6) 8%, transparent);
     --red: #dc2626;
     --grey: #64748b;
     --grey-light: #94a3b8;

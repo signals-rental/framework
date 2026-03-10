@@ -32,6 +32,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'is_active' => true,
         ];
     }
 
@@ -63,6 +64,29 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_admin' => true,
+        ]);
+    }
+
+    /**
+     * Indicate the user is deactivated.
+     */
+    public function deactivated(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+            'deactivated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate the user was invited and has not yet accepted.
+     */
+    public function invited(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'password' => null,
+            'invited_at' => now(),
+            'invitation_accepted_at' => null,
         ]);
     }
 

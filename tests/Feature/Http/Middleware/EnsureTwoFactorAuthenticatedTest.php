@@ -45,3 +45,41 @@ it('allows unauthenticated requests through without redirect to challenge', func
     $this->get('/dashboard')
         ->assertRedirect(route('login'));
 });
+
+it('redirects to profile when 2FA required for all users but not configured', function () {
+    app(\App\Services\SettingsService::class)->set('security.require_2fa_all', true, 'boolean');
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/dashboard')
+        ->assertRedirect(route('settings.profile'));
+});
+
+it('redirects admin to profile when 2FA required for admins but not configured', function () {
+    app(\App\Services\SettingsService::class)->set('security.require_2fa_admin', true, 'boolean');
+
+    $user = User::factory()->admin()->create();
+
+    $this->actingAs($user)
+        ->get('/dashboard')
+        ->assertRedirect(route('settings.profile'));
+});
+
+it('allows through profile page when 2FA redirect is active', function () {
+    app(\App\Services\SettingsService::class)->set('security.require_2fa_all', true, 'boolean');
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('settings.profile'))
+        ->assertOk();
+});
+
+it('does not redirect when 2FA not required by settings', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/dashboard')
+        ->assertOk();
+});

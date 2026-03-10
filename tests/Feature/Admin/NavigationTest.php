@@ -58,6 +58,10 @@ describe('Admin routes are accessible', function () {
     it('renders email', function () {
         $this->get(route('admin.settings.email'))->assertOk();
     });
+
+    it('renders seeders', function () {
+        $this->get(route('admin.settings.seeders'))->assertOk();
+    });
 });
 
 describe('Non-admin access is denied', function () {
@@ -75,6 +79,7 @@ describe('Non-admin access is denied', function () {
             'admin.settings.permissions',
             'admin.settings.security',
             'admin.settings.email',
+            'admin.settings.seeders',
         ];
 
         foreach ($routes as $routeName) {
@@ -88,7 +93,8 @@ describe('Sidebar navigation', function () {
         $this->get(route('admin.settings.company'))
             ->assertSee('Account')
             ->assertSee('Users & Security', false)
-            ->assertSee('Preferences');
+            ->assertSee('Preferences')
+            ->assertSee('System');
     });
 
     it('shows all navigation links', function () {
@@ -101,6 +107,7 @@ describe('Sidebar navigation', function () {
             ->assertSee('Roles')
             ->assertSee('Permissions Reference')
             ->assertSee('Security')
-            ->assertSee('Email');
+            ->assertSee('Email')
+            ->assertSee('Database Seeders');
     });
 });

@@ -17,7 +17,7 @@ class EnsureAdmin
     {
         $user = $request->user();
 
-        if (! $user || (! $user->is_admin && ! $user->is_owner)) {
+        if (! $user || ! $user->hasAdminAccess()) {
             abort(403);
         }
 

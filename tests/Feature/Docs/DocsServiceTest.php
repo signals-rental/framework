@@ -9,7 +9,7 @@ test('getNavigation returns sections with pages', function () {
     expect($nav)->toHaveKey('sections')
         ->and($nav['sections'])->toBeArray()->toHaveCount(4)
         ->and($nav['sections'][0])->toHaveKeys(['title', 'slug', 'pages'])
-        ->and($nav['sections'][0]['pages'])->toBeArray()->toHaveCount(4)
+        ->and($nav['sections'][0]['pages'])->toBeArray()->toHaveCount(5)
         ->and($nav['sections'][0]['pages'][0])->toHaveKeys(['title', 'slug']);
 });
 
@@ -104,7 +104,7 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
     $service = app(DocsService::class);
     $index = $service->getSearchIndex();
 
-    expect($index)->toBeArray()->toHaveCount(8)
+    expect($index)->toBeArray()->toHaveCount(10)
         ->and($index[0])->toHaveKeys(['title', 'section', 'url', 'content'])
         ->and($index[0]['title'])->toBe('Introduction')
         ->and($index[0]['section'])->toBe('Getting Started')
@@ -138,7 +138,7 @@ test('getChangelog extracts frontmatter correctly', function () {
     $entries = $service->getChangelog();
 
     expect($entries[0]['version'])->toBe('0.1.0')
-        ->and($entries[0]['date'])->toBe('2026-03-02')
+        ->and($entries[0]['date'])->toBe('2026-03-10')
         ->and($entries[0]['title'])->toBe('Initial Alpha');
 });
 

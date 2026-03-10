@@ -102,7 +102,7 @@
                 <div class="relative hidden lg:block">
                     <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--grey)]" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="5"/><line x1="10" y1="10" x2="15" y2="15"/></svg>
                     <input type="text"
-                           class="h-[30px] w-[200px] border border-[#334155] bg-[#1e293b] pl-[30px] pr-2.5 font-sans text-[11px] text-[#e2e8f0] outline-none transition-colors placeholder:text-[var(--grey)] focus:border-[var(--blue)] focus:bg-[#0f172a]"
+                           class="h-[30px] w-[200px] border border-[var(--navy-light)] bg-[var(--navy-mid)] pl-[30px] pr-2.5 font-sans text-[11px] text-[#e2e8f0] outline-none transition-colors placeholder:text-[var(--grey)] focus:border-[var(--blue)] focus:bg-[var(--navy)]"
                            placeholder="Search orders, members...">
                 </div>
 
@@ -133,7 +133,7 @@
                                 <flux:icon.cog-6-tooth class="mega-item-icon" />
                                 <span class="mega-item-label">Settings</span>
                             </a>
-                            @if(auth()->user()?->is_admin || auth()->user()?->is_owner)
+                            @if(auth()->user()?->hasAdminAccess())
                                 <a href="{{ route('admin.settings.company') }}" class="mega-item" wire:navigate>
                                     <flux:icon.wrench-screwdriver class="mega-item-icon" />
                                     <span class="mega-item-label">Admin</span>
@@ -172,7 +172,7 @@
                x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
                x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full"
                x-on:keydown.escape.window="mobileNav = false"
-               class="dark fixed inset-y-0 left-0 z-[999] flex w-64 flex-col gap-2 overflow-y-auto border-r border-[#334155] bg-[#0f172a] p-4 text-[#e2e8f0] lg:hidden" style="display:none">
+               class="dark fixed inset-y-0 left-0 z-[999] flex w-64 flex-col gap-2 overflow-y-auto border-r border-[var(--navy-light)] bg-[var(--navy)] p-4 text-[#e2e8f0] lg:hidden" style="display:none">
 
             {{-- Close --}}
             <button x-on:click="mobileNav = false" class="mb-2 self-end text-[var(--grey-light)] hover:text-white">
@@ -235,7 +235,7 @@
 
                 <div class="flex-1"></div>
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
-                @if(auth()->user()?->is_admin || auth()->user()?->is_owner)
+                @if(auth()->user()?->hasAdminAccess())
                     <a class="sidebar-item" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
                         <flux:icon.wrench-screwdriver class="!size-[15px]" /> Admin
                     </a>
@@ -346,7 +346,7 @@
                     </a>
 
                     <div class="flex-1"></div>
-                    @if(auth()->user()?->is_admin || auth()->user()?->is_owner)
+                    @if(auth()->user()?->hasAdminAccess())
                         <a class="sidebar-item" href="{{ route('admin.settings.company') }}" wire:navigate>
                             <flux:icon.wrench-screwdriver class="!size-[15px]" />
                             Admin

@@ -2,22 +2,20 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     *
      * @var list<string>
      */
     protected $fillable = [
@@ -27,11 +25,16 @@ class User extends Authenticatable
         'email_verified_at',
         'is_owner',
         'is_admin',
+        'member_id',
+        'is_active',
+        'invited_at',
+        'invitation_accepted_at',
+        'last_login_at',
+        'last_login_ip',
+        'deactivated_at',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
      * @var list<string>
      */
     protected $hidden = [
@@ -42,8 +45,6 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
      * @return array<string, string>
      */
     protected function casts(): array
@@ -53,22 +54,53 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_owner' => 'boolean',
             'is_admin' => 'boolean',
+            'is_active' => 'boolean',
+            'invited_at' => 'datetime',
+            'invitation_accepted_at' => 'datetime',
+            'last_login_at' => 'datetime',
+            'deactivated_at' => 'datetime',
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted',
         ];
     }
 
     /**
+     * Check if the user is the account owner.
+     */
+    public function isOwner(): bool
+    {
+        return (bool) $this->is_owner;
+    }
+
+    /**
+     * Check if the user account is active.
+     */
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    /**
+     * Check if the user has admin-level access (owner, admin flag, or Admin role).
+     */
+    public function hasAdminAccess(): bool
+    {
+        return $this->is_owner || $this->is_admin || $this->hasRole('Admin');
+    }
+
+    /**
      * Determine if the user has two-factor authentication fully enabled.
-     *
-     * Both a secret and recovery codes must be present — the secret alone means
-     * 2FA setup was started but not yet confirmed via ConfirmTwoFactor.
      */
     public function hasTwoFactorEnabled(): bool
     {
         try {
             return ! is_null($this->two_factor_secret) && ! is_null($this->two_factor_recovery_codes);
-        } catch (DecryptException) {
+        } catch (DecryptException $e) {
+            logger()->error('Failed to decrypt 2FA data for user. 2FA may be silently disabled.', [
+                'user_id' => $this->id,
+                'exception' => $e->getMessage(),
+            ]);
+
             return false;
         }
     }

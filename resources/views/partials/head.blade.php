@@ -9,3 +9,15 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
+@php
+    $brandPrimary = settings('branding.primary_colour', '#1e3a5f');
+    $brandAccent = settings('branding.accent_colour', '#3b82f6');
+    $brandPrimary = preg_match('/^#[0-9a-fA-F]{3,8}$/', $brandPrimary) ? $brandPrimary : '#1e3a5f';
+    $brandAccent = preg_match('/^#[0-9a-fA-F]{3,8}$/', $brandAccent) ? $brandAccent : '#3b82f6';
+@endphp
+<style>
+    :root {
+        --brand-primary: {{ $brandPrimary }};
+        --brand-accent: {{ $brandAccent }};
+    }
+</style>

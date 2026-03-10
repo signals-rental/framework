@@ -43,7 +43,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return [
             'availableRoles' => Role::query()
-                ->where('name', '!=', 'Owner')
                 ->orderBy('sort_order')
                 ->get(),
             'isEditing' => true,
@@ -129,27 +128,28 @@ new #[Layout('components.layouts.app')] class extends Component {
             </x-signals.form-section>
 
             {{-- Roles --}}
-            @unless($isOwner)
-                <x-signals.form-section title="Roles">
-                    <div class="space-y-2">
-                        @foreach($availableRoles as $role)
-                            <label class="flex items-center gap-2 cursor-pointer" wire:key="role-{{ $role->id }}"
-                                   x-data="{ checked: @js(in_array($role->name, $selectedRoles)) }"
-                                   x-init="$watch('$wire.selectedRoles', v => checked = v.includes('{{ $role->name }}'))">
-                                <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}" class="hidden" x-on:change="checked = $el.checked" />
-                                <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                                </div>
-                                <span class="text-sm">{{ $role->name }}</span>
-                                @if($role->description)
-                                    <span class="text-xs text-zinc-500">- {{ $role->description }}</span>
-                                @endif
-                            </label>
-                        @endforeach
-                    </div>
-                    @error('selectedRoles') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </x-signals.form-section>
-            @endunless
+            <x-signals.form-section title="Roles">
+                @if($isOwner)
+                    <p class="text-sm text-zinc-500 mb-3">Owners have implicit access to everything. Additional roles are optional.</p>
+                @endif
+                <div class="space-y-2">
+                    @foreach($availableRoles as $role)
+                        <label class="flex items-center gap-2 cursor-pointer" wire:key="role-{{ $role->id }}"
+                               x-data="{ checked: @js(in_array($role->name, $selectedRoles)) }"
+                               x-init="$watch('$wire.selectedRoles', v => checked = v.includes('{{ $role->name }}'))">
+                            <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}" class="hidden" x-on:change="checked = $el.checked" />
+                            <div class="s-checkbox" x-bind:class="checked && 'checked'">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span class="text-sm">{{ $role->name }}</span>
+                            @if($role->description)
+                                <span class="text-xs text-zinc-500">- {{ $role->description }}</span>
+                            @endif
+                        </label>
+                    @endforeach
+                </div>
+                @error('selectedRoles') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
+            </x-signals.form-section>
 
             <div class="flex items-center gap-4">
                 <flux:button variant="primary" type="submit">Save Changes</flux:button>
