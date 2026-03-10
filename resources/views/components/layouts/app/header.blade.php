@@ -115,12 +115,12 @@
 
                 {{-- User dropdown --}}
                 <div class="nav-dropdown-wrapper">
-                    <button class="ml-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center bg-[var(--green)] text-[10px] font-semibold tracking-wide text-white" type="button">
+                    <button class="ml-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center bg-[var(--blue)] text-[10px] font-semibold tracking-wide text-white" type="button">
                         {{ auth()->user()->initials() }}
                     </button>
                     <div class="mega-dropdown mega-dropdown-end">
                         <div class="flex items-center gap-3 pb-4">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center bg-[var(--green)] text-[11px] font-semibold tracking-wide text-white">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center bg-[var(--blue)] text-[11px] font-semibold tracking-wide text-white">
                                 {{ auth()->user()->initials() }}
                             </span>
                             <div class="grid flex-1 text-left leading-tight">

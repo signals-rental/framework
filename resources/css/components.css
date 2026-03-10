@@ -125,17 +125,17 @@
 
 .s-btn svg { width: 14px; height: 14px; }
 
-/* Primary (green) */
+/* Primary (accent) */
 .s-btn-primary {
-  background: var(--green);
+  background: var(--blue);
   color: #ffffff;
-  border-color: var(--green);
-  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.3);
+  border-color: var(--blue);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--blue) 30%, transparent);
 }
 
 .s-btn-primary:hover {
-  background: #06b07a;
-  border-color: #06b07a;
+  background: var(--blue-light);
+  border-color: var(--blue-light);
   color: #ffffff;
 }
 
