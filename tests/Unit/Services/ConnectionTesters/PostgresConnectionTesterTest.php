@@ -2,6 +2,8 @@
 
 use App\Services\ConnectionTesters\PostgresConnectionTester;
 
+uses(Tests\TestCase::class);
+
 it('returns success shape on successful connection', function () {
     // Skip if no local PostgreSQL available
     $tester = new PostgresConnectionTester;

@@ -6,6 +6,8 @@ use App\Models\User;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
+    config(['signals.installed' => true, 'signals.setup_complete' => true]);
+
     $this->owner = User::factory()->owner()->create();
     $this->admin = User::factory()->admin()->create();
     $this->user = User::factory()->create();

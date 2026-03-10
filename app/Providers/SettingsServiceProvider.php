@@ -37,8 +37,12 @@ class SettingsServiceProvider extends ServiceProvider
                 app(SettingsService::class)->load();
                 $this->configureMailFromSettings();
             } catch (\Illuminate\Database\QueryException $e) {
-                // Suppress "table not found" during migrations (PostgreSQL SQLSTATE 42P01)
-                if ($e->getCode() !== '42P01') {
+                // Suppress "table not found" during migrations or testing
+                // PostgreSQL: SQLSTATE 42P01, SQLite: SQLSTATE HY000 with "no such table"
+                $isTableNotFound = $e->getCode() === '42P01'
+                    || str_contains($e->getMessage(), 'no such table');
+
+                if (! $isTableNotFound) {
                     logger()->error('SettingsServiceProvider: unexpected database error during boot.', [
                         'exception' => $e->getMessage(),
                         'code' => $e->getCode(),
