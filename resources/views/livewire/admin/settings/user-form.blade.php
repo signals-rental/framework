@@ -138,9 +138,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                x-data="{ checked: @js(in_array($role->name, $selectedRoles)) }"
                                x-init="$watch('$wire.selectedRoles', v => checked = v.includes('{{ $role->name }}'))">
                             <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}" class="hidden" x-on:change="checked = $el.checked" />
-                            <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
+                            <x-signals.checkbox x-bind:class="checked && 'checked'" />
                             <span class="text-sm">{{ $role->name }}</span>
                             @if($role->description)
                                 <span class="text-xs text-zinc-500">- {{ $role->description }}</span>

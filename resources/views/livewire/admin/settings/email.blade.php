@@ -154,7 +154,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <flux:input wire:model="postmarkToken" label="Postmark Server Token" type="password" />
                 </div>
 
-                <hr class="border-zinc-200 dark:border-zinc-700" />
+                <hr class="border-[var(--card-border)]" />
 
                 <div class="grid grid-cols-2 gap-4">
                     <flux:input wire:model="fromAddress" label="From Address" type="email" placeholder="noreply@example.com" />

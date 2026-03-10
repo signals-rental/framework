@@ -4,6 +4,7 @@ namespace App\Actions\Admin;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class TransferOwnership
@@ -31,13 +32,13 @@ class TransferOwnership
             ]);
         }
 
-        // Remove ownership from current user
-        $currentUser->update(['is_owner' => false]);
+        DB::transaction(function () use ($currentUser, $newOwner): void {
+            $currentUser->update(['is_owner' => false]);
 
-        // Transfer to new owner
-        $newOwner->update([
-            'is_owner' => true,
-            'is_admin' => true,
-        ]);
+            $newOwner->update([
+                'is_owner' => true,
+                'is_admin' => true,
+            ]);
+        });
     }
 }

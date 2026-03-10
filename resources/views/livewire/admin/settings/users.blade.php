@@ -8,6 +8,7 @@ use App\Actions\Admin\TransferOwnership;
 use App\Data\Admin\InviteUserData;
 use App\Models\User;
 use App\Notifications\UserInvitedNotification;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Spatie\Permission\Models\Role;
@@ -97,7 +98,16 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function resendInvitation(int $userId): void
     {
+        Gate::authorize('users.invite');
+
         $user = User::findOrFail($userId);
+
+        if (! $user->invited_at || $user->invitation_accepted_at) {
+            $this->addError('user', 'This user was not invited or has already accepted.');
+
+            return;
+        }
+
         $user->notify(new UserInvitedNotification);
         $this->dispatch('invitation-resent');
     }
@@ -188,7 +198,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                         Send Password Reset
                                                     </button>
                                                 @endif
-                                                <div class="s-dropdown-separator"></div>
+                                                <hr class="s-dropdown-sep" />
                                                 @if($user->isActive())
                                                     <button class="s-dropdown-item text-red-600" wire:click="$set('confirmingDeactivation', {{ $user->id }})" @click="open = false">
                                                         Deactivate
@@ -238,9 +248,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                        x-data="{ checked: @js(in_array($role->name, $inviteRoles)) }"
                                        x-init="$watch('$wire.inviteRoles', v => checked = v.includes('{{ $role->name }}'))">
                                     <input type="checkbox" wire:model="inviteRoles" value="{{ $role->name }}" class="hidden" x-on:change="checked = $el.checked" />
-                                    <div class="s-checkbox" x-bind:class="checked && 'checked'" >
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                                    </div>
+                                    <x-signals.checkbox x-bind:class="checked && 'checked'" />
                                     <span class="text-sm">{{ $role->name }}</span>
                                     @if($role->description)
                                         <span class="text-xs text-zinc-500">- {{ $role->description }}</span>

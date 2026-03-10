@@ -69,7 +69,7 @@ class User extends Authenticatable
      */
     public function isOwner(): bool
     {
-        return (bool) $this->is_owner;
+        return $this->is_owner;
     }
 
     /**
@@ -77,7 +77,7 @@ class User extends Authenticatable
      */
     public function isActive(): bool
     {
-        return (bool) $this->is_active;
+        return $this->is_active;
     }
 
     /**
@@ -96,12 +96,12 @@ class User extends Authenticatable
         try {
             return ! is_null($this->two_factor_secret) && ! is_null($this->two_factor_recovery_codes);
         } catch (DecryptException $e) {
-            logger()->error('Failed to decrypt 2FA data for user. 2FA may be silently disabled.', [
+            logger()->error('Failed to decrypt 2FA data for user. Treating as enabled to force re-setup.', [
                 'user_id' => $this->id,
                 'exception' => $e->getMessage(),
             ]);
 
-            return false;
+            return true;
         }
     }
 

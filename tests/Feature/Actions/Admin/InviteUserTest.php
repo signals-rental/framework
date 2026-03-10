@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Notifications\UserInvitedNotification;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Notification;
 
 beforeEach(function () {
@@ -47,3 +48,16 @@ it('creates a user without roles', function () {
 
     expect($user->roles)->toHaveCount(0);
 });
+
+it('rejects unauthorized users', function () {
+    $regularUser = User::factory()->create();
+    $this->actingAs($regularUser);
+
+    $data = InviteUserData::from([
+        'name' => 'Unauthorized Invite',
+        'email' => 'unauth@example.com',
+        'roles' => [],
+    ]);
+
+    (new InviteUser)($data);
+})->throws(AuthorizationException::class);

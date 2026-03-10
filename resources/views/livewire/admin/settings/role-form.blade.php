@@ -141,9 +141,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                    x-data="{ checked: @js(in_array($user->id, $selectedUsers)) }"
                                    x-init="$watch('$wire.selectedUsers', v => checked = v.includes({{ $user->id }}))">
                                 <input type="checkbox" wire:model="selectedUsers" value="{{ $user->id }}" class="hidden" x-on:change="checked = $el.checked" />
-                                <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                                </div>
+                                <x-signals.checkbox x-bind:class="checked && 'checked'" />
                                 <span class="text-sm">{{ $user->name }}</span>
                                 @if($user->is_owner)
                                     <span class="s-status s-status-amber text-xs">Owner</span>
@@ -175,9 +173,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                        x-data="{ checked: @js(in_array($key, $selectedPermissions)) }"
                                        x-init="$watch('$wire.selectedPermissions', v => checked = v.includes('{{ $key }}'))">
                                     <input type="checkbox" wire:model="selectedPermissions" value="{{ $key }}" class="hidden" x-on:change="checked = $el.checked" />
-                                    <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                                    </div>
+                                    <x-signals.checkbox x-bind:class="checked && 'checked'" />
                                     <span class="text-sm">{{ $meta['label'] }}</span>
                                 </label>
                             @endforeach

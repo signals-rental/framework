@@ -74,23 +74,17 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <div class="space-y-2">
                         <label class="flex items-center gap-2 cursor-pointer" x-data="{ checked: @js($passwordRequireUppercase) }">
                             <input type="checkbox" wire:model="passwordRequireUppercase" class="hidden" x-on:change="checked = $el.checked" />
-                            <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
+                            <x-signals.checkbox x-bind:class="checked && 'checked'" />
                             <span class="text-sm">Require uppercase letter</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer" x-data="{ checked: @js($passwordRequireNumber) }">
                             <input type="checkbox" wire:model="passwordRequireNumber" class="hidden" x-on:change="checked = $el.checked" />
-                            <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
+                            <x-signals.checkbox x-bind:class="checked && 'checked'" />
                             <span class="text-sm">Require number</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer" x-data="{ checked: @js($passwordRequireSpecial) }">
                             <input type="checkbox" wire:model="passwordRequireSpecial" class="hidden" x-on:change="checked = $el.checked" />
-                            <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
+                            <x-signals.checkbox x-bind:class="checked && 'checked'" />
                             <span class="text-sm">Require special character</span>
                         </label>
                     </div>
@@ -113,16 +107,12 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <div class="space-y-2">
                     <label class="flex items-center gap-2 cursor-pointer" x-data="{ checked: @js($require2faAdmin) }">
                         <input type="checkbox" wire:model="require2faAdmin" class="hidden" x-on:change="checked = $el.checked" />
-                        <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                        </div>
+                        <x-signals.checkbox x-bind:class="checked && 'checked'" />
                         <span class="text-sm">Require 2FA for admin users</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer" x-data="{ checked: @js($require2faAll) }">
                         <input type="checkbox" wire:model="require2faAll" class="hidden" x-on:change="checked = $el.checked" />
-                        <div class="s-checkbox" x-bind:class="checked && 'checked'">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                        </div>
+                        <x-signals.checkbox x-bind:class="checked && 'checked'" />
                         <span class="text-sm">Require 2FA for all users</span>
                     </label>
                 </div>

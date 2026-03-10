@@ -480,6 +480,7 @@ Before every commit, the following checks **must** pass in order:
 3. **Static analysis:** `vendor/bin/phpstan analyse`
 4. **Code review:** Run `pr-review` agents to catch silent failures, code quality issues, and test gaps
 5. **Fix and repeat:** If any review findings are actionable, fix them and re-run steps 1-4 until clean
+6. **OSS review (recommended):** Run `oss-maintainer` skill for documentation, component library, and duplication checks
 
 Do not skip any step. Do not commit with known failing tests or phpstan errors.
 

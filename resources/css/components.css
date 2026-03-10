@@ -163,6 +163,12 @@
   border-color: transparent;
 }
 
+/* Extra-small variant */
+.s-btn-xs {
+  padding: 2px 7px;
+  font-size: 9px;
+}
+
 /* Small variant */
 .s-btn-sm {
   padding: 4px 10px;
@@ -180,6 +186,7 @@
 
 /* Icon-only */
 .s-btn-icon { padding: 7px; gap: 0; }
+.s-btn-xs.s-btn-icon { padding: 2px; }
 .s-btn-sm.s-btn-icon { padding: 4px; }
 .s-btn-lg.s-btn-icon { padding: 10px; }
 
@@ -324,6 +331,8 @@
 .s-status-navy   { background: rgba(15, 23, 42, 0.06); color: #334155; }
 .dark .s-status-navy { background: rgba(148, 163, 184, 0.12); color: #94a3b8; }
 .s-status-cyan   { background: rgba(8, 145, 178, 0.08); color: #0891b2; }
+.s-status-zinc   { background: rgba(113, 113, 122, 0.08); color: #71717a; }
+.dark .s-status-zinc { background: rgba(161, 161, 170, 0.12); color: #a1a1aa; }
 
 /* Outline status */
 .s-status-outline { background: transparent; border: 1px solid currentColor; }

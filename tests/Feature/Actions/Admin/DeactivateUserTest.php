@@ -1,10 +1,10 @@
 <?php
 
 use App\Actions\Admin\DeactivateUser;
-use App\Actions\Admin\ReactivateUser;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
@@ -28,11 +28,11 @@ it('prevents deactivating the owner', function () {
     (new DeactivateUser)($owner);
 })->throws(ValidationException::class);
 
-it('reactivates a deactivated user', function () {
-    $user = User::factory()->deactivated()->create();
+it('rejects unauthorized users', function () {
+    $regularUser = User::factory()->create();
+    $this->actingAs($regularUser);
 
-    $result = (new ReactivateUser)($user);
+    $user = User::factory()->create();
 
-    expect($result->isActive())->toBeTrue();
-    expect($result->deactivated_at)->toBeNull();
-});
+    (new DeactivateUser)($user);
+})->throws(AuthorizationException::class);

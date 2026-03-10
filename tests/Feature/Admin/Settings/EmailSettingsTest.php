@@ -1,12 +1,14 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
-    $this->user = User::factory()->admin()->create();
+    $this->seed(PermissionSeeder::class);
+    $this->user = User::factory()->owner()->create();
     $this->actingAs($this->user);
 });
 
