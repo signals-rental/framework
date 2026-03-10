@@ -5,6 +5,9 @@
     <head>
         @include('partials.head', ['title' => 'Signals Rental Framework - Documentation' . ($pageTitle ? ' | ' . $pageTitle : '')])
 
+        {{-- Docs always use the default Signals brand, not user-configured colours --}}
+        <style>:root { --brand-primary: #1e3a5f; --brand-accent: #3b82f6; }</style>
+
         @if ($pageDescription)
             <meta name="description" content="{{ $pageDescription }}">
         @endif

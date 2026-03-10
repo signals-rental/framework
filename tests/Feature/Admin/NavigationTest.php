@@ -62,6 +62,18 @@ describe('Admin routes are accessible', function () {
     it('renders seeders', function () {
         $this->get(route('admin.settings.seeders'))->assertOk();
     });
+
+    it('renders infrastructure for owner', function () {
+        $owner = User::factory()->owner()->create();
+        $this->actingAs($owner)
+            ->get(route('admin.settings.infrastructure'))
+            ->assertOk();
+    });
+
+    it('denies infrastructure for non-owner admin', function () {
+        $this->get(route('admin.settings.infrastructure'))
+            ->assertForbidden();
+    });
 });
 
 describe('Non-admin access is denied', function () {
@@ -89,25 +101,53 @@ describe('Non-admin access is denied', function () {
 });
 
 describe('Sidebar navigation', function () {
-    it('shows all nav group labels', function () {
+    it('shows all admin groups in the app sidebar', function () {
         $this->get(route('admin.settings.company'))
-            ->assertSee('Account')
+            ->assertSee('Setup')
             ->assertSee('Users & Security', false)
             ->assertSee('Preferences')
             ->assertSee('System');
     });
 
-    it('shows all navigation links', function () {
+    it('shows setup items on setup pages', function () {
         $this->get(route('admin.settings.company'))
             ->assertSee('Company Details')
             ->assertSee('Stores')
             ->assertSee('Branding')
-            ->assertSee('Modules')
+            ->assertSee('Modules');
+    });
+
+    it('shows users items on users pages', function () {
+        $this->get(route('admin.settings.users'))
             ->assertSee('Users')
             ->assertSee('Roles')
             ->assertSee('Permissions Reference')
-            ->assertSee('Security')
+            ->assertSee('Security');
+    });
+
+    it('shows preferences items on preferences pages', function () {
+        $this->get(route('admin.settings.preferences'))
+            ->assertSee('General')
             ->assertSee('Email')
+            ->assertSee('Email Templates')
+            ->assertSee('Notifications')
+            ->assertSee('Scheduling');
+    });
+
+    it('shows system items on system pages', function () {
+        $this->get(route('admin.settings.action-log'))
+            ->assertSee('Action Log')
+            ->assertSee('System Health')
             ->assertSee('Database Seeders');
+    });
+
+    it('shows infrastructure link only for owners', function () {
+        $this->get(route('admin.settings.action-log'))
+            ->assertDontSee('Infrastructure');
+
+        $owner = User::factory()->owner()->create();
+        $this->actingAs($owner)
+            ->get(route('admin.settings.action-log'))
+            ->assertSee('Infrastructure');
     });
 });

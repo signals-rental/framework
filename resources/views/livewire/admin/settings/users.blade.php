@@ -122,7 +122,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-admin.layout title="Users" description="Manage users, invitations, and access.">
+    <x-admin.layout group="users" title="Users" description="Manage users, invitations, and access.">
         <x-slot:actions>
             @if($availableRoles->isNotEmpty())
                 <flux:button variant="primary" wire:click="openInviteModal">Invite User</flux:button>

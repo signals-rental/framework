@@ -4,7 +4,10 @@ namespace App\Providers;
 
 use App\Services\SettingsRegistry;
 use App\Services\SettingsService;
+use App\Settings\ActionLogSettings;
 use App\Settings\EmailSettings;
+use App\Settings\GeneralPreferencesSettings;
+use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,7 +20,10 @@ class SettingsServiceProvider extends ServiceProvider
         $this->app->singleton(SettingsRegistry::class, function (): SettingsRegistry {
             $registry = new SettingsRegistry;
 
+            $registry->register(new ActionLogSettings);
             $registry->register(new EmailSettings);
+            $registry->register(new GeneralPreferencesSettings);
+            $registry->register(new SchedulingSettings);
             $registry->register(new SecuritySettings);
 
             return $registry;

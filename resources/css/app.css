@@ -247,7 +247,7 @@ select:focus[data-flux-control] {
 }
 
 .sidebar-item.active {
-    border-left-color: var(--green);
+    border-left-color: var(--blue);
     background: var(--sidebar-active-bg);
     color: var(--sidebar-active-text);
     font-weight: 600;
@@ -764,7 +764,8 @@ select:focus[data-flux-control] {
 /* ================================================================ */
 
 .app-footer {
-    margin-top: auto;
+    position: sticky;
+    bottom: 0;
     z-index: 20;
     padding: 24px 32px;
     display: flex;

@@ -65,7 +65,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-admin.layout title="Security" description="Configure password policies, session settings, and two-factor authentication.">
+    <x-admin.layout group="users" title="Security" description="Configure password policies, session settings, and two-factor authentication.">
         <form wire:submit="save" class="space-y-8">
             <x-signals.form-section title="Password Policy">
                 <div class="space-y-4">

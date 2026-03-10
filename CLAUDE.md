@@ -255,7 +255,7 @@ OSF ships single-tenant defaults (no-ops). Never add tenant awareness to core co
 
 - Use `php artisan make:*` commands with `--no-interaction` to create files.
 - Use `artisan make:class` for generic PHP classes.
-- Prefer Eloquent relationships over raw queries. Avoid `DB::`; use `Model::query()`.
+- Prefer Eloquent relationships over raw queries. Never use `DB::` facade; always use `Model::query()` or Eloquent. For framework tables without models (e.g. `jobs`, `failed_jobs`), create a simple model or use the framework's built-in model classes.
 - Use eager loading to prevent N+1 problems.
 - **Do NOT create Form Request classes** — use Spatie Data DTOs for validation instead.
 - Use named routes and `route()` for URL generation.

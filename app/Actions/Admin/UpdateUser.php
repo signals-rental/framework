@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admin;
 
+use App\Events\AuditableEvent;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 
@@ -14,6 +15,9 @@ class UpdateUser
     {
         Gate::authorize('users.edit');
 
+        $oldValues = $user->only(['name', 'email']);
+        $oldValues['roles'] = $user->getRoleNames()->toArray();
+
         $user->update(array_filter([
             'name' => $data['name'] ?? null,
             'email' => $data['email'] ?? null,
@@ -23,6 +27,16 @@ class UpdateUser
             $user->syncRoles($data['roles']);
         }
 
-        return $user->fresh();
+        /** @var User $user */
+        $user = $user->fresh();
+
+        $newValues = $user->only(['name', 'email']);
+        $newValues['roles'] = $user->getRoleNames()->toArray();
+
+        if ($oldValues !== $newValues) {
+            event(new AuditableEvent($user, 'updated', $oldValues, $newValues));
+        }
+
+        return $user;
     }
 }

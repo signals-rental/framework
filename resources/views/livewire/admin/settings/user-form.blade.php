@@ -111,7 +111,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-admin.layout title="Edit User" description="Update user details, roles, and manage account actions.">
+    <x-admin.layout group="users" title="Edit User" description="Update user details, roles, and manage account actions.">
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.users') }}" wire:navigate>
                 Back to Users

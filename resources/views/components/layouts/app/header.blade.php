@@ -187,8 +187,17 @@
 
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
                 <div class="sidebar-group-label">Admin</div>
-                <a class="sidebar-item {{ request()->is('admin/settings*') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
-                    <flux:icon.cog-6-tooth class="!size-[15px]" /> Settings
+                <a class="sidebar-item {{ request()->routeIs('admin.settings.company') || request()->routeIs('admin.settings.stores*') || request()->routeIs('admin.settings.branding') || request()->routeIs('admin.settings.modules') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.cog-6-tooth class="!size-[15px]" /> Setup
+                </a>
+                <a class="sidebar-item {{ request()->routeIs('admin.settings.users*') || request()->routeIs('admin.settings.roles*') || request()->routeIs('admin.settings.permissions') || request()->routeIs('admin.settings.security') ? 'active' : '' }}" href="{{ route('admin.settings.users') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.users class="!size-[15px]" /> Users & Security
+                </a>
+                <a class="sidebar-item {{ request()->routeIs('admin.settings.preferences') || request()->routeIs('admin.settings.email') || request()->routeIs('admin.settings.email-templates*') || request()->routeIs('admin.settings.notifications') || request()->routeIs('admin.settings.scheduling') ? 'active' : '' }}" href="{{ route('admin.settings.preferences') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.adjustments-horizontal class="!size-[15px]" /> Preferences
+                </a>
+                <a class="sidebar-item {{ request()->routeIs('admin.settings.action-log') || request()->routeIs('admin.settings.system-health') || request()->routeIs('admin.settings.infrastructure') || request()->routeIs('admin.settings.seeders') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.server-stack class="!size-[15px]" /> System
                 </a>
             @elseif(request()->routeIs('settings.*'))
                 {{-- Settings mobile sidebar --}}
@@ -262,9 +271,24 @@
                     <div class="mx-5 my-2 h-px bg-[var(--sidebar-border)]"></div>
                     <div class="sidebar-group-label">Admin</div>
 
-                    <a class="sidebar-item {{ request()->is('admin/settings*') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate>
+                    <a class="sidebar-item {{ request()->routeIs('admin.settings.company') || request()->routeIs('admin.settings.stores*') || request()->routeIs('admin.settings.branding') || request()->routeIs('admin.settings.modules') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate>
                         <flux:icon.cog-6-tooth class="!size-[15px]" />
-                        Settings
+                        Setup
+                    </a>
+
+                    <a class="sidebar-item {{ request()->routeIs('admin.settings.users*') || request()->routeIs('admin.settings.roles*') || request()->routeIs('admin.settings.permissions') || request()->routeIs('admin.settings.security') ? 'active' : '' }}" href="{{ route('admin.settings.users') }}" wire:navigate>
+                        <flux:icon.users class="!size-[15px]" />
+                        Users & Security
+                    </a>
+
+                    <a class="sidebar-item {{ request()->routeIs('admin.settings.preferences') || request()->routeIs('admin.settings.email') || request()->routeIs('admin.settings.email-templates*') || request()->routeIs('admin.settings.notifications') || request()->routeIs('admin.settings.scheduling') ? 'active' : '' }}" href="{{ route('admin.settings.preferences') }}" wire:navigate>
+                        <flux:icon.adjustments-horizontal class="!size-[15px]" />
+                        Preferences
+                    </a>
+
+                    <a class="sidebar-item {{ request()->routeIs('admin.settings.action-log') || request()->routeIs('admin.settings.system-health') || request()->routeIs('admin.settings.infrastructure') || request()->routeIs('admin.settings.seeders') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate>
+                        <flux:icon.server-stack class="!size-[15px]" />
+                        System
                     </a>
                 @elseif(request()->routeIs('settings.*'))
                     {{-- Settings sidebar --}}

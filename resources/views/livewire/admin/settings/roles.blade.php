@@ -12,6 +12,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return [
             'roles' => Role::query()
+                ->where('name', '!=', 'Owner')
                 ->withCount('users')
                 ->orderBy('sort_order')
                 ->get(),
@@ -28,7 +29,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-admin.layout title="Roles" description="Manage roles and their permissions.">
+    <x-admin.layout group="users" title="Roles" description="Manage roles and their permissions.">
         <x-slot:actions>
             <flux:button variant="primary" href="{{ route('admin.settings.roles.create') }}" wire:navigate>Create Role</flux:button>
         </x-slot:actions>
@@ -59,8 +60,8 @@ new #[Layout('components.layouts.app')] class extends Component {
                             </td>
                             <td>
                                 <div class="flex gap-2">
-                                    <a href="{{ route('admin.settings.roles.edit', $role) }}" wire:navigate class="s-btn s-btn-ghost s-btn-sm">
-                                        Edit
+                                    <a href="{{ route('admin.settings.roles.edit', $role) }}" wire:navigate class="s-btn s-btn-ghost s-btn-sm" title="Edit">
+                                        <flux:icon.pencil-square class="w-4 h-4" />
                                     </a>
                                     @if(! $role->is_system)
                                         <button class="s-btn s-btn-ghost s-btn-sm text-red-600" wire:click="$set('confirmingDeletion', {{ $role->id }})">

@@ -106,7 +106,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-admin.layout title="Email" description="Configure how your application sends email.">
+    <x-admin.layout group="preferences" title="Email" description="Configure how your application sends email.">
         <x-signals.form-section title="Mail Provider">
             <form wire:submit="save" class="space-y-6">
                 <flux:select wire:model.live="mailer" label="Mail Driver">

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\EmailTemplate;
+use App\Models\NotificationType;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
@@ -57,6 +59,9 @@ new #[Layout('components.layouts.app')] class extends Component {
         $systemRoles = ['Admin', 'Manager', 'Operator', 'Viewer'];
         $rolesSeeded = Schema::hasTable('roles') && Role::query()->whereIn('name', $systemRoles)->count() === count($systemRoles);
 
+        $emailTemplatesSeeded = Schema::hasTable('email_templates') && EmailTemplate::query()->exists();
+        $notificationTypesSeeded = Schema::hasTable('notification_types') && NotificationType::query()->exists();
+
         $storesSeeded = Schema::hasTable('stores') && \App\Models\Store::query()->exists();
 
         $demoNames = ['London Warehouse', 'Manchester Depot', 'Edinburgh Office'];
@@ -90,6 +95,29 @@ new #[Layout('components.layouts.app')] class extends Component {
                 'seeded' => $rolesSeeded,
                 'isDefault' => true,
             ],
+            'email_templates' => [
+                'name' => 'EmailTemplateSeeder',
+                'class' => 'Database\\Seeders\\EmailTemplateSeeder',
+                'description' => 'Creates default email templates for system notifications.',
+                'items' => [
+                    'User Invited — invitation email sent to new users',
+                    'Password Reset — password reset notification',
+                    'Test Email — email delivery verification',
+                ],
+                'seeded' => $emailTemplatesSeeded,
+                'isDefault' => true,
+            ],
+            'notification_types' => [
+                'name' => 'NotificationTypeSeeder',
+                'class' => 'Database\\Seeders\\NotificationTypeSeeder',
+                'description' => 'Creates core notification types with default channel configurations.',
+                'items' => [
+                    'User notifications (invited, deactivated, reactivated)',
+                    'System notifications (password reset, test email)',
+                ],
+                'seeded' => $notificationTypesSeeded,
+                'isDefault' => true,
+            ],
             'stores' => [
                 'name' => 'StoreSeeder',
                 'class' => 'Database\\Seeders\\StoreSeeder',
@@ -117,7 +145,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-admin.layout title="Database Seeders" description="View seeder status and populate the database with default or demo data.">
+    <x-admin.layout group="system" title="Database Seeders" description="View seeder status and populate the database with default or demo data.">
         @php
             $anyDefaultSeeded = collect($seeders)->where('isDefault', true)->contains('seeded', true);
         @endphp
@@ -135,29 +163,30 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         <div class="space-y-4">
             @foreach($seeders as $key => $seeder)
-                <div wire:key="seeder-{{ $key }}" class="s-card">
+                <div wire:key="seeder-{{ $key }}" class="s-card" x-data="{ open: {{ $seeder['seeded'] ? 'false' : 'true' }} }">
                     <div class="s-card-body flex items-start justify-between gap-4">
                         <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2 mb-1">
+                            <button type="button" @click="open = !open" class="flex items-center gap-2 mb-1 text-left w-full">
+                                <flux:icon.chevron-right class="size-4 text-zinc-400 transition-transform" ::class="open && 'rotate-90'" />
                                 <h3 class="text-sm font-medium text-zinc-900 dark:text-white">{{ $seeder['name'] }}</h3>
                                 @if($seeder['seeded'])
                                     <span class="s-status s-status-green">Seeded</span>
                                 @else
                                     <span class="s-status s-status-zinc">Not Seeded</span>
                                 @endif
+                            </button>
+                            <div x-show="open" x-collapse>
+                                <p class="text-sm text-zinc-500 mb-2 ml-6">{{ $seeder['description'] }}</p>
+                                <ul class="text-xs text-zinc-400 space-y-0.5 list-disc list-inside ml-6">
+                                    @foreach($seeder['items'] as $item)
+                                        <li>{{ $item }}</li>
+                                    @endforeach
+                                </ul>
                             </div>
-                            <p class="text-sm text-zinc-500 mb-2">{{ $seeder['description'] }}</p>
-                            <ul class="text-xs text-zinc-400 space-y-0.5 list-disc list-inside">
-                                @foreach($seeder['items'] as $item)
-                                    <li>{{ $item }}</li>
-                                @endforeach
-                            </ul>
                         </div>
-                        @unless($seeder['seeded'])
-                            <flux:button size="sm" wire:click="seed('{{ $key }}')" wire:confirm="Run {{ $seeder['name'] }}?">
-                                Run
-                            </flux:button>
-                        @endunless
+                        <flux:button size="sm" variant="{{ $seeder['seeded'] ? 'ghost' : 'filled' }}" wire:click="seed('{{ $key }}')" wire:confirm="Run {{ $seeder['name'] }}?">
+                            {{ $seeder['seeded'] ? 'Re-run' : 'Run' }}
+                        </flux:button>
                     </div>
                 </div>
             @endforeach

@@ -67,6 +67,8 @@ class PermissionSeeder extends Seeder
 
             // System
             'action-log.view' => ['label' => 'View Action Log', 'description' => 'View the audit trail', 'group' => 'System'],
+            'email-templates.manage' => ['label' => 'Manage Email Templates', 'description' => 'Edit email templates and content', 'group' => 'System'],
+            'notifications.manage' => ['label' => 'Manage Notifications', 'description' => 'Configure notification types and channels', 'group' => 'System'],
             'custom-fields.manage' => ['label' => 'Manage Custom Fields', 'description' => 'Create and manage custom fields', 'group' => 'System'],
             'static-data.manage' => ['label' => 'Manage Static Data', 'description' => 'Manage reference data and lookups', 'group' => 'System'],
             'webhooks.manage' => ['label' => 'Manage Webhooks', 'description' => 'Create and manage webhook subscriptions', 'group' => 'System'],

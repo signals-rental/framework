@@ -84,9 +84,17 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
     Volt::route('admin/settings/security', 'admin.settings.security')->name('admin.settings.security');
 
     // Preferences
+    Volt::route('admin/settings/preferences', 'admin.settings.preferences')->name('admin.settings.preferences');
     Volt::route('admin/settings/email', 'admin.settings.email')->name('admin.settings.email');
+    Volt::route('admin/settings/email-templates', 'admin.settings.email-templates')->name('admin.settings.email-templates');
+    Volt::route('admin/settings/email-templates/{template}/edit', 'admin.settings.email-template-form')->name('admin.settings.email-templates.edit');
+    Volt::route('admin/settings/notifications', 'admin.settings.notifications')->name('admin.settings.notifications');
+    Volt::route('admin/settings/scheduling', 'admin.settings.scheduling')->name('admin.settings.scheduling');
 
     // System
+    Volt::route('admin/settings/action-log', 'admin.settings.action-log')->name('admin.settings.action-log');
+    Volt::route('admin/settings/system-health', 'admin.settings.system-health')->name('admin.settings.system-health');
+    Volt::route('admin/settings/infrastructure', 'admin.settings.infrastructure')->name('admin.settings.infrastructure');
     Volt::route('admin/settings/seeders', 'admin.settings.seeders')->name('admin.settings.seeders');
 });
 

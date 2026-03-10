@@ -19,7 +19,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-admin.layout title="Permissions Reference" description="View all available permissions and which roles have them.">
+    <x-admin.layout group="users" title="Permissions Reference" description="View all available permissions and which roles have them.">
         <div class="space-y-8">
             @foreach($permissionGroups as $group => $permissions)
                 <x-signals.form-section :title="$group">

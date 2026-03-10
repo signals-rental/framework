@@ -152,8 +152,8 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 @endif
                             </td>
                             <td class="text-right">
-                                <button wire:click="openEditModal({{ $store->id }})" class="s-btn-ghost s-btn-xs">
-                                    Edit
+                                <button wire:click="openEditModal({{ $store->id }})" class="s-btn s-btn-ghost s-btn-sm" title="Edit">
+                                    <flux:icon.pencil-square class="w-4 h-4" />
                                 </button>
                                 @unless($store->is_default)
                                     <button wire:click="deleteStore({{ $store->id }})"

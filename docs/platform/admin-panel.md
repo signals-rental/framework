@@ -1,6 +1,6 @@
 ---
 title: Admin Panel
-description: Manage company settings, users, roles, permissions, security, email, stores, branding, and modules.
+description: Manage company settings, users, security, email, notifications, system health, and infrastructure.
 ---
 
 ## Overview
@@ -20,7 +20,7 @@ The admin panel uses a two-column layout:
 | Sub-sidebar (left) | Navigation between settings sub-groups |
 | Main content (right) | The active settings form |
 
-All navigation uses `wire:navigate` for instant SPA-like page transitions without full reloads.
+The sidebar is organised into four navigation groups: **Setup**, **Users & Security**, **Preferences**, and **System**. A top-level navigation bar lets you switch between groups. All navigation uses `wire:navigate` for instant SPA-like page transitions without full reloads.
 
 ## Accessing the Admin Panel
 
@@ -30,9 +30,7 @@ There are three ways to reach the admin panel:
 - **Sidebar link** — an **Admin** link appears at the bottom of the main sidebar for admin/owner users
 - **Direct URL** — navigate to `/admin` (redirects to `/admin/settings/company`)
 
-## Settings Pages
-
-The admin panel is organised into four navigation groups. Below is the full list of sub-pages.
+## Setup
 
 ### Company Details
 
@@ -101,6 +99,8 @@ Enable or disable application modules to match your business needs. Modules are 
 
 > **Tip:** You can also set modules via a feature profile during initial setup. See the [Configuration](/docs/getting-started/configuration) page for profile details.
 
+## Users & Security
+
 ### Users
 
 **Route:** `/admin/settings/users`
@@ -160,6 +160,22 @@ Configure password policies and two-factor authentication requirements.
 | 2FA for Admins | Require two-factor authentication for admin users |
 | 2FA for All Users | Require two-factor authentication for all users |
 
+## Preferences
+
+### General
+
+**Route:** `/admin/settings/preferences`
+
+Configure display and formatting defaults used across the application.
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Decimal Separator | Character for decimal points (`.` or `,`) | `.` |
+| Thousands Separator | Character for thousands grouping (`,`, `.`, space, or none) | `,` |
+| Currency Display | Show currency as symbol, code, or name | `symbol` |
+| First Day of Week | Which day starts the week (0=Sunday through 6=Saturday) | `1` (Monday) |
+| Items Per Page | Default pagination size (10, 25, 50, or 100) | `25` |
+
 ### Email
 
 **Route:** `/admin/settings/email`
@@ -176,7 +192,88 @@ Configure outbound email delivery. Supports SMTP, Amazon SES, Mailgun, Postmark,
 
 A **Send Test Email** button lets you verify your configuration by sending to any address.
 
-### Seeders
+### Email Templates
+
+**Routes:** `/admin/settings/email-templates`, `/admin/settings/email-templates/{template}/edit`
+
+Manage database-stored email templates with Markdown bodies and merge field syntax. System templates can be customised and reset to defaults.
+
+| Action | Description |
+|--------|-------------|
+| Edit | Modify the template subject and Markdown body |
+| Reset | Revert a system template to its seeded default content |
+
+Templates support merge fields using `{{ field.path }}` syntax with optional filters: `{{ name | upper }}`, `{{ value | default:"N/A" }}`. A merge field reference sidebar shows available fields for each template. Every edit creates a version snapshot for history tracking.
+
+> **Note:** Requires the `email-templates.manage` permission.
+
+### Notifications
+
+**Route:** `/admin/settings/notifications`
+
+Configure system-wide notification channels for each registered notification type. Types are grouped by category with per-type channel toggles (database, email, broadcast) and a master enable/disable switch.
+
+Each notification type defines which channels are available and which are enabled by default. System-level overrides apply to all users unless individual users set their own preferences.
+
+> **Note:** Requires the `notifications.manage` permission.
+
+### Scheduling
+
+**Route:** `/admin/settings/scheduling`
+
+Set defaults for opportunity durations, buffer times, reminders, and availability windows.
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Default Opportunity Duration | Duration in days for new opportunities | `1` |
+| Buffer Before | Minutes of prep time before an opportunity | `0` |
+| Buffer After | Minutes of cleanup time after an opportunity | `0` |
+| Collection Reminder | Days before collection to send reminders | `1` |
+| Return Reminder | Days before return to send reminders | `1` |
+| Default Start Time | Default daily start time | `09:00` |
+| Default End Time | Default daily end time | `17:00` |
+| Weekend Availability | Whether weekends are available for scheduling | Off |
+
+## System
+
+### Action Log
+
+**Route:** `/admin/settings/action-log`
+
+Browse the audit trail of all recorded actions. The log captures who did what, when, and the before/after values for changes. Entries are created automatically when action classes fire `AuditableEvent`.
+
+The table supports filtering by action type, entity type, user, and date range. Expand a row to see the old and new value diff. Entries are paginated and sorted by most recent.
+
+Action logs are automatically pruned based on the configured retention period (default: 12 months). The `action-log:prune` Artisan command runs daily via the scheduler.
+
+### System Health
+
+**Route:** `/admin/settings/system-health`
+
+Read-only diagnostic dashboard showing the status of all connected services. Each service displays as a status card with connection details.
+
+| Check | What it tests |
+|-------|---------------|
+| PostgreSQL | Database connectivity, version |
+| Redis | Connection status, version (skipped if not in use) |
+| S3 Storage | Bucket access (skipped if using local disk) |
+| Queue | Pending and failed job counts |
+| Scheduler | Heartbeat detection (warns if no run in 5+ minutes) |
+| PHP | Version, memory limit, execution time, upload limits |
+
+Click **Refresh** to re-run all checks. Failed checks report the error message for diagnostics.
+
+### Infrastructure
+
+**Route:** `/admin/settings/infrastructure`
+
+**Owner-only.** Configure low-level service connections (database, Redis, S3, queue driver) and run connection tests. Changes are written directly to the `.env` file and take effect after reloading.
+
+Each section has a **Test Connection** button to verify credentials before saving. This page also provides access to run Artisan `migrate` and clear application caches.
+
+> **Note:** This page is only visible to the account owner.
+
+### Database Seeders
 
 **Route:** `/admin/settings/seeders`
 

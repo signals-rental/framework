@@ -2,13 +2,18 @@
 
 namespace App\Providers;
 
+use App\Events\AuditableEvent;
+use App\Listeners\LogAction;
 use App\Models\User;
 use App\Services\DocsService;
+use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
 use Carbon\CarbonImmutable;
+use Database\Seeders\NotificationTypeSeeder;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -25,12 +30,21 @@ class AppServiceProvider extends ServiceProvider
 
             return $registry;
         });
+
+        $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
+            $registry = new NotificationRegistry;
+            $registry->registerMany(NotificationTypeSeeder::types());
+
+            return $registry;
+        });
     }
 
     public function boot(): void
     {
         $this->configureDefaults();
         $this->configureAuthorization();
+
+        Event::listen(AuditableEvent::class, LogAction::class);
     }
 
     protected function configureDefaults(): void
@@ -72,6 +86,10 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::before(function (User $user): ?bool {
             return $user->isOwner() ? true : null;
+        });
+
+        Gate::define('owner', function (User $user): bool {
+            return $user->isOwner();
         });
     }
 }

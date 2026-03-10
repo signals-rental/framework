@@ -1,4 +1,4 @@
-@props(['group' => 'settings', 'title' => '', 'description' => ''])
+@props(['group' => 'setup', 'title' => '', 'description' => ''])
 
 <div class="s-admin-layout">
     <x-admin.sidebar :group="$group" />
