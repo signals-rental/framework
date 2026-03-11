@@ -18,10 +18,10 @@ it('warns when no demo data has been seeded', function () {
 });
 
 it('removes demo stores', function () {
-    Store::create(['name' => 'London Warehouse', 'is_default' => false]);
-    Store::create(['name' => 'Manchester Depot', 'is_default' => false]);
-    Store::create(['name' => 'Edinburgh Office', 'is_default' => false]);
-    Store::create(['name' => 'My Real Store', 'is_default' => true]);
+    Store::factory()->create(['name' => 'London Warehouse', 'is_default' => false]);
+    Store::factory()->create(['name' => 'Manchester Depot', 'is_default' => false]);
+    Store::factory()->create(['name' => 'Edinburgh Office', 'is_default' => false]);
+    Store::factory()->create(['name' => 'My Real Store', 'is_default' => true]);
 
     settings()->set('setup.demo_seeded_at', now()->toIso8601String());
 
@@ -37,7 +37,7 @@ it('removes demo stores', function () {
 it('cancels when user declines interactive confirmation', function () {
     settings()->set('setup.demo_seeded_at', now()->toIso8601String());
 
-    Store::create(['name' => 'London Warehouse', 'is_default' => false]);
+    Store::factory()->create(['name' => 'London Warehouse', 'is_default' => false]);
 
     $this->artisan('signals:clear-demo')
         ->expectsConfirmation('This will remove all demo data. Continue?', 'no')

@@ -37,7 +37,14 @@ $merged = null;
 
 foreach ($files as $file) {
     echo '  Loading '.basename($file)."...\n";
-    $coverage = include $file;
+
+    try {
+        $coverage = include $file;
+    } catch (\Throwable $e) {
+        fwrite(STDERR, '  Error loading '.basename($file).': '.$e->getMessage()."\n");
+
+        continue;
+    }
 
     if (! $coverage instanceof CodeCoverage) {
         fwrite(STDERR, '  Skipping '.basename($file)." — not a CodeCoverage object\n");
@@ -45,10 +52,14 @@ foreach ($files as $file) {
         continue;
     }
 
-    if ($merged === null) {
-        $merged = $coverage;
-    } else {
-        $merged->merge($coverage);
+    try {
+        if ($merged === null) {
+            $merged = $coverage;
+        } else {
+            $merged->merge($coverage);
+        }
+    } catch (\Throwable $e) {
+        fwrite(STDERR, '  Error merging '.basename($file).': '.$e->getMessage()."\n");
     }
 }
 
@@ -81,6 +92,12 @@ if ($showText) {
 
 if ($htmlPath) {
     echo "\nGenerating HTML report to {$htmlPath}...\n";
-    (new HtmlReport)->process($merged, $htmlPath);
-    echo "Done.\n";
+
+    try {
+        (new HtmlReport)->process($merged, $htmlPath);
+        echo "Done.\n";
+    } catch (\Throwable $e) {
+        fwrite(STDERR, 'Failed to generate HTML report: '.$e->getMessage()."\n");
+        exit(1);
+    }
 }

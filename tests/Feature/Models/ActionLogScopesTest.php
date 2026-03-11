@@ -76,7 +76,9 @@ describe('relationships', function () {
         ]);
 
         expect($log->auditable)->toBeInstanceOf(User::class);
-        expect($log->auditable->id)->toBe($user->id);
+        /** @var User $auditable */
+        $auditable = $log->auditable;
+        expect($auditable->id)->toBe($user->id);
     });
 });
 

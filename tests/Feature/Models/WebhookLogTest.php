@@ -18,8 +18,10 @@ it('casts payload to array', function () {
         'payload' => ['event' => 'test', 'data' => ['id' => 1]],
     ]);
 
-    expect($log->payload)->toBeArray();
-    expect($log->payload['event'])->toBe('test');
+    /** @var array<string, mixed> $payload */
+    $payload = $log->payload;
+    expect($payload)->toBeArray();
+    expect($payload['event'])->toBe('test');
 });
 
 it('casts delivered_at and next_retry_at to datetime', function () {

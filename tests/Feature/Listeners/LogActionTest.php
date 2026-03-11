@@ -3,6 +3,7 @@
 use App\Events\AuditableEvent;
 use App\Models\ActionLog;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 it('creates an action log entry when an auditable event fires', function () {
     $user = User::factory()->create();
@@ -47,14 +48,12 @@ it('handles events without authenticated user', function () {
     expect($log->action)->toBe('created');
 });
 
-it('silently handles exception when ActionLog creation fails', function () {
+it('reports exception when ActionLog creation fails', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
     $listener = new \App\Listeners\LogAction;
 
-    // Create an event with a model that has no morph class mapping — this won't throw,
-    // but we can verify the try/catch path by using a mock that forces an exception
     $event = new AuditableEvent($user, 'created');
 
     // Replace the model with one that throws on getMorphClass
@@ -63,10 +62,11 @@ it('silently handles exception when ActionLog creation fails', function () {
 
     $event->model = $mockModel;
 
-    // Should not throw — the listener catches all exceptions
+    // Verify the exception is reported, not silently swallowed
+    Log::shouldReceive('error')->atLeast()->once();
+
     $listener->handle($event);
 
-    // No ActionLog should be created since it failed
     expect(ActionLog::count())->toBe(0);
 });
 

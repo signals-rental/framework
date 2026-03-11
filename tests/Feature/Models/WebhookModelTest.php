@@ -7,14 +7,8 @@ describe('relationships', function () {
     it('has many logs', function () {
         $webhook = Webhook::factory()->create();
 
-        WebhookLog::create([
+        WebhookLog::factory()->create([
             'webhook_id' => $webhook->id,
-            'event' => 'user.created',
-            'url' => $webhook->url,
-            'payload' => '{}',
-            'response_code' => 200,
-            'response_body' => 'OK',
-            'delivered_at' => now(),
         ]);
 
         expect($webhook->logs)->toHaveCount(1);
