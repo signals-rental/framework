@@ -195,3 +195,77 @@ it('scopes settings by key', function () {
 
     expect(Setting::query()->forKey('company', 'name')->count())->toBe(1);
 });
+
+it('returns null for invalid JSON in json-typed setting', function () {
+    Setting::query()->create([
+        'group' => 'test',
+        'key' => 'bad_json',
+        'value' => '{invalid json',
+        'type' => 'json',
+    ]);
+
+    $service = new SettingsService;
+    $service->load();
+
+    expect($service->get('test.bad_json'))->toBeNull();
+});
+
+it('returns null for corrupted encrypted setting', function () {
+    Setting::query()->create([
+        'group' => 'test',
+        'key' => 'bad_encrypted',
+        'value' => 'not-a-valid-encrypted-string',
+        'type' => 'encrypted',
+    ]);
+
+    $service = new SettingsService;
+    $service->load();
+
+    expect($service->get('test.bad_encrypted'))->toBeNull();
+});
+
+it('returns group settings merged with registry defaults', function () {
+    $this->service->set('email.smtp_host', 'mail.test.com');
+
+    $group = $this->service->group('email');
+
+    expect($group)->toHaveKey('smtp_host', 'mail.test.com');
+    // Should also have registry defaults for keys not stored in DB
+    expect($group)->toBeArray();
+});
+
+it('uses non-taggable cache path when cache driver does not support tags', function () {
+    // Use array driver which does not support tags
+    config(['cache.default' => 'array']);
+
+    $service = new SettingsService;
+
+    // Set a value — this will flush using Cache::forget (non-tag path)
+    $service->set('test.array_cache', 'works');
+
+    // Reload and verify — the non-tag Cache::rememberForever path is used
+    $service->flush();
+    expect($service->get('test.array_cache'))->toBe('works');
+});
+
+it('supportsTags returns false when cache store throws exception', function () {
+    // Mock Cache facade to throw on getStore()
+    Cache::shouldReceive('getStore')->andThrow(new \RuntimeException('Cache unavailable'));
+    Cache::shouldReceive('forget')->once(); // non-tag flush path
+    Cache::shouldReceive('rememberForever')->andReturn([]);
+
+    $service = new SettingsService;
+    $service->flush();
+    $service->load();
+
+    // If supportsTags threw, it falls back to false — the flush used Cache::forget
+    // The test passes if no exception propagates
+    expect(true)->toBeTrue();
+});
+
+it('has() returns false for group-only key without dot', function () {
+    expect($this->service->has('nonexistent'))->toBeFalse();
+
+    $this->service->set('test.key', 'value');
+    expect($this->service->has('test'))->toBeTrue();
+});

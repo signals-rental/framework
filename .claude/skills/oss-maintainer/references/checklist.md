@@ -93,6 +93,12 @@ Detailed checklist items referenced by the main SKILL.md during each review phas
 
 ## Test Coverage Checklist
 
+**Target: 90% line coverage.** Run `composer test:coverage` to measure (merges parallel + env-writing groups via `bin/coverage-merge.php`).
+
+- [ ] Overall line coverage is at or above 90%
+- [ ] No individual class dropped below 90% due to changes in this PR
+- [ ] New files have corresponding tests
+
 ### Action Classes
 
 - [ ] Test calls the action directly with a DTO: `(new ActionClass)($dto)`

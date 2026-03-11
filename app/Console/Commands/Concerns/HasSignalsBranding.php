@@ -2,8 +2,6 @@
 
 namespace App\Console\Commands\Concerns;
 
-use function Laravel\Prompts\info;
-
 trait HasSignalsBranding
 {
     protected function displaySignalsLogo(): void
@@ -33,10 +31,5 @@ trait HasSignalsBranding
         LOGO;
 
         $this->line($logo);
-    }
-
-    protected function displaySignalsTagline(): void
-    {
-        info('Signals — Rental Management Framework');
     }
 }

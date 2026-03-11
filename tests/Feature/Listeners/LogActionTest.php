@@ -47,6 +47,29 @@ it('handles events without authenticated user', function () {
     expect($log->action)->toBe('created');
 });
 
+it('silently handles exception when ActionLog creation fails', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $listener = new \App\Listeners\LogAction;
+
+    // Create an event with a model that has no morph class mapping — this won't throw,
+    // but we can verify the try/catch path by using a mock that forces an exception
+    $event = new AuditableEvent($user, 'created');
+
+    // Replace the model with one that throws on getMorphClass
+    $mockModel = Mockery::mock(\App\Models\User::class)->makePartial();
+    $mockModel->shouldReceive('getMorphClass')->andThrow(new \RuntimeException('Database error'));
+
+    $event->model = $mockModel;
+
+    // Should not throw — the listener catches all exceptions
+    $listener->handle($event);
+
+    // No ActionLog should be created since it failed
+    expect(ActionLog::count())->toBe(0);
+});
+
 it('stores metadata when provided', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

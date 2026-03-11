@@ -58,6 +58,10 @@ php artisan test --parallel --exclude-group=env-writing  # run all tests (parall
 php artisan test --group=env-writing                     # run env-writing tests (sequential)
 php artisan test --parallel tests/Feature/ExampleTest.php  # run a single file
 php artisan test --parallel --filter=testName            # filter by name
+
+# Coverage (merges parallel + env-writing runs)
+composer test:coverage          # text summary to terminal
+composer test:coverage-html     # HTML report to build/coverage/html
 ```
 
 ## Architecture (Laravel 12)
@@ -406,8 +410,9 @@ OSF ships single-tenant defaults (no-ops). Never add tenant awareness to core co
 - All tests use Pest. Create with `php artisan make:test --pest <name>` (add `--unit` for unit tests).
 - Tests live in `tests/Feature/` and `tests/Unit/`. Browser tests in `tests/Browser/`.
 - Never remove tests without approval.
-- **Test coverage is critical.** Test happy paths, failure paths, edge cases, and error handling branches.
-- Every new feature or bug fix must include tests. Aim for comprehensive branch coverage — untested code paths are considered incomplete work.
+- **Test coverage target: 90% line coverage.** Run `composer test:coverage` to measure. The script merges parallel and `env-writing` group runs via `bin/coverage-merge.php`.
+- Every new feature or bug fix must include tests. Test happy paths, failure paths, edge cases, and error handling branches — untested code paths are considered incomplete work.
+- Interactive CLI commands using Laravel Prompts (`text()`, `select()`, `confirm()`, `password()`) are testable via `expectsQuestion()`, `expectsChoice()`, and `expectsConfirmation()` — Laravel auto-enables prompt fallbacks in tests.
 - Use model factories in tests. Check for existing factory states before manual setup.
 - Use specific assertion methods: `assertForbidden()`, not `assertStatus(403)`.
 - Use datasets for tests with repeated data (especially validation rules).

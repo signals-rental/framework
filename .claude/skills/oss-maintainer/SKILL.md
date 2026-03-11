@@ -108,7 +108,9 @@ Flag findings as:
 
 ### Phase 5: Test Coverage
 
-For each changed file in `app/`, check for corresponding tests:
+**Coverage target: 90% line coverage.** Run `composer test:coverage` to get the merged report (parallel + env-writing groups combined via `bin/coverage-merge.php`).
+
+Review the coverage report output and flag any class below 90% line coverage. For each changed file in `app/`, also check for corresponding tests:
 
 **Action classes (`app/Actions/`):**
 - Must have a test that calls the action directly with a DTO: `(new ActionClass)($dto)`
@@ -129,9 +131,14 @@ For each changed file in `app/`, check for corresponding tests:
 **Middleware, Jobs, Events, Listeners:**
 - Check for at least one test covering the primary behavior
 
+**CLI commands using Laravel Prompts:**
+- Interactive prompt paths (`text()`, `select()`, `confirm()`, `password()`) are testable — Laravel auto-enables fallbacks in tests
+- Use `expectsQuestion()` for `text()`/`password()`, `expectsChoice()` for `select()`, `expectsConfirmation()` for `confirm()`
+- Test both interactive and non-interactive (`--no-interaction` + options) paths
+
 Flag findings as:
-- **Critical:** New action class or API endpoint with zero test coverage
-- **Important:** Missing failure/authorization test paths
+- **Critical:** New action class or API endpoint with zero test coverage; overall coverage dropped below 90%
+- **Important:** Missing failure/authorization test paths; class below 90% line coverage
 - **Suggestion:** Missing edge case or dataset-based validation tests
 
 ### Phase 6: Report
@@ -216,9 +223,10 @@ If Critical or Important findings exist:
    - Component library: replace raw HTML with proper `s-*` classes or `<x-signals.*>` components
    - Test coverage: generate missing test stubs (but don't write fake assertions — flag for manual completion)
 3. **Re-run quality gate:** After fixes, run the pre-commit checks:
-   - `php artisan test --parallel --compact --exclude-group=env-writing`
+   - `php artisan test --parallel --compact --exclude-group=env-writing && php artisan test --compact --group=env-writing`
    - `vendor/bin/pint --dirty --format agent`
    - `vendor/bin/phpstan analyse`
+   - `composer test:coverage` (verify 90%+ line coverage)
 4. **Update report:** Mark resolved findings in the saved report with resolution status.
 
 If all Critical and Important findings are resolved (or accepted by the user), report success and suggest committing.

@@ -107,7 +107,7 @@ class PostgresConnectionTester
         return $results;
     }
 
-    private function connect(string $host, int $port, string $database, string $username, string $password): PDO
+    protected function connect(string $host, int $port, string $database, string $username, string $password): PDO
     {
         $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s', $host, $port, $database);
 

@@ -33,3 +33,9 @@ it('reports zero when nothing to prune', function () {
         ->assertSuccessful()
         ->expectsOutputToContain('Pruned 0 action log entries');
 });
+
+it('rejects retention period less than 1 month', function () {
+    $this->artisan('action-log:prune --months=0')
+        ->assertFailed()
+        ->expectsOutputToContain('at least 1 month');
+});

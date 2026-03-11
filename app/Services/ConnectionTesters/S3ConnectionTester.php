@@ -55,7 +55,7 @@ class S3ConnectionTester
         }
     }
 
-    private function createClient(array $config): S3Client
+    protected function createClient(array $config): S3Client
     {
         $clientConfig = [
             'version' => 'latest',

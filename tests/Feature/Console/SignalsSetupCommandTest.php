@@ -356,6 +356,215 @@ it('registers all non-interactive options', function (string $optionName) {
     'force',
 ]);
 
+it('fails with fiscal year start out of range', function (int $month) {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'GB',
+        '--store-name' => 'HQ',
+        '--fiscal-year-start' => (string) $month,
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        '--admin-password' => 'password123',
+    ])->assertFailed();
+})->with([0, 13, -1, 99]);
+
+it('fails with invalid accent colour', function () {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'GB',
+        '--store-name' => 'HQ',
+        '--accent-colour' => 'not-a-hex',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        '--admin-password' => 'password123',
+    ])->assertFailed();
+});
+
+it('fails when logo file does not exist', function () {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'GB',
+        '--store-name' => 'HQ',
+        '--logo-path' => '/tmp/nonexistent-logo-'.bin2hex(random_bytes(8)).'.png',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        '--admin-password' => 'password123',
+    ])->assertFailed();
+});
+
+it('processes valid logo file and stores it', function () {
+    // Create a temporary PNG file
+    $tmpFile = tempnam(sys_get_temp_dir(), 'logo').'.png';
+    // Create a minimal valid PNG (1x1 transparent pixel)
+    $img = imagecreatetruecolor(1, 1);
+    imagepng($img, $tmpFile);
+    imagedestroy($img);
+
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'GB',
+        '--store-name' => 'HQ',
+        '--logo-path' => $tmpFile,
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'logo@test.com',
+        '--admin-password' => 'password123',
+    ])->assertSuccessful();
+
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists('branding/logo.png');
+
+    // Clean up temp file
+    @unlink($tmpFile);
+});
+
+it('fails preflight when infrastructure checks fail', function () {
+    $this->mock(CheckInfrastructure::class, function ($mock) {
+        $mock->shouldReceive('__invoke')->andReturn([
+            'passed' => false,
+            'checks' => [
+                'database' => ['passed' => false, 'message' => 'Connection refused'],
+                'migrations' => ['passed' => false, 'message' => 'Skipped'],
+                'redis' => ['passed' => true, 'message' => 'Connected'],
+                'reverb' => ['passed' => true, 'message' => 'Configured'],
+            ],
+        ]);
+    });
+
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'GB',
+        '--store-name' => 'HQ',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        '--admin-password' => 'password123',
+    ])->assertFailed();
+});
+
+it('fails with invalid country option', function () {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'XX',
+        '--store-name' => 'HQ',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        '--admin-password' => 'password123',
+    ])->assertFailed();
+});
+
+it('fails when company-name option is an empty string', function () {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => '',
+        '--country' => 'GB',
+        '--store-name' => 'HQ',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        '--admin-password' => 'password123',
+    ])->assertFailed();
+});
+
+it('fails when store-name option is an empty string', function () {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'GB',
+        '--store-name' => '',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        '--admin-password' => 'password123',
+    ])->assertFailed();
+});
+
+it('defaults country to GB in non-interactive mode when not specified', function () {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--store-name' => 'HQ',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'country-default@test.com',
+        '--admin-password' => 'password123',
+    ])->assertSuccessful();
+
+    expect(settings('company.country_code'))->toBe('GB');
+});
+
+it('completes setup via interactive prompts', function () {
+    $countryOptions = \App\Data\Reference\CountryData::options();
+
+    $profileOptions = [];
+    foreach (\App\Enums\FeatureProfile::cases() as $profile) {
+        $profileOptions[$profile->value] = $profile->label().' — '.$profile->description();
+    }
+
+    $this->artisan('signals:setup')
+        ->expectsChoice('Country', 'GB', $countryOptions)
+        ->expectsQuestion('Company Name', 'Interactive Rentals')
+        ->expectsQuestion('Timezone', 'Europe/London')
+        ->expectsQuestion('Currency Code', 'GBP')
+        ->expectsQuestion('Tax Rate (%)', '20.00')
+        ->expectsQuestion('Tax Label', 'VAT')
+        ->expectsQuestion('Date Format', 'd/m/Y')
+        ->expectsQuestion('Time Format', 'H:i')
+        ->expectsQuestion('Fiscal Year Start Month (1-12)', '1')
+        ->expectsQuestion('Store Name', 'Interactive HQ')
+        ->expectsConfirmation('Add another store?', 'no')
+        ->expectsChoice('Feature Profile', 'general', $profileOptions)
+        ->expectsQuestion('Primary Colour (hex)', '#1e3a5f')
+        ->expectsQuestion('Accent Colour (hex)', '#3b82f6')
+        ->expectsQuestion('Logo File Path (leave blank to skip)', '')
+        ->expectsQuestion('Full Name', 'Interactive Admin')
+        ->expectsQuestion('Email Address', 'interactive@test.com')
+        ->expectsQuestion('Password', 'password123')
+        ->expectsConfirmation('Proceed with setup?', 'yes')
+        ->assertSuccessful();
+
+    $user = User::where('email', 'interactive@test.com')->first();
+    expect($user)->not->toBeNull();
+    expect($user->name)->toBe('Interactive Admin');
+    expect(settings('company.name'))->toBe('Interactive Rentals');
+    expect(Store::where('name', 'Interactive HQ')->exists())->toBeTrue();
+});
+
+it('cancels setup when user declines confirmation', function () {
+    $countryOptions = \App\Data\Reference\CountryData::options();
+
+    $profileOptions = [];
+    foreach (\App\Enums\FeatureProfile::cases() as $profile) {
+        $profileOptions[$profile->value] = $profile->label().' — '.$profile->description();
+    }
+
+    $this->artisan('signals:setup')
+        ->expectsChoice('Country', 'GB', $countryOptions)
+        ->expectsQuestion('Company Name', 'Cancel Co')
+        ->expectsQuestion('Timezone', 'Europe/London')
+        ->expectsQuestion('Currency Code', 'GBP')
+        ->expectsQuestion('Tax Rate (%)', '20.00')
+        ->expectsQuestion('Tax Label', 'VAT')
+        ->expectsQuestion('Date Format', 'd/m/Y')
+        ->expectsQuestion('Time Format', 'H:i')
+        ->expectsQuestion('Fiscal Year Start Month (1-12)', '1')
+        ->expectsQuestion('Store Name', 'Cancel Store')
+        ->expectsConfirmation('Add another store?', 'no')
+        ->expectsChoice('Feature Profile', 'general', $profileOptions)
+        ->expectsQuestion('Primary Colour (hex)', '#1e3a5f')
+        ->expectsQuestion('Accent Colour (hex)', '#3b82f6')
+        ->expectsQuestion('Logo File Path (leave blank to skip)', '')
+        ->expectsQuestion('Full Name', 'Cancel Admin')
+        ->expectsQuestion('Email Address', 'cancel@test.com')
+        ->expectsQuestion('Password', 'password123')
+        ->expectsConfirmation('Proceed with setup?', 'no')
+        ->assertFailed();
+
+    expect(User::where('email', 'cancel@test.com')->exists())->toBeFalse();
+});
+
 it('hashes the admin password correctly', function () {
     $this->artisan('signals:setup', [
         '--no-interaction' => true,

@@ -95,7 +95,7 @@ class SignalsStatusCommand extends Command
             return;
         }
 
-        $tester = new PostgresConnectionTester;
+        $tester = app(PostgresConnectionTester::class);
         $result = $tester->test([
             'host' => config('database.connections.pgsql.host'),
             'port' => (int) config('database.connections.pgsql.port'),
@@ -136,7 +136,7 @@ class SignalsStatusCommand extends Command
             return;
         }
 
-        $tester = new RedisConnectionTester;
+        $tester = app(RedisConnectionTester::class);
         $result = $tester->test([
             'host' => config('database.redis.default.host', '127.0.0.1'),
             'port' => (int) config('database.redis.default.port', 6379),
@@ -191,7 +191,7 @@ class SignalsStatusCommand extends Command
             return;
         }
 
-        $tester = new S3ConnectionTester;
+        $tester = app(S3ConnectionTester::class);
         $result = $tester->test([
             'key' => config('filesystems.disks.s3.key'),
             'secret' => config('filesystems.disks.s3.secret'),

@@ -99,6 +99,20 @@
             "@test:lint",
             "@php artisan test"
         ],
+        "test:coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -r \"@mkdir('build/coverage', 0755, true);\"",
+            "@php artisan test --parallel --exclude-group=env-writing --coverage-php build/coverage/parallel.php",
+            "@php artisan test --group=env-writing --coverage-php build/coverage/env-writing.php",
+            "@php bin/coverage-merge.php build/coverage --text"
+        ],
+        "test:coverage-html": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -r \"@mkdir('build/coverage', 0755, true);\"",
+            "@php artisan test --parallel --exclude-group=env-writing --coverage-php build/coverage/parallel.php",
+            "@php artisan test --group=env-writing --coverage-php build/coverage/env-writing.php",
+            "@php bin/coverage-merge.php build/coverage --html=build/coverage/html"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

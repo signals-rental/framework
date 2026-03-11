@@ -134,6 +134,69 @@ it('returns list of available webhook events', function () {
     expect($events)->toContain('role.deleted');
 });
 
+it('failed method logs error', function () {
+    $webhook = Webhook::factory()->create();
+    $job = new DeliverWebhook($webhook, 'user.created', ['id' => 1]);
+
+    \Illuminate\Support\Facades\Log::shouldReceive('error')
+        ->once()
+        ->withArgs(fn ($message) => str_contains($message, 'permanently failed'));
+
+    $job->failed(new \RuntimeException('Test failure'));
+});
+
+it('backoff returns correct exponential schedule', function () {
+    $webhook = Webhook::factory()->create();
+    $job = new DeliverWebhook($webhook, 'user.created', ['id' => 1]);
+
+    $backoff = $job->backoff();
+
+    expect($backoff)->toBe([60, 300, 1800, 7200, 21600, 43200]);
+});
+
+it('middleware returns ThrottlesExceptions', function () {
+    $webhook = Webhook::factory()->create();
+    $job = new DeliverWebhook($webhook, 'user.created', ['id' => 1]);
+
+    $middleware = $job->middleware();
+
+    expect($middleware)->toHaveCount(1);
+    expect($middleware[0])->toBeInstanceOf(\Illuminate\Queue\Middleware\ThrottlesExceptions::class);
+});
+
+it('handles JSON encode failure gracefully', function () {
+    $webhook = Webhook::factory()->create();
+
+    // Create a payload with invalid UTF-8 that will cause json_encode to fail
+    $invalidPayload = ['data' => "\xB1\x31"];
+
+    \Illuminate\Support\Facades\Log::shouldReceive('error')
+        ->once()
+        ->withArgs(fn ($message) => str_contains($message, 'Failed to JSON-encode'));
+
+    Http::fake();
+
+    (new DeliverWebhook($webhook, 'user.created', $invalidPayload))->handle();
+
+    // No HTTP request should be made
+    Http::assertNothingSent();
+});
+
+it('records failure and updates log when HTTP request throws exception', function () {
+    Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection timed out'));
+
+    $webhook = Webhook::factory()->create(['consecutive_failures' => 0]);
+
+    expect(fn () => (new DeliverWebhook($webhook, 'user.created', ['id' => 1]))->handle())
+        ->toThrow(\Illuminate\Http\Client\ConnectionException::class, 'Connection timed out');
+
+    $log = WebhookLog::where('webhook_id', $webhook->id)->first();
+    expect($log)->not->toBeNull();
+    expect($log->response_body)->toContain('Connection timed out');
+    expect($log->delivered_at)->toBeNull();
+    expect($webhook->fresh()->consecutive_failures)->toBe(1);
+});
+
 it('truncates long response bodies', function () {
     $longBody = str_repeat('x', 20000);
     Http::fake(['*' => Http::response($longBody, 200)]);

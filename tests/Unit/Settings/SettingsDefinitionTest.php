@@ -1,7 +1,36 @@
 <?php
 
+use App\Settings\ActionLogSettings;
+use App\Settings\ApiSettings;
 use App\Settings\EmailSettings;
+use App\Settings\GeneralPreferencesSettings;
+use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
+use App\Settings\SettingsDefinition;
+
+describe('SettingsDefinition (abstract base)', function () {
+    it('returns empty array from base types() method', function () {
+        $definition = new class extends SettingsDefinition
+        {
+            public function group(): string
+            {
+                return 'test';
+            }
+
+            public function defaults(): array
+            {
+                return [];
+            }
+
+            public function rules(): array
+            {
+                return [];
+            }
+        };
+
+        expect($definition->types())->toBe([]);
+    });
+});
 
 describe('EmailSettings', function () {
     it('returns email as the group name', function () {
@@ -94,5 +123,167 @@ describe('SecuritySettings', function () {
 
         expect($rules)->toHaveKey('password_min_length');
         expect($rules['password_min_length'])->toContain('required');
+    });
+});
+
+describe('ActionLogSettings', function () {
+    it('returns action-log as the group name', function () {
+        $definition = new ActionLogSettings;
+
+        expect($definition->group())->toBe('action-log');
+    });
+
+    it('provides defaults for all action log settings', function () {
+        $definition = new ActionLogSettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)->toHaveKey('retention_months', 12);
+    });
+
+    it('provides validation rules for retention_months', function () {
+        $definition = new ActionLogSettings;
+        $rules = $definition->rules();
+
+        expect($rules)->toHaveKey('retention_months');
+        expect($rules['retention_months'])->toContain('required');
+        expect($rules['retention_months'])->toContain('integer');
+    });
+
+    it('declares integer type for retention_months', function () {
+        $definition = new ActionLogSettings;
+
+        expect($definition->types())->toHaveKey('retention_months', 'integer');
+    });
+});
+
+describe('ApiSettings', function () {
+    it('returns api as the group name', function () {
+        $definition = new ApiSettings;
+
+        expect($definition->group())->toBe('api');
+    });
+
+    it('provides defaults for all api settings', function () {
+        $definition = new ApiSettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)
+            ->toHaveKey('rate_limit', 60)
+            ->toHaveKey('rate_limit_unauthenticated', 20)
+            ->toHaveKey('token_expiration_days', 0);
+    });
+
+    it('provides validation rules for all settings', function () {
+        $definition = new ApiSettings;
+        $rules = $definition->rules();
+
+        expect($rules)
+            ->toHaveKey('rate_limit')
+            ->toHaveKey('rate_limit_unauthenticated')
+            ->toHaveKey('token_expiration_days');
+
+        expect($rules['rate_limit'])->toContain('required');
+    });
+
+    it('declares integer types for all settings', function () {
+        $definition = new ApiSettings;
+        $types = $definition->types();
+
+        expect($types)
+            ->toHaveKey('rate_limit', 'integer')
+            ->toHaveKey('rate_limit_unauthenticated', 'integer')
+            ->toHaveKey('token_expiration_days', 'integer');
+    });
+});
+
+describe('SchedulingSettings', function () {
+    it('returns scheduling as the group name', function () {
+        $definition = new SchedulingSettings;
+
+        expect($definition->group())->toBe('scheduling');
+    });
+
+    it('provides defaults for all scheduling settings', function () {
+        $definition = new SchedulingSettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)
+            ->toHaveKey('default_opportunity_duration_days', 1)
+            ->toHaveKey('default_buffer_before_minutes', 0)
+            ->toHaveKey('default_buffer_after_minutes', 0)
+            ->toHaveKey('collection_reminder_days', 1)
+            ->toHaveKey('return_reminder_days', 1)
+            ->toHaveKey('default_start_time', '09:00')
+            ->toHaveKey('default_end_time', '17:00')
+            ->toHaveKey('weekend_availability', false);
+    });
+
+    it('provides validation rules for all settings', function () {
+        $definition = new SchedulingSettings;
+        $rules = $definition->rules();
+
+        expect($rules)
+            ->toHaveKey('default_opportunity_duration_days')
+            ->toHaveKey('default_buffer_before_minutes')
+            ->toHaveKey('default_start_time')
+            ->toHaveKey('weekend_availability');
+
+        expect($rules['default_opportunity_duration_days'])->toContain('required');
+    });
+
+    it('declares integer and boolean types', function () {
+        $definition = new SchedulingSettings;
+        $types = $definition->types();
+
+        expect($types)
+            ->toHaveKey('default_opportunity_duration_days', 'integer')
+            ->toHaveKey('default_buffer_before_minutes', 'integer')
+            ->toHaveKey('default_buffer_after_minutes', 'integer')
+            ->toHaveKey('collection_reminder_days', 'integer')
+            ->toHaveKey('return_reminder_days', 'integer')
+            ->toHaveKey('weekend_availability', 'boolean');
+    });
+});
+
+describe('GeneralPreferencesSettings', function () {
+    it('returns preferences as the group name', function () {
+        $definition = new GeneralPreferencesSettings;
+
+        expect($definition->group())->toBe('preferences');
+    });
+
+    it('provides defaults for all preference settings', function () {
+        $definition = new GeneralPreferencesSettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)
+            ->toHaveKey('number_decimal_separator', '.')
+            ->toHaveKey('number_thousands_separator', ',')
+            ->toHaveKey('currency_display', 'symbol')
+            ->toHaveKey('first_day_of_week', 1)
+            ->toHaveKey('items_per_page', 25);
+    });
+
+    it('provides validation rules for all settings', function () {
+        $definition = new GeneralPreferencesSettings;
+        $rules = $definition->rules();
+
+        expect($rules)
+            ->toHaveKey('number_decimal_separator')
+            ->toHaveKey('number_thousands_separator')
+            ->toHaveKey('currency_display')
+            ->toHaveKey('first_day_of_week')
+            ->toHaveKey('items_per_page');
+
+        expect($rules['first_day_of_week'])->toContain('required');
+    });
+
+    it('declares integer types', function () {
+        $definition = new GeneralPreferencesSettings;
+        $types = $definition->types();
+
+        expect($types)
+            ->toHaveKey('first_day_of_week', 'integer')
+            ->toHaveKey('items_per_page', 'integer');
     });
 });

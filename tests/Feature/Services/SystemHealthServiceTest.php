@@ -81,6 +81,128 @@ it('returns scheduler warning when heartbeat is stale', function () {
     expect($result['status'])->toBe('warning');
 });
 
+it('returns redis ok when cache driver is redis and connection succeeds', function () {
+    config(['cache.default' => 'redis']);
+
+    $mock = Mockery::mock(\App\Services\ConnectionTesters\RedisConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andReturn([
+        'success' => true,
+        'version' => 'Redis 7.0',
+        'error' => null,
+    ]);
+    app()->instance(\App\Services\ConnectionTesters\RedisConnectionTester::class, $mock);
+
+    $result = $this->service->checkRedis();
+
+    expect($result['name'])->toBe('Redis');
+    expect($result['status'])->toBe('ok');
+    expect($result['details']['version'])->toBe('Redis 7.0');
+});
+
+it('returns redis error when connection fails', function () {
+    config(['cache.default' => 'redis']);
+
+    $mock = Mockery::mock(\App\Services\ConnectionTesters\RedisConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andReturn([
+        'success' => false,
+        'version' => null,
+        'error' => 'Connection refused',
+    ]);
+    app()->instance(\App\Services\ConnectionTesters\RedisConnectionTester::class, $mock);
+
+    $result = $this->service->checkRedis();
+
+    expect($result['status'])->toBe('error');
+    expect($result['details']['error'])->toBe('Connection refused');
+});
+
+it('returns redis error when tester throws exception', function () {
+    config(['queue.default' => 'redis']);
+
+    $mock = Mockery::mock(\App\Services\ConnectionTesters\RedisConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andThrow(new \RuntimeException('Redis unavailable'));
+    app()->instance(\App\Services\ConnectionTesters\RedisConnectionTester::class, $mock);
+
+    $result = $this->service->checkRedis();
+
+    expect($result['status'])->toBe('error');
+    expect($result['details']['error'])->toBe('Redis unavailable');
+});
+
+it('returns s3 warning when configured but missing credentials', function () {
+    config([
+        'filesystems.default' => 's3',
+        'filesystems.disks.s3.key' => '',
+    ]);
+
+    $result = $this->service->checkStorage();
+
+    expect($result['name'])->toBe('S3 Storage');
+    expect($result['status'])->toBe('warning');
+    expect($result['details']['reason'])->toContain('missing credentials');
+});
+
+it('returns s3 ok when connection succeeds', function () {
+    config([
+        'filesystems.default' => 's3',
+        'filesystems.disks.s3.key' => 'test-key',
+        'filesystems.disks.s3.secret' => 'test-secret',
+        'filesystems.disks.s3.region' => 'us-east-1',
+        'filesystems.disks.s3.bucket' => 'test-bucket',
+    ]);
+
+    $mock = Mockery::mock(\App\Services\ConnectionTesters\S3ConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andReturn(['success' => true, 'error' => null]);
+    app()->instance(\App\Services\ConnectionTesters\S3ConnectionTester::class, $mock);
+
+    $result = $this->service->checkStorage();
+
+    expect($result['status'])->toBe('ok');
+});
+
+it('returns s3 error when tester throws', function () {
+    config([
+        'filesystems.default' => 's3',
+        'filesystems.disks.s3.key' => 'test-key',
+        'filesystems.disks.s3.secret' => 'test-secret',
+        'filesystems.disks.s3.region' => 'us-east-1',
+        'filesystems.disks.s3.bucket' => 'test-bucket',
+    ]);
+
+    $mock = Mockery::mock(\App\Services\ConnectionTesters\S3ConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andThrow(new \RuntimeException('S3 unavailable'));
+    app()->instance(\App\Services\ConnectionTesters\S3ConnectionTester::class, $mock);
+
+    $result = $this->service->checkStorage();
+
+    expect($result['status'])->toBe('error');
+    expect($result['details']['error'])->toBe('S3 unavailable');
+});
+
+it('returns database error when postgres tester throws', function () {
+    $mock = Mockery::mock(\App\Services\ConnectionTesters\PostgresConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andThrow(new \RuntimeException('Connection refused'));
+    app()->instance(\App\Services\ConnectionTesters\PostgresConnectionTester::class, $mock);
+
+    $result = $this->service->checkDatabase();
+
+    expect($result['name'])->toBe('PostgreSQL');
+    expect($result['status'])->toBe('error');
+    expect($result['details']['error'])->toBe('Connection refused');
+});
+
+it('returns queue error when queue check throws', function () {
+    // Mock Queue facade to throw
+    Illuminate\Support\Facades\Queue::shouldReceive('size')
+        ->andThrow(new \RuntimeException('Queue unavailable'));
+
+    $result = $this->service->checkQueue();
+
+    expect($result['name'])->toBe('Queue');
+    expect($result['status'])->toBe('error');
+    expect($result['details']['error'])->toBe('Queue unavailable');
+});
+
 it('checks php info', function () {
     $result = $this->service->checkPhp();
 

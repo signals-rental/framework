@@ -32,6 +32,17 @@ it('returns an OTP auth URL', function () {
     expect($url)->toStartWith('otpauth://totp/');
 });
 
+it('returns existing OTP URL without generating new secret when 2FA is already enabled', function () {
+    $user = User::factory()->withTwoFactor()->create();
+    $originalSecret = $user->two_factor_secret;
+
+    $url = app(EnableTwoFactor::class)($user);
+
+    $user->refresh();
+    expect($user->two_factor_secret)->toBe($originalSecret);
+    expect($url)->toStartWith('otpauth://totp/');
+});
+
 it('does not enable 2FA until confirmed', function () {
     $user = User::factory()->create();
 
