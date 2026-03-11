@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
@@ -83,9 +84,15 @@ new #[Layout('components.layouts.auth')] class extends Component {
      */
     private function verifyTotpCode(User $user, string $throttleKey): void
     {
+        try {
+            $secret = (string) $user->two_factor_secret;
+        } catch (DecryptException) {
+            $this->handleCorrupt2FA($user);
+        }
+
         $google2fa = app(Google2FA::class);
 
-        if (! $google2fa->verifyKey((string) $user->two_factor_secret, $this->code)) {
+        if (! $google2fa->verifyKey($secret, $this->code)) {
             RateLimiter::hit($throttleKey);
 
             throw ValidationException::withMessages([
@@ -101,7 +108,12 @@ new #[Layout('components.layouts.auth')] class extends Component {
      */
     private function verifyRecoveryCode(User $user, string $throttleKey): void
     {
-        $codes = json_decode((string) $user->two_factor_recovery_codes, true) ?? [];
+        try {
+            $codes = json_decode((string) $user->two_factor_recovery_codes, true) ?? [];
+        } catch (DecryptException) {
+            $this->handleCorrupt2FA($user);
+        }
+
         $index = null;
 
         foreach ($codes as $i => $stored) {
@@ -126,6 +138,34 @@ new #[Layout('components.layouts.auth')] class extends Component {
         ])->save();
 
         RateLimiter::clear($throttleKey);
+    }
+
+    /**
+     * Disable corrupt 2FA data and halt authentication.
+     *
+     * Throws ValidationException to prevent authenticate() from
+     * logging the user in without a valid second factor.
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     * @throws \never
+     */
+    private function handleCorrupt2FA(User $user): never
+    {
+        logger()->error('Corrupt 2FA data detected, disabling 2FA for user.', ['user_id' => $user->id]);
+
+        $user->forceFill([
+            'two_factor_secret' => null,
+            'two_factor_recovery_codes' => null,
+            'two_factor_confirmed_at' => null,
+        ])->saveOrFail();
+
+        Session::forget('two_factor_user_id');
+
+        throw ValidationException::withMessages([
+            $this->useRecovery ? 'recoveryCode' : 'code' => [
+                __('Two-factor authentication has been reset due to a configuration change. Please log in again.'),
+            ],
+        ]);
     }
 }; ?>
 

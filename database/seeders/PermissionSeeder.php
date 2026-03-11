@@ -70,7 +70,13 @@ class PermissionSeeder extends Seeder
             'action-log.view' => ['label' => 'View Action Log', 'description' => 'View the audit trail', 'group' => 'System'],
             'email-templates.manage' => ['label' => 'Manage Email Templates', 'description' => 'Edit email templates and content', 'group' => 'System'],
             'notifications.manage' => ['label' => 'Manage Notifications', 'description' => 'Configure notification types and channels', 'group' => 'System'],
+            'custom-fields.view' => ['label' => 'View Custom Fields', 'description' => 'View custom field definitions', 'group' => 'System'],
             'custom-fields.manage' => ['label' => 'Manage Custom Fields', 'description' => 'Create and manage custom fields', 'group' => 'System'],
+            'list-values.view' => ['label' => 'View Lists', 'description' => 'View list of values', 'group' => 'System'],
+            'list-values.manage' => ['label' => 'Manage Lists', 'description' => 'Create and manage list of values', 'group' => 'System'],
+            'tax-classes.view' => ['label' => 'View Tax Classes', 'description' => 'View tax class definitions', 'group' => 'System'],
+            'tax-classes.manage' => ['label' => 'Manage Tax Classes', 'description' => 'Create and manage tax classes', 'group' => 'System'],
+            'static-data.view' => ['label' => 'View Static Data', 'description' => 'View reference data (countries, etc.)', 'group' => 'System'],
             'static-data.manage' => ['label' => 'Manage Static Data', 'description' => 'Manage reference data and lookups', 'group' => 'System'],
             'webhooks.manage' => ['label' => 'Manage Webhooks', 'description' => 'Create and manage webhook subscriptions', 'group' => 'System'],
         ];

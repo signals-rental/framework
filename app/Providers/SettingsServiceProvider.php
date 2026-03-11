@@ -6,6 +6,7 @@ use App\Services\SettingsRegistry;
 use App\Services\SettingsService;
 use App\Settings\ActionLogSettings;
 use App\Settings\ApiSettings;
+use App\Settings\CompanySettings;
 use App\Settings\EmailSettings;
 use App\Settings\GeneralPreferencesSettings;
 use App\Settings\SchedulingSettings;
@@ -23,6 +24,7 @@ class SettingsServiceProvider extends ServiceProvider
 
             $registry->register(new ActionLogSettings);
             $registry->register(new ApiSettings);
+            $registry->register(new CompanySettings);
             $registry->register(new EmailSettings);
             $registry->register(new GeneralPreferencesSettings);
             $registry->register(new SchedulingSettings);

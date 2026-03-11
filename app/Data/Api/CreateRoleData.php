@@ -2,28 +2,18 @@
 
 namespace App\Data\Api;
 
-class CreateRoleData
+use Spatie\LaravelData\Data;
+
+class CreateRoleData extends Data
 {
     /**
      * @param  list<string>  $permissions
      */
     public function __construct(
-        public readonly string $name,
-        public readonly ?string $description = null,
-        public readonly array $permissions = [],
+        public string $name,
+        public ?string $description = null,
+        public array $permissions = [],
     ) {}
-
-    /**
-     * @param  array{name: string, description?: string, permissions?: list<string>}  $data
-     */
-    public static function from(array $data): self
-    {
-        return new self(
-            name: $data['name'],
-            description: $data['description'] ?? null,
-            permissions: $data['permissions'] ?? [],
-        );
-    }
 
     /**
      * @return array{name: string, description: ?string, permissions: list<string>}

@@ -4,27 +4,28 @@ namespace App\Data\Api;
 
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Spatie\LaravelData\Data;
 
-class UserData
+class UserData extends Data
 {
     /**
      * @param  list<string>  $roles
      */
     public function __construct(
-        public readonly int $id,
-        public readonly string $name,
-        public readonly string $email,
-        public readonly bool $is_admin,
-        public readonly bool $is_owner,
-        public readonly bool $is_active,
-        public readonly ?string $email_verified_at,
-        public readonly ?string $invited_at,
-        public readonly ?string $invitation_accepted_at,
-        public readonly ?string $last_login_at,
-        public readonly ?string $deactivated_at,
-        public readonly string $created_at,
-        public readonly string $updated_at,
-        public readonly array $roles,
+        public int $id,
+        public string $name,
+        public string $email,
+        public bool $is_admin,
+        public bool $is_owner,
+        public bool $is_active,
+        public ?string $email_verified_at,
+        public ?string $invited_at,
+        public ?string $invitation_accepted_at,
+        public ?string $last_login_at,
+        public ?string $deactivated_at,
+        public string $created_at,
+        public string $updated_at,
+        public array $roles,
     ) {}
 
     public static function fromModel(User $user): self
@@ -66,28 +67,5 @@ class UserData
             updated_at: $updatedAt->toIso8601String(),
             roles: $user->getRoleNames()->toArray(),
         );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toArray(): array
-    {
-        return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'email' => $this->email,
-            'is_admin' => $this->is_admin,
-            'is_owner' => $this->is_owner,
-            'is_active' => $this->is_active,
-            'email_verified_at' => $this->email_verified_at,
-            'invited_at' => $this->invited_at,
-            'invitation_accepted_at' => $this->invitation_accepted_at,
-            'last_login_at' => $this->last_login_at,
-            'deactivated_at' => $this->deactivated_at,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
-            'roles' => $this->roles,
-        ];
     }
 }

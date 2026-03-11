@@ -2,28 +2,18 @@
 
 namespace App\Data\Api;
 
-class UpdateRoleData
+use Spatie\LaravelData\Data;
+
+class UpdateRoleData extends Data
 {
     /**
      * @param  list<string>|null  $permissions
      */
     public function __construct(
-        public readonly ?string $name = null,
-        public readonly ?string $description = null,
-        public readonly ?array $permissions = null,
+        public ?string $name = null,
+        public ?string $description = null,
+        public ?array $permissions = null,
     ) {}
-
-    /**
-     * @param  array{name?: string, description?: string, permissions?: list<string>}  $data
-     */
-    public static function from(array $data): self
-    {
-        return new self(
-            name: $data['name'] ?? null,
-            description: $data['description'] ?? null,
-            permissions: $data['permissions'] ?? null,
-        );
-    }
 
     /**
      * Filter out null values for the UpdateRole action.

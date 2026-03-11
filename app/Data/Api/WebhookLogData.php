@@ -4,16 +4,17 @@ namespace App\Data\Api;
 
 use App\Models\WebhookLog;
 use Illuminate\Support\Carbon;
+use Spatie\LaravelData\Data;
 
-class WebhookLogData
+class WebhookLogData extends Data
 {
     public function __construct(
-        public readonly int $id,
-        public readonly string $event,
-        public readonly ?int $response_code,
-        public readonly int $attempts,
-        public readonly ?string $delivered_at,
-        public readonly ?string $created_at,
+        public int $id,
+        public string $event,
+        public ?int $response_code,
+        public int $attempts,
+        public ?string $delivered_at,
+        public ?string $created_at,
     ) {}
 
     public static function fromModel(WebhookLog $log): self
@@ -32,20 +33,5 @@ class WebhookLogData
             delivered_at: $deliveredAt?->toIso8601String(),
             created_at: $createdAt?->toIso8601String(),
         );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toArray(): array
-    {
-        return [
-            'id' => $this->id,
-            'event' => $this->event,
-            'response_code' => $this->response_code,
-            'attempts' => $this->attempts,
-            'delivered_at' => $this->delivered_at,
-            'created_at' => $this->created_at,
-        ];
     }
 }

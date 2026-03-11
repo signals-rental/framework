@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCustomFields;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Store extends Model
 {
     /** @use HasFactory<\Database\Factories\StoreFactory> */
-    use HasFactory;
+    use HasCustomFields, HasFactory;
 
     /** @var list<string> */
     protected $fillable = [
@@ -19,6 +21,9 @@ class Store extends Model
         'county',
         'postcode',
         'country_code',
+        'country_id',
+        'phone',
+        'email',
         'is_default',
     ];
 
@@ -30,6 +35,14 @@ class Store extends Model
         return [
             'is_default' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Country, $this>
+     */
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
     }
 
     /**

@@ -18,6 +18,15 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     /** @var array<string, string> */
     public array $availableAbilities = [
+        'members:read' => 'Read members',
+        'members:write' => 'Write members',
+        'countries:read' => 'Read countries',
+        'custom-fields:read' => 'Read custom fields',
+        'custom-fields:write' => 'Write custom fields',
+        'static-data:read' => 'Read static data (lists)',
+        'static-data:write' => 'Write static data (lists)',
+        'tax-classes:read' => 'Read tax classes',
+        'tax-classes:write' => 'Write tax classes',
         'settings:read' => 'Read settings',
         'settings:write' => 'Write settings',
         'users:read' => 'Read users',

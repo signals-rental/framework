@@ -103,7 +103,7 @@ abstract class Controller
         $token = request()->user()?->currentAccessToken();
 
         if ($token instanceof PersonalAccessToken && ! $token->can($ability)) {
-            abort(Response::HTTP_FORBIDDEN, 'Token does not have the required ability.');
+            abort(Response::HTTP_FORBIDDEN, "Token does not have the required ability: {$ability}");
         }
     }
 }

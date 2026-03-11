@@ -4,29 +4,18 @@ namespace App\Data\Api;
 
 use App\Services\Api\WebhookService;
 use Illuminate\Validation\Rule;
+use Spatie\LaravelData\Data;
 
-class UpdateWebhookData
+class UpdateWebhookData extends Data
 {
     /**
      * @param  list<string>|null  $events
      */
     public function __construct(
-        public readonly ?string $url = null,
-        public readonly ?array $events = null,
-        public readonly ?bool $is_active = null,
+        public ?string $url = null,
+        public ?array $events = null,
+        public ?bool $is_active = null,
     ) {}
-
-    /**
-     * @param  array{url?: string, events?: list<string>, is_active?: bool}  $data
-     */
-    public static function from(array $data): self
-    {
-        return new self(
-            url: $data['url'] ?? null,
-            events: $data['events'] ?? null,
-            is_active: $data['is_active'] ?? null,
-        );
-    }
 
     /**
      * @return array<string, mixed>

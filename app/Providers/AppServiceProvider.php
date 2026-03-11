@@ -8,10 +8,13 @@ use App\Models\User;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
+use App\Support\Formatter;
+use App\Support\Timezone;
 use Carbon\CarbonImmutable;
 use Database\Seeders\NotificationTypeSeeder;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -24,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->singleton(Timezone::class);
+        $this->app->singleton(Formatter::class);
         $this->app->singleton(DocsService::class);
 
         $this->app->singleton(PermissionRegistry::class, function (): PermissionRegistry {
@@ -46,6 +51,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureAuthorization();
         $this->configureRateLimiting();
+        $this->registerBladeDirectives();
 
         Event::listen(AuditableEvent::class, LogAction::class);
     }
@@ -93,6 +99,20 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('owner', function (User $user): bool {
             return $user->isOwner();
+        });
+    }
+
+    /**
+     * Register Blade directives for localised date/datetime display.
+     */
+    protected function registerBladeDirectives(): void
+    {
+        Blade::directive('localdate', function (string $expression): string {
+            return "<?php echo app(\App\Support\Formatter::class)->date({$expression}); ?>";
+        });
+
+        Blade::directive('localdatetime', function (string $expression): string {
+            return "<?php echo app(\App\Support\Formatter::class)->dateTime({$expression}); ?>";
         });
     }
 

@@ -3,22 +3,23 @@
 namespace App\Data\Api;
 
 use Illuminate\Support\Carbon;
+use Spatie\LaravelData\Data;
 use Spatie\Permission\Models\Role;
 
-class RoleData
+class RoleData extends Data
 {
     /**
      * @param  list<string>  $permissions
      */
     public function __construct(
-        public readonly int $id,
-        public readonly string $name,
-        public readonly ?string $description,
-        public readonly bool $is_system,
-        public readonly int $sort_order,
-        public readonly array $permissions = [],
-        public readonly ?string $created_at = null,
-        public readonly ?string $updated_at = null,
+        public int $id,
+        public string $name,
+        public ?string $description,
+        public bool $is_system,
+        public int $sort_order,
+        public array $permissions = [],
+        public ?string $created_at = null,
+        public ?string $updated_at = null,
     ) {}
 
     public static function fromModel(Role $role): self
@@ -39,22 +40,5 @@ class RoleData
             created_at: $createdAt?->toIso8601String(),
             updated_at: $updatedAt?->toIso8601String(),
         );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toArray(): array
-    {
-        return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'description' => $this->description,
-            'is_system' => $this->is_system,
-            'sort_order' => $this->sort_order,
-            'permissions' => $this->permissions,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
-        ];
     }
 }

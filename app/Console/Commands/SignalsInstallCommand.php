@@ -269,10 +269,21 @@ class SignalsInstallCommand extends Command
         ]);
         app('db')->purge('pgsql');
 
+        // Use array cache during migrations to prevent the Spatie Permission
+        // migration's cache clearing from interacting with the database cache
+        // driver inside a PostgreSQL transaction (which corrupts the connection state).
+        $originalCacheStore = config('cache.default');
+        config(['cache.default' => 'array']);
+        app('cache')->forgetDriver();
+
         // Run migrations
         $this->line('');
         $this->components->info('Running migrations...');
         $exitCode = $this->call('migrate', ['--force' => true]);
+
+        // Restore original cache driver
+        config(['cache.default' => $originalCacheStore]);
+        app('cache')->forgetDriver();
 
         if ($exitCode !== self::SUCCESS) {
             $this->components->error('Migrations failed. Check the output above for details.');

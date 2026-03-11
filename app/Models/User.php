@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -27,6 +28,7 @@ class User extends Authenticatable
         'is_owner',
         'is_admin',
         'member_id',
+        'timezone',
         'is_active',
         'invited_at',
         'invitation_accepted_at',
@@ -115,6 +117,14 @@ class User extends Authenticatable
     {
         return Collection::times(8, fn (): string => Str::upper(Str::random(4)).'-'.Str::upper(Str::random(4)))
             ->all();
+    }
+
+    /**
+     * @return BelongsTo<Member, $this>
+     */
+    public function member(): BelongsTo
+    {
+        return $this->belongsTo(Member::class);
     }
 
     /**

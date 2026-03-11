@@ -2,26 +2,20 @@
 
 namespace App\Data\Admin;
 
-class InviteUserData
+use Spatie\LaravelData\Attributes\Validation\Max;
+use Spatie\LaravelData\Attributes\Validation\Required;
+use Spatie\LaravelData\Data;
+
+class InviteUserData extends Data
 {
     /**
      * @param  list<string>  $roles
      */
     public function __construct(
-        public readonly string $name,
-        public readonly string $email,
-        public readonly array $roles = [],
+        #[Required, Max(255)]
+        public string $name,
+        #[Required]
+        public string $email,
+        public array $roles = [],
     ) {}
-
-    /**
-     * @param  array{name: string, email: string, roles?: list<string>}  $data
-     */
-    public static function from(array $data): self
-    {
-        return new self(
-            name: $data['name'],
-            email: $data['email'],
-            roles: $data['roles'] ?? [],
-        );
-    }
 }

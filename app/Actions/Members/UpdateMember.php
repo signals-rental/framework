@@ -1,0 +1,31 @@
+<?php
+
+namespace App\Actions\Members;
+
+use App\Data\Members\MemberData;
+use App\Data\Members\UpdateMemberData;
+use App\Events\AuditableEvent;
+use App\Models\Member;
+use Illuminate\Support\Facades\Gate;
+
+class UpdateMember
+{
+    public function __invoke(Member $member, UpdateMemberData $data): MemberData
+    {
+        Gate::authorize('members.edit');
+
+        $member->update(array_filter($data->toArray(), fn ($v) => $v !== null));
+
+        if ($data->custom_fields !== null) {
+            $member->syncCustomFields($data->custom_fields);
+        }
+
+        event(new AuditableEvent($member, 'member.updated'));
+
+        app(\App\Services\Api\WebhookService::class)->dispatch('member.updated', [
+            'member' => MemberData::fromModel($member->fresh())->toArray(),
+        ]);
+
+        return MemberData::fromModel($member->fresh());
+    }
+}

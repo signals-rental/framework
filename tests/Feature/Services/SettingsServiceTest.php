@@ -8,11 +8,11 @@ beforeEach(function () {
 });
 
 it('returns default when setting does not exist', function () {
-    expect($this->service->get('company.name', 'default'))->toBe('default');
+    expect($this->service->get('nonexistent.key', 'default'))->toBe('default');
 });
 
 it('returns null when setting does not exist and no default given', function () {
-    expect($this->service->get('company.name'))->toBeNull();
+    expect($this->service->get('nonexistent.key'))->toBeNull();
 });
 
 it('can set and get a string setting', function () {
