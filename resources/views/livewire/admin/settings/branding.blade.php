@@ -2,10 +2,11 @@
 
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Branding')] class extends Component {
     use WithFileUploads;
 
     public string $primaryColour = '#1e3a5f';

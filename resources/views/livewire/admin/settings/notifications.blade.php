@@ -4,9 +4,10 @@ use App\Models\NotificationSetting;
 use App\Models\NotificationType;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Notifications')] class extends Component {
     public function toggleChannel(int $typeId, string $channel): void
     {
         Gate::authorize('notifications.manage');

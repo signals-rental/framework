@@ -20,7 +20,7 @@ The admin panel uses a two-column layout:
 | Sub-sidebar (left) | Navigation between settings sub-groups |
 | Main content (right) | The active settings form |
 
-The sidebar is organised into four navigation groups: **Setup**, **Users & Security**, **Preferences**, and **System**. A top-level navigation bar lets you switch between groups. All navigation uses `wire:navigate` for instant SPA-like page transitions without full reloads.
+The sidebar is organised into six navigation groups: **Setup**, **Users & Security**, **Preferences**, **System**, **Data**, and **Tax**. A top-level navigation bar lets you switch between groups. All navigation uses `wire:navigate` for instant SPA-like page transitions without full reloads.
 
 ## Accessing the Admin Panel
 
@@ -311,6 +311,96 @@ Webhooks are automatically disabled after 18 consecutive delivery failures (appr
 **Route:** `/admin/settings/seeders`
 
 Run database seeders to populate reference data. Each seeder shows its status (not run, completed, or available) and can be executed individually. Useful after initial setup or when adding new modules.
+
+## Data
+
+### Custom Field Groups
+
+**Route:** `/admin/settings/custom-field-groups`
+
+Organise custom fields into named groups for display purposes. Groups control how custom fields are grouped on entity detail pages.
+
+| Action | Description |
+|--------|-------------|
+| Create | Add a new field group with name, description, and sort order |
+| Edit | Update group details |
+| Delete | Remove a group (only if no fields are assigned to it) |
+
+### Custom Fields
+
+**Route:** `/admin/settings/custom-fields`
+
+Define custom data fields that extend entities with additional information. Fields can be filtered by module type. See the [Custom Fields](/docs/platform/custom-fields) page for detailed documentation.
+
+| Action | Description |
+|--------|-------------|
+| Create | Define a new custom field with type, module, group, and validation |
+| Edit | Update field configuration |
+| Delete | Remove a field definition |
+
+### List Names
+
+**Route:** `/admin/settings/list-names`
+
+Manage configurable list definitions used for dropdown menus. See the [Lists](/docs/platform/lists) page for detailed documentation.
+
+| Action | Description |
+|--------|-------------|
+| Create | Add a new list definition |
+| Edit | Update list name and description |
+| Manage Values | Navigate to the list's values page |
+| Delete | Remove a non-system list |
+
+### List Values
+
+**Route:** `/admin/settings/lists/{listName}`
+
+Manage the individual values within a list. Accessed via the "Manage Values" action on the List Names page.
+
+| Action | Description |
+|--------|-------------|
+| Create | Add a new value to the list |
+| Edit | Update value name, sort order, or parent |
+| Toggle Active | Show or hide the value in dropdowns |
+| Delete | Remove a non-system value |
+
+### Countries
+
+**Route:** `/admin/settings/countries`
+
+View and manage the list of countries available in the system. Countries are read-only reference data — you can only toggle their active status.
+
+| Action | Description |
+|--------|-------------|
+| Toggle Active | Enable or disable a country for use in address forms and settings |
+
+## Tax
+
+### Product Tax Classes
+
+**Route:** `/admin/settings/tax/product-tax-classes`
+
+Manage product tax classifications. See the [Tax Classes](/docs/platform/tax-classes) page for detailed documentation.
+
+| Action | Description |
+|--------|-------------|
+| Create | Add a new product tax class |
+| Edit | Update name and description |
+| Set Default | Designate as the default for new products |
+| Delete | Remove a non-default tax class |
+
+### Organisation Tax Classes
+
+**Route:** `/admin/settings/tax/organisation-tax-classes`
+
+Manage organisation tax classifications. See the [Tax Classes](/docs/platform/tax-classes) page for detailed documentation.
+
+| Action | Description |
+|--------|-------------|
+| Create | Add a new organisation tax class |
+| Edit | Update name and description |
+| Set Default | Designate as the default for new organisations |
+| Delete | Remove a non-default tax class |
 
 ## Access Control
 

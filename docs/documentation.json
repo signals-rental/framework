@@ -16,7 +16,12 @@
             "slug": "platform",
             "pages": [
                 { "title": "Dashboard", "slug": "dashboard" },
-                { "title": "Admin Panel", "slug": "admin-panel" }
+                { "title": "Admin Panel", "slug": "admin-panel" },
+                { "title": "Members", "slug": "members" },
+                { "title": "Custom Fields", "slug": "custom-fields" },
+                { "title": "Lists", "slug": "lists" },
+                { "title": "Tax Classes", "slug": "tax-classes" },
+                { "title": "Countries", "slug": "countries" }
             ]
         },
         {

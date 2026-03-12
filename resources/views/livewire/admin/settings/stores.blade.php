@@ -3,9 +3,10 @@
 use App\Data\Reference\CountryData;
 use App\Models\Store;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Stores')] class extends Component {
     /** @var \Illuminate\Database\Eloquent\Collection<int, Store> */
     public $stores;
 

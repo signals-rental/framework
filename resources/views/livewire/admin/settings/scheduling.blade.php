@@ -2,9 +2,10 @@
 
 use App\Services\SettingsRegistry;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Scheduling')] class extends Component {
     public int $defaultOpportunityDurationDays = 1;
     public int $defaultBufferBeforeMinutes = 0;
     public int $defaultBufferAfterMinutes = 0;

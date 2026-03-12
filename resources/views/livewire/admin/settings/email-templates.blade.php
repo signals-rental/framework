@@ -2,9 +2,10 @@
 
 use App\Models\EmailTemplate;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Email Templates')] class extends Component {
     public function with(): array
     {
         return [

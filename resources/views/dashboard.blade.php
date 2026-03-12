@@ -1,4 +1,4 @@
-<x-layouts.app>
+<x-layouts.app :title="'Dashboard'">
     @if (config('signals.setup_complete'))
         <livewire:dashboard.getting-started-checklist />
     @endif

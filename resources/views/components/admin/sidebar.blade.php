@@ -86,6 +86,46 @@
         </a>
     @endif
 
+    {{-- Data --}}
+    @if($group === 'data')
+        <div class="s-admin-sidebar-title">Data</div>
+        <a href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.custom-field-groups*') ? 'active' : '' }}">
+            <flux:icon.rectangle-group class="s-admin-nav-icon" />
+            Custom Field Groups
+        </a>
+        <a href="{{ route('admin.settings.custom-fields') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.custom-fields*') ? 'active' : '' }}">
+            <flux:icon.adjustments-vertical class="s-admin-nav-icon" />
+            Custom Fields
+        </a>
+        <a href="{{ route('admin.settings.list-names') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.list-names*') || request()->routeIs('admin.settings.lists*') || request()->routeIs('admin.settings.list-values*') ? 'active' : '' }}">
+            <flux:icon.list-bullet class="s-admin-nav-icon" />
+            List Names
+        </a>
+        <a href="{{ route('admin.settings.countries') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.countries') ? 'active' : '' }}">
+            <flux:icon.globe-alt class="s-admin-nav-icon" />
+            Countries
+        </a>
+    @endif
+
+    {{-- Tax --}}
+    @if($group === 'tax')
+        <div class="s-admin-sidebar-title">Tax</div>
+        <a href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.tax.product-tax-classes*') ? 'active' : '' }}">
+            <flux:icon.receipt-percent class="s-admin-nav-icon" />
+            Product Tax Classes
+        </a>
+        <a href="{{ route('admin.settings.tax.organisation-tax-classes') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.tax.organisation-tax-classes*') ? 'active' : '' }}">
+            <flux:icon.building-office-2 class="s-admin-nav-icon" />
+            Organisation Tax Classes
+        </a>
+    @endif
+
     {{-- System --}}
     @if($group === 'system')
         <div class="s-admin-sidebar-title">System</div>

@@ -2,11 +2,12 @@
 
 use App\Models\ActionLog;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Action Log')] class extends Component {
     use WithPagination;
 
     #[Url]

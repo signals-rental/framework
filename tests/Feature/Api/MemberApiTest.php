@@ -330,4 +330,38 @@ describe('member relationships', function () {
             ->assertOk()
             ->assertJsonCount(1, 'relationships');
     });
+
+    it('deletes a relationship', function () {
+        $contact = Member::factory()->contact()->create();
+        $org = Member::factory()->organisation()->create();
+        $relationship = \App\Models\MemberRelationship::factory()->create([
+            'member_id' => $contact->id,
+            'related_member_id' => $org->id,
+        ]);
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/members/{$contact->id}/relationships/{$relationship->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('member_relationships', ['id' => $relationship->id]);
+    });
+});
+
+describe('member includes', function () {
+    it('includes emails, phones, and links when requested', function () {
+        $member = Member::factory()->create();
+        Email::factory()->for($member, 'emailable')->create(['address' => 'test@example.com']);
+        Phone::factory()->for($member, 'phoneable')->create(['number' => '+44 123']);
+        Link::factory()->for($member, 'linkable')->create(['url' => 'https://example.com']);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}?include=emails,phones,links")
+            ->assertOk();
+
+        expect($response->json('member.emails'))->toBeArray()->toHaveCount(1)
+            ->and($response->json('member.phones'))->toBeArray()->toHaveCount(1)
+            ->and($response->json('member.links'))->toBeArray()->toHaveCount(1);
+    });
 });

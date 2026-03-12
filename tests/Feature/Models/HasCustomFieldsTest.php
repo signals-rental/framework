@@ -90,6 +90,19 @@ it('returns empty array when no custom fields exist', function () {
     expect($this->store->custom_fields)->toBe([]);
 });
 
+it('skips custom field values with missing field definition', function () {
+    // Create a custom field value with a custom_field_id that has been deleted
+    $this->store->syncCustomFields(['region' => 'North East']);
+
+    // Delete the field definition but keep the value record
+    $this->textField->forceDelete();
+
+    // The accessor should skip the orphaned value
+    $customFields = $this->store->fresh()->custom_fields;
+
+    expect($customFields)->not->toHaveKey('region');
+});
+
 it('returns correct module type from class name', function () {
     expect($this->store->customFieldModuleType())->toBe('Store');
 });

@@ -44,6 +44,27 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa'])->group(function () 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
+
+    // Members
+    Volt::route('members', 'members.index')->name('members.index');
+    Volt::route('members/create', 'members.form')->name('members.create');
+    Volt::route('members/{member}', 'members.show')->name('members.show');
+    Volt::route('members/{member}/edit', 'members.form')->name('members.edit');
+    Volt::route('members/{member}/addresses', 'members.addresses')->name('members.addresses');
+    Volt::route('members/{member}/addresses/create', 'members.address-form')->name('members.addresses.create');
+    Volt::route('members/{member}/addresses/{address}/edit', 'members.address-form')->name('members.addresses.edit');
+    Volt::route('members/{member}/emails', 'members.emails')->name('members.emails');
+    Volt::route('members/{member}/emails/create', 'members.email-form')->name('members.emails.create');
+    Volt::route('members/{member}/emails/{email}/edit', 'members.email-form')->name('members.emails.edit');
+    Volt::route('members/{member}/phones', 'members.phones')->name('members.phones');
+    Volt::route('members/{member}/phones/create', 'members.phone-form')->name('members.phones.create');
+    Volt::route('members/{member}/phones/{phone}/edit', 'members.phone-form')->name('members.phones.edit');
+    Volt::route('members/{member}/links', 'members.links')->name('members.links');
+    Volt::route('members/{member}/links/create', 'members.link-form')->name('members.links.create');
+    Volt::route('members/{member}/links/{link}/edit', 'members.link-form')->name('members.links.edit');
+    Volt::route('members/{member}/custom-fields', 'members.custom-fields')->name('members.custom-fields');
+    Volt::route('members/{member}/relationships', 'members.relationships')->name('members.relationships');
+    Volt::route('members/{member}/relationships/create', 'members.relationship-form')->name('members.relationships.create');
 });
 
 /*
@@ -102,6 +123,29 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
 
     // Webhooks
     Volt::route('admin/settings/webhooks', 'admin.settings.webhooks')->name('admin.settings.webhooks');
+
+    // Data
+    Volt::route('admin/settings/custom-field-groups', 'admin.settings.custom-field-groups')->name('admin.settings.custom-field-groups');
+    Volt::route('admin/settings/custom-field-groups/create', 'admin.settings.custom-field-group-form')->name('admin.settings.custom-field-groups.create');
+    Volt::route('admin/settings/custom-field-groups/{customFieldGroup}/edit', 'admin.settings.custom-field-group-form')->name('admin.settings.custom-field-groups.edit');
+    Volt::route('admin/settings/custom-fields', 'admin.settings.custom-fields')->name('admin.settings.custom-fields');
+    Volt::route('admin/settings/custom-fields/create', 'admin.settings.custom-field-form')->name('admin.settings.custom-fields.create');
+    Volt::route('admin/settings/custom-fields/{customField}/edit', 'admin.settings.custom-field-form')->name('admin.settings.custom-fields.edit');
+    Volt::route('admin/settings/list-names', 'admin.settings.list-names')->name('admin.settings.list-names');
+    Volt::route('admin/settings/list-names/create', 'admin.settings.list-name-form')->name('admin.settings.list-names.create');
+    Volt::route('admin/settings/list-names/{listName}/edit', 'admin.settings.list-name-form')->name('admin.settings.list-names.edit');
+    Volt::route('admin/settings/lists/{listName}', 'admin.settings.lists')->name('admin.settings.lists');
+    Volt::route('admin/settings/lists/{listName}/create', 'admin.settings.list-value-form')->name('admin.settings.list-values.create');
+    Volt::route('admin/settings/lists/{listName}/{listValue}/edit', 'admin.settings.list-value-form')->name('admin.settings.list-values.edit');
+    Volt::route('admin/settings/countries', 'admin.settings.countries')->name('admin.settings.countries');
+
+    // Tax
+    Volt::route('admin/settings/tax/product-tax-classes', 'admin.settings.tax.product-tax-classes')->name('admin.settings.tax.product-tax-classes');
+    Volt::route('admin/settings/tax/product-tax-classes/create', 'admin.settings.tax.product-tax-class-form')->name('admin.settings.tax.product-tax-classes.create');
+    Volt::route('admin/settings/tax/product-tax-classes/{productTaxClass}/edit', 'admin.settings.tax.product-tax-class-form')->name('admin.settings.tax.product-tax-classes.edit');
+    Volt::route('admin/settings/tax/organisation-tax-classes', 'admin.settings.tax.organisation-tax-classes')->name('admin.settings.tax.organisation-tax-classes');
+    Volt::route('admin/settings/tax/organisation-tax-classes/create', 'admin.settings.tax.organisation-tax-class-form')->name('admin.settings.tax.organisation-tax-classes.create');
+    Volt::route('admin/settings/tax/organisation-tax-classes/{organisationTaxClass}/edit', 'admin.settings.tax.organisation-tax-class-form')->name('admin.settings.tax.organisation-tax-classes.edit');
 });
 
 /*

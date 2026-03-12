@@ -43,38 +43,38 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
     Route::put('settings/{group}', [SettingsController::class, 'update'])->name('api.v1.settings.update');
 
     // Users
-    Route::apiResource('users', UserController::class);
+    Route::apiResource('users', UserController::class)->names('api.v1.users');
 
     // Roles
-    Route::apiResource('roles', RoleController::class);
+    Route::apiResource('roles', RoleController::class)->names('api.v1.roles');
 
     // Action Log
     Route::get('actions', [ActionLogController::class, 'index'])->name('api.v1.actions.index');
 
     // Webhooks
-    Route::apiResource('webhooks', WebhookController::class);
+    Route::apiResource('webhooks', WebhookController::class)->names('api.v1.webhooks');
     Route::get('webhooks/{webhook}/logs', [WebhookController::class, 'logs'])->name('api.v1.webhooks.logs');
 
     // Members
-    Route::apiResource('members', MemberController::class);
-    Route::apiResource('members.addresses', MemberAddressController::class)->except(['show']);
-    Route::apiResource('members.emails', MemberEmailController::class)->except(['show']);
-    Route::apiResource('members.phones', MemberPhoneController::class)->except(['show']);
-    Route::apiResource('members.links', MemberLinkController::class)->except(['show']);
-    Route::apiResource('members.relationships', MemberRelationshipController::class)->only(['index', 'store', 'destroy']);
+    Route::apiResource('members', MemberController::class)->names('api.v1.members');
+    Route::apiResource('members.addresses', MemberAddressController::class)->except(['show'])->names('api.v1.members.addresses');
+    Route::apiResource('members.emails', MemberEmailController::class)->except(['show'])->names('api.v1.members.emails');
+    Route::apiResource('members.phones', MemberPhoneController::class)->except(['show'])->names('api.v1.members.phones');
+    Route::apiResource('members.links', MemberLinkController::class)->except(['show'])->names('api.v1.members.links');
+    Route::apiResource('members.relationships', MemberRelationshipController::class)->only(['index', 'store', 'destroy'])->names('api.v1.members.relationships');
 
     // Countries (read-only)
-    Route::apiResource('countries', CountryController::class)->only(['index', 'show']);
+    Route::apiResource('countries', CountryController::class)->only(['index', 'show'])->names('api.v1.countries');
 
     // Custom Fields
-    Route::apiResource('custom_field_groups', CustomFieldGroupController::class);
-    Route::apiResource('custom_fields', CustomFieldController::class);
+    Route::apiResource('custom_field_groups', CustomFieldGroupController::class)->names('api.v1.custom_field_groups');
+    Route::apiResource('custom_fields', CustomFieldController::class)->names('api.v1.custom_fields');
 
     // Lists of Values
-    Route::apiResource('list_names', ListNameController::class);
-    Route::apiResource('list_names.list_values', ListValueController::class)->except(['show']);
+    Route::apiResource('list_names', ListNameController::class)->names('api.v1.list_names');
+    Route::apiResource('list_names.list_values', ListValueController::class)->except(['show'])->names('api.v1.list_names.list_values');
 
     // Tax Classes
-    Route::apiResource('organisation_tax_classes', OrganisationTaxClassController::class);
-    Route::apiResource('product_tax_classes', ProductTaxClassController::class);
+    Route::apiResource('organisation_tax_classes', OrganisationTaxClassController::class)->names('api.v1.organisation_tax_classes');
+    Route::apiResource('product_tax_classes', ProductTaxClassController::class)->names('api.v1.product_tax_classes');
 });

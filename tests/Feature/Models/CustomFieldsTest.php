@@ -161,6 +161,36 @@ it('cascades delete from custom field to values', function () {
     expect(CustomFieldValue::query()->count())->toBe(0);
 });
 
+it('accesses list name relationship', function () {
+    $listName = ListName::factory()->create(['name' => 'Phone Types']);
+    $field = CustomField::factory()->select()->create(['list_name_id' => $listName->id]);
+
+    $loadedField = CustomField::with('listName')->find($field->id);
+
+    expect($loadedField->listName)->not->toBeNull()
+        ->and($loadedField->listName->name)->toBe('Phone Types');
+});
+
+it('accesses custom field value entity via morphTo', function () {
+    $store = \App\Models\Store::factory()->create();
+    $field = CustomField::factory()->create(['module_type' => 'Store']);
+    $value = CustomFieldValue::factory()->create([
+        'custom_field_id' => $field->id,
+        'entity_type' => \App\Models\Store::class,
+        'entity_id' => $store->id,
+        'value_string' => 'test',
+    ]);
+
+    /** @var CustomFieldValue $loaded */
+    $loaded = CustomFieldValue::with('entity')->find($value->id);
+
+    /** @var \App\Models\Store $entity */
+    $entity = $loaded->entity;
+
+    expect($entity)->not->toBeNull()
+        ->and($entity->id)->toBe($store->id);
+});
+
 it('nullifies group_id when group is deleted', function () {
     $group = CustomFieldGroup::factory()->create();
     $field = CustomField::factory()->inGroup($group)->create();

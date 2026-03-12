@@ -3,7 +3,7 @@
     'perPageOptions' => [10, 25, 50, 100],
 ])
 
-@if($paginator && $paginator->hasPages())
+@if($paginator)
     <div {{ $attributes->merge(['class' => 's-pagination']) }}>
         {{-- Previous --}}
         <button

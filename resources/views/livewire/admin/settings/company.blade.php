@@ -2,9 +2,10 @@
 
 use App\Data\Reference\CountryData;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Company Details')] class extends Component {
     public string $name = '';
     public string $countryCode = '';
     public string $timezone = '';

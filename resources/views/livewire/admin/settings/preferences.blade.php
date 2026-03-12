@@ -2,9 +2,10 @@
 
 use App\Services\SettingsRegistry;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Preferences')] class extends Component {
     public string $numberDecimalSeparator = '.';
     public string $numberThousandsSeparator = ',';
     public string $currencyDisplay = 'symbol';

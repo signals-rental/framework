@@ -3,9 +3,10 @@
 use Illuminate\Support\Collection;
 use Laravel\Sanctum\NewAccessToken;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('API')] class extends Component {
     public string $tokenName = '';
 
     /** @var list<string> */

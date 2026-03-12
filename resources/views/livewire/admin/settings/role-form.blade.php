@@ -5,10 +5,11 @@ use App\Actions\Admin\UpdateRole;
 use App\Models\User;
 use App\Services\PermissionRegistry;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 use Spatie\Permission\Models\Role;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Role')] class extends Component {
     public ?int $roleId = null;
     public string $roleName = '';
     public string $roleDescription = '';

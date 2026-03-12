@@ -2,9 +2,10 @@
 
 use App\Services\SystemHealthService;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('System Health')] class extends Component {
     /** @var array<int, array{name: string, status: string, details: array<string, mixed>}> */
     public array $checks = [];
 

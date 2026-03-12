@@ -3,9 +3,10 @@
 use App\Actions\Admin\SendTestEmail;
 use App\Services\SettingsRegistry;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Email')] class extends Component {
     public string $mailer = 'log';
     public string $smtpHost = '';
     public int $smtpPort = 587;

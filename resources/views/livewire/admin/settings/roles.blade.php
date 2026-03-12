@@ -2,10 +2,11 @@
 
 use App\Actions\Admin\DeleteRole;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 use Spatie\Permission\Models\Role;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Roles')] class extends Component {
     public ?int $confirmingDeletion = null;
 
     public function with(): array

@@ -188,3 +188,16 @@ describe('GET /api/v1/actions', function () {
             ->assertJsonPath('meta.total', 0);
     });
 });
+
+describe('ActionLogData::fromModel', function () {
+    it('converts auditable_type FQCN to friendly name', function () {
+        $log = ActionLog::factory()->forUser($this->owner)->create([
+            'auditable_type' => 'App\\Models\\Member',
+            'auditable_id' => 1,
+        ]);
+
+        $data = \App\Data\Api\ActionLogData::fromModel($log);
+
+        expect($data->auditable_type)->toBe('member');
+    });
+});

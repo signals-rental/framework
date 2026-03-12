@@ -5,9 +5,10 @@ use App\Actions\Admin\UpdateEmailTemplate;
 use App\Models\EmailTemplate;
 use App\Services\EmailTemplateRenderer;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Email Template')] class extends Component {
     public EmailTemplate $template;
 
     public string $subject = '';

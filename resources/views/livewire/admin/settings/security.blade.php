@@ -2,9 +2,10 @@
 
 use App\Services\SettingsRegistry;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Security')] class extends Component {
     public int $passwordMinLength = 8;
     public bool $passwordRequireUppercase = false;
     public bool $passwordRequireNumber = false;

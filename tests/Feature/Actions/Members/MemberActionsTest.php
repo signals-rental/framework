@@ -81,6 +81,36 @@ it('updates a member', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('updates a member with custom fields', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $customField = \App\Models\CustomField::factory()->create([
+        'name' => 'po_reference',
+        'module_type' => 'Member',
+        'field_type' => \App\Enums\CustomFieldType::Text,
+    ]);
+
+    $member = Member::factory()->create(['name' => 'Test Corp']);
+
+    $data = UpdateMemberData::from([
+        'name' => 'Updated Corp',
+        'custom_fields' => ['po_reference' => 'PO-999'],
+    ]);
+
+    $result = (new UpdateMember)($member, $data);
+
+    expect($result->name)->toBe('Updated Corp');
+
+    $cfv = \App\Models\CustomFieldValue::query()
+        ->where('custom_field_id', $customField->id)
+        ->where('entity_type', Member::class)
+        ->where('entity_id', $member->id)
+        ->first();
+
+    expect($cfv)->not->toBeNull()
+        ->and($cfv->value_string)->toBe('PO-999');
+});
+
 it('rejects unauthorized member update', function () {
     $regularUser = User::factory()->create();
     $this->actingAs($regularUser);

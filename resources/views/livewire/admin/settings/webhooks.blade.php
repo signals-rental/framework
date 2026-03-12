@@ -5,9 +5,10 @@ use App\Models\WebhookLog;
 use App\Services\Api\WebhookService;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Webhooks')] class extends Component {
     // Modal states
     public bool $showCreateModal = false;
     public bool $showEditModal = false;

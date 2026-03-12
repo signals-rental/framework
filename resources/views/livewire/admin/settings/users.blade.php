@@ -10,10 +10,11 @@ use App\Models\User;
 use App\Notifications\UserInvitedNotification;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 use Spatie\Permission\Models\Role;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Users')] class extends Component {
     // Invite modal
     public bool $showInviteModal = false;
     public string $inviteName = '';

@@ -2,10 +2,11 @@
 
 use App\Services\PermissionRegistry;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 use Spatie\Permission\Models\Role;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Permissions')] class extends Component {
     public function with(): array
     {
         $registry = app(PermissionRegistry::class);

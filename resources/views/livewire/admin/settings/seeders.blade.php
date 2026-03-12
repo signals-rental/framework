@@ -1,15 +1,20 @@
 <?php
 
+use App\Models\Country;
 use App\Models\EmailTemplate;
+use App\Models\ListName;
 use App\Models\NotificationType;
+use App\Models\OrganisationTaxClass;
+use App\Models\ProductTaxClass;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Component {
     /** @var array<string, array{name: string, class: string, description: string, items: list<string>, seeded: bool, isDefault: bool}> */
     public array $seeders = [];
 
@@ -62,12 +67,53 @@ new #[Layout('components.layouts.app')] class extends Component {
         $emailTemplatesSeeded = Schema::hasTable('email_templates') && EmailTemplate::query()->exists();
         $notificationTypesSeeded = Schema::hasTable('notification_types') && NotificationType::query()->exists();
 
+        $countriesSeeded = Schema::hasTable('countries') && Country::query()->exists();
+        $listsSeeded = Schema::hasTable('list_names') && ListName::query()->where('is_system', true)->exists();
+        $taxClassesSeeded = Schema::hasTable('product_tax_classes') && ProductTaxClass::query()->exists()
+            && Schema::hasTable('organisation_tax_classes') && OrganisationTaxClass::query()->exists();
+
         $storesSeeded = Schema::hasTable('stores') && \App\Models\Store::query()->exists();
 
         $demoNames = ['London Warehouse', 'Manchester Depot', 'Edinburgh Office'];
-        $demoSeeded = Schema::hasTable('stores') && \App\Models\Store::query()->whereIn('name', $demoNames)->count() === count($demoNames);
+        $demoStoresSeeded = Schema::hasTable('stores') && \App\Models\Store::query()->whereIn('name', $demoNames)->count() === count($demoNames);
+        $demoMembersSeeded = Schema::hasTable('members') && \App\Models\Member::query()->count() >= 5000;
 
         $this->seeders = [
+            'countries' => [
+                'name' => 'CountrySeeder',
+                'class' => 'Database\\Seeders\\CountrySeeder',
+                'description' => 'Populates the countries table from the reference data file.',
+                'items' => [
+                    'All ISO 3166-1 countries with currency codes, phone prefixes, and default timezones',
+                ],
+                'seeded' => $countriesSeeded,
+                'isDefault' => true,
+            ],
+            'lists' => [
+                'name' => 'ListOfValuesSeeder',
+                'class' => 'Database\\Seeders\\ListOfValuesSeeder',
+                'description' => 'Creates system lists used for contact detail type classification.',
+                'items' => [
+                    'Address Type (Billing, Shipping, Primary, Registered)',
+                    'Email Type (Work, Personal, Billing, Support)',
+                    'Phone Type (Work, Mobile, Home, Fax)',
+                    'Link Type (Website, LinkedIn, Facebook, Instagram, X, YouTube)',
+                    'Relationship Type (Employee, Director, Contractor, Agent)',
+                ],
+                'seeded' => $listsSeeded,
+                'isDefault' => true,
+            ],
+            'tax_classes' => [
+                'name' => 'TaxClassSeeder',
+                'class' => 'Database\\Seeders\\TaxClassSeeder',
+                'description' => 'Creates default product and organisation tax classes.',
+                'items' => [
+                    'Organisation tax class: Standard',
+                    'Product tax classes: Standard, Exempt',
+                ],
+                'seeded' => $taxClassesSeeded,
+                'isDefault' => true,
+            ],
             'permissions' => [
                 'name' => 'PermissionSeeder',
                 'class' => 'Database\\Seeders\\PermissionSeeder',
@@ -131,13 +177,15 @@ new #[Layout('components.layouts.app')] class extends Component {
             'demo' => [
                 'name' => 'DemoDataSeeder',
                 'class' => 'Database\\Seeders\\DemoDataSeeder',
-                'description' => 'Creates demo stores for testing and evaluation.',
+                'description' => 'Creates demo stores and populates the CRM with members, contact details, and relationships.',
                 'items' => [
-                    'London Warehouse',
-                    'Manchester Depot',
-                    'Edinburgh Office',
+                    '3 demo stores (London, Manchester, Edinburgh)',
+                    '2,000 organisations with email & phone each',
+                    '500 venues with email & phone each',
+                    '3,000 contacts with email & phone each',
+                    'Relationships linking contacts to organisations and venues',
                 ],
-                'seeded' => $demoSeeded,
+                'seeded' => $demoStoresSeeded && $demoMembersSeeded,
                 'isDefault' => false,
             ],
         ];
