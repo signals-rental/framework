@@ -22,7 +22,6 @@ class CustomFieldCopier
      */
     public function copy(
         Model $source,
-        string $sourceModuleType,
         Model $target,
         string $targetModuleType,
     ): CopyResult {

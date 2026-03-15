@@ -93,6 +93,24 @@ class PermissionRegistry
     }
 
     /**
+     * Validate that all given permission keys are registered.
+     *
+     * @param  list<string>  $permissions
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public function validate(array $permissions): void
+    {
+        $invalid = array_filter($permissions, fn (string $p): bool => ! $this->has($p));
+
+        if ($invalid !== []) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'permissions' => 'The following permissions are not registered: '.implode(', ', $invalid),
+            ]);
+        }
+    }
+
+    /**
      * Get permissions filtered by layer.
      *
      * @return array<string, array{label: string, description: string, group: string, sub_group: string|null, layer: string, dependencies: list<string>}>

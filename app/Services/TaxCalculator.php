@@ -41,7 +41,8 @@ class TaxCalculator
         }
 
         $rate = (string) $taxRate->rate;
-        $taxAmount = (int) round((float) bcmul((string) $netMinorUnits, bcdiv($rate, '100', 10), 10));
+        $rawTax = bcmul((string) $netMinorUnits, bcdiv($rate, '100', 10), 10);
+        $taxAmount = (int) bcadd($rawTax, $rawTax[0] === '-' ? '-0.5' : '0.5', 0);
 
         return new TaxResult(
             taxRateName: $taxRate->name,

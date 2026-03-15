@@ -35,6 +35,38 @@ class CustomFieldSerializer
             ? $entity->getRelation('preloadedCustomFieldValues')
             : $entity->customFieldValues()->with('customField')->get(); // @phpstan-ignore method.notFound
 
+        // First pass: collect all list value IDs for batch loading
+        $listValueIds = [];
+
+        foreach ($values as $cfv) {
+            $field = $cfv->customField;
+            if (! $field) {
+                continue;
+            }
+
+            /** @var CustomFieldType $fieldType */
+            $fieldType = $field->field_type;
+
+            if ($fieldType === CustomFieldType::ListOfValues) {
+                $rawValue = $cfv->value_integer;
+                if (is_int($rawValue)) {
+                    $listValueIds[] = $rawValue;
+                }
+            } elseif ($fieldType === CustomFieldType::MultiListOfValues) {
+                /** @var array<int, int>|null $rawValue */
+                $rawValue = $cfv->value_json;
+                if (is_array($rawValue)) {
+                    $listValueIds = array_merge($listValueIds, $rawValue);
+                }
+            }
+        }
+
+        // Batch-load all list values in a single query
+        $listValueNames = $listValueIds !== []
+            ? ListValue::query()->whereIn('id', array_unique($listValueIds))->pluck('name', 'id')->all()
+            : [];
+
+        // Second pass: build the result array
         $result = [];
 
         foreach ($values as $cfv) {
@@ -46,14 +78,16 @@ class CustomFieldSerializer
             /** @var CustomFieldType $fieldType */
             $fieldType = $field->field_type;
             $column = $fieldType->valueColumn();
+
+            /** @var mixed $rawValue */
             $rawValue = $cfv->{$column};
 
             $result[$field->name] = match ($fieldType) {
                 CustomFieldType::ListOfValues => is_int($rawValue)
-                    ? ListValue::find($rawValue)?->name
+                    ? ($listValueNames[$rawValue] ?? $rawValue)
                     : $rawValue,
                 CustomFieldType::MultiListOfValues => is_array($rawValue)
-                    ? ListValue::query()->whereIn('id', $rawValue)->pluck('name')->all()
+                    ? array_map(fn (int $id): string => $listValueNames[$id] ?? (string) $id, $rawValue)
                     : $rawValue,
                 default => $rawValue,
             };

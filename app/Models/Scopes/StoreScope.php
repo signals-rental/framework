@@ -6,17 +6,18 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
+use Illuminate\Support\Facades\Context;
 
 class StoreScope implements Scope
 {
-    private static bool $disabled = false;
+    private const CONTEXT_KEY = 'store-scope-disabled';
 
     /**
      * @param  Builder<Model>  $builder
      */
     public function apply(Builder $builder, Model $model): void
     {
-        if (self::$disabled) {
+        if (Context::get(self::CONTEXT_KEY, false)) {
             return;
         }
 
@@ -44,13 +45,17 @@ class StoreScope implements Scope
      */
     public static function withoutScoping(Closure $callback): mixed
     {
-        $previous = self::$disabled;
-        self::$disabled = true;
+        $previous = Context::get(self::CONTEXT_KEY, false);
+        Context::add(self::CONTEXT_KEY, true);
 
         try {
             return $callback();
         } finally {
-            self::$disabled = $previous;
+            if ($previous) {
+                Context::add(self::CONTEXT_KEY, true);
+            } else {
+                Context::forget(self::CONTEXT_KEY);
+            }
         }
     }
 

@@ -93,6 +93,8 @@ return new class extends Migration
                     ->select('cfv.id', 'cfv.value_string', 'cf.list_name_id')
                     ->get();
 
+                $skipped = 0;
+
                 foreach ($rows as $row) {
                     $listValueId = DB::table('list_values')
                         ->where('list_name_id', $row->list_name_id)
@@ -103,7 +105,18 @@ return new class extends Migration
                         DB::table('custom_field_values')
                             ->where('id', $row->id)
                             ->update(['value_integer' => $listValueId, 'value_string' => null]);
+                    } else {
+                        $skipped++;
+                        logger()->warning('ListOfValues migration: could not resolve list value', [
+                            'custom_field_value_id' => $row->id,
+                            'value_string' => $row->value_string,
+                            'list_name_id' => $row->list_name_id,
+                        ]);
                     }
+                }
+
+                if ($skipped > 0) {
+                    logger()->warning("ListOfValues migration: {$skipped} values could not be resolved and were left unchanged.");
                 }
             }
         });

@@ -2,26 +2,40 @@
 
 namespace App\Models\Traits;
 
+use App\Models\User;
+
 trait HasCostVisibility
 {
     /**
-     * Check if the authenticated user can view cost-related fields.
+     * Check if a user can view cost-related fields.
+     *
+     * Accepts an explicit user for queue/CLI contexts. Falls back to the
+     * authenticated user when none is provided.
      */
-    public function canViewCosts(): bool
+    public function canViewCosts(?User $user = null): bool
     {
-        return auth()->user()?->can('costs.view') ?? false;
+        $user ??= auth()->user();
+
+        return $user?->can('costs.view') ?? false;
     }
 
     /**
      * Get the list of cost-related column names for this model.
      *
-     * Override in models that have cost columns.
+     * Models using this trait must declare a `protected array $costColumns` property
+     * listing their cost-sensitive column names.
      *
      * @return list<string>
      */
     public function costColumns(): array
     {
-        return property_exists($this, 'costColumns') ? $this->costColumns : [];
+        if (! property_exists($this, 'costColumns')) {
+            throw new \LogicException(
+                static::class.' uses HasCostVisibility but does not declare a $costColumns property.'
+            );
+        }
+
+        return $this->costColumns;
     }
 
     /**
@@ -30,9 +44,9 @@ trait HasCostVisibility
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function withoutCostColumns(array $data): array
+    public function withoutCostColumns(array $data, ?User $user = null): array
     {
-        if ($this->canViewCosts()) {
+        if ($this->canViewCosts($user)) {
             return $data;
         }
 

@@ -82,7 +82,7 @@ class RansackFilter
             if (str_contains($field, '.')) {
                 [$relation, $column] = explode('.', $field, 2);
 
-                if (in_array($relation, $allowedRelationFilters, true)) {
+                if (in_array($relation, $allowedRelationFilters, true) && preg_match('/^[a-z_][a-z0-9_]*$/i', $column)) {
                     $query->whereHas($relation, fn (Builder $q) => $this->applyPredicate($q, $column, $predicate, $value));
                 }
 
@@ -178,7 +178,7 @@ class RansackFilter
             'not_null' => $query->whereNotNull($field),
             'present' => $query->whereNotNull($field)->where($field, '!=', ''),
             'blank' => $query->where(fn (Builder $q) => $q->whereNull($field)->orWhere($field, '=', '')),
-            'matches' => $query->whereRaw("\"{$field}\" ~* ?", [(string) $value]),
+            'matches' => $query->whereRaw($query->getGrammar()->wrap($field).' ~* ?', [(string) $value]),
             'in' => $query->whereIn($field, is_array($value) ? $value : explode(',', (string) $value)),
             'not_in' => $query->whereNotIn($field, is_array($value) ? $value : explode(',', (string) $value)),
             'true' => $query->where($field, '=', true),

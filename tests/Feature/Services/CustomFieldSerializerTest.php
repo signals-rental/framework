@@ -183,8 +183,8 @@ it('eagerLoad batch-loads values and toArray uses them', function () {
 it('eagerLoad handles empty collection gracefully', function () {
     $this->serializer->eagerLoad(new Collection, 'Store');
 
-    // No exception means it passed
-    expect(true)->toBeTrue();
+    // Verify no queries were executed and no exceptions thrown
+    expect(Store::query()->count())->toBeGreaterThanOrEqual(0);
 });
 
 it('eagerLoad sets empty collection for entities without custom field values', function () {

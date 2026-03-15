@@ -38,7 +38,7 @@ describe('CustomFieldCopier', function () {
             'value_string' => 'PO-123',
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(1)
             ->and($result->fieldsCopied)->toBe(['po_reference']);
@@ -67,7 +67,7 @@ describe('CustomFieldCopier', function () {
             'value_string' => 'some value',
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(0)
             ->and($result->skipped)->toBe(1)
@@ -100,7 +100,7 @@ describe('CustomFieldCopier', function () {
             'value_string' => 'some notes',
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(0)
             ->and($result->skipped)->toBe(1)
@@ -134,7 +134,7 @@ describe('CustomFieldCopier', function () {
             'value_string' => 'short',
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(0)
             ->and($result->skipped)->toBe(1)
@@ -167,7 +167,7 @@ describe('CustomFieldCopier', function () {
             'value_integer' => $listValue->id,
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(1);
 
@@ -181,7 +181,7 @@ describe('CustomFieldCopier', function () {
     });
 
     it('handles empty source with no custom field values', function () {
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(0)
             ->and($result->skipped)->toBe(0)
@@ -221,7 +221,7 @@ describe('CustomFieldCopier', function () {
             'value_decimal' => 42.0,
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(1)
             ->and($result->skipped)->toBe(1)
@@ -249,7 +249,7 @@ describe('CustomFieldCopier', function () {
             'value_string' => 'REF-001',
         ]);
 
-        $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         $sourceValue = CustomFieldValue::query()
             ->where('custom_field_id', $sourceField->id)
@@ -313,7 +313,7 @@ describe('CustomFieldCopier', function () {
             'value_boolean' => true,
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(3)
             ->and($result->skipped)->toBe(0)
@@ -347,7 +347,7 @@ describe('CustomFieldCopier', function () {
             'value_string' => 'new-value',
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(1);
 
@@ -387,7 +387,7 @@ describe('CustomFieldCopier', function () {
             'value_string' => null,
         ]);
 
-        $result = $this->copier->copy($this->sourceMember, 'Member', $this->targetStore, 'Store');
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
 
         expect($result->copied)->toBe(0)
             ->and($result->skipped)->toBe(1)

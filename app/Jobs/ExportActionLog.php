@@ -13,6 +13,11 @@ class ExportActionLog implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+
+    /** @var list<int> */
+    public array $backoff = [10, 60, 300];
+
     /**
      * @param  array<string, mixed>  $filters
      */
@@ -46,6 +51,10 @@ class ExportActionLog implements ShouldQueue
         $filename = 'exports/action-log-'.Str::uuid().'.csv';
         $handle = fopen('php://temp', 'r+');
 
+        if ($handle === false) {
+            throw new \RuntimeException('Failed to open temporary stream for CSV export.');
+        }
+
         fputcsv($handle, ['ID', 'Action', 'Entity Type', 'Entity ID', 'User', 'IP Address', 'Date']);
 
         $query->chunk(500, function ($logs) use ($handle) {
@@ -70,5 +79,19 @@ class ExportActionLog implements ShouldQueue
 
         $cacheKey = "action-log-export:{$this->userId}";
         Cache::put($cacheKey, $filename, now()->addHours(1));
+    }
+
+    /**
+     * Handle job failure so the user knows the export did not complete.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        $cacheKey = "action-log-export:{$this->userId}";
+        Cache::put($cacheKey, 'failed', now()->addHours(1));
+
+        logger()->error('Action log export failed', [
+            'user_id' => $this->userId,
+            'exception' => $exception->getMessage(),
+        ]);
     }
 }

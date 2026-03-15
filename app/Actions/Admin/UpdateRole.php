@@ -41,7 +41,7 @@ class UpdateRole
         }
 
         if (isset($data['permissions'])) {
-            $this->validatePermissions($data['permissions']);
+            app(PermissionRegistry::class)->validate($data['permissions']);
             $role->syncPermissions($data['permissions']);
         }
 
@@ -59,24 +59,5 @@ class UpdateRole
         ]));
 
         return $freshRole;
-    }
-
-    /**
-     * Validate that all permissions exist in the registry.
-     *
-     * @param  list<string>  $permissions
-     *
-     * @throws ValidationException
-     */
-    private function validatePermissions(array $permissions): void
-    {
-        $registry = app(PermissionRegistry::class);
-        $invalid = array_filter($permissions, fn (string $p): bool => ! $registry->has($p));
-
-        if ($invalid !== []) {
-            throw ValidationException::withMessages([
-                'permissions' => 'The following permissions are not registered: '.implode(', ', $invalid),
-            ]);
-        }
     }
 }

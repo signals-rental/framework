@@ -67,12 +67,17 @@ class ActionLogController extends Controller
     {
         $this->authorizeApi('action-log.view', 'action-log:read');
 
-        $filters = $request->only(['action', 'auditable_type', 'date_from', 'date_to']);
+        $validated = $request->validate([
+            'action' => ['nullable', 'string'],
+            'auditable_type' => ['nullable', 'string'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
 
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        ExportActionLog::dispatch($user->id, $filters);
+        ExportActionLog::dispatch($user->id, $validated);
 
         return $this->respondAccepted();
     }

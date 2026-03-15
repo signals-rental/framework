@@ -47,9 +47,6 @@ class AnonymiseMember
             ['name' => 'Anonymised Member'],
         ));
 
-        /** @var Member $member */
-        $member = $member->fresh();
-
-        return $member;
+        return $member->refresh();
     }
 }

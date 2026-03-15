@@ -63,10 +63,22 @@ describe('StoreScope', function () {
     });
 
     it('restores scoping after withoutScoping callback', function () {
+        $store = Store::factory()->create();
+        $member = Member::factory()->create();
+        $user = User::factory()->create(['member_id' => $member->id]);
+        MemberStore::create(['member_id' => $member->id, 'store_id' => $store->id, 'created_at' => now()]);
+
+        $this->actingAs($user);
+
         StoreScope::withoutScoping(fn () => null);
 
-        // After callback, scoping should be re-enabled
-        expect(true)->toBeTrue();
+        // After callback, scoping should be re-enabled — query should contain a where clause
+        $scope = new StoreScope;
+        /** @var Builder<Model> $builder */
+        $builder = Store::query();
+        $scope->apply($builder, new Store);
+
+        expect($builder->toSql())->toContain('where');
     });
 
     it('filters by store_id for store-restricted user', function () {

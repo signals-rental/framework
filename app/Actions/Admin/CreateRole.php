@@ -5,7 +5,6 @@ namespace App\Actions\Admin;
 use App\Events\AuditableEvent;
 use App\Services\PermissionRegistry;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 
 class CreateRole
@@ -27,7 +26,7 @@ class CreateRole
         ]);
 
         if (! empty($data['permissions'])) {
-            $this->validatePermissions($data['permissions']);
+            app(PermissionRegistry::class)->validate($data['permissions']);
             $role->syncPermissions($data['permissions']);
         }
 
@@ -41,24 +40,5 @@ class CreateRole
         ]));
 
         return $role;
-    }
-
-    /**
-     * Validate that all permissions exist in the registry.
-     *
-     * @param  list<string>  $permissions
-     *
-     * @throws ValidationException
-     */
-    private function validatePermissions(array $permissions): void
-    {
-        $registry = app(PermissionRegistry::class);
-        $invalid = array_filter($permissions, fn (string $p): bool => ! $registry->has($p));
-
-        if ($invalid !== []) {
-            throw ValidationException::withMessages([
-                'permissions' => 'The following permissions are not registered: '.implode(', ', $invalid),
-            ]);
-        }
     }
 }
