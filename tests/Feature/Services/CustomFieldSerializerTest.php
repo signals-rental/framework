@@ -186,3 +186,26 @@ it('eagerLoad handles empty collection gracefully', function () {
     // No exception means it passed
     expect(true)->toBeTrue();
 });
+
+it('eagerLoad sets empty collection for entities without custom field values', function () {
+    $store1 = Store::factory()->create();
+    $store2 = Store::factory()->create();
+
+    // Only store1 has custom fields
+    $this->serializer->fromArray($store1, ['region' => 'North']);
+
+    $entities = Store::query()->whereIn('id', [$store1->id, $store2->id])->get();
+
+    $this->serializer->eagerLoad($entities, 'Store');
+
+    // store2 should have an empty preloaded collection
+    $store2Entity = $entities->firstWhere('id', $store2->id);
+    expect($store2Entity->relationLoaded('preloadedCustomFieldValues'))->toBeTrue();
+
+    $result2 = $this->serializer->toArray($store2Entity);
+    expect($result2)->toBe([]);
+
+    // store1 should still have its values
+    $result1 = $this->serializer->toArray($entities->firstWhere('id', $store1->id));
+    expect($result1['region'])->toBe('North');
+});

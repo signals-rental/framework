@@ -291,6 +291,50 @@ describe('SchemaRegistry', function () {
         expect($schema['region_code']->source)->toBe('custom');
     });
 
+    it('maps all CustomFieldType values to correct schema types', function () {
+        $expectedMappings = [
+            [\App\Enums\CustomFieldType::String, 'string'],
+            [\App\Enums\CustomFieldType::Email, 'string'],
+            [\App\Enums\CustomFieldType::Website, 'string'],
+            [\App\Enums\CustomFieldType::Telephone, 'string'],
+            [\App\Enums\CustomFieldType::AutoNumber, 'string'],
+            [\App\Enums\CustomFieldType::Colour, 'string'],
+            [\App\Enums\CustomFieldType::Text, 'text'],
+            [\App\Enums\CustomFieldType::RichText, 'text'],
+            [\App\Enums\CustomFieldType::Number, 'decimal'],
+            [\App\Enums\CustomFieldType::Percentage, 'decimal'],
+            [\App\Enums\CustomFieldType::Boolean, 'boolean'],
+            [\App\Enums\CustomFieldType::Date, 'date'],
+            [\App\Enums\CustomFieldType::DateTime, 'datetime'],
+            [\App\Enums\CustomFieldType::Time, 'string'],
+            [\App\Enums\CustomFieldType::Currency, 'currency'],
+            [\App\Enums\CustomFieldType::ListOfValues, 'enum'],
+            [\App\Enums\CustomFieldType::MultiListOfValues, 'json'],
+            [\App\Enums\CustomFieldType::FileImage, 'json'],
+            [\App\Enums\CustomFieldType::JsonKeyValue, 'json'],
+        ];
+
+        $registry = new SchemaRegistry;
+
+        foreach ($expectedMappings as [$fieldType, $expectedSchemaType]) {
+            $fieldName = 'mapping_'.strtolower($fieldType->name);
+
+            CustomField::factory()->forModule('Store')->create([
+                'name' => $fieldName,
+                'display_name' => $fieldType->label(),
+                'field_type' => $fieldType,
+            ]);
+        }
+
+        $schema = $registry->resolve(Store::class);
+
+        foreach ($expectedMappings as [$fieldType, $expectedSchemaType]) {
+            $fieldName = 'mapping_'.strtolower($fieldType->name);
+            expect($schema[$fieldName]->type)->toBe($expectedSchemaType, "Failed: {$fieldType->name} should map to {$expectedSchemaType}");
+            expect($schema[$fieldName]->source)->toBe('custom');
+        }
+    });
+
     it('provides for() as alias for resolve()', function () {
         $registry = new SchemaRegistry;
 

@@ -182,6 +182,222 @@ it('returns validated data from validate method', function () {
     ]);
 });
 
+it('generates correct rules for a website field', function () {
+    CustomField::factory()->website()->forModule('Opportunity')->create([
+        'name' => 'company_url',
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['company_url' => 'https://example.com']);
+
+    expect($rules)->toHaveKey('company_url')
+        ->and($rules['company_url'])->toContain('nullable', 'url');
+});
+
+it('generates correct rules for a telephone field', function () {
+    CustomField::factory()->telephone()->forModule('Opportunity')->create([
+        'name' => 'phone_number',
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['phone_number' => '+44 7700 900000']);
+
+    expect($rules)->toHaveKey('phone_number')
+        ->and($rules['phone_number'])->toContain('nullable', 'string');
+});
+
+it('generates correct rules for a currency field with min and max', function () {
+    CustomField::factory()->currency()->forModule('Opportunity')->create([
+        'name' => 'budget',
+        'validation_rules' => ['min' => 0, 'max' => 999999],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['budget' => 500]);
+
+    expect($rules)->toHaveKey('budget')
+        ->and($rules['budget'])->toContain('nullable', 'numeric', 'min:0', 'max:999999');
+});
+
+it('generates correct rules for a percentage field', function () {
+    CustomField::factory()->percentage()->forModule('Opportunity')->create([
+        'name' => 'discount_rate',
+        'validation_rules' => ['min' => 0, 'max' => 100],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['discount_rate' => 15]);
+
+    expect($rules)->toHaveKey('discount_rate')
+        ->and($rules['discount_rate'])->toContain('nullable', 'numeric', 'min:0', 'max:100');
+});
+
+it('generates correct rules for a time field', function () {
+    CustomField::factory()->forModule('Opportunity')->create([
+        'name' => 'start_time',
+        'field_type' => \App\Enums\CustomFieldType::Time,
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['start_time' => '14:30:00']);
+
+    expect($rules)->toHaveKey('start_time')
+        ->and($rules['start_time'])->toContain('nullable', 'date_format:H:i:s');
+});
+
+it('generates correct rules for a datetime field', function () {
+    CustomField::factory()->forModule('Opportunity')->create([
+        'name' => 'event_start',
+        'field_type' => \App\Enums\CustomFieldType::DateTime,
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['event_start' => '2026-01-15 14:30:00']);
+
+    expect($rules)->toHaveKey('event_start')
+        ->and($rules['event_start'])->toContain('nullable', 'date');
+});
+
+it('generates correct rules for a rich text field', function () {
+    CustomField::factory()->richText()->forModule('Opportunity')->create([
+        'name' => 'notes',
+        'validation_rules' => ['max_length' => 5000],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['notes' => '<p>Hello</p>']);
+
+    expect($rules)->toHaveKey('notes')
+        ->and($rules['notes'])->toContain('nullable', 'string', 'max:5000');
+});
+
+it('generates correct rules for a text field', function () {
+    CustomField::factory()->text()->forModule('Opportunity')->create([
+        'name' => 'description',
+        'validation_rules' => ['max_length' => 10000],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['description' => 'Some text']);
+
+    expect($rules)->toHaveKey('description')
+        ->and($rules['description'])->toContain('nullable', 'string', 'max:10000');
+});
+
+it('generates correct rules for a json key-value field', function () {
+    CustomField::factory()->forModule('Opportunity')->create([
+        'name' => 'metadata',
+        'field_type' => \App\Enums\CustomFieldType::JsonKeyValue,
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['metadata' => ['key' => 'value']]);
+
+    expect($rules)->toHaveKey('metadata')
+        ->and($rules['metadata'])->toContain('nullable', 'array');
+});
+
+it('generates correct rules for a colour field with pattern', function () {
+    CustomField::factory()->colour()->forModule('Opportunity')->create([
+        'name' => 'brand_colour',
+        'validation_rules' => ['pattern' => '/^#[0-9A-Fa-f]{6}$/'],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['brand_colour' => '#FF5500']);
+
+    expect($rules)->toHaveKey('brand_colour')
+        ->and($rules['brand_colour'])->toContain('nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/');
+});
+
+it('returns null rules for AutoNumber field type', function () {
+    CustomField::factory()->autoNumber()->forModule('Opportunity')->create([
+        'name' => 'auto_ref',
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['auto_ref' => 'AN-001']);
+
+    expect($rules)->not->toHaveKey('auto_ref');
+});
+
+it('returns null rules for FileImage field type', function () {
+    CustomField::factory()->forModule('Opportunity')->create([
+        'name' => 'photo',
+        'field_type' => \App\Enums\CustomFieldType::FileImage,
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['photo' => 'some-file']);
+
+    expect($rules)->not->toHaveKey('photo');
+});
+
+it('rejects invalid values in MultiListOfValues field', function () {
+    $listName = ListName::factory()->create();
+    ListValue::factory()->forList($listName)->create(['name' => 'Red']);
+
+    CustomField::factory()->multiListOfValues()->forModule('Opportunity')->create([
+        'name' => 'colours',
+        'list_name_id' => $listName->id,
+    ]);
+
+    $this->validator->validate('Opportunity', ['colours' => ['Red', 'InvalidColour']]);
+})->throws(ValidationException::class);
+
+it('generates rules for currency field without min/max', function () {
+    CustomField::factory()->currency()->forModule('Opportunity')->create([
+        'name' => 'price',
+        'validation_rules' => [],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['price' => 100]);
+
+    expect($rules)->toHaveKey('price')
+        ->and($rules['price'])->toContain('nullable', 'numeric')
+        ->and($rules['price'])->not->toContain('min:0');
+});
+
+it('generates rules for colour field without pattern', function () {
+    CustomField::factory()->colour()->forModule('Opportunity')->create([
+        'name' => 'tint',
+        'validation_rules' => [],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['tint' => '#000000']);
+
+    expect($rules)->toHaveKey('tint')
+        ->and($rules['tint'])->toContain('nullable', 'string')
+        ->and($rules['tint'])->toHaveCount(2);
+});
+
+it('generates rules for text field without max_length', function () {
+    CustomField::factory()->text()->forModule('Opportunity')->create([
+        'name' => 'plain_notes',
+        'validation_rules' => [],
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['plain_notes' => 'Hello']);
+
+    expect($rules)->toHaveKey('plain_notes')
+        ->and($rules['plain_notes'])->toContain('nullable', 'string')
+        ->and($rules['plain_notes'])->toHaveCount(2);
+});
+
+it('generates list of values rules without list_name_id', function () {
+    CustomField::factory()->forModule('Opportunity')->create([
+        'name' => 'orphan_list',
+        'field_type' => \App\Enums\CustomFieldType::ListOfValues,
+        'list_name_id' => null,
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['orphan_list' => 'anything']);
+
+    expect($rules)->toHaveKey('orphan_list')
+        ->and($rules['orphan_list'])->toContain('nullable');
+});
+
+it('generates multi list of values rules without list_name_id', function () {
+    CustomField::factory()->forModule('Opportunity')->create([
+        'name' => 'orphan_multi',
+        'field_type' => \App\Enums\CustomFieldType::MultiListOfValues,
+        'list_name_id' => null,
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', ['orphan_multi' => ['a']]);
+
+    expect($rules)->toHaveKey('orphan_multi')
+        ->and($rules['orphan_multi'])->toContain('nullable', 'array');
+});
+
 it('throws ValidationException for invalid data', function () {
     CustomField::factory()->email()->required()->forModule('Opportunity')->create([
         'name' => 'billing_email',

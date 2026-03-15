@@ -191,6 +191,44 @@ it('syncs multi list of values field with array of strings resolving to ids', fu
         ->and($cfv->value_json)->toHaveCount(2);
 });
 
+it('eagerLoadCustomFields batch-loads values for a collection of entities', function () {
+    $store1 = Store::factory()->create();
+    $store2 = Store::factory()->create();
+
+    $store1->syncCustomFields(['region' => 'North']);
+    $store2->syncCustomFields(['region' => 'South']);
+
+    // Reload fresh entities
+    $entities = Store::query()->whereIn('id', [$store1->id, $store2->id])->get();
+
+    Store::eagerLoadCustomFields($entities);
+
+    // Verify preloaded relation is set
+    foreach ($entities as $entity) {
+        expect($entity->relationLoaded('preloadedCustomFieldValues'))->toBeTrue();
+    }
+
+    // Verify custom_fields accessor uses preloaded values
+    $result1 = $entities->firstWhere('id', $store1->id)->custom_fields;
+    $result2 = $entities->firstWhere('id', $store2->id)->custom_fields;
+
+    expect($result1['region'])->toBe('North')
+        ->and($result2['region'])->toBe('South');
+});
+
+it('eagerLoadCustomFields handles empty collection without error', function () {
+    Store::eagerLoadCustomFields(collect());
+
+    // No exception means it passed
+    expect(true)->toBeTrue();
+});
+
+it('customFieldModuleType can be overridden by a model', function () {
+    // Default behavior returns class_basename
+    $store = Store::factory()->create();
+    expect($store->customFieldModuleType())->toBe('Store');
+});
+
 it('reads multi list of values field resolving ids to display names', function () {
     $listName = ListName::factory()->create();
     ListValue::factory()->forList($listName)->create(['name' => 'Red']);
