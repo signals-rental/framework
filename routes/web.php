@@ -146,6 +146,16 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
     Volt::route('admin/settings/tax/organisation-tax-classes', 'admin.settings.tax.organisation-tax-classes')->name('admin.settings.tax.organisation-tax-classes');
     Volt::route('admin/settings/tax/organisation-tax-classes/create', 'admin.settings.tax.organisation-tax-class-form')->name('admin.settings.tax.organisation-tax-classes.create');
     Volt::route('admin/settings/tax/organisation-tax-classes/{organisationTaxClass}/edit', 'admin.settings.tax.organisation-tax-class-form')->name('admin.settings.tax.organisation-tax-classes.edit');
+
+    // Tax Rates
+    Volt::route('admin/settings/tax/rates', 'admin.settings.tax.rates')->name('admin.settings.tax.rates');
+    Volt::route('admin/settings/tax/rates/create', 'admin.settings.tax.rate-form')->name('admin.settings.tax.rates.create');
+    Volt::route('admin/settings/tax/rates/{taxRate}/edit', 'admin.settings.tax.rate-form')->name('admin.settings.tax.rates.edit');
+
+    // Tax Rules
+    Volt::route('admin/settings/tax/rules', 'admin.settings.tax.rules')->name('admin.settings.tax.rules');
+    Volt::route('admin/settings/tax/rules/create', 'admin.settings.tax.rule-form')->name('admin.settings.tax.rules.create');
+    Volt::route('admin/settings/tax/rules/{taxRule}/edit', 'admin.settings.tax.rule-form')->name('admin.settings.tax.rules.edit');
 });
 
 /*

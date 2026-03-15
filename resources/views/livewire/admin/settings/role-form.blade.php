@@ -115,6 +115,12 @@ new #[Layout('components.layouts.app')] #[Title('Role')] class extends Component
 
 <section class="w-full">
     <x-admin.layout group="users" :title="$isEditing ? 'Edit Role' : 'Create Role'" :description="$isEditing ? 'Update role details and permissions.' : 'Create a new role with specific permissions.'">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'Roles', 'href' => route('admin.settings.roles')],
+                ['label' => $isEditing ? 'Edit' : 'Create'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.roles') }}" wire:navigate>
                 Back to Roles

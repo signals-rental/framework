@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\V1\ProductTaxClassController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\SystemController;
+use App\Http\Controllers\Api\V1\TaxRateController;
+use App\Http\Controllers\Api\V1\TaxRuleController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +52,7 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
 
     // Action Log
     Route::get('actions', [ActionLogController::class, 'index'])->name('api.v1.actions.index');
+    Route::post('actions/export', [ActionLogController::class, 'export'])->name('api.v1.actions.export');
 
     // Webhooks
     Route::apiResource('webhooks', WebhookController::class)->names('api.v1.webhooks');
@@ -77,4 +80,8 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
     // Tax Classes
     Route::apiResource('organisation_tax_classes', OrganisationTaxClassController::class)->names('api.v1.organisation_tax_classes');
     Route::apiResource('product_tax_classes', ProductTaxClassController::class)->names('api.v1.product_tax_classes');
+
+    // Tax Rates & Rules
+    Route::apiResource('tax_rates', TaxRateController::class)->names('api.v1.tax_rates');
+    Route::apiResource('tax_rules', TaxRuleController::class)->names('api.v1.tax_rules');
 });

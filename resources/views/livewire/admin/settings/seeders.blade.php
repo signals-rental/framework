@@ -6,6 +6,7 @@ use App\Models\ListName;
 use App\Models\NotificationType;
 use App\Models\OrganisationTaxClass;
 use App\Models\ProductTaxClass;
+use App\Models\TaxRate;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
@@ -72,6 +73,8 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
         $taxClassesSeeded = Schema::hasTable('product_tax_classes') && ProductTaxClass::query()->exists()
             && Schema::hasTable('organisation_tax_classes') && OrganisationTaxClass::query()->exists();
 
+        $taxRatesSeeded = Schema::hasTable('tax_rates') && TaxRate::query()->exists();
+
         $storesSeeded = Schema::hasTable('stores') && \App\Models\Store::query()->exists();
 
         $demoNames = ['London Warehouse', 'Manchester Depot', 'Edinburgh Office'];
@@ -112,6 +115,18 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
                     'Product tax classes: Standard, Exempt',
                 ],
                 'seeded' => $taxClassesSeeded,
+                'isDefault' => true,
+            ],
+            'tax_rates' => [
+                'name' => 'TaxRateSeeder',
+                'class' => 'Database\\Seeders\\TaxRateSeeder',
+                'description' => 'Creates default UK tax rates.',
+                'items' => [
+                    'Standard — 20%',
+                    'Reduced — 5%',
+                    'Zero — 0%',
+                ],
+                'seeded' => $taxRatesSeeded,
                 'isDefault' => true,
             ],
             'permissions' => [

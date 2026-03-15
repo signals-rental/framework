@@ -120,6 +120,38 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the store IDs this user can access.
+     *
+     * Owners and admins can access all stores. Regular users are limited to
+     * the stores from their member's memberships. A null store_id on a
+     * membership grants access to all stores.
+     *
+     * @return list<int>|null Null means all stores (unrestricted access).
+     */
+    public function accessibleStoreIds(): ?array
+    {
+        if ($this->isOwner() || $this->hasAdminAccess()) {
+            return null;
+        }
+
+        if (! $this->member_id) {
+            return [];
+        }
+
+        $storeIds = Membership::query()
+            ->where('member_id', $this->member_id)
+            ->pluck('store_id')
+            ->all();
+
+        // A null store_id means access to all stores
+        if (in_array(null, $storeIds, true)) {
+            return null;
+        }
+
+        return array_values(array_unique(array_filter($storeIds)));
+    }
+
+    /**
      * @return BelongsTo<Member, $this>
      */
     public function member(): BelongsTo

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Admin\DeactivateUser;
+use App\Actions\Admin\DeleteUser;
 use App\Actions\Admin\ReactivateUser;
 use App\Actions\Admin\SendPasswordReset;
 use App\Actions\Admin\UpdateUser;
@@ -25,6 +26,7 @@ new #[Layout('components.layouts.app')] #[Title('User')] class extends Component
     public bool $hasPassword = false;
 
     public ?int $confirmingDeactivation = null;
+    public ?int $confirmingDeletion = null;
 
     public function mount(User $user): void
     {
@@ -109,10 +111,23 @@ new #[Layout('components.layouts.app')] #[Title('User')] class extends Component
         $user->notify(new UserInvitedNotification);
         $this->dispatch('invitation-resent');
     }
+
+    public function deleteUser(): void
+    {
+        $user = User::findOrFail($this->userId);
+        (new DeleteUser)($user);
+        $this->redirect(route('admin.settings.users'), navigate: true);
+    }
 }; ?>
 
 <section class="w-full">
     <x-admin.layout group="users" title="Edit User" description="Update user details, roles, and manage account actions.">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'Users', 'href' => route('admin.settings.users')],
+                ['label' => 'Edit User'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.users') }}" wire:navigate>
                 Back to Users
@@ -173,6 +188,10 @@ new #[Layout('components.layouts.app')] #[Title('User')] class extends Component
                     @else
                         <flux:button variant="danger" wire:click="$set('confirmingDeactivation', {{ $userId }})">Deactivate User</flux:button>
                     @endif
+
+                    @can('users.delete')
+                        <flux:button variant="danger" wire:click="$set('confirmingDeletion', {{ $userId }})">Delete User</flux:button>
+                    @endcan
                 </div>
             </x-signals.form-section>
         @endunless
@@ -193,6 +212,22 @@ new #[Layout('components.layouts.app')] #[Title('User')] class extends Component
                     <div class="flex justify-end gap-3">
                         <flux:button variant="ghost" wire:click="$set('confirmingDeactivation', null)">Cancel</flux:button>
                         <flux:button variant="danger" wire:click="deactivate">Deactivate</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @endif
+
+        {{-- Deletion Confirmation --}}
+        @if($confirmingDeletion)
+            <flux:modal wire:model.self="confirmingDeletion">
+                <div class="space-y-4">
+                    <flux:heading size="lg">Delete User</flux:heading>
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                        Are you sure you want to permanently delete this user? This action cannot be undone. All API tokens will be revoked and the user record will be removed.
+                    </p>
+                    <div class="flex justify-end gap-3">
+                        <flux:button variant="ghost" wire:click="$set('confirmingDeletion', null)">Cancel</flux:button>
+                        <flux:button variant="danger" wire:click="deleteUser">Delete Permanently</flux:button>
                     </div>
                 </div>
             </flux:modal>

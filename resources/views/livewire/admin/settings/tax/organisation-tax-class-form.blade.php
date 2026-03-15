@@ -81,6 +81,12 @@ new #[Layout('components.layouts.app')] #[Title('Organisation Tax Class')] class
 
 <section class="w-full">
     <x-admin.layout group="tax" :title="$isEditing ? 'Edit Organisation Tax Class' : 'Create Organisation Tax Class'" :description="$isEditing ? 'Update this organisation tax class.' : 'Add a new organisation tax classification.'">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'Organisation Tax Classes', 'href' => route('admin.settings.tax.organisation-tax-classes')],
+                ['label' => $isEditing ? 'Edit' : 'Create'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.tax.organisation-tax-classes') }}" wire:navigate>
                 Back to Organisation Tax Classes

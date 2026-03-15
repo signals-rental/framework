@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ExportActionLog;
 use App\Models\ActionLog;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -67,6 +68,19 @@ new #[Layout('components.layouts.app')] #[Title('Action Log')] class extends Com
         $this->resetPage();
     }
 
+    public function exportCsv(): void
+    {
+        $filters = array_filter([
+            'action' => $this->filterAction,
+            'auditable_type' => $this->filterEntityType,
+            'date_from' => $this->filterDateFrom,
+            'date_to' => $this->filterDateTo,
+        ]);
+
+        ExportActionLog::dispatch(auth()->id(), $filters);
+        $this->dispatch('export-started');
+    }
+
     public function with(): array
     {
         $query = ActionLog::query()
@@ -103,6 +117,12 @@ new #[Layout('components.layouts.app')] #[Title('Action Log')] class extends Com
 
 <section class="w-full">
     <x-admin.layout group="system" title="Action Log" description="Audit trail of system actions and changes.">
+        <x-slot:actions>
+            <flux:button variant="ghost" wire:click="exportCsv">Export CSV</flux:button>
+        </x-slot:actions>
+
+        <x-action-message on="export-started">Export started. The CSV will be available shortly.</x-action-message>
+
         {{-- Filters --}}
         <div class="s-card p-4 mb-6">
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">

@@ -26,6 +26,7 @@ class PermissionSeeder extends Seeder
             'users.edit' => ['label' => 'Edit Users', 'description' => 'Edit user details and roles', 'group' => 'Users'],
             'users.deactivate' => ['label' => 'Deactivate Users', 'description' => 'Deactivate user accounts', 'group' => 'Users'],
             'users.activate' => ['label' => 'Activate Users', 'description' => 'Reactivate user accounts', 'group' => 'Users'],
+            'users.delete' => ['label' => 'Delete Users', 'description' => 'Permanently delete user accounts', 'group' => 'Users'],
             'users.reset-password' => ['label' => 'Reset Passwords', 'description' => 'Send password reset emails', 'group' => 'Users'],
 
             // Roles

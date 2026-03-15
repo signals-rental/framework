@@ -70,11 +70,12 @@ new #[Layout('components.layouts.app')] #[Title('Email Template')] class extends
 
 <section class="w-full">
     <x-admin.layout group="preferences" title="Edit Template" description="Edit the {{ $template->name }} email template.">
-        <div class="mb-4">
-            <a href="{{ route('admin.settings.email-templates') }}" wire:navigate class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
-                &larr; Back to Email Templates
-            </a>
-        </div>
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'Email Templates', 'href' => route('admin.settings.email-templates')],
+                ['label' => 'Edit'],
+            ]" />
+        </x-slot:breadcrumbs>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {{-- Editor --}}

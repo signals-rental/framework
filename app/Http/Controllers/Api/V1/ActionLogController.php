@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Data\Api\ActionLogData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Jobs\ExportActionLog;
 use App\Models\ActionLog;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -55,5 +56,24 @@ class ActionLogController extends Controller
         )->all();
 
         return $this->respondWithCollection($actions, 'actions', $paginator);
+    }
+
+    /**
+     * Export action log entries as CSV (async).
+     *
+     * @operationId exportActions
+     */
+    public function export(Request $request): JsonResponse
+    {
+        $this->authorizeApi('action-log.view', 'action-log:read');
+
+        $filters = $request->only(['action', 'auditable_type', 'date_from', 'date_to']);
+
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        ExportActionLog::dispatch($user->id, $filters);
+
+        return $this->respondAccepted();
     }
 }

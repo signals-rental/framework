@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             CountrySeeder::class,
             ListOfValuesSeeder::class,
             TaxClassSeeder::class,
+            TaxRateSeeder::class,
             PermissionSeeder::class,
             RoleSeeder::class,
             EmailTemplateSeeder::class,

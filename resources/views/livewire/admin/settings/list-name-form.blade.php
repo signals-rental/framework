@@ -63,6 +63,12 @@ new #[Layout('components.layouts.app')] #[Title('List Name')] class extends Comp
 
 <section class="w-full">
     <x-admin.layout group="data" :title="$isEditing ? 'Edit List' : 'Create List'" :description="$isEditing ? 'Update list details.' : 'Create a new configurable list.'">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'List Names', 'href' => route('admin.settings.list-names')],
+                ['label' => $isEditing ? 'Edit' : 'Create'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.list-names') }}" wire:navigate>
                 Back to List Names

@@ -34,11 +34,13 @@
             <flux:icon.users class="s-admin-nav-icon" />
             Users
         </a>
-        <a href="{{ route('admin.settings.roles') }}" wire:navigate
-           class="s-admin-nav-item {{ request()->routeIs('admin.settings.roles') || request()->routeIs('admin.settings.roles.*') ? 'active' : '' }}">
-            <flux:icon.shield-check class="s-admin-nav-icon" />
-            Roles
-        </a>
+        @can('roles.manage')
+            <a href="{{ route('admin.settings.roles') }}" wire:navigate
+               class="s-admin-nav-item {{ request()->routeIs('admin.settings.roles') || request()->routeIs('admin.settings.roles.*') ? 'active' : '' }}">
+                <flux:icon.shield-check class="s-admin-nav-icon" />
+                Roles
+            </a>
+        @endcan
         <a href="{{ route('admin.settings.permissions') }}" wire:navigate
            class="s-admin-nav-item {{ request()->routeIs('admin.settings.permissions') ? 'active' : '' }}">
             <flux:icon.key class="s-admin-nav-icon" />
@@ -89,16 +91,18 @@
     {{-- Data --}}
     @if($group === 'data')
         <div class="s-admin-sidebar-title">Data</div>
-        <a href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate
-           class="s-admin-nav-item {{ request()->routeIs('admin.settings.custom-field-groups*') ? 'active' : '' }}">
-            <flux:icon.rectangle-group class="s-admin-nav-icon" />
-            Custom Field Groups
-        </a>
-        <a href="{{ route('admin.settings.custom-fields') }}" wire:navigate
-           class="s-admin-nav-item {{ request()->routeIs('admin.settings.custom-fields*') ? 'active' : '' }}">
-            <flux:icon.adjustments-vertical class="s-admin-nav-icon" />
-            Custom Fields
-        </a>
+        @can('custom-fields.manage')
+            <a href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate
+               class="s-admin-nav-item {{ request()->routeIs('admin.settings.custom-field-groups*') ? 'active' : '' }}">
+                <flux:icon.rectangle-group class="s-admin-nav-icon" />
+                Custom Field Groups
+            </a>
+            <a href="{{ route('admin.settings.custom-fields') }}" wire:navigate
+               class="s-admin-nav-item {{ request()->routeIs('admin.settings.custom-fields*') ? 'active' : '' }}">
+                <flux:icon.adjustments-vertical class="s-admin-nav-icon" />
+                Custom Fields
+            </a>
+        @endcan
         <a href="{{ route('admin.settings.list-names') }}" wire:navigate
            class="s-admin-nav-item {{ request()->routeIs('admin.settings.list-names*') || request()->routeIs('admin.settings.lists*') || request()->routeIs('admin.settings.list-values*') ? 'active' : '' }}">
             <flux:icon.list-bullet class="s-admin-nav-icon" />
@@ -124,16 +128,28 @@
             <flux:icon.building-office-2 class="s-admin-nav-icon" />
             Organisation Tax Classes
         </a>
+        <a href="{{ route('admin.settings.tax.rates') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.tax.rates*') ? 'active' : '' }}">
+            <flux:icon.calculator class="s-admin-nav-icon" />
+            Tax Rates
+        </a>
+        <a href="{{ route('admin.settings.tax.rules') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.tax.rules*') ? 'active' : '' }}">
+            <flux:icon.table-cells class="s-admin-nav-icon" />
+            Tax Rules
+        </a>
     @endif
 
     {{-- System --}}
     @if($group === 'system')
         <div class="s-admin-sidebar-title">System</div>
-        <a href="{{ route('admin.settings.action-log') }}" wire:navigate
-           class="s-admin-nav-item {{ request()->routeIs('admin.settings.action-log') ? 'active' : '' }}">
-            <flux:icon.clock class="s-admin-nav-icon" />
-            Action Log
-        </a>
+        @can('action-log.view')
+            <a href="{{ route('admin.settings.action-log') }}" wire:navigate
+               class="s-admin-nav-item {{ request()->routeIs('admin.settings.action-log') ? 'active' : '' }}">
+                <flux:icon.clock class="s-admin-nav-icon" />
+                Action Log
+            </a>
+        @endcan
         <a href="{{ route('admin.settings.system-health') }}" wire:navigate
            class="s-admin-nav-item {{ request()->routeIs('admin.settings.system-health') ? 'active' : '' }}">
             <flux:icon.server-stack class="s-admin-nav-icon" />
@@ -151,10 +167,12 @@
             <flux:icon.circle-stack class="s-admin-nav-icon" />
             Database Seeders
         </a>
-        <a href="{{ route('admin.settings.webhooks') }}" wire:navigate
-           class="s-admin-nav-item {{ request()->routeIs('admin.settings.webhooks') ? 'active' : '' }}">
-            <flux:icon.signal class="s-admin-nav-icon" />
-            Webhooks
-        </a>
+        @can('webhooks.manage')
+            <a href="{{ route('admin.settings.webhooks') }}" wire:navigate
+               class="s-admin-nav-item {{ request()->routeIs('admin.settings.webhooks') ? 'active' : '' }}">
+                <flux:icon.signal class="s-admin-nav-icon" />
+                Webhooks
+            </a>
+        @endcan
     @endif
 </nav>

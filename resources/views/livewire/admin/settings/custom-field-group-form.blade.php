@@ -55,6 +55,12 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field Group')] class ext
 
 <section class="w-full">
     <x-admin.layout group="data" :title="$isEditing ? 'Edit Custom Field Group' : 'Create Custom Field Group'" :description="$isEditing ? 'Update group details.' : 'Create a new custom field group.'">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'Custom Field Groups', 'href' => route('admin.settings.custom-field-groups')],
+                ['label' => $isEditing ? 'Edit' : 'Create'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate>
                 Back to Custom Field Groups

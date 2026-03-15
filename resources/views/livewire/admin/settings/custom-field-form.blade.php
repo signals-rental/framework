@@ -108,6 +108,12 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field')] class extends C
 
 <section class="w-full">
     <x-admin.layout group="data" :title="$isEditing ? 'Edit Custom Field' : 'Create Custom Field'" :description="$isEditing ? 'Update custom field definition.' : 'Define a new custom field.'">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'Custom Fields', 'href' => route('admin.settings.custom-fields')],
+                ['label' => $isEditing ? 'Edit' : 'Create'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.custom-fields') }}" wire:navigate>
                 Back to Custom Fields

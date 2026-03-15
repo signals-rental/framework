@@ -81,6 +81,12 @@ new #[Layout('components.layouts.app')] #[Title('Product Tax Class')] class exte
 
 <section class="w-full">
     <x-admin.layout group="tax" :title="$isEditing ? 'Edit Product Tax Class' : 'Create Product Tax Class'" :description="$isEditing ? 'Update this product tax class.' : 'Add a new product tax classification.'">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'Product Tax Classes', 'href' => route('admin.settings.tax.product-tax-classes')],
+                ['label' => $isEditing ? 'Edit' : 'Create'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate>
                 Back to Product Tax Classes

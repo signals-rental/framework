@@ -4,6 +4,12 @@
     <x-admin.sidebar :group="$group" />
 
     <div class="s-admin-main {{ $wide ? 's-admin-main-wide' : '' }}">
+        @isset($breadcrumbs)
+            <div class="mb-2">
+                {{ $breadcrumbs }}
+            </div>
+        @endisset
+
         <div class="s-admin-section-header">
             <div class="flex items-center justify-between">
                 <div>

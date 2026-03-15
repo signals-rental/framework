@@ -17,6 +17,7 @@ class WebhookService
         'user.created',
         'user.updated',
         'user.deactivated',
+        'user.deleted',
         'settings.updated',
         'role.created',
         'role.updated',

@@ -77,6 +77,13 @@ new #[Layout('components.layouts.app')] #[Title('List Value')] class extends Com
 
 <section class="w-full">
     <x-admin.layout group="data" :title="$isEditing ? 'Edit Value' : 'Add Value'" :description="$isEditing ? 'Update value details.' : 'Add a new value to ' . $listName->name . '.'">
+        <x-slot:breadcrumbs>
+            <x-signals.breadcrumb :items="[
+                ['label' => 'List Names', 'href' => route('admin.settings.list-names')],
+                ['label' => $listName->name, 'href' => route('admin.settings.lists', $listName)],
+                ['label' => $isEditing ? 'Edit' : 'Add'],
+            ]" />
+        </x-slot:breadcrumbs>
         <x-slot:actions>
             <flux:button variant="ghost" href="{{ route('admin.settings.lists', $listName) }}" wire:navigate>
                 Back to {{ $listName->name }}
