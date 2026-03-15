@@ -87,7 +87,7 @@ it('updates a member with custom fields', function () {
     $customField = \App\Models\CustomField::factory()->create([
         'name' => 'po_reference',
         'module_type' => 'Member',
-        'field_type' => \App\Enums\CustomFieldType::Text,
+        'field_type' => \App\Enums\CustomFieldType::String,
     ]);
 
     $member = Member::factory()->create(['name' => 'Test Corp']);

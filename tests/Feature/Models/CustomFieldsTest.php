@@ -19,7 +19,7 @@ it('creates a custom field group for a plugin', function () {
     expect($group->plugin_name)->toBe('my-plugin');
 });
 
-it('creates a custom field with text type', function () {
+it('creates a custom field with string type', function () {
     $field = CustomField::factory()->create([
         'name' => 'po_reference',
         'display_name' => 'PO Reference',
@@ -27,7 +27,7 @@ it('creates a custom field with text type', function () {
     ]);
 
     expect($field->name)->toBe('po_reference')
-        ->and($field->field_type)->toBe(CustomFieldType::Text)
+        ->and($field->field_type)->toBe(CustomFieldType::String)
         ->and($field->module_type)->toBe('Invoice')
         ->and($field->is_active)->toBeTrue()
         ->and($field->is_searchable)->toBeTrue()
@@ -40,11 +40,11 @@ it('creates a boolean custom field', function () {
     expect($field->field_type)->toBe(CustomFieldType::Boolean);
 });
 
-it('creates a select custom field with list name', function () {
+it('creates a list of values custom field with list name', function () {
     $listName = ListName::factory()->create();
-    $field = CustomField::factory()->select()->create(['list_name_id' => $listName->id]);
+    $field = CustomField::factory()->listOfValues()->create(['list_name_id' => $listName->id]);
 
-    expect($field->field_type)->toBe(CustomFieldType::Select)
+    expect($field->field_type)->toBe(CustomFieldType::ListOfValues)
         ->and($field->listName->id)->toBe($listName->id);
 });
 
@@ -125,15 +125,15 @@ it('enforces unique custom field value per entity', function () {
 });
 
 it('maps field types to correct value columns', function () {
-    expect(CustomFieldType::Text->valueColumn())->toBe('value_string')
-        ->and(CustomFieldType::TextArea->valueColumn())->toBe('value_text')
-        ->and(CustomFieldType::Integer->valueColumn())->toBe('value_integer')
-        ->and(CustomFieldType::Decimal->valueColumn())->toBe('value_decimal')
+    expect(CustomFieldType::String->valueColumn())->toBe('value_string')
+        ->and(CustomFieldType::Text->valueColumn())->toBe('value_text')
+        ->and(CustomFieldType::Number->valueColumn())->toBe('value_decimal')
         ->and(CustomFieldType::Boolean->valueColumn())->toBe('value_boolean')
         ->and(CustomFieldType::Date->valueColumn())->toBe('value_date')
         ->and(CustomFieldType::DateTime->valueColumn())->toBe('value_datetime')
         ->and(CustomFieldType::Time->valueColumn())->toBe('value_time')
-        ->and(CustomFieldType::MultiSelect->valueColumn())->toBe('value_json');
+        ->and(CustomFieldType::ListOfValues->valueColumn())->toBe('value_integer')
+        ->and(CustomFieldType::MultiListOfValues->valueColumn())->toBe('value_json');
 });
 
 it('casts settings, validation_rules, and visibility_rules as arrays', function () {
@@ -163,7 +163,7 @@ it('cascades delete from custom field to values', function () {
 
 it('accesses list name relationship', function () {
     $listName = ListName::factory()->create(['name' => 'Phone Types']);
-    $field = CustomField::factory()->select()->create(['list_name_id' => $listName->id]);
+    $field = CustomField::factory()->listOfValues()->create(['list_name_id' => $listName->id]);
 
     $loadedField = CustomField::with('listName')->find($field->id);
 

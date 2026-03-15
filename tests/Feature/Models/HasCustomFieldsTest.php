@@ -3,6 +3,8 @@
 use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
+use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Store;
 
 beforeEach(function () {
@@ -11,7 +13,7 @@ beforeEach(function () {
         'name' => 'region',
         'display_name' => 'Region',
         'module_type' => 'Store',
-        'field_type' => CustomFieldType::Text,
+        'field_type' => CustomFieldType::String,
     ]);
 
     $this->boolField = CustomField::factory()->boolean()->create([
@@ -105,4 +107,108 @@ it('skips custom field values with missing field definition', function () {
 
 it('returns correct module type from class name', function () {
     expect($this->store->customFieldModuleType())->toBe('Store');
+});
+
+it('syncs list of values field with string input resolving to list_value_id', function () {
+    $listName = ListName::factory()->create();
+    $listValue = ListValue::factory()->forList($listName)->create(['name' => 'Priority High']);
+
+    $listField = CustomField::factory()->listOfValues()->create([
+        'name' => 'priority',
+        'display_name' => 'Priority',
+        'module_type' => 'Store',
+        'list_name_id' => $listName->id,
+    ]);
+
+    $this->store->syncCustomFields(['priority' => 'Priority High']);
+
+    $cfv = CustomFieldValue::query()
+        ->where('custom_field_id', $listField->id)
+        ->first();
+
+    expect($cfv->value_integer)->toBe($listValue->id);
+});
+
+it('syncs list of values field with int input storing directly', function () {
+    $listName = ListName::factory()->create();
+    $listValue = ListValue::factory()->forList($listName)->create(['name' => 'Priority High']);
+
+    $listField = CustomField::factory()->listOfValues()->create([
+        'name' => 'priority',
+        'display_name' => 'Priority',
+        'module_type' => 'Store',
+        'list_name_id' => $listName->id,
+    ]);
+
+    $this->store->syncCustomFields(['priority' => $listValue->id]);
+
+    $cfv = CustomFieldValue::query()
+        ->where('custom_field_id', $listField->id)
+        ->first();
+
+    expect($cfv->value_integer)->toBe($listValue->id);
+});
+
+it('reads list of values field resolving id back to display name', function () {
+    $listName = ListName::factory()->create();
+    $listValue = ListValue::factory()->forList($listName)->create(['name' => 'Priority High']);
+
+    CustomField::factory()->listOfValues()->create([
+        'name' => 'priority',
+        'display_name' => 'Priority',
+        'module_type' => 'Store',
+        'list_name_id' => $listName->id,
+    ]);
+
+    $this->store->syncCustomFields(['priority' => 'Priority High']);
+
+    $customFields = $this->store->fresh()->custom_fields;
+
+    expect($customFields['priority'])->toBe('Priority High');
+});
+
+it('syncs multi list of values field with array of strings resolving to ids', function () {
+    $listName = ListName::factory()->create();
+    $lv1 = ListValue::factory()->forList($listName)->create(['name' => 'Red']);
+    $lv2 = ListValue::factory()->forList($listName)->create(['name' => 'Blue']);
+
+    $multiField = CustomField::factory()->multiListOfValues()->create([
+        'name' => 'colours',
+        'display_name' => 'Colours',
+        'module_type' => 'Store',
+        'list_name_id' => $listName->id,
+    ]);
+
+    $this->store->syncCustomFields(['colours' => ['Red', 'Blue']]);
+
+    $cfv = CustomFieldValue::query()
+        ->where('custom_field_id', $multiField->id)
+        ->first();
+
+    expect($cfv->value_json)->toBeArray()
+        ->and($cfv->value_json)->toContain($lv1->id)
+        ->and($cfv->value_json)->toContain($lv2->id)
+        ->and($cfv->value_json)->toHaveCount(2);
+});
+
+it('reads multi list of values field resolving ids to display names', function () {
+    $listName = ListName::factory()->create();
+    ListValue::factory()->forList($listName)->create(['name' => 'Red']);
+    ListValue::factory()->forList($listName)->create(['name' => 'Blue']);
+
+    CustomField::factory()->multiListOfValues()->create([
+        'name' => 'colours',
+        'display_name' => 'Colours',
+        'module_type' => 'Store',
+        'list_name_id' => $listName->id,
+    ]);
+
+    $this->store->syncCustomFields(['colours' => ['Red', 'Blue']]);
+
+    $customFields = $this->store->fresh()->custom_fields;
+
+    expect($customFields['colours'])->toBeArray()
+        ->and($customFields['colours'])->toContain('Red')
+        ->and($customFields['colours'])->toContain('Blue')
+        ->and($customFields['colours'])->toHaveCount(2);
 });

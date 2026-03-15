@@ -26,7 +26,7 @@ class CustomFieldFactory extends Factory
             'name' => $name,
             'display_name' => str_replace('-', ' ', ucfirst($name)),
             'module_type' => 'Member',
-            'field_type' => CustomFieldType::Text,
+            'field_type' => CustomFieldType::String,
             'sort_order' => 0,
             'is_required' => false,
             'is_searchable' => true,
@@ -36,6 +36,11 @@ class CustomFieldFactory extends Factory
 
     public function string(): static
     {
+        return $this->state(fn () => ['field_type' => CustomFieldType::String]);
+    }
+
+    public function text(): static
+    {
         return $this->state(fn () => ['field_type' => CustomFieldType::Text]);
     }
 
@@ -44,14 +49,9 @@ class CustomFieldFactory extends Factory
         return $this->state(fn () => ['field_type' => CustomFieldType::Boolean]);
     }
 
-    public function integer(): static
+    public function number(): static
     {
-        return $this->state(fn () => ['field_type' => CustomFieldType::Integer]);
-    }
-
-    public function decimal(): static
-    {
-        return $this->state(fn () => ['field_type' => CustomFieldType::Decimal]);
+        return $this->state(fn () => ['field_type' => CustomFieldType::Number]);
     }
 
     public function date(): static
@@ -59,12 +59,60 @@ class CustomFieldFactory extends Factory
         return $this->state(fn () => ['field_type' => CustomFieldType::Date]);
     }
 
-    public function select(): static
+    public function listOfValues(): static
     {
         return $this->state(fn () => [
-            'field_type' => CustomFieldType::Select,
+            'field_type' => CustomFieldType::ListOfValues,
             'list_name_id' => ListName::factory(),
         ]);
+    }
+
+    public function multiListOfValues(): static
+    {
+        return $this->state(fn () => [
+            'field_type' => CustomFieldType::MultiListOfValues,
+            'list_name_id' => ListName::factory(),
+        ]);
+    }
+
+    public function currency(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::Currency]);
+    }
+
+    public function email(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::Email]);
+    }
+
+    public function website(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::Website]);
+    }
+
+    public function telephone(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::Telephone]);
+    }
+
+    public function richText(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::RichText]);
+    }
+
+    public function colour(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::Colour]);
+    }
+
+    public function percentage(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::Percentage]);
+    }
+
+    public function autoNumber(): static
+    {
+        return $this->state(fn () => ['field_type' => CustomFieldType::AutoNumber]);
     }
 
     public function required(): static

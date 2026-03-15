@@ -22,6 +22,7 @@ class ListValue extends Model
         'is_system',
         'is_active',
         'metadata',
+        'plugin_name',
     ];
 
     /**

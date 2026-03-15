@@ -47,7 +47,7 @@ it('can create a field', function () {
         ->set('name', 'po_reference')
         ->set('displayName', 'PO Reference')
         ->set('moduleType', 'Member')
-        ->set('fieldType', CustomFieldType::Text->value)
+        ->set('fieldType', CustomFieldType::String->value)
         ->call('save');
 
     expect(CustomField::where('name', 'po_reference')->exists())->toBeTrue();

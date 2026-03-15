@@ -17,6 +17,7 @@ class ListName extends Model
         'description',
         'is_system',
         'is_hierarchical',
+        'plugin_name',
     ];
 
     /**

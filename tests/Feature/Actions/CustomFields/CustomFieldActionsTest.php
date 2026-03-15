@@ -26,7 +26,7 @@ it('creates a custom field', function () {
     $data = CreateCustomFieldData::from([
         'name' => 'po_reference',
         'module_type' => 'Member',
-        'field_type' => CustomFieldType::Text->value,
+        'field_type' => CustomFieldType::String->value,
         'display_name' => 'PO Reference',
         'is_required' => true,
     ]);
@@ -35,7 +35,7 @@ it('creates a custom field', function () {
 
     expect($result->name)->toBe('po_reference');
     expect($result->module_type)->toBe('Member');
-    expect($result->field_type)->toBe(CustomFieldType::Text->value);
+    expect($result->field_type)->toBe(CustomFieldType::String->value);
     expect($result->is_required)->toBeTrue();
     expect(CustomField::where('name', 'po_reference')->exists())->toBeTrue();
 
@@ -75,7 +75,7 @@ it('rejects unauthorized custom field creation', function () {
     $data = CreateCustomFieldData::from([
         'name' => 'unauthorized_field',
         'module_type' => 'Member',
-        'field_type' => CustomFieldType::Text->value,
+        'field_type' => CustomFieldType::String->value,
     ]);
 
     (new CreateCustomField)($data);

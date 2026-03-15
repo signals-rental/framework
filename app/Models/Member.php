@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
 use App\Enums\MembershipType;
 use App\Models\Traits\HasCustomFields;
+use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Member extends Model
+class Member extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\MemberFactory> */
     use HasCustomFields, HasFactory, SoftDeletes;
@@ -43,6 +45,22 @@ class Member extends Model
             'is_active' => 'boolean',
             'tag_list' => 'array',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
+        $builder->enum('membership_type')->label('Type')->filterable()->sortable()->groupable();
+        $builder->boolean('is_active')->label('Active')->filterable()->sortable()->groupable();
+        $builder->text('description')->label('Description')->searchable();
+        $builder->string('locale')->label('Locale')->filterable();
+        $builder->string('default_currency_code')->label('Default Currency')->filterable();
+        $builder->relation('organisation_tax_class_id')->label('Tax Class')
+            ->relation('organisationTaxClass', 'belongsTo', OrganisationTaxClass::class, 'name')
+            ->filterable();
+        $builder->json('tag_list')->label('Tags')->searchable();
+        $builder->datetime('created_at')->label('Created')->sortable()->filterable();
+        $builder->datetime('updated_at')->label('Updated')->sortable();
     }
 
     /**

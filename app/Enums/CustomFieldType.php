@@ -4,44 +4,48 @@ namespace App\Enums;
 
 enum CustomFieldType: int
 {
-    case Text = 0;
-    case TextArea = 1;
-    case Integer = 2;
-    case Decimal = 3;
-    case Boolean = 4;
+    case String = 0;
+    case Text = 1;
+    case Number = 2;
+    case Boolean = 3;
+    case DateTime = 4;
     case Date = 5;
-    case DateTime = 6;
-    case Time = 7;
-    case Select = 8;
-    case MultiSelect = 9;
-    case Url = 10;
-    case Email = 11;
-    case Phone = 12;
-    case Colour = 13;
-    case Currency = 14;
-    case Percentage = 15;
-    case RichText = 16;
+    case Time = 6;
+    case Email = 7;
+    case Website = 8;
+    case ListOfValues = 9;
+    case MultiListOfValues = 10;
+    case AutoNumber = 11;
+    case Currency = 12;
+    case Telephone = 13;
+    case FileImage = 14;
+    case RichText = 15;
+    case JsonKeyValue = 16;
+    case Colour = 17;
+    case Percentage = 18;
 
     public function label(): string
     {
         return match ($this) {
-            self::Text => 'Text',
-            self::TextArea => 'Text Area',
-            self::Integer => 'Integer',
-            self::Decimal => 'Decimal',
+            self::String => 'String',
+            self::Text => 'Text Area',
+            self::Number => 'Number',
             self::Boolean => 'Boolean',
-            self::Date => 'Date',
             self::DateTime => 'Date & Time',
+            self::Date => 'Date',
             self::Time => 'Time',
-            self::Select => 'Select',
-            self::MultiSelect => 'Multi Select',
-            self::Url => 'URL',
             self::Email => 'Email',
-            self::Phone => 'Phone',
-            self::Colour => 'Colour',
+            self::Website => 'Website',
+            self::ListOfValues => 'List of Values',
+            self::MultiListOfValues => 'Multi List of Values',
+            self::AutoNumber => 'Auto Number',
             self::Currency => 'Currency',
-            self::Percentage => 'Percentage',
+            self::Telephone => 'Telephone',
+            self::FileImage => 'File / Image',
             self::RichText => 'Rich Text',
+            self::JsonKeyValue => 'JSON Key-Value',
+            self::Colour => 'Colour',
+            self::Percentage => 'Percentage',
         };
     }
 
@@ -51,16 +55,15 @@ enum CustomFieldType: int
     public function valueColumn(): string
     {
         return match ($this) {
-            self::Text, self::Url, self::Email, self::Phone, self::Colour => 'value_string',
-            self::TextArea, self::RichText => 'value_text',
-            self::Integer => 'value_integer',
-            self::Decimal, self::Currency, self::Percentage => 'value_decimal',
+            self::String, self::Email, self::Website, self::Telephone, self::AutoNumber, self::Colour => 'value_string',
+            self::Text, self::RichText => 'value_text',
+            self::ListOfValues => 'value_integer',
+            self::Number, self::Currency, self::Percentage => 'value_decimal',
             self::Boolean => 'value_boolean',
             self::Date => 'value_date',
             self::DateTime => 'value_datetime',
             self::Time => 'value_time',
-            self::Select => 'value_string',
-            self::MultiSelect => 'value_json',
+            self::MultiListOfValues, self::FileImage, self::JsonKeyValue => 'value_json',
         };
     }
 }

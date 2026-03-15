@@ -109,7 +109,7 @@ describe('Custom Fields API', function () {
             ->postJson('/api/v1/custom_fields', [
                 'name' => 'po_reference',
                 'module_type' => 'member',
-                'field_type' => CustomFieldType::Text->value,
+                'field_type' => CustomFieldType::String->value,
                 'sort_order' => 1,
             ])
             ->assertCreated()

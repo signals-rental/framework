@@ -77,10 +77,10 @@ new #[Layout('components.layouts.app')] #[Title('Custom Fields')] class extends 
                                 <td>
                                     @php
                                         $badgeClass = match(true) {
-                                            in_array($field->field_type, [CustomFieldType::Text, CustomFieldType::TextArea, CustomFieldType::RichText]) => 's-badge-blue',
-                                            in_array($field->field_type, [CustomFieldType::Integer, CustomFieldType::Decimal, CustomFieldType::Currency, CustomFieldType::Percentage]) => 's-badge-purple',
+                                            in_array($field->field_type, [CustomFieldType::String, CustomFieldType::Text, CustomFieldType::RichText]) => 's-badge-blue',
+                                            in_array($field->field_type, [CustomFieldType::Number, CustomFieldType::Currency, CustomFieldType::Percentage]) => 's-badge-purple',
                                             in_array($field->field_type, [CustomFieldType::Date, CustomFieldType::DateTime, CustomFieldType::Time]) => 's-badge-amber',
-                                            in_array($field->field_type, [CustomFieldType::Select, CustomFieldType::MultiSelect]) => 's-badge-green',
+                                            in_array($field->field_type, [CustomFieldType::ListOfValues, CustomFieldType::MultiListOfValues]) => 's-badge-green',
                                             $field->field_type === CustomFieldType::Boolean => 's-badge-cyan',
                                             default => '',
                                         };

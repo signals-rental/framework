@@ -48,14 +48,14 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field')] class extends C
 
     public function updatedFieldType(): void
     {
-        if (! in_array($this->fieldType, [CustomFieldType::Select->value, CustomFieldType::MultiSelect->value])) {
+        if (! in_array($this->fieldType, [CustomFieldType::ListOfValues->value, CustomFieldType::MultiListOfValues->value])) {
             $this->listNameId = null;
         }
     }
 
     public function save(): void
     {
-        $listNameId = in_array($this->fieldType, [CustomFieldType::Select->value, CustomFieldType::MultiSelect->value])
+        $listNameId = in_array($this->fieldType, [CustomFieldType::ListOfValues->value, CustomFieldType::MultiListOfValues->value])
             ? $this->listNameId
             : null;
 
@@ -101,7 +101,7 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field')] class extends C
             'listNames' => ListName::query()->orderBy('name')->get(),
             'fieldTypes' => CustomFieldType::cases(),
             'moduleTypes' => ['Member', 'Opportunity', 'Product', 'Invoice', 'Store'],
-            'showListNameField' => in_array($this->fieldType, [CustomFieldType::Select->value, CustomFieldType::MultiSelect->value]),
+            'showListNameField' => in_array($this->fieldType, [CustomFieldType::ListOfValues->value, CustomFieldType::MultiListOfValues->value]),
         ];
     }
 }; ?>

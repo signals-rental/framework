@@ -2,10 +2,10 @@
 
 namespace App\Models\Traits;
 
-use App\Enums\CustomFieldType;
-use App\Models\CustomField;
 use App\Models\CustomFieldValue;
+use App\Services\CustomFieldSerializer;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Collection;
 
 trait HasCustomFields
 {
@@ -33,22 +33,7 @@ trait HasCustomFields
      */
     public function getCustomFieldsAttribute(): array
     {
-        $values = $this->customFieldValues()->with('customField')->get();
-        $result = [];
-
-        foreach ($values as $cfv) {
-            $field = $cfv->customField;
-            if (! $field) {
-                continue;
-            }
-
-            /** @var CustomFieldType $fieldType */
-            $fieldType = $field->field_type;
-            $column = $fieldType->valueColumn();
-            $result[$field->name] = $cfv->{$column};
-        }
-
-        return $result;
+        return app(CustomFieldSerializer::class)->toArray($this);
     }
 
     /**
@@ -58,33 +43,21 @@ trait HasCustomFields
      */
     public function syncCustomFields(array $fields): void
     {
-        $moduleType = $this->customFieldModuleType();
+        app(CustomFieldSerializer::class)->fromArray($this, $fields);
+    }
 
-        $definitions = CustomField::query()
-            ->forModule($moduleType)
-            ->active()
-            ->get()
-            ->keyBy('name');
-
-        foreach ($fields as $name => $value) {
-            $field = $definitions->get($name);
-
-            if (! $field) {
-                continue;
-            }
-
-            /** @var CustomFieldType $fieldType */
-            $fieldType = $field->field_type;
-            $column = $fieldType->valueColumn();
-
-            CustomFieldValue::query()->updateOrCreate(
-                [
-                    'custom_field_id' => $field->id,
-                    'entity_type' => $this->getMorphClass(),
-                    'entity_id' => $this->getKey(),
-                ],
-                [$column => $value],
-            );
+    /**
+     * Batch-load custom field values for a collection of entities to prevent N+1.
+     *
+     * @param  Collection<int, static>  $entities
+     */
+    public static function eagerLoadCustomFields(Collection $entities): void
+    {
+        if ($entities->isEmpty()) {
+            return;
         }
+
+        $moduleType = $entities->first()->customFieldModuleType();
+        app(CustomFieldSerializer::class)->eagerLoad($entities, $moduleType);
     }
 }

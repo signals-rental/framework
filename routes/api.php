@@ -77,6 +77,10 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
     Route::apiResource('list_names', ListNameController::class)->names('api.v1.list_names');
     Route::apiResource('list_names.list_values', ListValueController::class)->except(['show'])->names('api.v1.list_names.list_values');
 
+    // CRMS-compatible alias for Lists of Values
+    Route::apiResource('list_of_values', ListNameController::class)->parameters(['list_of_values' => 'list_name'])->names('api.v1.list_of_values');
+    Route::apiResource('list_of_values.list_values', ListValueController::class)->parameters(['list_of_values' => 'list_name', 'list_values' => 'list_value'])->except(['show'])->names('api.v1.list_of_values.list_values');
+
     // Tax Classes
     Route::apiResource('organisation_tax_classes', OrganisationTaxClassController::class)->names('api.v1.organisation_tax_classes');
     Route::apiResource('product_tax_classes', ProductTaxClassController::class)->names('api.v1.product_tax_classes');
