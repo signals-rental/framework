@@ -100,6 +100,7 @@ it('runs non-interactively with all required options', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $redisTester = $this->mock(RedisConnectionTester::class);
     $redisTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'Redis 7.2', 'error' => null]);
@@ -145,6 +146,7 @@ it('skips npm when --skip-npm is provided', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -168,6 +170,7 @@ it('runs npm install and build when skip-npm is not provided', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     // config:cache resets the Process facade, so assert via output instead
     $this->artisan('signals:install', [
@@ -197,6 +200,7 @@ it('continues with warning when npm install fails', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     // config:cache resets the Process facade, so assert via output instead
     $this->artisan('signals:install', [
@@ -220,6 +224,7 @@ it('skips redis config when cache-driver is database', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $redisTester = $this->mock(RedisConnectionTester::class);
     $redisTester->shouldNotReceive('test');
@@ -244,6 +249,7 @@ it('skips s3 config when storage-driver is local', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $s3Tester = $this->mock(S3ConnectionTester::class);
     $s3Tester->shouldNotReceive('test');
@@ -268,6 +274,7 @@ it('rejects invalid cache-driver values', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -289,6 +296,7 @@ it('rejects invalid storage-driver values', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $redisTester = $this->mock(RedisConnectionTester::class);
     $redisTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'Redis 7.2', 'error' => null]);
@@ -314,6 +322,7 @@ it('rejects invalid reverb-scheme values', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -390,6 +399,7 @@ it('fails non-interactively when redis connection fails', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $redisTester = $this->mock(RedisConnectionTester::class);
     $redisTester->shouldReceive('test')->once()->andReturn(['success' => false, 'version' => null, 'error' => 'Connection refused']);
@@ -415,6 +425,7 @@ it('fails non-interactively when s3 connection fails', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $s3Tester = $this->mock(S3ConnectionTester::class);
     $s3Tester->shouldReceive('test')->once()->andReturn(['success' => false, 'error' => 'Access Denied']);
@@ -444,6 +455,7 @@ it('auto-creates database in non-interactive mode when it does not exist', funct
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(false);
     $pgTester->shouldReceive('createDatabase')->once();
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -484,6 +496,7 @@ it('requires s3-endpoint for r2 provider in non-interactive mode', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -512,6 +525,7 @@ it('warns when npm run build fails but install succeeds', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -536,6 +550,7 @@ it('fails when migrations return a non-zero exit code', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -557,6 +572,7 @@ it('completes successfully with s3 storage when connection test passes', functio
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $s3Tester = $this->mock(S3ConnectionTester::class);
     $s3Tester->shouldReceive('test')->once()->andReturn(['success' => true, 'error' => null]);
@@ -596,6 +612,7 @@ it('fails when .env file is not writable', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     try {
         $this->artisan('signals:install', [
@@ -625,6 +642,7 @@ it('substitutes region in digitalocean endpoint without error', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $s3Tester = $this->mock(S3ConnectionTester::class);
     $s3Tester->shouldReceive('test')->once()->andReturn(['success' => true, 'error' => null]);
@@ -657,6 +675,7 @@ it('prompts for database creation interactively and proceeds when accepted', fun
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(false);
     $pgTester->shouldReceive('createDatabase')->once();
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     // Provide all values via options, but omit --force so the confirm prompt fires
     $this->artisan('signals:install', [
@@ -708,6 +727,7 @@ it('retries database connection interactively when user confirms retry', functio
     );
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     // Provide all values via options; the confirm for retry is the interactive part
     $this->artisan('signals:install', [
@@ -761,6 +781,7 @@ it('sets SIGNALS_INSTALLED but does not modify SIGNALS_SETUP_COMPLETE in env', f
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     $this->artisan('signals:install', [
         '--no-interaction' => true,
@@ -786,6 +807,7 @@ it('fails with an invalid --s3-provider value', function () {
     $pgTester->shouldReceive('testServer')->once()->andReturn(['success' => true, 'error' => null]);
     $pgTester->shouldReceive('databaseExists')->once()->andReturn(true);
     $pgTester->shouldReceive('test')->once()->andReturn(['success' => true, 'version' => 'PostgreSQL 16.2', 'error' => null]);
+    $pgTester->shouldReceive('checkExtensions')->once()->andReturn(['pgcrypto' => true]);
 
     config(['database.connections.pgsql.database' => $this->tempDb]);
 

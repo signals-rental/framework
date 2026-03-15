@@ -243,8 +243,8 @@ it('completes setup and redirects to dashboard', function () {
         ->set('accentColour', '#3b82f6')
         ->set('adminName', 'Admin User')
         ->set('adminEmail', 'admin@test.com')
-        ->set('adminPassword', 'password123')
-        ->set('adminPassword_confirmation', 'password123')
+        ->set('adminPassword', 'SecurePass123!')
+        ->set('adminPassword_confirmation', 'SecurePass123!')
         ->call('completeSetup')
         ->assertRedirect(route('dashboard'));
 

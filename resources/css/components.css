@@ -2195,13 +2195,20 @@
 .s-module-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 @media (max-width: 640px) { .s-module-grid { grid-template-columns: 1fr; } }
 
+.s-admin-landing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 1024px) { .s-admin-landing-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .s-admin-landing-grid { grid-template-columns: 1fr; } }
+
 .s-module-card {
   display: flex; align-items: center; gap: 12px;
   padding: 16px; background: var(--card-bg); border: 1px solid var(--card-border);
   cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  text-decoration: none; color: inherit;
 }
 .s-module-card:hover { border-color: var(--text-muted); }
 .s-module-card.enabled { border-color: var(--blue); background: var(--blue-pale); }
+.s-module-card.enabled:hover { border-color: var(--blue-dark, var(--blue)); background: var(--blue-pale); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); transform: translateY(-1px); }
+a.s-module-card { transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.15s; }
 .s-module-card.locked { opacity: 0.7; cursor: default; }
 .s-module-card.locked:hover { border-color: var(--card-border); }
 

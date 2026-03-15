@@ -86,8 +86,8 @@ Route::middleware(['signals.setup-complete'])->group(function () {
 */
 
 Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(function () {
-    Route::redirect('admin', 'admin/settings/company');
-    Route::redirect('admin/settings', 'admin/settings/company');
+    Volt::route('admin', 'admin.index')->name('admin.index');
+    Route::redirect('admin/settings', 'admin');
 
     // Account
     Volt::route('admin/settings/company', 'admin.settings.company')->name('admin.settings.company');
@@ -208,6 +208,22 @@ Route::prefix('prototypes')->group(function () {
         ->name('prototypes.opportunity-lifecycle');
     Route::redirect('component-reference', '/docs/development/library')
         ->name('prototypes.component-reference');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Social / Promo Pages
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('social')->group(function () {
+    Route::view('/', 'social.index')->name('social.index');
+    Route::view('api-promo', 'social.api-promo')->name('social.api-promo');
+    Route::view('admin-promo', 'social.admin-promo')->name('social.admin-promo');
+    Route::view('members-promo', 'social.members-promo')->name('social.members-promo');
+    Route::view('permissions-promo', 'social.permissions-promo')->name('social.permissions-promo');
+    Route::view('email-promo', 'social.email-promo')->name('social.email-promo');
+    Route::view('health-promo', 'social.health-promo')->name('social.health-promo');
 });
 
 /*

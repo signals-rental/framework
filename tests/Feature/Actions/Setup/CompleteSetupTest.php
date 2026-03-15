@@ -3,11 +3,19 @@
 use App\Actions\Setup\CompleteSetup;
 use App\Data\Setup\CompleteSetupData;
 use App\Enums\FeatureProfile;
+use App\Enums\MembershipType;
+use App\Models\Country;
+use App\Models\ListName;
+use App\Models\Member;
+use App\Models\Membership;
+use App\Models\OrganisationTaxClass;
 
 pest()->group('env-writing');
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Env;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 afterEach(function () {
     // Restore SIGNALS_SETUP_COMPLETE to false after tests that call CompleteSetup
@@ -39,7 +47,7 @@ function makeSetupData(array $overrides = []): CompleteSetupData
         logoPath: $overrides['logoPath'] ?? null,
         adminName: $overrides['adminName'] ?? 'Jane Smith',
         adminEmail: $overrides['adminEmail'] ?? 'jane@example.com',
-        adminPassword: $overrides['adminPassword'] ?? 'password123',
+        adminPassword: $overrides['adminPassword'] ?? 'SecurePass123!',
     );
 }
 
@@ -62,8 +70,8 @@ it('hashes the admin password via model cast', function () {
     $user = (new CompleteSetup)($data);
 
     // Password is hashed by the User model's 'hashed' cast
-    expect($user->password)->not->toBe('password123')
-        ->and(password_verify('password123', $user->password))->toBeTrue();
+    expect($user->password)->not->toBe('SecurePass123!')
+        ->and(password_verify('SecurePass123!', $user->password))->toBeTrue();
 });
 
 it('writes company settings', function () {
@@ -90,9 +98,19 @@ it('writes module settings from profile', function () {
     expect(settings()->moduleEnabled('opportunities'))->toBeTrue()
         ->and(settings()->moduleEnabled('products'))->toBeTrue()
         ->and(settings()->moduleEnabled('stock'))->toBeTrue()
+        ->and(settings()->moduleEnabled('invoicing'))->toBeTrue()
         ->and(settings()->moduleEnabled('crew'))->toBeFalse()
         ->and(settings()->moduleEnabled('services'))->toBeFalse()
-        ->and(settings()->moduleEnabled('projects'))->toBeFalse();
+        ->and(settings()->moduleEnabled('projects'))->toBeFalse()
+        ->and(settings()->moduleEnabled('crm'))->toBeFalse()
+        ->and(settings()->moduleEnabled('inspections'))->toBeFalse()
+        ->and(settings()->moduleEnabled('serialisation'))->toBeFalse()
+        ->and(settings()->moduleEnabled('credit_notes'))->toBeFalse()
+        ->and(settings()->moduleEnabled('purchase_orders'))->toBeFalse()
+        ->and(settings()->moduleEnabled('vehicles'))->toBeFalse()
+        ->and(settings()->moduleEnabled('quarantines'))->toBeFalse()
+        ->and(settings()->moduleEnabled('discussions'))->toBeFalse()
+        ->and(settings()->moduleEnabled('webhooks'))->toBeFalse();
 });
 
 it('writes branding settings', function () {
@@ -159,4 +177,48 @@ it('writes SIGNALS_SETUP_COMPLETE to env file', function () {
 
     $envContent = file_get_contents(app()->basePath('.env'));
     expect($envContent)->toContain('SIGNALS_SETUP_COMPLETE=true');
+});
+
+it('seeds reference data on completion', function () {
+    $data = makeSetupData();
+
+    (new CompleteSetup)($data);
+
+    expect(Country::count())->toBeGreaterThan(0)
+        ->and(ListName::count())->toBeGreaterThan(0)
+        ->and(OrganisationTaxClass::count())->toBeGreaterThan(0)
+        ->and(Permission::count())->toBeGreaterThan(0)
+        ->and(Role::count())->toBeGreaterThan(0);
+});
+
+it('creates a member record linked to admin user', function () {
+    $data = makeSetupData();
+
+    $user = (new CompleteSetup)($data);
+
+    expect($user->member_id)->not->toBeNull();
+
+    $member = Member::find($user->member_id);
+    expect($member)->not->toBeNull()
+        ->and($member->membership_type)->toBe(MembershipType::User)
+        ->and($member->name)->toBe('Jane Smith')
+        ->and($member->is_active)->toBeTrue();
+});
+
+it('creates a membership linking admin to default store', function () {
+    $data = makeSetupData();
+
+    $user = (new CompleteSetup)($data);
+
+    $membership = Membership::query()
+        ->where('member_id', $user->member_id)
+        ->first();
+
+    expect($membership)->not->toBeNull()
+        ->and($membership->is_owner)->toBeTrue()
+        ->and($membership->is_admin)->toBeTrue()
+        ->and($membership->is_active)->toBeTrue();
+
+    $defaultStore = Store::query()->where('is_default', true)->first();
+    expect($membership->store_id)->toBe($defaultStore->id);
 });

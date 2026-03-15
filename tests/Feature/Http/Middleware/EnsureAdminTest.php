@@ -35,20 +35,20 @@ it('redirects unauthenticated users to login', function () {
         ->assertRedirect(route('login'));
 });
 
-it('redirects /admin to /admin/settings/company', function () {
+it('renders admin landing page', function () {
     $user = User::factory()->admin()->create();
 
     $this->actingAs($user)
         ->get('/admin')
-        ->assertRedirect('/admin/settings/company');
+        ->assertOk();
 });
 
-it('redirects /admin/settings to /admin/settings/company', function () {
+it('redirects /admin/settings to /admin', function () {
     $user = User::factory()->admin()->create();
 
     $this->actingAs($user)
         ->get('/admin/settings')
-        ->assertRedirect('/admin/settings/company');
+        ->assertRedirect('/admin');
 });
 
 it('allows users with Admin Spatie role to access admin routes', function () {

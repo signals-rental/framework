@@ -42,12 +42,24 @@ it('can be dismissed', function () {
 
 it('shows completed items when setup is done', function () {
     settings()->set('company.name', 'Acme Rentals');
+    settings()->set('branding.logo_path', '/logos/acme.png');
+    settings()->set('email.smtp_host', 'smtp.example.com');
     Store::create(['name' => 'HQ', 'is_default' => true]);
-    $user = User::factory()->create(['is_owner' => true]);
+    $owner = User::factory()->create(['is_owner' => true]);
+    User::factory()->create(); // second user = team member invited
 
-    Livewire::actingAs($user)
+    Livewire::actingAs($owner)
         ->test(GettingStartedChecklist::class)
-        ->assertSee('100% complete');
+        ->assertSee('75% complete');
+});
+
+it('has 8 checklist items', function () {
+    $user = User::factory()->create();
+
+    $component = new GettingStartedChecklist;
+    $component->mount();
+
+    expect($component->items())->toHaveCount(8);
 });
 
 it('shows progress based on completed items', function () {

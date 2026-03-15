@@ -135,7 +135,7 @@
                                 <span class="mega-item-label">Settings</span>
                             </a>
                             @if(auth()->user()?->hasAdminAccess())
-                                <a href="{{ route('admin.settings.company') }}" class="mega-item" wire:navigate>
+                                <a href="{{ route('admin.index') }}" class="mega-item" wire:navigate>
                                     <flux:icon.wrench-screwdriver class="mega-item-icon" />
                                     <span class="mega-item-label">Admin</span>
                                 </a>
@@ -228,7 +228,7 @@
                 <div class="flex-1"></div>
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
                 @if(auth()->user()?->hasAdminAccess())
-                    <a class="sidebar-item" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
+                    <a class="sidebar-item" href="{{ route('admin.index') }}" wire:navigate x-on:click="mobileNav = false">
                         <flux:icon.wrench-screwdriver class="!size-[15px]" /> Admin
                     </a>
                 @endif
@@ -321,7 +321,7 @@
                 {{-- Bottom section: Admin link + toggle (consistent across all pages) --}}
                 <div class="flex-1"></div>
                 @if(auth()->user()?->hasAdminAccess() && !request()->is('admin*'))
-                    <a class="sidebar-item" href="{{ route('admin.settings.company') }}" wire:navigate>
+                    <a class="sidebar-item" href="{{ route('admin.index') }}" wire:navigate>
                         <flux:icon.wrench-screwdriver class="!size-[15px]" />
                         <span class="sidebar-label" x-show="{{ $hasSidebarContent ? 'sidebarOpen' : 'false' }}" x-cloak>Admin</span>
                     </a>

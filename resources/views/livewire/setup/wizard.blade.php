@@ -236,7 +236,7 @@ new #[Layout('components.layouts.setup')] class extends Component {
             5 => $this->validate([
                 'adminName' => ['required', 'string', 'max:255'],
                 'adminEmail' => ['required', 'email', 'max:255'],
-                'adminPassword' => ['required', 'string', 'min:8', 'confirmed'],
+                'adminPassword' => ['required', 'string', 'min:12', 'regex:/[a-z]/', 'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[\W_]/', 'confirmed'],
             ]),
             default => null,
         };

@@ -385,11 +385,16 @@ class SignalsSetupCommand extends Command
                 throw new RuntimeException('The --admin-password option is required in non-interactive mode.');
             }
 
-            $pass = password(label: 'Password', required: true, hint: 'Minimum 8 characters');
+            $pass = password(label: 'Password', required: true, hint: 'Minimum 12 characters, mixed case, numbers, and symbols');
         }
 
-        if (strlen($pass) < 8) {
-            throw new RuntimeException('Password must be at least 8 characters.');
+        if (strlen($pass) < 12) {
+            throw new RuntimeException('Password must be at least 12 characters.');
+        }
+
+        if (! preg_match('/[a-z]/', $pass) || ! preg_match('/[A-Z]/', $pass)
+            || ! preg_match('/[0-9]/', $pass) || ! preg_match('/[\W_]/', $pass)) {
+            throw new RuntimeException('Password must contain uppercase, lowercase, numbers, and symbols.');
         }
 
         return [

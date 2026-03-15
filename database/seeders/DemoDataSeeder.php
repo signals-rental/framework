@@ -15,6 +15,11 @@ class DemoDataSeeder extends Seeder
     {
         $this->createDemoStores();
         $this->createDemoMembers();
+        $this->createDemoProducts();
+        $this->createDemoOpportunities();
+        $this->createDemoInvoices();
+        $this->createDemoCustomFields();
+        $this->createDemoActivities();
     }
 
     private function createDemoStores(): void
@@ -60,7 +65,7 @@ class DemoDataSeeder extends Seeder
         $organisations = Member::factory()
             ->organisation()
             ->count(2000)
-            ->create();
+            ->create(['tag_list' => ['demo-data']]);
 
         $this->createContactDetailsForMembers($organisations);
 
@@ -68,7 +73,7 @@ class DemoDataSeeder extends Seeder
         $venues = Member::factory()
             ->venue()
             ->count(500)
-            ->create();
+            ->create(['tag_list' => ['demo-data']]);
 
         $this->createContactDetailsForMembers($venues);
 
@@ -76,7 +81,7 @@ class DemoDataSeeder extends Seeder
         $contacts = Member::factory()
             ->contact()
             ->count(3000)
-            ->create();
+            ->create(['tag_list' => ['demo-data']]);
 
         $this->createContactDetailsForMembers($contacts);
 
@@ -163,5 +168,40 @@ class DemoDataSeeder extends Seeder
         foreach (array_chunk($inserts, 500) as $chunk) {
             MemberRelationship::insert($chunk);
         }
+    }
+
+    /** @codeCoverageIgnore */
+    private function createDemoProducts(): void
+    {
+        // TODO: Implement when Product model exists
+        // Spec: ~50 products across 5 groups (Lighting, Sound, Video, Staging, Power)
+        // ~20 serialised assets with serial numbers
+    }
+
+    /** @codeCoverageIgnore */
+    private function createDemoOpportunities(): void
+    {
+        // TODO: Implement when Opportunity model exists
+        // Spec: ~20 opportunities in various states (draft, quotation, order)
+    }
+
+    /** @codeCoverageIgnore */
+    private function createDemoInvoices(): void
+    {
+        // TODO: Implement when Invoice model exists
+        // Spec: ~10 invoices (open, issued, paid)
+    }
+
+    /** @codeCoverageIgnore */
+    private function createDemoCustomFields(): void
+    {
+        // TODO: Implement with custom field example values
+    }
+
+    /** @codeCoverageIgnore */
+    private function createDemoActivities(): void
+    {
+        // TODO: Implement when Activity model exists
+        // Spec: activities and discussions on demo records
     }
 }

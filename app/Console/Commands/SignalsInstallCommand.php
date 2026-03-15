@@ -248,6 +248,23 @@ class SignalsInstallCommand extends Command
 
         $this->components->info("Connected to {$dbResult['version']}");
 
+        // Check for recommended PostgreSQL extensions
+        $extensionResults = $tester->checkExtensions([
+            'host' => $host,
+            'port' => $port,
+            'database' => $database,
+            'username' => $username,
+            'password' => $pass,
+        ], ['pgcrypto']);
+
+        foreach ($extensionResults as $ext => $installed) {
+            if ($installed) {
+                $this->components->info("Extension '{$ext}' is available");
+            } else {
+                $this->components->warn("Extension '{$ext}' is not installed — some features may be limited");
+            }
+        }
+
         // Write to .env
         $this->writeEnvVariables([
             'DB_CONNECTION' => 'pgsql',
@@ -701,6 +718,7 @@ class SignalsInstallCommand extends Command
         $this->writeEnvVariables([
             'APP_URL' => $url,
             'SIGNALS_INSTALLED' => 'true',
+            'SIGNALS_SETUP_COMPLETE' => 'false',
         ]);
 
         // Install frontend dependencies and build assets

@@ -62,7 +62,7 @@ it('fails preflight when signals is not installed', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -76,7 +76,7 @@ it('fails preflight when setup is already complete without force', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -92,7 +92,7 @@ it('allows re-running setup with force flag when already complete', function () 
         '--profile' => 'general',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@force.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(User::where('email', 'admin@force.com')->exists())->toBeTrue();
@@ -107,7 +107,7 @@ it('completes setup in non-interactive mode with all required options', function
         '--profile' => 'full_service',
         '--admin-name' => 'Jane Smith',
         '--admin-email' => 'jane@acme.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     $user = User::where('email', 'jane@acme.com')->first();
@@ -126,7 +126,7 @@ it('writes company settings from country defaults', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(settings('company.name'))->toBe('Acme Rentals');
@@ -146,7 +146,7 @@ it('writes module settings from feature profile', function () {
         '--profile' => 'dry_hire',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     $expectedModules = FeatureProfile::DryHire->modules();
@@ -164,7 +164,7 @@ it('creates a store with the provided name', function () {
         '--store-name' => 'Sydney Depot',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     $store = Store::where('name', 'Sydney Depot')->first();
@@ -183,7 +183,7 @@ it('writes branding settings with custom colours', function () {
         '--accent-colour' => '#00ff00',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(settings('branding.primary_colour'))->toBe('#ff0000');
@@ -198,7 +198,7 @@ it('uses default branding colours when not specified', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(settings('branding.primary_colour'))->toBe('#1e3a5f');
@@ -213,7 +213,7 @@ it('defaults to general profile when none specified', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(settings('setup.profile'))->toBe('general');
@@ -231,7 +231,7 @@ it('allows overriding country defaults for timezone and currency', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(settings('company.timezone'))->toBe('America/New_York');
@@ -249,7 +249,7 @@ it('fails with invalid profile option', function () {
         '--profile' => 'nonexistent',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -262,7 +262,7 @@ it('fails with invalid primary colour', function () {
         '--primary-colour' => 'not-a-hex',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -285,7 +285,7 @@ it('fails in non-interactive mode without required company-name', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -309,7 +309,7 @@ it('records setup metadata', function () {
         '--profile' => 'minimal',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(settings('setup.profile'))->toBe('minimal');
@@ -324,7 +324,7 @@ it('marks setup as complete in config', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(config('signals.setup_complete'))->toBeTrue();
@@ -365,7 +365,7 @@ it('fails with fiscal year start out of range', function (int $month) {
         '--fiscal-year-start' => (string) $month,
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 })->with([0, 13, -1, 99]);
 
@@ -378,7 +378,7 @@ it('fails with invalid accent colour', function () {
         '--accent-colour' => 'not-a-hex',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -391,7 +391,7 @@ it('fails when logo file does not exist', function () {
         '--logo-path' => '/tmp/nonexistent-logo-'.bin2hex(random_bytes(8)).'.png',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -413,7 +413,7 @@ it('processes valid logo file and stores it', function () {
         '--logo-path' => $tmpFile,
         '--admin-name' => 'Admin',
         '--admin-email' => 'logo@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     \Illuminate\Support\Facades\Storage::disk('public')->assertExists('branding/logo.png');
@@ -442,7 +442,7 @@ it('fails preflight when infrastructure checks fail', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -454,7 +454,7 @@ it('fails with invalid country option', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -466,7 +466,7 @@ it('fails when company-name option is an empty string', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -478,7 +478,7 @@ it('fails when store-name option is an empty string', function () {
         '--store-name' => '',
         '--admin-name' => 'Admin',
         '--admin-email' => 'admin@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertFailed();
 });
 
@@ -489,7 +489,7 @@ it('defaults country to GB in non-interactive mode when not specified', function
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'country-default@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     expect(settings('company.country_code'))->toBe('GB');
@@ -521,7 +521,7 @@ it('completes setup via interactive prompts', function () {
         ->expectsQuestion('Logo File Path (leave blank to skip)', '')
         ->expectsQuestion('Full Name', 'Interactive Admin')
         ->expectsQuestion('Email Address', 'interactive@test.com')
-        ->expectsQuestion('Password', 'password123')
+        ->expectsQuestion('Password', 'SecurePass123!')
         ->expectsConfirmation('Proceed with setup?', 'yes')
         ->assertSuccessful();
 
@@ -558,7 +558,7 @@ it('cancels setup when user declines confirmation', function () {
         ->expectsQuestion('Logo File Path (leave blank to skip)', '')
         ->expectsQuestion('Full Name', 'Cancel Admin')
         ->expectsQuestion('Email Address', 'cancel@test.com')
-        ->expectsQuestion('Password', 'password123')
+        ->expectsQuestion('Password', 'SecurePass123!')
         ->expectsConfirmation('Proceed with setup?', 'no')
         ->assertFailed();
 
@@ -573,9 +573,9 @@ it('hashes the admin password correctly', function () {
         '--store-name' => 'HQ',
         '--admin-name' => 'Admin',
         '--admin-email' => 'hash@test.com',
-        '--admin-password' => 'password123',
+        '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
     $user = User::where('email', 'hash@test.com')->first();
-    expect(password_verify('password123', $user->password))->toBeTrue();
+    expect(password_verify('SecurePass123!', $user->password))->toBeTrue();
 });
