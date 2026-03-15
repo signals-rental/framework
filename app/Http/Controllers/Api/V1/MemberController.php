@@ -37,6 +37,20 @@ class MemberController extends Controller
         'updated_at',
     ];
 
+    /** @var list<string> */
+    protected array $allowedIncludes = [
+        'addresses',
+        'emails',
+        'phones',
+        'links',
+        'customFieldValues',
+    ];
+
+    /** @var list<string> */
+    protected array $defaultIncludes = [
+        'customFieldValues',
+    ];
+
     /**
      * List members with filtering, sorting, and pagination.
      */
@@ -119,29 +133,5 @@ class MemberController extends Controller
         (new DeleteMember)($member);
 
         return response()->json(null, Response::HTTP_NO_CONTENT);
-    }
-
-    /**
-     * Apply ?include= eager loading for member relationships.
-     */
-    private function applyIncludes(
-        \Illuminate\Database\Eloquent\Builder $query,
-        Request $request,
-        ?Member $member = null,
-    ): \Illuminate\Database\Eloquent\Builder {
-        $includes = array_filter(explode(',', $request->input('include', '')));
-
-        $allowedIncludes = ['addresses', 'emails', 'phones', 'links', 'customFieldValues'];
-        $eagerLoad = array_intersect($includes, $allowedIncludes);
-
-        if ($member) {
-            $member->load($eagerLoad);
-        }
-
-        if (! empty($eagerLoad)) {
-            $query->with($eagerLoad);
-        }
-
-        return $query;
     }
 }

@@ -9,6 +9,7 @@ use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
 use App\Services\SchemaRegistry;
+use App\Services\TaxCalculator;
 use App\Support\Formatter;
 use App\Support\Timezone;
 use Carbon\CarbonImmutable;
@@ -33,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(Formatter::class);
         $this->app->singleton(DocsService::class);
         $this->app->singleton(SchemaRegistry::class);
+        $this->app->singleton(TaxCalculator::class);
 
         $this->app->singleton(PermissionRegistry::class, function (): PermissionRegistry {
             $registry = new PermissionRegistry;

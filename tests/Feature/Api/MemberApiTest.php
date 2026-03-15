@@ -1,6 +1,9 @@
 <?php
 
+use App\Enums\CustomFieldType;
 use App\Models\Address;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Email;
 use App\Models\Link;
 use App\Models\Member;
@@ -363,5 +366,97 @@ describe('member includes', function () {
         expect($response->json('member.emails'))->toBeArray()->toHaveCount(1)
             ->and($response->json('member.phones'))->toBeArray()->toHaveCount(1)
             ->and($response->json('member.links'))->toBeArray()->toHaveCount(1);
+    });
+});
+
+describe('default custom_fields in API responses', function () {
+    it('includes custom_fields by default in index response', function () {
+        $member = Member::factory()->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/members')
+            ->assertOk();
+
+        expect($response->json('members.0.custom_fields'))->toBeArray();
+    });
+
+    it('includes custom_fields by default in show response', function () {
+        $member = Member::factory()->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        expect($response->json('member.custom_fields'))->toBeArray();
+    });
+
+    it('returns actual custom field values when they exist', function () {
+        $member = Member::factory()->create();
+        $field = CustomField::factory()->create([
+            'name' => 'po_reference',
+            'module_type' => 'Member',
+            'field_type' => CustomFieldType::String,
+        ]);
+        CustomFieldValue::factory()->create([
+            'custom_field_id' => $field->id,
+            'entity_type' => Member::class,
+            'entity_id' => $member->id,
+            'value_string' => 'PO-999',
+        ]);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        expect($response->json('member.custom_fields.po_reference'))->toBe('PO-999');
+    });
+
+    it('returns empty custom_fields object when no values exist', function () {
+        $member = Member::factory()->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        expect($response->json('member.custom_fields'))->toBe([]);
+    });
+
+    it('still works with explicit include=customFieldValues', function () {
+        $member = Member::factory()->create();
+        $field = CustomField::factory()->create([
+            'name' => 'ref_code',
+            'module_type' => 'Member',
+            'field_type' => CustomFieldType::String,
+        ]);
+        CustomFieldValue::factory()->create([
+            'custom_field_id' => $field->id,
+            'entity_type' => Member::class,
+            'entity_id' => $member->id,
+            'value_string' => 'REF-123',
+        ]);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}?include=customFieldValues")
+            ->assertOk();
+
+        expect($response->json('member.custom_fields.ref_code'))->toBe('REF-123');
+    });
+
+    it('keeps other includes opt-in only', function () {
+        $member = Member::factory()->create();
+        Address::factory()->for($member, 'addressable')->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        expect($response->json('member.addresses'))->toBeNull()
+            ->and($response->json('member.custom_fields'))->toBeArray();
     });
 });

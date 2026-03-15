@@ -4,6 +4,7 @@ namespace App\Http\Traits;
 
 use App\Services\Api\RansackFilter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -51,6 +52,37 @@ trait FiltersQueries
         $allowed = $allowedFields ?? $this->allowedSorts ?? [];
 
         return app(RansackFilter::class)->applySort($query, $sort, $allowed);
+    }
+
+    /**
+     * Apply eager loading for ?include= relationships, merged with defaults.
+     *
+     * Controllers using this trait should define:
+     * protected array $allowedIncludes = ['addresses', 'emails', ...];
+     * protected array $defaultIncludes = ['customFieldValues'];
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    protected function applyIncludes(Builder $query, Request $request, ?Model $model = null): Builder
+    {
+        $requested = array_filter(explode(',', $request->input('include', '')));
+        $allowed = $this->allowedIncludes ?? [];
+        $defaults = $this->defaultIncludes ?? [];
+
+        $eagerLoad = array_intersect(array_unique(array_merge($defaults, $requested)), $allowed);
+
+        if ($model) {
+            $model->load($eagerLoad);
+        }
+
+        if (! empty($eagerLoad)) {
+            $query->with($eagerLoad);
+        }
+
+        return $query;
     }
 
     /**
