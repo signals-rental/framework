@@ -68,6 +68,79 @@ describe('StoreScope', function () {
         // After callback, scoping should be re-enabled
         expect(true)->toBeTrue();
     });
+
+    it('filters by store_id for store-restricted user', function () {
+        $store1 = Store::factory()->create();
+        $store2 = Store::factory()->create();
+        $member = Member::factory()->create();
+        $user = User::factory()->create(['member_id' => $member->id]);
+
+        // Assign user to store1 only
+        MemberStore::create(['member_id' => $member->id, 'store_id' => $store1->id, 'created_at' => now()]);
+
+        $this->actingAs($user);
+
+        $scope = new StoreScope;
+        /** @var Builder<Model> $builder */
+        $builder = Store::query();
+        $scope->apply($builder, new Store);
+
+        $sql = $builder->toRawSql();
+
+        expect($sql)->toContain('where')
+            ->toContain((string) $store1->id);
+    });
+
+    it('resolves custom storeScopePath from model property', function () {
+        $store = Store::factory()->create();
+        $member = Member::factory()->create();
+        $user = User::factory()->create(['member_id' => $member->id]);
+        MemberStore::create(['member_id' => $member->id, 'store_id' => $store->id, 'created_at' => now()]);
+
+        $this->actingAs($user);
+
+        // Create an anonymous model with a custom storeScopePath
+        $model = new class extends Model
+        {
+            protected $table = 'members';
+
+            public string $storeScopePath = 'home_store_id';
+        };
+
+        $scope = new StoreScope;
+        /** @var Builder<Model> $builder */
+        $builder = $model::query();
+        $scope->apply($builder, $model);
+
+        $sql = $builder->toRawSql();
+
+        expect($sql)->toContain('home_store_id');
+    });
+
+    it('restores scoping even when callback throws', function () {
+        try {
+            StoreScope::withoutScoping(function () {
+                throw new \RuntimeException('Test exception');
+            });
+        } catch (\RuntimeException) {
+            // Expected
+        }
+
+        // After exception, scoping should be restored — verify by checking a restricted user gets filtered
+        $store = Store::factory()->create();
+        $member = Member::factory()->create();
+        $user = User::factory()->create(['member_id' => $member->id]);
+        MemberStore::create(['member_id' => $member->id, 'store_id' => $store->id, 'created_at' => now()]);
+
+        $this->actingAs($user);
+
+        $scope = new StoreScope;
+        /** @var Builder<Model> $builder */
+        $builder = Store::query();
+        $scope->apply($builder, new Store);
+
+        expect($builder->toRawSql())->toContain('where');
+    });
 });
 
 describe('User::accessibleStoreIds with member_stores', function () {

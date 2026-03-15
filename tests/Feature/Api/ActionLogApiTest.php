@@ -189,6 +189,57 @@ describe('GET /api/v1/actions', function () {
     });
 });
 
+describe('POST /api/v1/actions/export', function () {
+    it('dispatches export job and returns 202', function () {
+        $token = $this->owner->createToken('test', ['action-log:read'])->plainTextToken;
+
+        \Illuminate\Support\Facades\Storage::fake();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/actions/export')
+            ->assertStatus(202)
+            ->assertJsonPath('message', 'Accepted');
+
+        // Verify the job ran (sync in test) and produced a cached export path
+        $cacheKey = "action-log-export:{$this->owner->id}";
+        expect(\Illuminate\Support\Facades\Cache::has($cacheKey))->toBeTrue();
+    });
+
+    it('passes filters to export job', function () {
+        $token = $this->owner->createToken('test', ['action-log:read'])->plainTextToken;
+
+        \Illuminate\Support\Facades\Storage::fake();
+        ActionLog::factory()->forUser($this->owner)->create(['action' => 'user.created']);
+        ActionLog::factory()->forUser($this->owner)->create(['action' => 'user.deleted']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/actions/export', [
+                'action' => 'user.created',
+            ])
+            ->assertStatus(202);
+
+        $cacheKey = "action-log-export:{$this->owner->id}";
+        $filename = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        $content = \Illuminate\Support\Facades\Storage::get($filename);
+
+        expect($content)->toContain('user.created');
+        expect($content)->not->toContain('user.deleted');
+    });
+
+    it('requires action-log:read ability for export', function () {
+        $token = $this->owner->createToken('test', ['users:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/actions/export')
+            ->assertForbidden();
+    });
+
+    it('requires authentication for export', function () {
+        $this->postJson('/api/v1/actions/export')
+            ->assertUnauthorized();
+    });
+});
+
 describe('ActionLogData::fromModel', function () {
     it('converts auditable_type FQCN to friendly name', function () {
         $log = ActionLog::factory()->forUser($this->owner)->create([

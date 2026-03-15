@@ -545,3 +545,17 @@ it('applies predicate within relationship filter', function () {
         ->toContain('ilike')
         ->toContain('adm');
 });
+
+// ─── Custom field filtering (no DB needed) ──────────────────────
+
+it('ignores custom field filters when customFieldModule is null', function () {
+    $baseSql = User::query()->toRawSql();
+
+    $query = $this->filter->apply(
+        User::query(),
+        ['cf.something_eq' => 'value'],
+        $this->allowedFields,
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
+});

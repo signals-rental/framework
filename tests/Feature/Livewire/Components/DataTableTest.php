@@ -398,3 +398,103 @@ it('falls back to asc for invalid sort direction', function () {
         ->set('sortDirection', 'invalid')
         ->assertStatus(200);
 });
+
+it('applies withCounts parameter', function () {
+    $member = Member::factory()->create();
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+        'withCounts' => ['emails', 'phones'],
+    ])
+        ->assertStatus(200)
+        ->assertViewHas('items', fn ($items) => $items->first()->emails_count !== null);
+});
+
+it('applies scope with value parameter', function () {
+    Member::factory()->create(['membership_type' => MembershipType::Contact]);
+    Member::factory()->create(['membership_type' => MembershipType::Organisation]);
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+        'scopes' => ['ofType' => MembershipType::Contact],
+    ])
+        ->assertViewHas('items', fn ($items) => $items->count() === 1);
+});
+
+it('applies scope with boolean true parameter', function () {
+    Member::factory()->create(['is_active' => true]);
+    Member::factory()->create(['is_active' => false]);
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+        'scopes' => ['active' => true],
+    ])
+        ->assertViewHas('items', fn ($items) => $items->count() === 1);
+});
+
+it('selects all page IDs when selectAll is toggled and renders', function () {
+    $members = Member::factory()->count(3)->create();
+
+    $component = Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ]);
+
+    $component->call('toggleSelectAll');
+    $selected = $component->get('selected');
+
+    expect($selected)->toHaveCount(3);
+});
+
+it('removes filter when empty value is applied', function () {
+    Member::factory()->count(3)->create();
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->call('applyFilter', 'membership_type', 'contact')
+        ->assertSet('filters', ['membership_type' => 'contact'])
+        ->call('applyFilter', 'membership_type', '')
+        ->assertSet('filters', []);
+});
+
+it('shift-select falls back to toggle when lastSelectedId not in pageIds', function () {
+    $members = Member::factory()->count(3)->create();
+    $ids = $members->sortBy('id')->pluck('id')->values()->all();
+
+    $component = Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ]);
+
+    // Select first member
+    $component->call('toggleSelected', $ids[0]);
+
+    // Shift-click with pageIds that don't contain lastSelectedId
+    $component->call('shiftSelect', $ids[2], [$ids[1], $ids[2]]);
+    $selected = $component->get('selected');
+
+    // Should fall back to toggleSelected since lastSelectedId ($ids[0]) is not in pageIds
+    expect($selected)->toContain($ids[2]);
+});
+
+it('resets page when updatedFilters is called', function () {
+    Member::factory()->count(30)->create();
+
+    $component = Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+        'searchable' => ['name'],
+        'perPage' => 12,
+    ]);
+
+    // Apply a select filter (works on SQLite) to trigger updatedFilters
+    $component->call('applyFilter', 'membership_type', 'contact');
+
+    // The page should reset — we just verify no error
+    $component->assertStatus(200);
+});

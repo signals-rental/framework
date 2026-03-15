@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\File;
 
 afterEach(function () {
     // Clean up only test-created changelog files, not pre-existing ones
-    $testVersions = ['0.2.0', '0.3.0', '0.1.0-test', '1.0.0-beta.1'];
+    $testVersions = ['0.3.0', '0.1.0-test', '1.0.0-beta.1'];
     foreach ($testVersions as $version) {
         $file = base_path("docs/changelog/{$version}.md");
         if (file_exists($file)) {
@@ -26,10 +26,10 @@ it('rejects version without patch number', function () {
 });
 
 it('accepts valid semver version', function () {
-    $this->artisan('signals:changelog', ['version' => '0.2.0'])
+    $this->artisan('signals:changelog', ['version' => '0.3.0'])
         ->assertSuccessful();
 
-    expect(file_exists(base_path('docs/changelog/0.2.0.md')))->toBeTrue();
+    expect(file_exists(base_path('docs/changelog/0.3.0.md')))->toBeTrue();
 });
 
 it('accepts semver with pre-release suffix', function () {
@@ -59,29 +59,33 @@ it('ensures the changelog directory exists', function () {
 it('prompts to overwrite existing changelog and cancels when declined', function () {
     $dir = base_path('docs/changelog');
     File::ensureDirectoryExists($dir);
-    File::put($dir.'/0.2.0.md', 'existing content');
+    File::put($dir.'/9.9.9.md', 'existing content');
 
-    $this->artisan('signals:changelog', ['version' => '0.2.0'])
-        ->expectsConfirmation('  docs/changelog/0.2.0.md already exists. Overwrite?', 'no')
+    $this->artisan('signals:changelog', ['version' => '9.9.9'])
+        ->expectsConfirmation('  docs/changelog/9.9.9.md already exists. Overwrite?', 'no')
         ->assertSuccessful();
 
     // Original content should be preserved
-    expect(File::get($dir.'/0.2.0.md'))->toBe('existing content');
+    expect(File::get($dir.'/9.9.9.md'))->toBe('existing content');
+
+    File::delete($dir.'/9.9.9.md');
 });
 
 it('overwrites existing changelog when confirmed', function () {
     $dir = base_path('docs/changelog');
     File::ensureDirectoryExists($dir);
-    File::put($dir.'/0.2.0.md', 'old content');
+    File::put($dir.'/9.9.9.md', 'old content');
 
-    $this->artisan('signals:changelog', ['version' => '0.2.0'])
-        ->expectsConfirmation('  docs/changelog/0.2.0.md already exists. Overwrite?', 'yes')
+    $this->artisan('signals:changelog', ['version' => '9.9.9'])
+        ->expectsConfirmation('  docs/changelog/9.9.9.md already exists. Overwrite?', 'yes')
         ->assertSuccessful();
 
     // Content should be regenerated
-    $content = File::get($dir.'/0.2.0.md');
+    $content = File::get($dir.'/9.9.9.md');
     expect($content)->not->toBe('old content');
-    expect($content)->toContain('version: 0.2.0');
+    expect($content)->toContain('version: 9.9.9');
+
+    File::delete($dir.'/9.9.9.md');
 });
 
 it('handles empty git log output gracefully', function () {
