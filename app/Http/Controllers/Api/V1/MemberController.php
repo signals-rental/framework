@@ -27,6 +27,8 @@ class MemberController extends Controller
         'created_at',
     ];
 
+    protected string $customFieldModule = 'Member';
+
     /** @var list<string> */
     protected array $allowedSorts = [
         'name',

@@ -81,3 +81,52 @@ it('returns available events constant', function () {
     expect($service->availableEvents())->toContain('user.created');
     expect($service->availableEvents())->toContain('settings.updated');
 });
+
+it('dispatches to webhooks with wildcard subscription', function () {
+    Queue::fake();
+
+    Webhook::factory()->create(['events' => ['*'], 'is_active' => true]);
+    Webhook::factory()->create(['events' => ['user.deleted'], 'is_active' => true]);
+
+    app(WebhookService::class)->dispatch('user.created', ['id' => 1]);
+
+    Queue::assertPushed(DeliverWebhook::class, 1);
+});
+
+it('dispatches to both wildcard and specific subscribers', function () {
+    Queue::fake();
+
+    Webhook::factory()->create(['events' => ['*'], 'is_active' => true]);
+    Webhook::factory()->create(['events' => ['member.created'], 'is_active' => true]);
+
+    app(WebhookService::class)->dispatch('member.created', ['id' => 1]);
+
+    Queue::assertPushed(DeliverWebhook::class, 2);
+});
+
+it('includes member events in available events', function () {
+    $service = new WebhookService;
+
+    expect($service->availableEvents())
+        ->toContain('member.created')
+        ->toContain('member.updated')
+        ->toContain('member.deleted');
+});
+
+it('includes tax rate events in available events', function () {
+    $service = new WebhookService;
+
+    expect($service->availableEvents())
+        ->toContain('tax_rate.created')
+        ->toContain('tax_rate.updated')
+        ->toContain('tax_rate.deleted');
+});
+
+it('includes tax rule events in available events', function () {
+    $service = new WebhookService;
+
+    expect($service->availableEvents())
+        ->toContain('tax_rule.created')
+        ->toContain('tax_rule.updated')
+        ->toContain('tax_rule.deleted');
+});

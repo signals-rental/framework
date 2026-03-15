@@ -18,10 +18,19 @@ class WebhookService
         'user.updated',
         'user.deactivated',
         'user.deleted',
+        'member.created',
+        'member.updated',
+        'member.deleted',
         'settings.updated',
         'role.created',
         'role.updated',
         'role.deleted',
+        'tax_rate.created',
+        'tax_rate.updated',
+        'tax_rate.deleted',
+        'tax_rule.created',
+        'tax_rule.updated',
+        'tax_rule.deleted',
     ];
 
     /**
@@ -42,7 +51,7 @@ class WebhookService
         try {
             $webhooks = Webhook::query()
                 ->where('is_active', true)
-                ->whereJsonContains('events', $event)
+                ->where(fn ($q) => $q->whereJsonContains('events', $event)->orWhereJsonContains('events', '*'))
                 ->get();
         } catch (\Throwable $e) {
             Log::error('WebhookService: Failed to query webhooks', [

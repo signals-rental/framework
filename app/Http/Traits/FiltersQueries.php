@@ -26,8 +26,10 @@ trait FiltersQueries
         }
 
         $allowed = $allowedFields ?? $this->allowedFilters ?? [];
+        $allowedRelations = $this->allowedRelationFilters ?? [];
+        $customFieldModule = $this->customFieldModule ?? null;
 
-        return app(RansackFilter::class)->apply($query, $filters, $allowed);
+        return app(RansackFilter::class)->apply($query, $filters, $allowed, $allowedRelations, $customFieldModule);
     }
 
     /**

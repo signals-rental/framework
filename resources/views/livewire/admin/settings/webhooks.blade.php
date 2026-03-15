@@ -73,7 +73,7 @@ new #[Layout('components.layouts.app')] #[Title('Webhooks')] class extends Compo
         $this->validate([
             'createUrl' => ['required', 'url', 'max:2048'],
             'createEvents' => ['required', 'array', 'min:1'],
-            'createEvents.*' => ['string', 'in:' . implode(',', WebhookService::EVENTS)],
+            'createEvents.*' => ['string', 'in:' . implode(',', [...WebhookService::EVENTS, '*'])],
         ]);
 
         $secret = Str::random(32);
@@ -119,7 +119,7 @@ new #[Layout('components.layouts.app')] #[Title('Webhooks')] class extends Compo
         $this->validate([
             'editUrl' => ['required', 'url', 'max:2048'],
             'editEvents' => ['required', 'array', 'min:1'],
-            'editEvents.*' => ['string', 'in:' . implode(',', WebhookService::EVENTS)],
+            'editEvents.*' => ['string', 'in:' . implode(',', [...WebhookService::EVENTS, '*'])],
         ]);
 
         $webhook = Webhook::findOrFail($this->editingWebhookId);

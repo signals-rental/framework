@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -130,9 +131,17 @@ class AppServiceProvider extends ServiceProvider
                 $unauthLimit = 20;
             }
 
-            return $request->user()
-                ? Limit::perMinute($limit)->by($request->user()->id)
-                : Limit::perMinute($unauthLimit)->by($request->ip());
+            if (! $request->user()) {
+                return Limit::perMinute($unauthLimit)->by($request->ip());
+            }
+
+            $token = $request->user()->currentAccessToken();
+
+            if ($token instanceof PersonalAccessToken && $token->rate_limit_per_minute) {
+                return Limit::perMinute($token->rate_limit_per_minute)->by('token:'.$token->id);
+            }
+
+            return Limit::perMinute($limit)->by($request->user()->id);
         });
     }
 }

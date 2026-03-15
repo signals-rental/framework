@@ -24,7 +24,7 @@ class CreateWebhookData extends Data
         return [
             'url' => ['required', 'url', 'max:2048'],
             'events' => ['required', 'array', 'min:1'],
-            'events.*' => ['string', Rule::in(WebhookService::EVENTS)],
+            'events.*' => ['string', Rule::in([...WebhookService::EVENTS, '*'])],
         ];
     }
 }

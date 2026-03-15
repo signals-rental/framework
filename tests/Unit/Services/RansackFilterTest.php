@@ -448,3 +448,100 @@ it('escapes ILIKE wildcard characters in start predicate', function () {
 
     expect($sql)->toContain('test\\%');
 });
+
+// ─── Predicate: matches (PostgreSQL regex) ─────────────────────
+
+it('applies matches predicate using PostgreSQL case-insensitive regex', function () {
+    $query = $this->filter->apply(
+        User::query(),
+        ['name_matches' => '^Ali'],
+        $this->allowedFields,
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)->toContain('"name" ~* \'^Ali\'');
+});
+
+it('parses matches predicate correctly for compound field names', function () {
+    $query = $this->filter->apply(
+        User::query(),
+        ['created_at_matches' => '2025'],
+        $this->allowedFields,
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)->toContain('"created_at" ~* \'2025\'');
+});
+
+// ─── Predicate: in with array values ───────────────────────────
+
+it('applies in predicate with array values', function () {
+    $query = $this->filter->apply(
+        User::query(),
+        ['name_in' => ['Alice', 'Bob']],
+        $this->allowedFields,
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)->toContain('"name" in (\'Alice\', \'Bob\')');
+});
+
+it('applies not_in predicate with array values', function () {
+    $query = $this->filter->apply(
+        User::query(),
+        ['name_not_in' => ['Alice', 'Bob']],
+        $this->allowedFields,
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)->toContain('"name" not in (\'Alice\', \'Bob\')');
+});
+
+// ─── Relationship filtering ────────────────────────────────────
+
+it('applies relationship filter when relation is allowed', function () {
+    $query = $this->filter->apply(
+        User::query(),
+        ['roles.name_eq' => 'admin'],
+        $this->allowedFields,
+        allowedRelationFilters: ['roles'],
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)->toContain('exists')
+        ->toContain('"name" = \'admin\'');
+});
+
+it('ignores relationship filter when relation is not allowed', function () {
+    $baseQuery = User::query();
+    $baseSql = $baseQuery->toRawSql();
+
+    $query = $this->filter->apply(
+        User::query(),
+        ['roles.name_eq' => 'admin'],
+        $this->allowedFields,
+        allowedRelationFilters: [],
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
+});
+
+it('applies predicate within relationship filter', function () {
+    $query = $this->filter->apply(
+        User::query(),
+        ['roles.name_cont' => 'adm'],
+        $this->allowedFields,
+        allowedRelationFilters: ['roles'],
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)->toContain('exists')
+        ->toContain('ilike')
+        ->toContain('adm');
+});

@@ -170,6 +170,31 @@ describe('POST /api/v1/webhooks', function () {
             ])->assertUnprocessable();
     });
 
+    it('accepts wildcard event subscription', function () {
+        $token = $this->owner->createToken('test', ['webhooks:manage'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/webhooks', [
+                'url' => 'https://example.com/webhook',
+                'events' => ['*'],
+            ])
+            ->assertCreated();
+
+        $response->assertJsonPath('webhook.events', ['*']);
+    });
+
+    it('accepts member event subscriptions', function () {
+        $token = $this->owner->createToken('test', ['webhooks:manage'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/webhooks', [
+                'url' => 'https://example.com/webhook',
+                'events' => ['member.created', 'member.updated', 'member.deleted'],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('webhook.events', ['member.created', 'member.updated', 'member.deleted']);
+    });
+
     it('requires webhooks:manage ability', function () {
         $token = $this->owner->createToken('test', ['users:read'])->plainTextToken;
 

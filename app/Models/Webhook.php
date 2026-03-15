@@ -63,6 +63,9 @@ class Webhook extends Model
      */
     public function subscribedTo(string $event): bool
     {
-        return in_array($event, $this->events ?? [], true);
+        /** @var list<string> $events */
+        $events = $this->events ?? [];
+
+        return in_array('*', $events, true) || in_array($event, $events, true);
     }
 }
