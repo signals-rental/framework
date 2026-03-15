@@ -21,7 +21,7 @@ it('creates a user with invitation data', function () {
     $data = InviteUserData::from([
         'name' => 'Test User',
         'email' => 'test@example.com',
-        'roles' => ['Viewer'],
+        'roles' => ['Read Only'],
     ]);
 
     $user = (new InviteUser)($data);
@@ -30,7 +30,7 @@ it('creates a user with invitation data', function () {
     expect($user->email)->toBe('test@example.com');
     expect($user->password)->toBeNull();
     expect($user->invited_at)->not->toBeNull();
-    expect($user->hasRole('Viewer'))->toBeTrue();
+    expect($user->hasRole('Read Only'))->toBeTrue();
 
     Notification::assertSentTo($user, UserInvitedNotification::class);
 });

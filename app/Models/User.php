@@ -123,8 +123,8 @@ class User extends Authenticatable
      * Get the store IDs this user can access.
      *
      * Owners and admins can access all stores. Regular users are limited to
-     * the stores from their member's memberships. A null store_id on a
-     * membership grants access to all stores.
+     * the stores from member_stores (preferred) or memberships (fallback).
+     * A null store_id on a membership grants access to all stores.
      *
      * @return list<int>|null Null means all stores (unrestricted access).
      */
@@ -138,6 +138,17 @@ class User extends Authenticatable
             return [];
         }
 
+        // Prefer member_stores if any assignments exist
+        $memberStoreIds = MemberStore::query()
+            ->where('member_id', $this->member_id)
+            ->pluck('store_id')
+            ->all();
+
+        if ($memberStoreIds !== []) {
+            return array_values(array_unique($memberStoreIds));
+        }
+
+        // Fallback to memberships for backwards compatibility
         $storeIds = Membership::query()
             ->where('member_id', $this->member_id)
             ->pluck('store_id')

@@ -30,15 +30,15 @@ it('updates user name and email', function () {
 
 it('syncs roles on update', function () {
     $user = User::factory()->create();
-    $user->assignRole('Viewer');
+    $user->assignRole('Read Only');
 
     $updated = (new UpdateUser)($user, [
-        'roles' => ['Admin', 'Manager'],
+        'roles' => ['Admin', 'Operations Manager'],
     ]);
 
     expect($updated->hasRole('Admin'))->toBeTrue();
-    expect($updated->hasRole('Manager'))->toBeTrue();
-    expect($updated->hasRole('Viewer'))->toBeFalse();
+    expect($updated->hasRole('Operations Manager'))->toBeTrue();
+    expect($updated->hasRole('Read Only'))->toBeFalse();
 });
 
 it('rejects unauthorized users', function () {

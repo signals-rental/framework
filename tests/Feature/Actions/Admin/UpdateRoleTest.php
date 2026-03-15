@@ -1,10 +1,12 @@
 <?php
 
 use App\Actions\Admin\UpdateRole;
+use App\Events\AuditableEvent;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 
@@ -75,3 +77,40 @@ it('rejects unauthorized users', function () {
         'name' => 'Hacked Name',
     ]);
 })->throws(AuthorizationException::class);
+
+it('rejects unregistered permissions on update', function () {
+    /** @var Role $role */
+    $role = Role::create([
+        'name' => 'Bad Update Role',
+        'guard_name' => 'web',
+        'is_system' => false,
+        'sort_order' => 100,
+    ]);
+
+    (new UpdateRole)($role, [
+        'permissions' => ['members.view', 'nonexistent.permission'],
+    ]);
+})->throws(ValidationException::class, 'not registered');
+
+it('dispatches an auditable event on update', function () {
+    Event::fake([AuditableEvent::class]);
+
+    /** @var Role $role */
+    $role = Role::create([
+        'name' => 'Audit Update Role',
+        'guard_name' => 'web',
+        'is_system' => false,
+        'sort_order' => 100,
+    ]);
+
+    (new UpdateRole)($role, [
+        'name' => 'Renamed Audit Role',
+        'permissions' => ['members.view'],
+    ]);
+
+    Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
+        return $event->action === 'updated'
+            && $event->oldValues['name'] === 'Audit Update Role'
+            && $event->newValues['name'] === 'Renamed Audit Role';
+    });
+});

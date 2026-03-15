@@ -10,6 +10,12 @@ parameters:
         - database/
         - tests/
     tmpDir: storage/phpstan
+    ignoreErrors:
+        -
+            message: '#Trait .+ is used zero times and is not analysed#'
+            paths:
+                - app/Models/Traits/HasCostVisibility.php
+                - app/Models/Traits/HasStoreScoping.php
     scanDirectories:
         - tests/
     universalObjectCratesClasses:

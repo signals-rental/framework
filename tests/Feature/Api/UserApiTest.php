@@ -98,7 +98,7 @@ describe('GET /api/v1/users', function () {
 describe('GET /api/v1/users/{id}', function () {
     it('shows a single user with roles', function () {
         $user = User::factory()->create();
-        $user->assignRole('Viewer');
+        $user->assignRole('Read Only');
         $token = $this->owner->createToken('test', ['users:read'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
@@ -109,7 +109,7 @@ describe('GET /api/v1/users/{id}', function () {
             ]);
 
         expect($response->json('user.id'))->toBe($user->id);
-        expect($response->json('user.roles'))->toContain('Viewer');
+        expect($response->json('user.roles'))->toContain('Read Only');
     });
 
     it('returns 404 for nonexistent user', function () {
@@ -129,7 +129,7 @@ describe('POST /api/v1/users', function () {
             ->postJson('/api/v1/users', [
                 'name' => 'New User',
                 'email' => 'newuser@example.com',
-                'roles' => ['Viewer'],
+                'roles' => ['Read Only'],
             ])
             ->assertCreated()
             ->assertJsonStructure([
@@ -137,7 +137,7 @@ describe('POST /api/v1/users', function () {
             ])
             ->assertJsonPath('user.name', 'New User')
             ->assertJsonPath('user.email', 'newuser@example.com')
-            ->assertJsonPath('user.roles', ['Viewer']);
+            ->assertJsonPath('user.roles', ['Read Only']);
 
         $this->assertDatabaseHas('users', [
             'email' => 'newuser@example.com',

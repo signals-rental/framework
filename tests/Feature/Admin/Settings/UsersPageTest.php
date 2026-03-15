@@ -46,7 +46,7 @@ it('invites a new user', function () {
         ->call('openInviteModal')
         ->set('inviteName', 'New User')
         ->set('inviteEmail', 'new@example.com')
-        ->set('inviteRoles', ['Viewer'])
+        ->set('inviteRoles', ['Read Only'])
         ->call('invite')
         ->assertHasNoErrors()
         ->assertDispatched('user-invited');
@@ -57,7 +57,7 @@ it('invites a new user', function () {
     expect($user->name)->toBe('New User');
     expect($user->invited_at)->not->toBeNull();
     expect($user->password)->toBeNull();
-    expect($user->hasRole('Viewer'))->toBeTrue();
+    expect($user->hasRole('Read Only'))->toBeTrue();
 
     Notification::assertSentTo($user, UserInvitedNotification::class);
 });

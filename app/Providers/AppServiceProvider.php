@@ -104,7 +104,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register Blade directives for localised date/datetime display.
+     * Register Blade directives for localised date/datetime display and permission layers.
      */
     protected function registerBladeDirectives(): void
     {
@@ -114,6 +114,31 @@ class AppServiceProvider extends ServiceProvider
 
         Blade::directive('localdatetime', function (string $expression): string {
             return "<?php echo app(\App\Support\Formatter::class)->dateTime({$expression}); ?>";
+        });
+
+        // Permission layer directives
+        Blade::directive('area', function (string $expression): string {
+            return "<?php if(auth()->check() && auth()->user()->can({$expression})): ?>";
+        });
+
+        Blade::directive('endarea', function (): string {
+            return '<?php endif; ?>';
+        });
+
+        Blade::directive('action', function (string $expression): string {
+            return "<?php if(auth()->check() && auth()->user()->can({$expression})): ?>";
+        });
+
+        Blade::directive('endaction', function (): string {
+            return '<?php endif; ?>';
+        });
+
+        Blade::directive('costs', function (): string {
+            return "<?php if(auth()->check() && auth()->user()->can('costs.view')): ?>";
+        });
+
+        Blade::directive('endcosts', function (): string {
+            return '<?php endif; ?>';
         });
     }
 

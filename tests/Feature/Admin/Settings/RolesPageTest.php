@@ -23,9 +23,10 @@ it('renders the roles page', function () {
 it('lists all default roles', function () {
     $this->get(route('admin.settings.roles'))
         ->assertSee('Admin')
-        ->assertSee('Manager')
-        ->assertSee('Operator')
-        ->assertSee('Viewer');
+        ->assertSee('Operations Manager')
+        ->assertSee('Sales')
+        ->assertSee('Warehouse')
+        ->assertSee('Read Only');
 });
 
 it('renders the create role page', function () {

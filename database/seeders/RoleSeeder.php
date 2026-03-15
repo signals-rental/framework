@@ -14,40 +14,57 @@ class RoleSeeder extends Seeder
         // Owner access is handled via is_owner flag, not a Spatie role
         Role::query()->where('name', 'Owner')->delete();
 
+        // Clean up old role names from previous seeds
+        foreach (['Manager', 'Operator', 'Viewer'] as $oldName) {
+            Role::query()->where('name', $oldName)->delete();
+        }
+
         $allPermissions = array_keys(PermissionSeeder::permissions());
 
-        $viewPermissions = array_filter($allPermissions, fn (string $p): bool => str_ends_with($p, '.view'));
+        $viewPermissions = array_filter($allPermissions, fn (string $p): bool => str_ends_with($p, '.view') || str_ends_with($p, '.access'));
 
-        $resourcePermissions = array_filter($allPermissions, fn (string $p): bool => ! str_starts_with($p, 'settings.')
+        $opsManagerPermissions = array_filter($allPermissions, fn (string $p): bool => ! str_starts_with($p, 'settings.')
             && ! str_starts_with($p, 'users.')
             && ! str_starts_with($p, 'roles.')
         );
 
-        $operatorPermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'opportunities.')
-            || in_array($p, ['invoices.view', 'invoices.create'])
-            || str_starts_with($p, 'stock.')
+        $salesPermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'opportunities.')
+            || str_starts_with($p, 'invoices.')
+            || str_starts_with($p, 'members.')
+            || $p === 'products.access'
             || $p === 'products.view'
-            || $p === 'members.view'
+            || $p === 'reports.access'
+            || $p === 'reports.view'
         );
 
-        // Admin — all permissions
+        $warehousePermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'stock.')
+            || str_starts_with($p, 'products.')
+            || in_array($p, ['members.access', 'members.view', 'reports.access', 'reports.view'])
+        );
+
+        // Admin — all permissions, cost visibility on
         $admin = Role::findOrCreate('Admin', 'web');
-        $admin->update(['is_system' => true, 'description' => 'Full access to all features and settings.', 'sort_order' => 1]);
+        $admin->update(['is_system' => true, 'description' => 'Full access to all features and settings.', 'sort_order' => 1, 'cost_visibility' => true]);
         $admin->syncPermissions($allPermissions);
 
-        // Manager — all resource permissions, no settings/users/roles
-        $manager = Role::findOrCreate('Manager', 'web');
-        $manager->update(['is_system' => true, 'description' => 'Manages day-to-day operations without system settings.', 'sort_order' => 2]);
-        $manager->syncPermissions($resourcePermissions);
+        // Operations Manager — all resource permissions, no settings/users/roles, cost visibility on
+        $opsManager = Role::findOrCreate('Operations Manager', 'web');
+        $opsManager->update(['is_system' => true, 'description' => 'Manages day-to-day operations without system settings.', 'sort_order' => 2, 'cost_visibility' => true]);
+        $opsManager->syncPermissions($opsManagerPermissions);
 
-        // Operator — core operational permissions
-        $operator = Role::findOrCreate('Operator', 'web');
-        $operator->update(['is_system' => true, 'description' => 'Handles opportunities, invoicing, and stock operations.', 'sort_order' => 3]);
-        $operator->syncPermissions($operatorPermissions);
+        // Sales — opportunities, invoices, members, product/report viewing, cost visibility off
+        $sales = Role::findOrCreate('Sales', 'web');
+        $sales->update(['is_system' => true, 'description' => 'Manages opportunities, invoices, and member relationships.', 'sort_order' => 3, 'cost_visibility' => false]);
+        $sales->syncPermissions($salesPermissions);
 
-        // Viewer — read-only access
-        $viewer = Role::findOrCreate('Viewer', 'web');
-        $viewer->update(['is_system' => true, 'description' => 'Read-only access to all resources.', 'sort_order' => 4]);
-        $viewer->syncPermissions($viewPermissions);
+        // Warehouse — stock and product management, cost visibility off
+        $warehouse = Role::findOrCreate('Warehouse', 'web');
+        $warehouse->update(['is_system' => true, 'description' => 'Manages stock levels, product inventory, and compliance.', 'sort_order' => 4, 'cost_visibility' => false]);
+        $warehouse->syncPermissions($warehousePermissions);
+
+        // Read Only — view-only access to all areas
+        $readOnly = Role::findOrCreate('Read Only', 'web');
+        $readOnly->update(['is_system' => true, 'description' => 'Read-only access to all resources.', 'sort_order' => 5, 'cost_visibility' => false]);
+        $readOnly->syncPermissions($viewPermissions);
     }
 }

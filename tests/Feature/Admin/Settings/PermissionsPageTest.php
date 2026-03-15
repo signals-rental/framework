@@ -36,7 +36,7 @@ it('shows role names in headers', function () {
     $this->get(route('admin.settings.permissions'))
         ->assertSee('Owner')
         ->assertSee('Admin')
-        ->assertSee('Viewer');
+        ->assertSee('Read Only');
 });
 
 it('returns 403 for non-admin users', function () {

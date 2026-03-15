@@ -1,10 +1,13 @@
 <?php
 
 use App\Actions\Admin\CreateRole;
+use App\Events\AuditableEvent;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
@@ -59,4 +62,24 @@ it('creates a role without permissions', function () {
 
     expect($role->name)->toBe('Empty Role');
     expect($role->permissions)->toHaveCount(0);
+});
+
+it('rejects unregistered permissions', function () {
+    (new CreateRole)([
+        'name' => 'Bad Permissions Role',
+        'permissions' => ['members.view', 'fake.permission'],
+    ]);
+})->throws(ValidationException::class, 'not registered');
+
+it('dispatches an auditable event on creation', function () {
+    Event::fake([AuditableEvent::class]);
+
+    (new CreateRole)([
+        'name' => 'Audited Role',
+        'permissions' => ['members.view'],
+    ]);
+
+    Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
+        return $event->action === 'created' && $event->model->getAttribute('name') === 'Audited Role';
+    });
 });

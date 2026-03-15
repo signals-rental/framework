@@ -27,7 +27,7 @@ describe('GET /api/v1/roles', function () {
             ]);
 
         $roles = $response->json('roles');
-        expect(count($roles))->toBeGreaterThanOrEqual(4) // Admin, Manager, Operator, Viewer from seeder
+        expect(count($roles))->toBeGreaterThanOrEqual(5) // Admin, Operations Manager, Sales, Warehouse, Read Only from seeder
             ->and($response->json('meta.page'))->toBe(1);
 
         // Verify ordering by sort_order
@@ -289,7 +289,7 @@ describe('PUT /api/v1/roles/{id}', function () {
     });
 
     it('allows updating permissions on system roles', function () {
-        $role = Role::query()->where('name', 'Viewer')->first();
+        $role = Role::query()->where('name', 'Read Only')->first();
         $token = $this->owner->createToken('test', ['roles:write'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")

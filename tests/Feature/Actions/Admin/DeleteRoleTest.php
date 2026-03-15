@@ -1,10 +1,12 @@
 <?php
 
 use App\Actions\Admin\DeleteRole;
+use App\Events\AuditableEvent;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 
@@ -61,3 +63,23 @@ it('prevents deleting a role with assigned users', function () {
 
     (new DeleteRole)($role);
 })->throws(ValidationException::class);
+
+it('dispatches an auditable event on deletion', function () {
+    Event::fake([AuditableEvent::class]);
+
+    /** @var Role $role */
+    $role = Role::create([
+        'name' => 'Audited Delete Role',
+        'guard_name' => 'web',
+        'is_system' => false,
+    ]);
+    $role->syncPermissions(['members.view']);
+
+    (new DeleteRole)($role);
+
+    Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
+        return $event->action === 'deleted'
+            && $event->oldValues['name'] === 'Audited Delete Role'
+            && in_array('members.view', $event->oldValues['permissions']);
+    });
+});

@@ -26,12 +26,12 @@ it('renders the edit user page', function () {
 
 it('populates form with user data', function () {
     $user = User::factory()->create(['name' => 'Jane Doe', 'email' => 'jane@example.com']);
-    $user->assignRole('Viewer');
+    $user->assignRole('Read Only');
 
     Volt::test('admin.settings.user-form', ['user' => $user])
         ->assertSet('userName', 'Jane Doe')
         ->assertSet('userEmail', 'jane@example.com')
-        ->assertSet('selectedRoles', ['Viewer']);
+        ->assertSet('selectedRoles', ['Read Only']);
 });
 
 it('updates user name and email', function () {
@@ -53,27 +53,27 @@ it('assigns roles to a user', function () {
     $user = User::factory()->create();
 
     Volt::test('admin.settings.user-form', ['user' => $user])
-        ->set('selectedRoles', ['Operator', 'Viewer'])
+        ->set('selectedRoles', ['Sales', 'Read Only'])
         ->call('save')
         ->assertHasNoErrors();
 
     $user->refresh();
-    expect($user->hasRole('Operator'))->toBeTrue();
-    expect($user->hasRole('Viewer'))->toBeTrue();
+    expect($user->hasRole('Sales'))->toBeTrue();
+    expect($user->hasRole('Read Only'))->toBeTrue();
 });
 
 it('removes roles from a user', function () {
     $user = User::factory()->create();
-    $user->assignRole(['Operator', 'Viewer']);
+    $user->assignRole(['Sales', 'Read Only']);
 
     Volt::test('admin.settings.user-form', ['user' => $user])
-        ->set('selectedRoles', ['Viewer'])
+        ->set('selectedRoles', ['Read Only'])
         ->call('save')
         ->assertHasNoErrors();
 
     $user->refresh();
-    expect($user->hasRole('Operator'))->toBeFalse();
-    expect($user->hasRole('Viewer'))->toBeTrue();
+    expect($user->hasRole('Sales'))->toBeFalse();
+    expect($user->hasRole('Read Only'))->toBeTrue();
 });
 
 it('validates required fields', function () {

@@ -29,12 +29,13 @@ describe('Permissions', function () {
 });
 
 describe('Roles', function () {
-    it('creates all four default roles', function () {
-        expect(Role::count())->toBe(4);
+    it('creates all five default roles', function () {
+        expect(Role::count())->toBe(5);
         expect(Role::findByName('Admin', 'web'))->not->toBeNull();
-        expect(Role::findByName('Manager', 'web'))->not->toBeNull();
-        expect(Role::findByName('Operator', 'web'))->not->toBeNull();
-        expect(Role::findByName('Viewer', 'web'))->not->toBeNull();
+        expect(Role::findByName('Operations Manager', 'web'))->not->toBeNull();
+        expect(Role::findByName('Sales', 'web'))->not->toBeNull();
+        expect(Role::findByName('Warehouse', 'web'))->not->toBeNull();
+        expect(Role::findByName('Read Only', 'web'))->not->toBeNull();
     });
 
     it('marks all default roles as system roles', function () {
@@ -51,24 +52,70 @@ describe('Roles', function () {
             ->toBe(collect($allPermissions)->sort()->values()->all());
     });
 
-    it('gives Viewer role only view permissions', function () {
-        $viewer = Role::findByName('Viewer', 'web');
-        $viewerPermissions = $viewer->permissions->pluck('name')->all();
+    it('gives Admin role cost visibility', function () {
+        $admin = Role::findByName('Admin', 'web');
 
-        foreach ($viewerPermissions as $permission) {
-            expect($permission)->toEndWith('.view');
+        expect((bool) $admin->getAttribute('cost_visibility'))->toBeTrue();
+    });
+
+    it('gives Operations Manager role cost visibility', function () {
+        $opsManager = Role::findByName('Operations Manager', 'web');
+
+        expect((bool) $opsManager->getAttribute('cost_visibility'))->toBeTrue();
+    });
+
+    it('denies Sales role cost visibility', function () {
+        $sales = Role::findByName('Sales', 'web');
+
+        expect((bool) $sales->getAttribute('cost_visibility'))->toBeFalse();
+    });
+
+    it('denies Warehouse role cost visibility', function () {
+        $warehouse = Role::findByName('Warehouse', 'web');
+
+        expect((bool) $warehouse->getAttribute('cost_visibility'))->toBeFalse();
+    });
+
+    it('gives Read Only role only view and access permissions', function () {
+        $readOnly = Role::findByName('Read Only', 'web');
+        $readOnlyPermissions = $readOnly->permissions->pluck('name')->all();
+
+        foreach ($readOnlyPermissions as $permission) {
+            expect($permission)->toMatch('/\.(view|access)$/');
         }
     });
 
-    it('gives Manager role no settings/users/roles permissions', function () {
-        $manager = Role::findByName('Manager', 'web');
-        $managerPermissions = $manager->permissions->pluck('name')->all();
+    it('gives Operations Manager role no settings/users/roles permissions', function () {
+        $opsManager = Role::findByName('Operations Manager', 'web');
+        $opsPermissions = $opsManager->permissions->pluck('name')->all();
 
-        foreach ($managerPermissions as $permission) {
+        foreach ($opsPermissions as $permission) {
             expect($permission)->not->toStartWith('settings.');
             expect($permission)->not->toStartWith('users.');
             expect($permission)->not->toStartWith('roles.');
         }
+    });
+
+    it('gives Sales role opportunity and invoice permissions', function () {
+        $sales = Role::findByName('Sales', 'web');
+        $salesPermissions = $sales->permissions->pluck('name')->all();
+
+        expect($salesPermissions)->toContain('opportunities.create');
+        expect($salesPermissions)->toContain('invoices.create');
+        expect($salesPermissions)->toContain('members.view');
+        expect($salesPermissions)->not->toContain('stock.adjust');
+        expect($salesPermissions)->not->toContain('settings.manage');
+    });
+
+    it('gives Warehouse role stock and product permissions', function () {
+        $warehouse = Role::findByName('Warehouse', 'web');
+        $warehousePermissions = $warehouse->permissions->pluck('name')->all();
+
+        expect($warehousePermissions)->toContain('stock.view');
+        expect($warehousePermissions)->toContain('stock.adjust');
+        expect($warehousePermissions)->toContain('products.view');
+        expect($warehousePermissions)->not->toContain('opportunities.create');
+        expect($warehousePermissions)->not->toContain('invoices.create');
     });
 });
 

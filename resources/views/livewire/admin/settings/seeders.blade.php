@@ -62,7 +62,7 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
     {
         $permissionsSeeded = Schema::hasTable('permissions') && Permission::query()->exists();
 
-        $systemRoles = ['Admin', 'Manager', 'Operator', 'Viewer'];
+        $systemRoles = ['Admin', 'Operations Manager', 'Sales', 'Warehouse', 'Read Only'];
         $rolesSeeded = Schema::hasTable('roles') && Role::query()->whereIn('name', $systemRoles)->count() === count($systemRoles);
 
         $emailTemplatesSeeded = Schema::hasTable('email_templates') && EmailTemplate::query()->exists();

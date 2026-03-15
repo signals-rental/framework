@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admin;
 
+use App\Events\AuditableEvent;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
@@ -25,6 +26,13 @@ class DeleteRole
         }
 
         $roleData = ['id' => $role->id, 'name' => $role->name];
+        $oldValues = [
+            'name' => $role->name,
+            'description' => $role->getAttribute('description'),
+            'permissions' => $role->permissions->pluck('name')->all(),
+        ];
+
+        event(new AuditableEvent($role, 'deleted', $oldValues));
 
         $role->delete();
 
