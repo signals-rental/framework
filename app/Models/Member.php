@@ -174,4 +174,34 @@ class Member extends Model implements HasSchema
     {
         return $query->where('is_active', true);
     }
+
+    /**
+     * Scope to contacts that belong to a given organisation member.
+     *
+     * @param  Builder<Member>  $query
+     * @return Builder<Member>
+     */
+    public function scopeContactsOf(Builder $query, int $memberId): Builder
+    {
+        return $query->whereIn('id', function ($sub) use ($memberId): void {
+            $sub->select('member_id')
+                ->from('member_relationships')
+                ->where('related_member_id', $memberId);
+        });
+    }
+
+    /**
+     * Scope to organisations that a given contact member belongs to.
+     *
+     * @param  Builder<Member>  $query
+     * @return Builder<Member>
+     */
+    public function scopeOrganisationsOf(Builder $query, int $memberId): Builder
+    {
+        return $query->whereIn('id', function ($sub) use ($memberId): void {
+            $sub->select('related_member_id')
+                ->from('member_relationships')
+                ->where('member_id', $memberId);
+        });
+    }
 }

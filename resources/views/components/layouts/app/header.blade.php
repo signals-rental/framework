@@ -6,8 +6,8 @@
         @include('partials.head', ['title' => $title])
     </head>
     <body class="flex h-screen flex-col overflow-hidden bg-[var(--content-bg)] text-[13px] leading-normal text-[var(--text-primary)] antialiased"
-          x-data="{ mobileNav: false, sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false', sidebarReady: false }"
-          x-init="$nextTick(() => sidebarReady = true); $watch('sidebarOpen', v => localStorage.setItem('sidebarOpen', v))">
+          x-data="{ mobileNav: false, sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false', sidebarReady: false, notificationsOpen: false, notificationsReady: false }"
+          x-init="$nextTick(() => { sidebarReady = true; notificationsReady = true; }); $watch('sidebarOpen', v => localStorage.setItem('sidebarOpen', v))">
 
         {{-- ============================================================ --}}
         {{--  TOP HEADER (always navy)                                     --}}
@@ -100,18 +100,21 @@
             {{-- Header actions (right side) --}}
             <div class="header-actions">
                 {{-- Search --}}
-                <div class="relative hidden lg:block">
-                    <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--grey)]" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="5"/><line x1="10" y1="10" x2="15" y2="15"/></svg>
-                    <input type="text"
-                           class="h-[30px] w-[200px] border border-[var(--navy-light)] bg-[var(--navy-mid)] pl-[30px] pr-2.5 font-sans text-[11px] text-[#e2e8f0] outline-none transition-colors placeholder:text-[var(--grey)] focus:border-[var(--blue)] focus:bg-[var(--navy)]"
-                           placeholder="Search orders, members...">
+                <div class="docs-search hidden lg:block" style="width: 260px;">
+                    <div class="docs-search-input-wrap">
+                        <svg class="docs-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text"
+                               class="docs-search-input"
+                               placeholder="Search orders, members...">
+                        <span class="docs-search-kbd">&sol;</span>
+                    </div>
                 </div>
 
                 @auth
                 {{-- Notifications --}}
-                <button class="header-icon-btn" title="Notifications" aria-label="Notifications">
+                <button class="header-icon-btn" title="Notifications" aria-label="Notifications" x-on:click="notificationsOpen = !notificationsOpen" :class="{ 'active': notificationsOpen }">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6a4 4 0 0 1 8 0c0 3 1.5 4.5 2 5H2c.5-.5 2-2 2-5z"/><path d="M6 11v.5a2 2 0 0 0 4 0V11"/></svg>
-                    <span class="notification-badge">3</span>
+                    <span class="notification-badge">12</span>
                 </button>
 
                 {{-- User dropdown --}}
@@ -344,6 +347,59 @@
                 </div>
                 @include('components.layouts.app.footer')
             </main>
+
+            {{-- Notifications pane (right side) --}}
+            <aside class="app-notifications-pane"
+                   :class="{ 'open': notificationsOpen, 'ready': notificationsReady }">
+                <div class="app-notifications-header">
+                    <span class="app-notifications-title">Notifications</span>
+                    <button class="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)]" style="font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em;">Mark all read</button>
+                </div>
+                <div class="app-notifications-body">
+                    <x-signals.event-row name="OpportunityCreated" actor="Sarah Chen" time="2 min ago" border="create">
+                        <x-slot:payload>OPP-2026-0891 "Summer Festival Main Stage" created — £12,450.00</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="PaymentReceived" actor="System" time="15 min ago" border="create">
+                        <x-slot:payload>INV-2026-1284 paid in full — £12,450.00</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="StatusChanged" actor="System" time="28 min ago" border="status">
+                        <x-slot:payload><span class="s-es-payload-key">from:</span> Quotation <span class="s-es-payload-key">to:</span> Confirmed</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="QuoteExpiring" actor="System" time="1 hour ago" border="status">
+                        <x-slot:payload>QUO-2026-0456 expires in 48 hours — £32,000.00</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="ItemAdded" actor="Mike Ross" time="1 hour ago" border="update">
+                        <x-slot:payload>OPP-2026-0891: Added 6x JBL EON615 Speaker</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="StockAlert" actor="System" time="2 hours ago" border="status">
+                        <x-slot:payload>Martin D-28 Guitar below minimum level (2 remaining)</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="InvoiceIssued" actor="Sarah Chen" time="3 hours ago" border="create">
+                        <x-slot:payload>INV-2026-1285 issued for OPP-2026-0834 — £8,200.00</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="MemberCreated" actor="Jane Cooper" time="4 hours ago" border="create">
+                        <x-slot:payload>New organisation: Festival Hire Co</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="OrderDispatched" actor="Warehouse" time="5 hours ago" border="create">
+                        <x-slot:payload>OPP-2026-0834 dispatched — 18 items to ExCeL London</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="DamageReported" actor="Dave S" time="6 hours ago" border="status">
+                        <x-slot:payload>JBL VTX speaker cabinet — dent on rear panel. Quarantined.</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="SubHireConfirmed" actor="System" time="Yesterday" border="update">
+                        <x-slot:payload>20x moving head lights confirmed by Stage Solutions Ltd</x-slot:payload>
+                    </x-signals.event-row>
+                    <x-signals.event-row name="CreditCheckPassed" actor="System" time="Yesterday" border="create">
+                        <x-slot:payload>ExCeL Events Ltd approved for £75,000 credit limit</x-slot:payload>
+                    </x-signals.event-row>
+                </div>
+                <button class="notifications-toggle" x-on:click="notificationsOpen = !notificationsOpen"
+                        :aria-label="notificationsOpen ? 'Collapse notifications' : 'Expand notifications'">
+                    <svg class="sidebar-toggle-icon" :class="{ 'rotate-180': notificationsOpen }" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M6 3l5 5-5 5"/>
+                    </svg>
+                </button>
+            </aside>
         </div>
 
         @fluxScripts

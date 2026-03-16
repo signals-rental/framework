@@ -50,9 +50,9 @@
 /* ================================================================ */
 
 .s-page-header {
-  padding: 18px 24px 0;
+  padding: 18px 24px 14px;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   flex-shrink: 0;
 }
@@ -1178,6 +1178,9 @@
 .s-stat-icon-violet { background: var(--s-violet-bg); color: var(--violet); }
 .s-stat-label { font-family: var(--font-display); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
 .s-stat-value { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.s-stat-trend { font-family: var(--font-display); font-size: 11px; font-weight: 600; margin-left: 4px; }
+.s-stat-trend-up { color: #16a34a; }
+.s-stat-trend-down { color: #dc2626; }
 
 /* ================================================================ */
 /*  31. BUTTON DROPDOWN (select-style)                               */
@@ -1544,17 +1547,20 @@
 .s-avatar-sm { width: 32px; height: 32px; }
 .s-avatar-md { width: 40px; height: 40px; }
 .s-avatar-lg { width: 56px; height: 56px; }
+.s-avatar-xl { width: 96px; height: 96px; }
 .s-avatar-img { width: 100%; height: 100%; object-fit: cover; }
 .s-avatar-initials { font-family: var(--font-display); font-weight: 600; text-transform: uppercase; line-height: 1; }
 .s-avatar-xs .s-avatar-initials { font-size: 9px; }
 .s-avatar-sm .s-avatar-initials { font-size: 11px; }
 .s-avatar-md .s-avatar-initials { font-size: 13px; }
 .s-avatar-lg .s-avatar-initials { font-size: 18px; }
+.s-avatar-xl .s-avatar-initials { font-size: 28px; }
 .s-avatar-indicator { position: absolute; bottom: 0; right: 0; border-radius: 50%; border: 2px solid var(--card-bg); }
 .s-avatar-xs .s-avatar-indicator { width: 8px; height: 8px; }
 .s-avatar-sm .s-avatar-indicator { width: 10px; height: 10px; }
 .s-avatar-md .s-avatar-indicator { width: 12px; height: 12px; }
 .s-avatar-lg .s-avatar-indicator { width: 14px; height: 14px; }
+.s-avatar-xl .s-avatar-indicator { width: 18px; height: 18px; }
 .s-avatar-indicator-online { background: var(--green); }
 .s-avatar-indicator-away { background: var(--amber); }
 .s-avatar-indicator-offline { background: var(--s-faint); }
@@ -1588,7 +1594,7 @@
 .s-btn-split-trigger { padding: 0 8px; display: flex; align-items: center; border-left: 1px solid rgba(0, 0, 0, 0.1); }
 .s-btn-split .s-btn-primary .s-btn-split-trigger { border-left-color: rgba(255, 255, 255, 0.2); }
 .s-btn-split-trigger svg { width: 12px; height: 12px; }
-.s-btn-split-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 50; }
+.s-btn-split-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 9999; }
 
 /* ================================================================ */
 /*  66. PAGINATION                                                   */

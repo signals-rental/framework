@@ -17,7 +17,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function mount(Member $member): void
     {
-        $this->member = $member;
+        $this->member = $member->loadCount(['addresses', 'emails', 'phones', 'links', 'organisations', 'contacts']);
     }
 
     public function save(): void
@@ -52,7 +52,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ]));
         });
 
-        $this->redirect(route('members.relationships', $this->member), navigate: true);
+        $this->redirect(route('members.show', $this->member), navigate: true);
     }
 
     public function with(): array
@@ -83,28 +83,22 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-signals.page-header title="Add Relationship">
-        <x-slot:breadcrumbs>
-            <a href="{{ route('members.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Members</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <a href="{{ route('members.show', $member) }}" wire:navigate class="text-[var(--link)] hover:underline">{{ $member->name }}</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <a href="{{ route('members.relationships', $member) }}" wire:navigate class="text-[var(--link)] hover:underline">Relationships</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <span>Add</span>
-        </x-slot:breadcrumbs>
-    </x-signals.page-header>
+    @include('livewire.members.partials.member-header', ['member' => $member, 'subpage' => 'Add Relationship'])
+    @include('livewire.members.partials.member-tabs', ['member' => $member, 'activeTab' => 'contacts'])
 
-    <div class="flex-1 p-8 max-md:p-5 max-sm:p-3">
+    <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
         <form wire:submit="save" class="max-w-2xl space-y-8">
             <x-signals.form-section title="Relationship Details">
                 <div class="space-y-4">
-                    <flux:select wire:model="relatedMemberId" label="{{ $isContact ? 'Organisation' : 'Contact' }}" required>
-                        <option value="">Select {{ $isContact ? 'an organisation' : 'a contact' }}...</option>
-                        @foreach($eligibleMembers as $eligible)
-                            <option value="{{ $eligible->id }}">{{ $eligible->name }}</option>
-                        @endforeach
-                    </flux:select>
+                    <x-signals.field :label="$isContact ? 'Organisation' : 'Contact'" required>
+                        <x-signals.combobox
+                            name="relatedMemberId"
+                            :value="$relatedMemberId"
+                            :placeholder="$isContact ? 'Search organisations...' : 'Search contacts...'"
+                            :options="$eligibleMembers->map(fn ($m) => ['value' => $m->id, 'label' => $m->name])->values()->all()"
+                            x-on:combobox-selected.window="if ($event.detail.name === 'relatedMemberId') $wire.set('relatedMemberId', $event.detail.value)"
+                        />
+                    </x-signals.field>
                     <flux:input wire:model="relationshipType" label="Relationship Type" placeholder="e.g. Employee, Contractor, Director" />
                     @if($isContact)
                         <flux:checkbox wire:model="isPrimary" label="Primary organisation" />
@@ -114,7 +108,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
             <div class="flex items-center gap-4">
                 <flux:button variant="primary" type="submit">Add Relationship</flux:button>
-                <flux:button variant="ghost" href="{{ route('members.relationships', $member) }}" wire:navigate>Cancel</flux:button>
+                <flux:button variant="ghost" href="{{ route('members.show', $member) }}" wire:navigate>Cancel</flux:button>
             </div>
         </form>
     </div>

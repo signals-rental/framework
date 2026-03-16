@@ -243,6 +243,79 @@ select:focus[data-flux-control] {
 }
 
 /* ================================================================ */
+/*  NOTIFICATIONS PANE (right side)                                   */
+/* ================================================================ */
+
+.app-notifications-pane {
+    width: 52px;
+    min-width: 52px;
+    background: var(--sidebar-bg);
+    border-left: 1px solid var(--sidebar-border);
+    flex-direction: column;
+    overflow: hidden;
+    display: none;
+    transition: none;
+}
+.app-notifications-pane.ready {
+    transition: width 0.2s ease, min-width 0.2s ease;
+}
+.app-notifications-pane.open {
+    width: 280px;
+    min-width: 280px;
+}
+@media (min-width: 1024px) {
+    .app-notifications-pane { display: flex; }
+}
+.app-notifications-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--sidebar-border);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.app-notifications-pane:not(.open) .app-notifications-header { display: none; }
+.app-notifications-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.app-notifications-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.app-notifications-pane:not(.open) .app-notifications-body { display: none; }
+.app-notifications-pane .s-es-event-name { font-size: 11px; }
+.app-notifications-pane .s-es-event-actor { font-size: 10px; }
+.app-notifications-pane .s-es-event-time { font-size: 9px; }
+.app-notifications-pane .s-es-event-payload { font-size: 10px; padding: 6px 10px; margin-top: 6px; }
+
+.notifications-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    margin-top: auto;
+    padding: 0;
+    color: var(--sidebar-group);
+    cursor: pointer;
+    border: none;
+    border-top: 1px solid var(--sidebar-border);
+    background: none;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+.notifications-toggle:hover { color: var(--sidebar-item); background: var(--sidebar-item-hover); }
+.app-notifications-pane.open .notifications-toggle { justify-content: flex-start; padding: 0 18px; }
+
+.header-icon-btn.active { background: rgba(255, 255, 255, 0.15); }
+
+/* ================================================================ */
 /*  SIDEBAR ITEMS                                                     */
 /* ================================================================ */
 
@@ -567,7 +640,7 @@ select:focus[data-flux-control] {
     border-bottom: 1px solid var(--subnav-border);
     display: flex;
     align-items: center;
-    padding: 0 32px;
+    padding: 0 24px;
     flex-shrink: 0;
 }
 
@@ -586,6 +659,7 @@ select:focus[data-flux-control] {
     transition: color 0.15s, border-color 0.15s;
     text-decoration: none;
 }
+.subnav-link:first-child { padding-left: 0; }
 
 .subnav-link:hover {
     color: var(--text-primary);

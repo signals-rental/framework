@@ -65,6 +65,13 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa'])->group(function () 
     Volt::route('members/{member}/custom-fields', 'members.custom-fields')->name('members.custom-fields');
     Volt::route('members/{member}/relationships', 'members.relationships')->name('members.relationships');
     Volt::route('members/{member}/relationships/create', 'members.relationship-form')->name('members.relationships.create');
+    Volt::route('members/{member}/quotes', 'members.quotes')->name('members.quotes');
+    Volt::route('members/{member}/opportunities', 'members.opportunities')->name('members.opportunities');
+    Volt::route('members/{member}/movements', 'members.movements')->name('members.movements');
+    Volt::route('members/{member}/invoices', 'members.invoices')->name('members.invoices');
+    Volt::route('members/{member}/information', 'members.information')->name('members.information');
+    Volt::route('members/{member}/member-contacts', 'members.member-contacts')->name('members.contacts');
+    Volt::route('members/{member}/activities', 'members.activities')->name('members.activities');
 });
 
 /*

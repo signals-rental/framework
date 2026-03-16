@@ -26,7 +26,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function mount(Member $member, ?Address $address = null): void
     {
-        $this->member = $member;
+        $this->member = $member->loadCount(['addresses', 'emails', 'phones', 'links', 'organisations', 'contacts']);
 
         if ($address?->exists) {
             $this->addressId = $address->id;
@@ -85,7 +85,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             }
         });
 
-        $this->redirect(route('members.addresses', $this->member), navigate: true);
+        $this->redirect(route('members.information', $this->member), navigate: true);
     }
 
     public function with(): array
@@ -101,19 +101,10 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-signals.page-header :title="$isEditing ? 'Edit Address' : 'Add Address'">
-        <x-slot:breadcrumbs>
-            <a href="{{ route('members.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Members</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <a href="{{ route('members.show', $member) }}" wire:navigate class="text-[var(--link)] hover:underline">{{ $member->name }}</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <a href="{{ route('members.addresses', $member) }}" wire:navigate class="text-[var(--link)] hover:underline">Addresses</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <span>{{ $isEditing ? 'Edit' : 'Add' }}</span>
-        </x-slot:breadcrumbs>
-    </x-signals.page-header>
+    @include('livewire.members.partials.member-header', ['member' => $member, 'subpage' => $isEditing ? 'Edit Address' : 'Add Address'])
+    @include('livewire.members.partials.member-tabs', ['member' => $member, 'activeTab' => 'information'])
 
-    <div class="flex-1 p-8 max-md:p-5 max-sm:p-3">
+    <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
         <form wire:submit="save" class="max-w-2xl space-y-8">
             <x-signals.form-section title="Address Details">
                 <div class="space-y-4">
@@ -149,7 +140,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
             <div class="flex items-center gap-4">
                 <flux:button variant="primary" type="submit">{{ $isEditing ? 'Save Changes' : 'Add Address' }}</flux:button>
-                <flux:button variant="ghost" href="{{ route('members.addresses', $member) }}" wire:navigate>Cancel</flux:button>
+                <flux:button variant="ghost" href="{{ route('members.show', $member) }}" wire:navigate>Cancel</flux:button>
             </div>
         </form>
     </div>

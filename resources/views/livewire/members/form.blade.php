@@ -72,8 +72,11 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function with(): array
     {
+        $isEditing = $this->memberId !== null;
+
         return [
-            'isEditing' => $this->memberId !== null,
+            'isEditing' => $isEditing,
+            'member' => $isEditing ? Member::find($this->memberId)?->loadCount(['addresses', 'emails', 'phones', 'links', 'organisations', 'contacts']) : null,
             'membershipTypes' => MembershipType::cases(),
             'taxClasses' => OrganisationTaxClass::query()->orderBy('name')->get(),
         ];
@@ -81,15 +84,20 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-signals.page-header :title="$isEditing ? 'Edit Member' : 'Create Member'">
-        <x-slot:breadcrumbs>
-            <a href="{{ route('members.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Members</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <span>{{ $isEditing ? 'Edit' : 'Create' }}</span>
-        </x-slot:breadcrumbs>
-    </x-signals.page-header>
+    @if($isEditing && $member)
+        @include('livewire.members.partials.member-header', ['member' => $member, 'subpage' => 'Edit'])
+        @include('livewire.members.partials.member-tabs', ['member' => $member, 'activeTab' => ''])
+    @else
+        <x-signals.page-header title="Create Member">
+            <x-slot:breadcrumbs>
+                <a href="{{ route('members.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Members</a>
+                <span class="mx-1 text-[var(--text-muted)]">/</span>
+                <span>Create</span>
+            </x-slot:breadcrumbs>
+        </x-signals.page-header>
+    @endif
 
-    <div class="flex-1 p-8 max-md:p-5 max-sm:p-3">
+    <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
         <form wire:submit="save" class="max-w-2xl space-y-8">
             <x-signals.form-section title="Basic Info">
                 <div class="space-y-4">

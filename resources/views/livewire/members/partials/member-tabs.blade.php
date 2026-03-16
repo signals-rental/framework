@@ -1,12 +1,12 @@
 <x-signals.module-tabs
     :tabs="[
         ['name' => 'overview', 'label' => 'Overview', 'route' => route('members.show', $member)],
-        ['name' => 'addresses', 'label' => 'Addresses', 'route' => route('members.addresses', $member), 'count' => $member->addresses_count ?? $member->addresses->count()],
-        ['name' => 'emails', 'label' => 'Emails', 'route' => route('members.emails', $member), 'count' => $member->emails_count ?? $member->emails->count()],
-        ['name' => 'phones', 'label' => 'Phones', 'route' => route('members.phones', $member), 'count' => $member->phones_count ?? $member->phones->count()],
-        ['name' => 'links', 'label' => 'Links', 'route' => route('members.links', $member), 'count' => $member->links_count ?? $member->links->count()],
-        ['name' => 'custom-fields', 'label' => 'Custom Fields', 'route' => route('members.custom-fields', $member)],
-        ['name' => 'relationships', 'label' => 'Relationships', 'route' => route('members.relationships', $member)],
+        ['name' => 'information', 'label' => 'Information', 'route' => route('members.information', $member)],
+        ['name' => 'contacts', 'label' => 'Contacts', 'route' => route('members.contacts', $member), 'count' => $member->contacts_count ?? $member->organisations_count ?? 0],
+        ['name' => 'activities', 'label' => 'Activities', 'route' => route('members.activities', $member), 'count' => 0],
+        ['name' => 'opportunities', 'label' => 'Opportunities', 'route' => route('members.opportunities', $member), 'count' => 0],
+        ['name' => 'movements', 'label' => 'Movements', 'route' => route('members.movements', $member), 'count' => 0],
+        ['name' => 'invoices', 'label' => 'Invoices', 'route' => route('members.invoices', $member), 'count' => 0],
     ]"
     :active="$activeTab"
 />
