@@ -202,10 +202,10 @@ class RansackFilter
         string $moduleType,
     ): void {
         $customField = ctype_digit($fieldName)
-            ? CustomField::query()->where('id', (int) $fieldName)->where('module_type', $moduleType)->first()
-            : CustomField::query()->where('name', $fieldName)->where('module_type', $moduleType)->first();
+            ? CustomField::query()->where('id', (int) $fieldName)->where('module_type', $moduleType)->active()->first()
+            : CustomField::query()->where('name', $fieldName)->where('module_type', $moduleType)->active()->first();
 
-        if ($customField === null) {
+        if ($customField === null || ! $customField->is_searchable) {
             return;
         }
 

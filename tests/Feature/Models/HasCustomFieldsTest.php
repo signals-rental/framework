@@ -88,8 +88,13 @@ it('gets custom fields as a flat array', function () {
         ->and($customFields['has_warehouse'])->toBeTrue();
 });
 
-it('returns empty array when no custom fields exist', function () {
-    expect($this->store->custom_fields)->toBe([]);
+it('returns all active fields as null when no values are set', function () {
+    $customFields = $this->store->custom_fields;
+
+    expect($customFields)->toBeArray()
+        ->and($customFields)->toHaveKeys(['region', 'has_warehouse'])
+        ->and($customFields['region'])->toBeNull()
+        ->and($customFields['has_warehouse'])->toBeNull();
 });
 
 it('skips custom field values with missing field definition', function () {

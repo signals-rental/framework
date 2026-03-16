@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\CustomFieldType;
-use App\Models\CustomField;
 use App\Models\CustomFieldValue;
 use App\Models\ListValue;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +18,10 @@ use Illuminate\Support\Collection;
  */
 class CustomFieldSerializer
 {
+    public function __construct(
+        private readonly CustomFieldDefinitionResolver $definitions,
+    ) {}
+
     /**
      * Convert EAV custom field values to a flat JSON-compatible array.
      * Handles ListOfValues (ID->name) and MultiListOfValues (IDs->names) resolution.
@@ -30,6 +33,14 @@ class CustomFieldSerializer
      */
     public function toArray(Model $entity): array
     {
+        $moduleType = $entity->customFieldModuleType(); // @phpstan-ignore method.notFound
+
+        // Start with all active fields for this module defaulting to null (CRMS compatibility)
+        $definitions = $this->definitions->resolve($moduleType);
+
+        /** @var array<string, null> $result */
+        $result = $definitions->pluck('name')->mapWithKeys(fn (string $name): array => [$name => null])->all();
+
         /** @var Collection<int, CustomFieldValue> $values */
         $values = $entity->relationLoaded('preloadedCustomFieldValues')
             ? $entity->getRelation('preloadedCustomFieldValues')
@@ -66,12 +77,10 @@ class CustomFieldSerializer
             ? ListValue::query()->whereIn('id', array_unique($listValueIds))->pluck('name', 'id')->all()
             : [];
 
-        // Second pass: build the result array
-        $result = [];
-
+        // Second pass: overlay stored values onto the result (only for active fields)
         foreach ($values as $cfv) {
             $field = $cfv->customField;
-            if (! $field) {
+            if (! $field || ! array_key_exists($field->name, $result)) {
                 continue;
             }
 
@@ -105,15 +114,22 @@ class CustomFieldSerializer
      * @param  TModel  $entity  A model using HasCustomFields trait
      * @param  array<string, mixed>  $fields
      */
-    public function fromArray(Model $entity, array $fields): void
+    public function fromArray(Model $entity, array $fields, bool $applyDefaults = false): void
     {
         $moduleType = $entity->customFieldModuleType(); // @phpstan-ignore method.notFound
 
-        $definitions = CustomField::query()
-            ->forModule($moduleType)
-            ->active()
-            ->get()
-            ->keyBy('name');
+        $definitions = $this->definitions->resolve($moduleType)->keyBy('name');
+
+        // Apply default values for fields not provided in input (used on entity creation)
+        if ($applyDefaults) {
+            foreach ($definitions as $name => $definition) {
+                if (! array_key_exists($name, $fields) && $definition->default_value !== null) {
+                    /** @var CustomFieldType $fieldType */
+                    $fieldType = $definition->field_type;
+                    $fields[$name] = $this->coerceDefaultValue($definition->default_value, $fieldType);
+                }
+            }
+        }
 
         foreach ($fields as $name => $value) {
             $field = $definitions->get($name);
@@ -182,8 +198,24 @@ class CustomFieldSerializer
 
         $grouped = $allValues->groupBy('entity_id');
 
+        // Pre-warm the definitions cache so toArray() doesn't query per-entity
+        $this->definitions->resolve($moduleType);
+
         foreach ($entities as $entity) {
             $entity->setRelation('preloadedCustomFieldValues', $grouped->get($entity->getKey(), new \Illuminate\Database\Eloquent\Collection));
         }
+    }
+
+    /**
+     * Coerce a string default_value to the appropriate PHP type for the field.
+     */
+    private function coerceDefaultValue(string $value, CustomFieldType $fieldType): mixed
+    {
+        return match ($fieldType) {
+            CustomFieldType::Boolean => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+            CustomFieldType::Number, CustomFieldType::Currency, CustomFieldType::Percentage => is_numeric($value) ? (float) $value : $value,
+            CustomFieldType::ListOfValues => is_numeric($value) ? (int) $value : $value,
+            default => $value,
+        };
     }
 }

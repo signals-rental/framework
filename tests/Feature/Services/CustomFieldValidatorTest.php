@@ -405,3 +405,79 @@ it('throws ValidationException for invalid data', function () {
 
     $this->validator->validate('Opportunity', ['billing_email' => 'not-an-email']);
 })->throws(ValidationException::class);
+
+it('enforceRequired rejects missing required fields', function () {
+    CustomField::factory()->string()->required()->forModule('Opportunity')->create([
+        'name' => 'mandatory_ref',
+    ]);
+
+    $this->validator->validate('Opportunity', [], enforceRequired: true);
+})->throws(ValidationException::class);
+
+it('enforceRequired allows missing optional fields', function () {
+    CustomField::factory()->string()->forModule('Opportunity')->create([
+        'name' => 'optional_ref',
+        'is_required' => false,
+    ]);
+
+    $result = $this->validator->validate('Opportunity', [], enforceRequired: true);
+
+    expect($result)->toBe([]);
+});
+
+it('enforceRequired includes rules for missing required fields in rules()', function () {
+    CustomField::factory()->string()->required()->forModule('Opportunity')->create([
+        'name' => 'mandatory_ref',
+    ]);
+    CustomField::factory()->string()->forModule('Opportunity')->create([
+        'name' => 'optional_ref',
+        'is_required' => false,
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', [], enforceRequired: true);
+
+    expect($rules)->toHaveKey('mandatory_ref')
+        ->and($rules)->not->toHaveKey('optional_ref')
+        ->and($rules['mandatory_ref'][0])->toBe('required');
+});
+
+it('without enforceRequired does not include rules for absent fields', function () {
+    CustomField::factory()->string()->required()->forModule('Opportunity')->create([
+        'name' => 'mandatory_ref',
+    ]);
+
+    $rules = $this->validator->rules('Opportunity', []);
+
+    expect($rules)->not->toHaveKey('mandatory_ref');
+});
+
+it('rejects unknown custom field names in validate', function () {
+    CustomField::factory()->string()->forModule('Opportunity')->create([
+        'name' => 'known_field',
+    ]);
+
+    $this->validator->validate('Opportunity', [
+        'known_field' => 'valid',
+        'typo_field' => 'oops',
+    ]);
+})->throws(ValidationException::class);
+
+it('rejects unknown fields with descriptive error message', function () {
+    CustomField::factory()->string()->forModule('Opportunity')->create([
+        'name' => 'known_field',
+    ]);
+
+    try {
+        $this->validator->validate('Opportunity', [
+            'known_field' => 'valid',
+            'misspelled' => 'oops',
+        ]);
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('misspelled')
+            ->and($e->errors()['misspelled'][0])->toContain('misspelled');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException was not thrown');
+});

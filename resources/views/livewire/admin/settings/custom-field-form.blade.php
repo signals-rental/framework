@@ -70,7 +70,7 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field')] class extends C
                 'sort_order' => $this->sortOrder,
                 'is_required' => $this->isRequired,
                 'is_searchable' => $this->isSearchable,
-                'default_value' => $this->defaultValue ?: null,
+                'default_value' => $this->defaultValue !== '' ? $this->defaultValue : null,
                 'is_active' => $this->isActive,
             ]));
         } else {
@@ -85,7 +85,7 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field')] class extends C
                 'sort_order' => $this->sortOrder,
                 'is_required' => $this->isRequired,
                 'is_searchable' => $this->isSearchable,
-                'default_value' => $this->defaultValue ?: null,
+                'default_value' => $this->defaultValue !== '' ? $this->defaultValue : null,
                 'is_active' => $this->isActive,
             ]));
         }

@@ -203,9 +203,108 @@ it('eagerLoad sets empty collection for entities without custom field values', f
     expect($store2Entity->relationLoaded('preloadedCustomFieldValues'))->toBeTrue();
 
     $result2 = $this->serializer->toArray($store2Entity);
-    expect($result2)->toBe([]);
+    expect($result2)->toHaveKeys(['region', 'has_warehouse'])
+        ->and($result2['region'])->toBeNull()
+        ->and($result2['has_warehouse'])->toBeNull();
 
     // store1 should still have its values
     $result1 = $this->serializer->toArray($entities->firstWhere('id', $store1->id));
     expect($result1['region'])->toBe('North');
+});
+
+it('fromArray applies default values when applyDefaults is true', function () {
+    $this->textField->update(['default_value' => 'Default Region']);
+    $this->boolField->update(['default_value' => '1']);
+
+    $store = Store::factory()->create();
+
+    // Only provide has_warehouse, leave region to default
+    $this->serializer->fromArray($store, ['has_warehouse' => false], applyDefaults: true);
+
+    $result = $this->serializer->toArray($store->fresh());
+
+    expect($result['region'])->toBe('Default Region')
+        ->and($result['has_warehouse'])->toBeFalse();
+});
+
+it('fromArray does not apply defaults when applyDefaults is false', function () {
+    $this->textField->update(['default_value' => 'Default Region']);
+
+    $store = Store::factory()->create();
+
+    $this->serializer->fromArray($store, ['has_warehouse' => true], applyDefaults: false);
+
+    $result = $this->serializer->toArray($store->fresh());
+
+    expect($result['region'])->toBeNull()
+        ->and($result['has_warehouse'])->toBeTrue();
+});
+
+it('fromArray does not override provided values with defaults', function () {
+    $this->textField->update(['default_value' => 'Default Region']);
+
+    $store = Store::factory()->create();
+
+    $this->serializer->fromArray($store, ['region' => 'Custom Region'], applyDefaults: true);
+
+    $result = $this->serializer->toArray($store->fresh());
+
+    expect($result['region'])->toBe('Custom Region');
+});
+
+it('fromArray skips defaults for fields with null default_value', function () {
+    // default_value is null by default from factory
+    $store = Store::factory()->create();
+
+    $this->serializer->fromArray($store, [], applyDefaults: true);
+
+    expect(CustomFieldValue::query()->count())->toBe(0);
+});
+
+it('toArray returns fields ordered by sort_order', function () {
+    // Update sort_order so has_warehouse comes first
+    $this->boolField->update(['sort_order' => 1]);
+    $this->textField->update(['sort_order' => 2]);
+
+    $store = Store::factory()->create();
+    $this->serializer->fromArray($store, ['region' => 'North', 'has_warehouse' => true]);
+
+    $result = $this->serializer->toArray($store->fresh());
+    $keys = array_keys($result);
+
+    expect($keys[0])->toBe('has_warehouse')
+        ->and($keys[1])->toBe('region');
+});
+
+it('toArray excludes deactivated fields even if values exist', function () {
+    $store = Store::factory()->create();
+    $this->serializer->fromArray($store, ['region' => 'North', 'has_warehouse' => true]);
+
+    // Deactivate the region field after values are stored
+    $this->textField->update(['is_active' => false]);
+
+    // Fresh resolver + serializer so the definitions cache doesn't include the deactivated field
+    $resolver = new \App\Services\CustomFieldDefinitionResolver;
+    $freshSerializer = new CustomFieldSerializer($resolver);
+    $result = $freshSerializer->toArray($store->fresh());
+
+    expect($result)->not->toHaveKey('region')
+        ->and($result)->toHaveKey('has_warehouse')
+        ->and($result['has_warehouse'])->toBeTrue();
+});
+
+it('fromArray applies falsy default value like zero', function () {
+    $this->textField->update(['field_type' => \App\Enums\CustomFieldType::Number, 'default_value' => '0']);
+
+    $store = Store::factory()->create();
+    $this->serializer->fromArray($store, [], applyDefaults: true);
+
+    $cfv = CustomFieldValue::query()
+        ->where('custom_field_id', $this->textField->id)
+        ->where('entity_type', Store::class)
+        ->where('entity_id', $store->id)
+        ->first();
+
+    expect($cfv)->not->toBeNull()
+        ->and((float) $cfv->value_decimal)->toBe(0.0);
 });

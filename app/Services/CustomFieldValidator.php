@@ -10,26 +10,28 @@ use Illuminate\Validation\ValidationException;
 
 class CustomFieldValidator
 {
+    public function __construct(
+        private readonly CustomFieldDefinitionResolver $definitions,
+    ) {}
+
     /**
      * Build validation rules for custom field input on a given module type.
+     *
+     * When $enforceRequired is true, required fields missing from input will be
+     * included in the rules so that validation correctly rejects incomplete input.
      *
      * @param  array<string, mixed>  $customFieldInput
      * @return array<string, array<int, mixed>>
      */
-    public function rules(string $moduleType, array $customFieldInput): array
+    public function rules(string $moduleType, array $customFieldInput, bool $enforceRequired = false): array
     {
-        $definitions = CustomField::query()
-            ->forModule($moduleType)
-            ->active()
-            ->get()
-            ->keyBy('name');
+        $definitions = $this->definitions->resolve($moduleType)->keyBy('name');
 
         $rules = [];
 
-        foreach ($customFieldInput as $fieldName => $value) {
-            $field = $definitions->get($fieldName);
-
-            if (! $field) {
+        foreach ($definitions as $fieldName => $field) {
+            // Always validate fields present in input; also validate required fields even if absent
+            if (! array_key_exists($fieldName, $customFieldInput) && ! ($enforceRequired && $field->is_required)) {
                 continue;
             }
 
@@ -46,16 +48,35 @@ class CustomFieldValidator
     /**
      * Validate custom field input, returning validated data.
      *
+     * When $enforceRequired is true (e.g. on entity creation), required fields
+     * that are missing from input will trigger validation errors.
+     *
+     * Unknown field names not matching any active definition will be rejected.
+     *
      * @param  array<string, mixed>  $customFieldInput
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public function validate(string $moduleType, array $customFieldInput): array
+    public function validate(string $moduleType, array $customFieldInput, bool $enforceRequired = false): array
     {
-        $rules = $this->rules($moduleType, $customFieldInput);
+        $definitions = $this->definitions->resolve($moduleType)->keyBy('name');
 
-        // Filter input to only known fields that have rules
+        // Reject unknown field names not matching any active definition
+        $unknownFields = array_diff_key($customFieldInput, $definitions->all());
+
+        if ($unknownFields !== []) {
+            $errors = [];
+            foreach (array_keys($unknownFields) as $fieldName) {
+                $errors[$fieldName] = ["The custom field '{$fieldName}' does not exist for this module."];
+            }
+
+            throw ValidationException::withMessages($errors);
+        }
+
+        $rules = $this->rules($moduleType, $customFieldInput, $enforceRequired);
+
+        // Filter input to only known fields that have rules, keeping absent required fields as missing
         $filteredInput = array_intersect_key($customFieldInput, $rules);
 
         $validator = Validator::make($filteredInput, $rules);

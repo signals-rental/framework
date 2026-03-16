@@ -8,11 +8,10 @@ use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\Store;
 use App\Services\CustomFieldCopier;
-use App\Services\CustomFieldValidator;
 
 describe('CustomFieldCopier', function () {
     beforeEach(function () {
-        $this->copier = new CustomFieldCopier(new CustomFieldValidator);
+        $this->copier = app(CustomFieldCopier::class);
 
         $this->sourceMember = Member::factory()->create();
         $this->targetStore = Store::factory()->create();

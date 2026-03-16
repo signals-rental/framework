@@ -126,3 +126,96 @@ it('uses correct value column for different field types', function () {
     expect($sql)->toContain('exists')
         ->toContain('value_boolean');
 });
+
+it('ignores non-searchable custom fields', function () {
+    CustomField::create([
+        'name' => 'internal_notes',
+        'module_type' => 'App\\Models\\Member',
+        'field_type' => CustomFieldType::String,
+        'custom_field_group_id' => $this->group->id,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_searchable' => false,
+    ]);
+
+    $baseSql = Member::query()->toRawSql();
+
+    $query = $this->filter->apply(
+        Member::query(),
+        ['cf.internal_notes_eq' => 'secret'],
+        [],
+        customFieldModule: 'App\\Models\\Member',
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
+});
+
+it('ignores inactive custom fields when filtering by name', function () {
+    CustomField::create([
+        'name' => 'retired_field',
+        'module_type' => 'App\\Models\\Member',
+        'field_type' => CustomFieldType::String,
+        'custom_field_group_id' => $this->group->id,
+        'sort_order' => 0,
+        'is_active' => false,
+        'is_searchable' => true,
+    ]);
+
+    $baseSql = Member::query()->toRawSql();
+
+    $query = $this->filter->apply(
+        Member::query(),
+        ['cf.retired_field_eq' => 'value'],
+        [],
+        customFieldModule: 'App\\Models\\Member',
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
+});
+
+it('ignores inactive custom fields when filtering by ID', function () {
+    $cf = CustomField::create([
+        'name' => 'retired_field',
+        'module_type' => 'App\\Models\\Member',
+        'field_type' => CustomFieldType::String,
+        'custom_field_group_id' => $this->group->id,
+        'sort_order' => 0,
+        'is_active' => false,
+        'is_searchable' => true,
+    ]);
+
+    $baseSql = Member::query()->toRawSql();
+
+    $query = $this->filter->apply(
+        Member::query(),
+        ["cf.{$cf->id}_eq" => 'value'],
+        [],
+        customFieldModule: 'App\\Models\\Member',
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
+});
+
+it('allows searchable active custom fields', function () {
+    CustomField::create([
+        'name' => 'searchable_field',
+        'module_type' => 'App\\Models\\Member',
+        'field_type' => CustomFieldType::String,
+        'custom_field_group_id' => $this->group->id,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_searchable' => true,
+    ]);
+
+    $baseSql = Member::query()->toRawSql();
+
+    $query = $this->filter->apply(
+        Member::query(),
+        ['cf.searchable_field_eq' => 'value'],
+        [],
+        customFieldModule: 'App\\Models\\Member',
+    );
+
+    expect($query->toRawSql())->not->toBe($baseSql)
+        ->and($query->toRawSql())->toContain('exists');
+});

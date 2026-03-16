@@ -41,6 +41,11 @@ it('creates a member', function () {
 it('creates a member with custom fields', function () {
     Event::fake([AuditableEvent::class]);
 
+    \App\Models\CustomField::factory()->string()->create([
+        'name' => 'po_reference',
+        'module_type' => 'Member',
+    ]);
+
     $data = CreateMemberData::from([
         'name' => 'Custom Corp',
         'membership_type' => MembershipType::Organisation->value,
@@ -50,6 +55,14 @@ it('creates a member with custom fields', function () {
     $result = (new CreateMember)($data);
 
     expect($result->name)->toBe('Custom Corp');
+
+    $cfv = \App\Models\CustomFieldValue::query()
+        ->where('entity_type', Member::class)
+        ->where('entity_id', $result->id)
+        ->first();
+
+    expect($cfv)->not->toBeNull()
+        ->and($cfv->value_string)->toBe('PO-123');
 });
 
 it('rejects unauthorized member creation', function () {
@@ -143,3 +156,91 @@ it('rejects unauthorized member deletion', function () {
 
     (new DeleteMember)($member);
 })->throws(AuthorizationException::class);
+
+it('rejects creation when required custom field is missing', function () {
+    \App\Models\CustomField::factory()->string()->required()->create([
+        'name' => 'mandatory_ref',
+        'module_type' => 'Member',
+    ]);
+
+    $data = CreateMemberData::from([
+        'name' => 'Missing Required CF',
+        'membership_type' => MembershipType::Organisation->value,
+        'custom_fields' => [],
+    ]);
+
+    (new CreateMember)($data);
+})->throws(\Illuminate\Validation\ValidationException::class);
+
+it('does not persist member when required custom field validation fails', function () {
+    \App\Models\CustomField::factory()->string()->required()->create([
+        'name' => 'mandatory_ref',
+        'module_type' => 'Member',
+    ]);
+
+    $data = CreateMemberData::from([
+        'name' => 'Orphan Test',
+        'membership_type' => MembershipType::Organisation->value,
+        'custom_fields' => [],
+    ]);
+
+    try {
+        (new CreateMember)($data);
+    } catch (\Illuminate\Validation\ValidationException) {
+        // expected
+    }
+
+    expect(Member::where('name', 'Orphan Test')->exists())->toBeFalse();
+});
+
+it('applies default values when creating a member', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $field = \App\Models\CustomField::factory()->string()->create([
+        'name' => 'region',
+        'module_type' => 'Member',
+        'default_value' => 'Default Region',
+    ]);
+
+    $data = CreateMemberData::from([
+        'name' => 'Defaults Corp',
+        'membership_type' => MembershipType::Organisation->value,
+        'custom_fields' => [],
+    ]);
+
+    $result = (new CreateMember)($data);
+
+    $member = Member::find($result->id);
+    $cfv = \App\Models\CustomFieldValue::query()
+        ->where('custom_field_id', $field->id)
+        ->where('entity_type', Member::class)
+        ->where('entity_id', $member->id)
+        ->first();
+
+    expect($cfv)->not->toBeNull()
+        ->and($cfv->value_string)->toBe('Default Region');
+});
+
+it('allows partial custom field updates without enforcing required', function () {
+    Event::fake([AuditableEvent::class]);
+
+    \App\Models\CustomField::factory()->string()->required()->create([
+        'name' => 'mandatory_ref',
+        'module_type' => 'Member',
+    ]);
+    \App\Models\CustomField::factory()->string()->create([
+        'name' => 'optional_note',
+        'module_type' => 'Member',
+    ]);
+
+    $member = Member::factory()->create();
+    $member->syncCustomFields(['mandatory_ref' => 'REF-001']);
+
+    $data = UpdateMemberData::from([
+        'custom_fields' => ['optional_note' => 'Updated note'],
+    ]);
+
+    $result = (new UpdateMember)($member, $data);
+
+    expect($result)->not->toBeNull();
+});

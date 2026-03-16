@@ -6,6 +6,7 @@ use App\Data\Members\CreateMemberData;
 use App\Data\Members\MemberData;
 use App\Events\AuditableEvent;
 use App\Models\Member;
+use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\Gate;
 
 class CreateMember
@@ -13,6 +14,8 @@ class CreateMember
     public function __invoke(CreateMemberData $data): MemberData
     {
         Gate::authorize('members.create');
+
+        app(CustomFieldValidator::class)->validate('Member', $data->custom_fields, enforceRequired: true);
 
         $member = Member::create([
             'name' => $data->name,
@@ -25,9 +28,7 @@ class CreateMember
             'tag_list' => $data->tag_list,
         ]);
 
-        if (! empty($data->custom_fields)) {
-            $member->syncCustomFields($data->custom_fields);
-        }
+        $member->syncCustomFields($data->custom_fields, applyDefaults: true);
 
         event(new AuditableEvent($member, 'member.created'));
 

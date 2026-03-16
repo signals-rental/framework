@@ -40,10 +40,11 @@ trait HasCustomFields
      * Sync custom field values from a flat key-value array.
      *
      * @param  array<string, mixed>  $fields
+     * @param  bool  $applyDefaults  Whether to apply default values for fields not in input
      */
-    public function syncCustomFields(array $fields): void
+    public function syncCustomFields(array $fields, bool $applyDefaults = false): void
     {
-        app(CustomFieldSerializer::class)->fromArray($this, $fields);
+        app(CustomFieldSerializer::class)->fromArray($this, $fields, $applyDefaults);
     }
 
     /**
