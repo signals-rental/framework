@@ -85,3 +85,11 @@
         </x-signals.split-button>
     </x-slot:actions>
 </x-signals.page-header>
+
+{{-- Keyboard shortcuts: e = edit, n = new dropdown --}}
+<div x-data x-on:keydown.window="
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    if ($event.metaKey || $event.ctrlKey || $event.altKey) return;
+    if ($event.key === 'e') { $event.preventDefault(); Livewire.navigate('{{ route('members.edit', $member) }}'); }
+    if ($event.key === 'n') { $event.preventDefault(); $dispatch('open-member-new-menu'); }
+" x-on:open-member-new-menu.window="document.querySelector('.s-btn-split .s-btn-split-trigger')?.click()"></div>

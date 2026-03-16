@@ -45,6 +45,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa'])->group(function () 
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 
+    // Search
+    Route::get('search', \App\Http\Controllers\Web\SearchController::class)->name('search');
+
     // Members
     Volt::route('members', 'members.index')->name('members.index');
     Volt::route('members/create', 'members.form')->name('members.create');

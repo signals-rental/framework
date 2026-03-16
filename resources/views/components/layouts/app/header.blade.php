@@ -100,13 +100,11 @@
             {{-- Header actions (right side) --}}
             <div class="header-actions">
                 {{-- Search --}}
-                <div class="docs-search hidden lg:block" style="width: 260px;">
-                    <div class="docs-search-input-wrap">
+                <div class="docs-search" style="width: 260px; margin-left: 0;" x-on:click="$dispatch('open-command-palette')">
+                    <div class="docs-search-input-wrap" style="cursor: pointer;">
                         <svg class="docs-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text"
-                               class="docs-search-input"
-                               placeholder="Search orders, members...">
-                        <span class="docs-search-kbd">&sol;</span>
+                        <input type="text" class="docs-search-input" placeholder="Search orders, members..." readonly style="cursor: pointer;">
+                        <span class="docs-search-kbd">/</span>
                     </div>
                 </div>
 
@@ -401,6 +399,8 @@
                 </button>
             </aside>
         </div>
+
+        <x-signals.command-palette x-on:open-command-palette.window="toggle()" />
 
         @fluxScripts
     </body>

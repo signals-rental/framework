@@ -1667,6 +1667,10 @@
 .s-command-item-label { font-family: var(--font-sans); font-size: 13px; color: var(--text-primary); flex: 1; }
 .s-command-item-hint { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
 .s-command-footer { display: flex; align-items: center; gap: 16px; padding: 8px 16px; border-top: 1px solid var(--card-border); font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+.s-command-close { display: flex; align-items: center; flex-shrink: 0; }
+.s-command-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; font-family: var(--font-sans); font-size: 13px; color: var(--text-muted); }
+.s-command-item { width: 100%; border: none; background: none; text-align: left; }
+.s-command-item-icon svg { width: 18px; height: 18px; }
 
 /* ================================================================ */
 /*  71. BREADCRUMB (Blade only — CSS in section 1)                   */
