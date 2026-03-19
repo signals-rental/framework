@@ -21,6 +21,9 @@ class MemberData extends Data
      * @param  list<array<string, mixed>>  $links
      * @param  list<array<string, mixed>>  $child_members
      * @param  list<array<string, mixed>>  $parent_members
+     * @param  array<string, mixed>|null  $icon
+     * @param  array<string, mixed>|null  $identity
+     * @param  list<array<string, mixed>>  $service_stock_levels
      */
     public function __construct(
         public int $id,

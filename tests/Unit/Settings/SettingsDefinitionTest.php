@@ -4,6 +4,7 @@ use App\Settings\ActionLogSettings;
 use App\Settings\ApiSettings;
 use App\Settings\EmailSettings;
 use App\Settings\GeneralPreferencesSettings;
+use App\Settings\IntegrationSettings;
 use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
 use App\Settings\SettingsDefinition;
@@ -242,6 +243,41 @@ describe('SchedulingSettings', function () {
             ->toHaveKey('collection_reminder_days', 'integer')
             ->toHaveKey('return_reminder_days', 'integer')
             ->toHaveKey('weekend_availability', 'boolean');
+    });
+});
+
+describe('IntegrationSettings', function () {
+    it('returns integrations as the group name', function () {
+        $definition = new IntegrationSettings;
+
+        expect($definition->group())->toBe('integrations');
+    });
+
+    it('provides defaults for all integration settings', function () {
+        $definition = new IntegrationSettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)
+            ->toHaveKey('what3words_api_key', '')
+            ->toHaveKey('google_maps_api_key', '');
+    });
+
+    it('provides validation rules for all settings', function () {
+        $definition = new IntegrationSettings;
+        $rules = $definition->rules();
+
+        expect($rules)
+            ->toHaveKey('what3words_api_key')
+            ->toHaveKey('google_maps_api_key');
+    });
+
+    it('declares encrypted types for api key fields', function () {
+        $definition = new IntegrationSettings;
+        $types = $definition->types();
+
+        expect($types)
+            ->toHaveKey('what3words_api_key', 'encrypted')
+            ->toHaveKey('google_maps_api_key', 'encrypted');
     });
 });
 

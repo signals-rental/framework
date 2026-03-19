@@ -50,11 +50,11 @@ it('can filter by membership type', function () {
         ->assertDontSee('Acme Org');
 });
 
-it('can delete a member', function () {
-    $member = Member::factory()->create(['name' => 'To Delete']);
+it('can archive a member', function () {
+    $member = Member::factory()->create(['name' => 'To Archive']);
 
     Volt::test('members.index')
-        ->call('deleteMember', $member->id);
+        ->call('archiveMember', $member->id);
 
     expect(Member::withTrashed()->find($member->id)->trashed())->toBeTrue();
 });
@@ -71,11 +71,11 @@ it('links to member show page', function () {
         ->assertSeeHtml("/members/{$member->id}");
 });
 
-it('can bulk delete selected members', function () {
+it('can bulk archive selected members', function () {
     $members = Member::factory()->count(3)->create();
 
     Volt::test('members.index')
-        ->call('deleteSelected', $members->pluck('id')->all());
+        ->call('archiveSelected', $members->pluck('id')->all());
 
     foreach ($members as $member) {
         expect(Member::withTrashed()->find($member->id)->trashed())->toBeTrue();
@@ -88,27 +88,27 @@ it('requires authentication', function () {
         ->assertRedirect();
 });
 
-it('prevents non-owner from deleting a member', function () {
+it('prevents non-owner from archiving a member', function () {
     $regularUser = User::factory()->create();
     $member = Member::factory()->create();
 
     $this->actingAs($regularUser);
 
     Volt::test('members.index')
-        ->call('deleteMember', $member->id)
+        ->call('archiveMember', $member->id)
         ->assertForbidden();
 
     expect(Member::find($member->id))->not->toBeNull();
 });
 
-it('prevents non-owner from bulk deleting members', function () {
+it('prevents non-owner from bulk archiving members', function () {
     $regularUser = User::factory()->create();
     $members = Member::factory()->count(2)->create();
 
     $this->actingAs($regularUser);
 
     Volt::test('members.index')
-        ->call('deleteSelected', $members->pluck('id')->all())
+        ->call('archiveSelected', $members->pluck('id')->all())
         ->assertForbidden();
 
     foreach ($members as $member) {

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotificationPreference extends Model
 {
+    /** @use HasFactory<\Database\Factories\NotificationPreferenceFactory> */
     use HasFactory;
 
     protected $fillable = [

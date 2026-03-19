@@ -2,6 +2,23 @@
 
 /*
 |--------------------------------------------------------------------------
+| .env Crash Recovery
+|--------------------------------------------------------------------------
+|
+| If a previous test run was interrupted (Ctrl+C, crash) while env-writing
+| tests were active, the .env file may have been left in a modified state.
+| Restore it from the backup created by the env-writing test group.
+|
+*/
+
+$envBackup = dirname(__DIR__).'/.env.test-backup';
+if (file_exists($envBackup)) {
+    file_put_contents(dirname(__DIR__).'/.env', file_get_contents($envBackup));
+    unlink($envBackup);
+}
+
+/*
+|--------------------------------------------------------------------------
 | Test Case
 |--------------------------------------------------------------------------
 |
@@ -41,7 +58,7 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function something(): void
 {
     // ..
 }

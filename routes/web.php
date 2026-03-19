@@ -75,6 +75,7 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa'])->group(function () 
     Volt::route('members/{member}/information', 'members.information')->name('members.information');
     Volt::route('members/{member}/member-contacts', 'members.member-contacts')->name('members.contacts');
     Volt::route('members/{member}/activities', 'members.activities')->name('members.activities');
+    Volt::route('members/{member}/files', 'members.files')->name('members.files');
 });
 
 /*
@@ -124,6 +125,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(fun
     Volt::route('admin/settings/email-templates/{template}/edit', 'admin.settings.email-template-form')->name('admin.settings.email-templates.edit');
     Volt::route('admin/settings/notifications', 'admin.settings.notifications')->name('admin.settings.notifications');
     Volt::route('admin/settings/scheduling', 'admin.settings.scheduling')->name('admin.settings.scheduling');
+
+    // Integrations
+    Volt::route('admin/settings/integrations', 'admin.settings.integrations')->name('admin.settings.integrations');
 
     // System
     Volt::route('admin/settings/action-log', 'admin.settings.action-log')->name('admin.settings.action-log');

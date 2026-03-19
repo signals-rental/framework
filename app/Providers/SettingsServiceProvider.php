@@ -9,6 +9,7 @@ use App\Settings\ApiSettings;
 use App\Settings\CompanySettings;
 use App\Settings\EmailSettings;
 use App\Settings\GeneralPreferencesSettings;
+use App\Settings\IntegrationSettings;
 use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
 use Illuminate\Support\ServiceProvider;
@@ -27,6 +28,7 @@ class SettingsServiceProvider extends ServiceProvider
             $registry->register(new CompanySettings);
             $registry->register(new EmailSettings);
             $registry->register(new GeneralPreferencesSettings);
+            $registry->register(new IntegrationSettings);
             $registry->register(new SchedulingSettings);
             $registry->register(new SecuritySettings);
 

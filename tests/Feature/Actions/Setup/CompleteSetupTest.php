@@ -17,15 +17,27 @@ use Illuminate\Support\Env;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-afterEach(function () {
-    // Restore SIGNALS_SETUP_COMPLETE to false after tests that call CompleteSetup
-    Env::writeVariables(
-        ['SIGNALS_SETUP_COMPLETE' => 'false'],
-        app()->basePath('.env'),
-        overwrite: true,
-    );
+beforeEach(function () {
+    // Crash-safe backup of .env before any env-writing test
+    $envPath = app()->basePath('.env');
+    if (file_exists($envPath)) {
+        file_put_contents(app()->basePath('.env.test-backup'), file_get_contents($envPath));
+    }
 });
 
+afterEach(function () {
+    // Restore SIGNALS_SETUP_COMPLETE to its original value
+    $backupPath = app()->basePath('.env.test-backup');
+    $envPath = app()->basePath('.env');
+    if (file_exists($backupPath)) {
+        file_put_contents($envPath, file_get_contents($backupPath));
+        unlink($backupPath);
+    }
+});
+
+/**
+ * @param  array<string, mixed>  $overrides
+ */
 function makeSetupData(array $overrides = []): CompleteSetupData
 {
     return new CompleteSetupData(

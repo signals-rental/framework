@@ -22,6 +22,7 @@ class PhoneFactory extends Factory
             'phoneable_type' => Member::class,
             'phoneable_id' => Member::factory(),
             'number' => fake()->phoneNumber(),
+            'country_code' => fake()->countryCode(),
             'is_primary' => false,
         ];
     }

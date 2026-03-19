@@ -4,18 +4,23 @@ includes:
     - vendor/phpstan/phpstan-mockery/extension.neon
 
 parameters:
-    level: 5
+    level: 6
     paths:
         - app/
         - database/
         - tests/
     tmpDir: storage/phpstan
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
         -
             message: '#Trait .+ is used zero times and is not analysed#'
             paths:
                 - app/Models/Traits/HasCostVisibility.php
                 - app/Models/Traits/HasStoreScoping.php
+        -
+            identifier: argument.templateType
+            message: '#Unable to resolve the template type TComponent in call to method Livewire\\LivewireManager::test\(\)#'
+            path: tests/
     scanDirectories:
         - tests/
     universalObjectCratesClasses:

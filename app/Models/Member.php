@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Enums\MembershipType;
+use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Member extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\MemberFactory> */
-    use HasCustomFields, HasFactory, SoftDeletes;
+    use HasAttachments, HasCustomFields, HasFactory, SoftDeletes;
 
     /** @var list<string> */
     protected $fillable = [
@@ -250,6 +251,28 @@ class Member extends Model implements HasSchema
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope to archived (soft-deleted) members only.
+     *
+     * @param  Builder<Member>  $query
+     * @return Builder<Member>
+     */
+    public function scopeArchived(Builder $query): Builder
+    {
+        return $query->onlyTrashed();
+    }
+
+    /**
+     * Scope to include archived (soft-deleted) members.
+     *
+     * @param  Builder<Member>  $query
+     * @return Builder<Member>
+     */
+    public function scopeWithArchived(Builder $query): Builder
+    {
+        return $query->withTrashed();
     }
 
     /**

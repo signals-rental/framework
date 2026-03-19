@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ActionLog extends Model
 {
+    /** @use HasFactory<\Database\Factories\ActionLogFactory> */
     use HasFactory;
 
     public const UPDATED_AT = null;

@@ -12,6 +12,9 @@ beforeEach(function () {
     actingAs(User::factory()->create());
 });
 
+/**
+ * @return array<int, array<string, mixed>>
+ */
 function memberColumns(): array
 {
     return [

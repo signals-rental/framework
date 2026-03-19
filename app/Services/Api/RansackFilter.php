@@ -4,6 +4,7 @@ namespace App\Services\Api;
 
 use App\Models\CustomField;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class RansackFilter
 {
@@ -44,11 +45,13 @@ class RansackFilter
      * Filter keys are parsed as `{field}_{predicate}`. Filters on fields
      * not present in `$allowedFields` are silently ignored for security.
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @param  array<string, mixed>  $filters  Keyed by `field_predicate`
      * @param  list<string>  $allowedFields  Whitelist of filterable fields
      * @param  list<string>  $allowedRelationFilters  Whitelist of filterable relations (e.g. `['addresses', 'phones']`)
-     * @return Builder<\Illuminate\Database\Eloquent\Model>
+     * @return Builder<TModel>
      */
     public function apply(
         Builder $query,
@@ -105,9 +108,11 @@ class RansackFilter
      * Accepts `field` for ascending or `-field` for descending order.
      * Sort on fields not in `$allowedFields` is silently ignored.
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @param  list<string>  $allowedFields  Whitelist of sortable fields
-     * @return Builder<\Illuminate\Database\Eloquent\Model>
+     * @return Builder<TModel>
      */
     public function applySort(Builder $query, string $sort, array $allowedFields): Builder
     {
@@ -159,7 +164,7 @@ class RansackFilter
     /**
      * Apply a single predicate condition to the query builder.
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder<Model>  $query
      */
     private function applyPredicate(Builder $query, string $field, string $predicate, mixed $value): void
     {
@@ -192,7 +197,7 @@ class RansackFilter
      *
      * Supports filtering by field name or numeric field ID (CRMS compatibility).
      *
-     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder<Model>  $query
      */
     private function applyCustomFieldFilter(
         Builder $query,

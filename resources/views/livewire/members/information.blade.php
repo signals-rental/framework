@@ -78,11 +78,18 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         $groupedFields = $customFields->groupBy(fn ($field) => $field->group?->name ?? 'General');
 
+        $phones = $this->member->phones->sortByDesc('is_primary');
+        $countryCodes = $phones->pluck('country_code')->filter()->unique()->values()->all();
+        $countryPrefixes = $countryCodes
+            ? \App\Models\Country::whereIn('code', $countryCodes)->pluck('phone_prefix', 'code')->all()
+            : [];
+
         return [
             'addresses' => $this->member->addresses->sortByDesc('is_primary'),
             'emails' => $this->member->emails->sortByDesc('is_primary'),
-            'phones' => $this->member->phones->sortByDesc('is_primary'),
+            'phones' => $phones,
             'links' => $this->member->links->sortBy('name'),
+            'countryPrefixes' => $countryPrefixes,
             'groupedFields' => $groupedFields,
             'customFieldValues' => $customFieldValues,
         ];
@@ -163,8 +170,16 @@ new #[Layout('components.layouts.app')] class extends Component {
                 @forelse($phones as $phone)
                     <div wire:key="phone-{{ $phone->id }}" class="flex items-center justify-between py-1.5 border-b border-[var(--card-border)] last:border-0">
                         <div class="min-w-0">
-                            <span class="text-sm">{{ $phone->number }}</span>
+                            <span class="text-sm">
+                                @if($phone->country_code)
+                                    <span x-data x-text="[...'{{ strtoupper($phone->country_code) }}'.split('')].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('')" class="mr-0.5"></span>
+                                @endif
+                                {{ $phone->number }}
+                            </span>
                             <div class="flex items-center gap-1 mt-1">
+                                @if($phone->country_code && isset($countryPrefixes[$phone->country_code]))
+                                    <span class="text-xs text-[var(--text-muted)]" style="font-family: var(--font-mono);">{{ $countryPrefixes[$phone->country_code] }}</span>
+                                @endif
                                 @if($phone->type)<span class="s-badge s-badge-blue">{{ $phone->type->name }}</span>@endif
                                 @if($phone->is_primary)<span class="s-badge s-badge-green">Primary</span>@endif
                             </div>

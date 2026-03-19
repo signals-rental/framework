@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EmailTemplate extends Model
 {
+    /** @use HasFactory<\Database\Factories\EmailTemplateFactory> */
     use HasFactory;
 
     protected $fillable = [

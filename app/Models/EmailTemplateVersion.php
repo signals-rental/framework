@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EmailTemplateVersion extends Model
 {
+    /** @use HasFactory<\Database\Factories\EmailTemplateVersionFactory> */
     use HasFactory;
 
     public const UPDATED_AT = null;

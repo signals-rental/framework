@@ -1,4 +1,31 @@
+@php
+    $headerIconSrc = null;
+    $headerIconFullSrc = null;
+    if ($member->icon_thumb_url) {
+        try {
+            $headerIconSrc = app(\App\Services\FileService::class)->signedUrl($member->icon_thumb_url);
+        } catch (\Throwable) {}
+    }
+    if ($member->icon_url) {
+        try {
+            $headerIconFullSrc = app(\App\Services\FileService::class)->signedUrl($member->icon_url);
+        } catch (\Throwable) {}
+    }
+    $headerWords = preg_split('/\s+/', trim($member->name));
+    $headerInitials = mb_strtoupper(mb_substr($headerWords[0] ?? '', 0, 1) . mb_substr($headerWords[1] ?? '', 0, 1));
+@endphp
 <x-signals.page-header :title="$member->name">
+    <x-slot:icon>
+        <div class="flex size-11 items-center justify-center overflow-hidden rounded-lg border border-[var(--card-border)] bg-white shadow-sm">
+            @if($headerIconSrc)
+                <a href="{{ $headerIconFullSrc ?? $headerIconSrc }}" target="_blank" class="block">
+                    <img src="{{ $headerIconSrc }}" alt="{{ $member->name }}" class="size-full object-cover" />
+                </a>
+            @else
+                <span class="text-sm font-bold text-[var(--text-muted)]" style="font-family: var(--font-display);">{{ $headerInitials }}</span>
+            @endif
+        </div>
+    </x-slot:icon>
     <x-slot:breadcrumbs>
         <a href="{{ route('members.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Members</a>
         <span class="mx-1 text-[var(--text-muted)]">/</span>
@@ -34,6 +61,9 @@
         @else
             <span class="s-badge s-badge-zinc"><span class="s-badge-dot"></span> Inactive</span>
         @endif
+        @if($member->trashed())
+            <span class="s-badge s-badge-red"><span class="s-badge-dot"></span> Archived</span>
+        @endif
     </x-slot:meta>
     <x-slot:actions>
         <a href="{{ route('members.edit', $member) }}" wire:navigate class="s-btn s-btn-sm s-btn-accent">
@@ -61,6 +91,16 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
                 Invoice
             </div>
+            <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
+            <button
+                x-on:click="open = false; $dispatch('open-merge-modal', { memberA: {{ $member->id }}, memberB: 0 })"
+                class="s-dropdown-item"
+                style="width: 100%; opacity: 0.5; cursor: default;"
+                disabled
+            >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M16 16v6"/><path d="M19 19h-6"/><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4"/><circle cx="18" cy="7" r="3"/></svg>
+                Merge with...
+            </button>
             <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
             <a href="{{ route('members.addresses.create', $member) }}" wire:navigate class="s-dropdown-item" style="text-decoration: none;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>

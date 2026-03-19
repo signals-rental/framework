@@ -73,6 +73,7 @@ it('respondWithCollection includes meta without paginator', function () {
 it('respondWithError returns error response', function () {
     $controller = new class extends Controller
     {
+        /** @param  array<string, list<string>>|null  $errors */
         public function testError(string $msg, int $status, ?array $errors = null): \Illuminate\Http\JsonResponse
         {
             return $this->respondWithError($msg, $status, $errors);

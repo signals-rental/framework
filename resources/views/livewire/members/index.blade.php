@@ -1,6 +1,7 @@
 <?php
 
-use App\Actions\Members\DeleteMember;
+use App\Actions\Members\ArchiveMember;
+use App\Actions\Members\RestoreMember;
 use App\Enums\MembershipType;
 use App\Models\Member;
 use Illuminate\Support\Collection;
@@ -14,6 +15,9 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.app')] #[Title('Members')] class extends Component {
     #[Url(as: 'type')]
     public string $typeFilter = '';
+
+    #[Url(as: 'archive')]
+    public string $archiveFilter = 'active';
 
     /** @var Collection<string, int> */
     public Collection $typeCounts;
@@ -39,40 +43,65 @@ new #[Layout('components.layouts.app')] #[Title('Members')] class extends Compon
         $this->typeFilter = $type;
     }
 
-    public function deleteMember(int $memberId): void
+    public function archiveMember(int $memberId): void
     {
         $member = Member::findOrFail($memberId);
-        (new DeleteMember)($member);
+        (new ArchiveMember)($member);
         $this->refreshTypeCounts();
-        $this->dispatch('member-deleted');
+        $this->dispatch('member-archived');
+    }
+
+    public function restoreMember(int $memberId): void
+    {
+        $member = Member::withTrashed()->findOrFail($memberId);
+        (new RestoreMember)($member);
+        $this->refreshTypeCounts();
+        $this->dispatch('member-restored');
     }
 
     /**
      * @param  array<int, int>  $ids
      */
-    public function deleteSelected(array $ids): void
+    public function archiveSelected(array $ids): void
     {
         $members = Member::whereIn('id', $ids)->get();
 
         DB::transaction(function () use ($members): void {
             foreach ($members as $member) {
-                (new DeleteMember)($member);
+                (new ArchiveMember)($member);
             }
         });
 
         $this->refreshTypeCounts();
-        $this->dispatch('member-deleted');
+        $this->dispatch('member-archived');
     }
 
-    #[On('member-deleted')]
+    #[On('member-archived')]
+    #[On('member-restored')]
     public function refreshTypeCounts(): void
     {
-        $this->typeCounts = Member::query()
+        $query = match ($this->archiveFilter) {
+            'archived' => Member::onlyTrashed(),
+            'all' => Member::withTrashed(),
+            default => Member::query(),
+        };
+
+        $this->typeCounts = $query
             ->selectRaw('membership_type, count(*) as count')
             ->groupBy('membership_type')
             ->pluck('count', 'membership_type');
 
         $this->totalCount = $this->typeCounts->sum();
+    }
+
+    public function setArchiveFilter(string $filter): void
+    {
+        if (! in_array($filter, ['active', 'archived', 'all'])) {
+            return;
+        }
+
+        $this->archiveFilter = $filter;
+        $this->refreshTypeCounts();
     }
 
     /**
@@ -104,9 +133,14 @@ new #[Layout('components.layouts.app')] #[Title('Members')] class extends Compon
                 ['key' => 'created_at', 'label' => 'Created', 'sortable' => true, 'view' => 'livewire.members.partials.column-created'],
                 ['key' => 'actions', 'type' => 'actions'],
             ],
-            'scopes' => $this->typeFilter !== ''
-                ? ['ofType' => MembershipType::from($this->typeFilter)]
-                : [],
+            'scopes' => [
+                ...($this->typeFilter !== '' ? ['ofType' => MembershipType::from($this->typeFilter)] : []),
+                ...match ($this->archiveFilter) {
+                    'archived' => ['archived' => true],
+                    'all' => ['withArchived' => true],
+                    default => [],
+                },
+            ],
         ];
     }
 }; ?>
@@ -141,6 +175,13 @@ new #[Layout('components.layouts.app')] #[Title('Members')] class extends Compon
             @endforeach
         </div>
 
+        {{-- Archive filter chips --}}
+        <div class="mb-4 flex flex-wrap items-center gap-1">
+            <button wire:click="setArchiveFilter('active')" class="s-chip {{ $archiveFilter === 'active' ? 'on' : '' }}">Active</button>
+            <button wire:click="setArchiveFilter('archived')" class="s-chip {{ $archiveFilter === 'archived' ? 'on' : '' }}">Archived</button>
+            <button wire:click="setArchiveFilter('all')" class="s-chip {{ $archiveFilter === 'all' ? 'on' : '' }}">All</button>
+        </div>
+
         {{-- Data table --}}
         <livewire:components.data-table
             :columns="$columns"
@@ -149,13 +190,16 @@ new #[Layout('components.layouts.app')] #[Title('Members')] class extends Compon
             :with="['emails', 'phones']"
             :with-counts="['addresses', 'emails', 'phones', 'links']"
             :scopes="$scopes"
-            :refresh-events="['member-deleted']"
+            :refresh-events="['member-archived', 'member-restored', 'member-merged']"
             default-sort="name"
             empty-message="No members found."
             actions-view="livewire.members.partials.row-actions"
             bulk-actions-view="livewire.members.partials.bulk-actions"
             toolbar-view="livewire.members.partials.toolbar"
-            :key="'members-table-' . $typeFilter"
+            entity-type="members"
+            :key="'members-table-' . $typeFilter . '-' . $archiveFilter"
         />
     </div>
+
+    <livewire:members.merge-modal />
 </section>

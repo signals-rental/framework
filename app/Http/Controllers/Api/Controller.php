@@ -24,6 +24,7 @@ abstract class Controller
      * Wrap a collection of resources with pagination metadata.
      *
      * @param  array<int, mixed>|object  $items
+     * @param  LengthAwarePaginator<int, mixed>|null  $paginator
      */
     protected function respondWithCollection(
         mixed $items,

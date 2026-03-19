@@ -7,20 +7,31 @@
     Edit
 </a>
 <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
-<button
-    x-on:click="open = false; $dispatch('open-modal', 'delete-member-{{ $item->id }}')"
-    class="s-dropdown-item"
-    style="color: var(--red); width: 100%;"
->
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-    Delete
-</button>
+@if($item->trashed())
+    <button
+        x-on:click="open = false; $wire.$parent.restoreMember({{ $item->id }})"
+        class="s-dropdown-item"
+        style="color: var(--green); width: 100%;"
+    >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Restore
+    </button>
+@else
+    <button
+        x-on:click="open = false; $dispatch('open-modal', 'archive-member-{{ $item->id }}')"
+        class="s-dropdown-item"
+        style="color: var(--red); width: 100%;"
+    >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="m21 8-2 13H5L3 8"/><path d="M7 8V6a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"/><path d="M1 8h22"/><path d="M10 12v6"/><path d="M14 12v6"/></svg>
+        Archive
+    </button>
 
-<x-signals.modal name="delete-member-{{ $item->id }}" title="Delete Member" size="sm">
-    <p>Are you sure you want to delete this member? This action cannot be undone.</p>
+    <x-signals.modal name="archive-member-{{ $item->id }}" title="Archive Member" size="sm">
+        <p>Are you sure you want to archive <strong>{{ $item->name }}</strong>? The member can be restored later.</p>
 
-    <x-slot:footer>
-        <button class="s-btn s-btn-sm" type="button" x-on:click="$dispatch('close-modal', 'delete-member-{{ $item->id }}')">Cancel</button>
-        <button class="s-btn s-btn-sm s-btn-danger" type="button" wire:click="$parent.deleteMember({{ $item->id }})" x-on:click="$dispatch('close-modal', 'delete-member-{{ $item->id }}')">Delete</button>
-    </x-slot:footer>
-</x-signals.modal>
+        <x-slot:footer>
+            <button class="s-btn s-btn-sm" type="button" x-on:click="$dispatch('close-modal', 'archive-member-{{ $item->id }}')">Cancel</button>
+            <button class="s-btn s-btn-sm s-btn-danger" type="button" wire:click="$parent.archiveMember({{ $item->id }})" x-on:click="$dispatch('close-modal', 'archive-member-{{ $item->id }}')">Archive</button>
+        </x-slot:footer>
+    </x-signals.modal>
+@endif

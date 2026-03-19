@@ -10,6 +10,7 @@ class CreatePhoneData extends Data
     public function __construct(
         #[Required]
         public string $number,
+        public ?string $country_code = null,
         public ?int $type_id = null,
         public bool $is_primary = false,
     ) {}
@@ -21,6 +22,7 @@ class CreatePhoneData extends Data
     {
         return [
             'number' => ['required', 'string', 'max:50'],
+            'country_code' => ['sometimes', 'nullable', 'string', 'size:2'],
             'type_id' => ['sometimes', 'nullable', 'integer', 'exists:list_values,id'],
             'is_primary' => ['sometimes', 'boolean'],
         ];

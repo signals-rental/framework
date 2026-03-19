@@ -785,6 +785,7 @@ describe('CRMS schema compatibility — member collection', function () {
         ]);
 
         // Verify each member has correct membership shape for its type
+        /** @var array<int, array<string, mixed>> $members */
         $members = $response->json('members');
         $org = collect($members)->firstWhere('membership_type', 'Organisation');
         $contact = collect($members)->firstWhere('membership_type', 'Contact');

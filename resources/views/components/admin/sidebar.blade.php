@@ -86,6 +86,11 @@
             <flux:icon.calendar-days class="s-admin-nav-icon" />
             Scheduling
         </a>
+        <a href="{{ route('admin.settings.integrations') }}" wire:navigate
+           class="s-admin-nav-item {{ request()->routeIs('admin.settings.integrations') ? 'active' : '' }}">
+            <flux:icon.puzzle-piece class="s-admin-nav-icon" />
+            Integrations
+        </a>
     @endif
 
     {{-- Data --}}

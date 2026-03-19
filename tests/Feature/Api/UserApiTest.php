@@ -54,6 +54,7 @@ describe('GET /api/v1/users', function () {
             ->getJson('/api/v1/users?q[is_active_true]=1')
             ->assertOk();
 
+        /** @var array<int, array<string, mixed>> $users */
         $users = $response->json('users');
         // Owner + 1 active user = 2 active users
         expect(collect($users)->every(fn ($u) => $u['is_active'] === true))->toBeTrue();
@@ -68,7 +69,9 @@ describe('GET /api/v1/users', function () {
             ->getJson('/api/v1/users?sort=name')
             ->assertOk();
 
-        $names = collect($response->json('users'))->pluck('name')->toArray();
+        /** @var array<int, array<string, mixed>> $userData */
+        $userData = $response->json('users');
+        $names = collect($userData)->pluck('name')->toArray();
         $sorted = $names;
         sort($sorted);
         expect($names)->toBe($sorted);

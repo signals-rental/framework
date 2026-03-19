@@ -17,6 +17,7 @@ class Phone extends Model
         'phoneable_type',
         'phoneable_id',
         'number',
+        'country_code',
         'type_id',
         'is_primary',
     ];

@@ -16,7 +16,11 @@ trait FiltersQueries
      * Controllers using this trait should define:
      * protected array $allowedFilters = ['name', 'email', ...];
      *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @param  list<string>|null  $allowedFields
+     * @return Builder<TModel>
      */
     protected function applyFilters(Builder $query, Request $request, ?array $allowedFields = null): Builder
     {
@@ -39,7 +43,11 @@ trait FiltersQueries
      * Controllers using this trait should define:
      * protected array $allowedSorts = ['name', 'created_at', ...];
      *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @param  list<string>|null  $allowedFields
+     * @return Builder<TModel>
      */
     protected function applySort(Builder $query, Request $request, ?array $allowedFields = null): Builder
     {
@@ -87,6 +95,11 @@ trait FiltersQueries
 
     /**
      * Paginate a query using the request's `page` and `per_page` parameters.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return LengthAwarePaginator<int, TModel>
      */
     protected function paginateQuery(Builder $query, Request $request): LengthAwarePaginator
     {

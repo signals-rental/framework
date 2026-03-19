@@ -11,7 +11,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function mount(Member $member): void
     {
         $this->member = $member->loadCount([
-            'addresses', 'emails', 'phones', 'links', 'organisations', 'contacts',
+            'addresses', 'emails', 'phones', 'links', 'organisations', 'contacts', 'attachments',
         ]);
         $this->member->load(['saleTaxClass', 'purchaseTaxClass', 'organisations', 'contacts']);
     }
@@ -31,8 +31,27 @@ new #[Layout('components.layouts.app')] class extends Component {
             mb_substr($words[0] ?? '', 0, 1) . mb_substr($words[1] ?? '', 0, 1)
         );
 
+        $iconSrc = null;
+        $iconFullSrc = null;
+        $fileService = app(\App\Services\FileService::class);
+        if ($this->member->icon_thumb_url) {
+            try {
+                $iconSrc = $fileService->signedUrl($this->member->icon_thumb_url);
+            } catch (\Throwable) {
+                // Fall back to initials
+            }
+        }
+        if ($this->member->icon_url) {
+            try {
+                $iconFullSrc = $fileService->signedUrl($this->member->icon_url);
+            } catch (\Throwable) {
+            }
+        }
+
         return [
             'initials' => $initials,
+            'iconSrc' => $iconSrc,
+            'iconFullSrc' => $iconFullSrc,
         ];
     }
 }; ?>
@@ -49,15 +68,13 @@ new #[Layout('components.layouts.app')] class extends Component {
         {{-- LEFT SIDEBAR --}}
         {{-- ============================================================ --}}
         <div class="space-y-6">
-            {{-- Avatar --}}
-            <div class="text-center">
-                <x-signals.avatar size="xl" :initials="$initials" color="green" class="mx-auto" />
-                @if($member->description)
-                    <p class="mt-3 text-xs uppercase tracking-wide text-[var(--text-muted)]" style="font-family: var(--font-mono);">
+            @if($member->description)
+                <div class="rounded-lg border border-[var(--card-border)] bg-white px-3 py-2">
+                    <p class="text-xs uppercase tracking-wide text-[var(--text-muted)]" style="font-family: var(--font-mono);">
                         {{ $member->description }}
                     </p>
-                @endif
-            </div>
+                </div>
+            @endif
 
             {{-- Quick Actions --}}
             <x-signals.sidebar title="Quick Actions" style="width: 100%;">

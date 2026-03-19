@@ -11,7 +11,9 @@ it('returns all health check results', function () {
     $results = $this->service->check();
 
     expect($results)->toHaveCount(6);
-    expect(collect($results)->pluck('name')->all())->toBe([
+    /** @var array<int, array<string, mixed>> $resultList */
+    $resultList = $results;
+    expect(collect($resultList)->pluck('name')->all())->toBe([
         'PostgreSQL', 'Redis', 'S3 Storage', 'Queue', 'Scheduler', 'PHP',
     ]);
 });

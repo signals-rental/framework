@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class NotificationType extends Model
 {
+    /** @use HasFactory<\Database\Factories\NotificationTypeFactory> */
     use HasFactory;
 
     protected $fillable = [

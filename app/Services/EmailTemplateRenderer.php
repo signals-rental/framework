@@ -45,6 +45,9 @@ class EmailTemplateRenderer
      * Replace {{ field.path }} merge field placeholders using safe regex.
      * Supports filters: {{ field | upper }}, {{ field | lower }}, {{ field | default:"fallback" }}
      */
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function resolveMergeFields(string $content, array $data): string
     {
         $result = preg_replace_callback(

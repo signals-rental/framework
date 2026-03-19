@@ -55,6 +55,9 @@ class S3ConnectionTester
         }
     }
 
+    /**
+     * @param  array{key: string, secret: string, region: string, bucket: string, endpoint: string|null, use_path_style: bool}  $config
+     */
     protected function createClient(array $config): S3Client
     {
         $clientConfig = [

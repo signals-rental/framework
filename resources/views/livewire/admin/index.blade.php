@@ -41,6 +41,7 @@ new #[Layout('components.layouts.app')] #[Title('System Administration')] class 
                     ['label' => 'Email Templates', 'description' => 'Customise transactional email templates', 'icon' => 'document-text', 'route' => 'admin.settings.email-templates'],
                     ['label' => 'Notifications', 'description' => 'Notification channels and preferences', 'icon' => 'bell', 'route' => 'admin.settings.notifications'],
                     ['label' => 'Scheduling', 'description' => 'Scheduled tasks and automation', 'icon' => 'calendar-days', 'route' => 'admin.settings.scheduling'],
+                    ['label' => 'Integrations', 'description' => 'what3words, Google Maps, and other service keys', 'icon' => 'puzzle-piece', 'route' => 'admin.settings.integrations'],
                 ],
             ],
             'data' => [

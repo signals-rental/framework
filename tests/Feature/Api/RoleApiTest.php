@@ -31,7 +31,9 @@ describe('GET /api/v1/roles', function () {
             ->and($response->json('meta.page'))->toBe(1);
 
         // Verify ordering by sort_order
-        $sortOrders = collect($roles)->pluck('sort_order')->toArray();
+        /** @var array<int, array<string, mixed>> $roleList */
+        $roleList = $roles;
+        $sortOrders = collect($roleList)->pluck('sort_order')->toArray();
         $sorted = $sortOrders;
         sort($sorted);
         expect($sortOrders)->toBe($sorted);
@@ -45,7 +47,9 @@ describe('GET /api/v1/roles', function () {
             ->getJson('/api/v1/roles')
             ->assertOk();
 
-        $roleNames = collect($response->json('roles'))->pluck('name')->toArray();
+        /** @var array<int, array<string, mixed>> $roleData */
+        $roleData = $response->json('roles');
+        $roleNames = collect($roleData)->pluck('name')->toArray();
         expect($roleNames)->toContain('Custom Editor');
         expect($roleNames)->toContain('Admin');
     });
@@ -58,7 +62,9 @@ describe('GET /api/v1/roles', function () {
             ->assertOk();
 
         // Admin role should have permissions
-        $adminRole = collect($response->json('roles'))->firstWhere('name', 'Admin');
+        /** @var array<int, array<string, mixed>> $permRoles */
+        $permRoles = $response->json('roles');
+        $adminRole = collect($permRoles)->firstWhere('name', 'Admin');
         expect($adminRole)->not->toBeNull();
         expect($adminRole['permissions'])->toBeArray();
         expect(count($adminRole['permissions']))->toBeGreaterThan(0);
