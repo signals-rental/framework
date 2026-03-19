@@ -7,6 +7,7 @@
         ['name' => 'opportunities', 'label' => 'Opportunities', 'route' => route('members.opportunities', $member), 'count' => 0],
         ['name' => 'movements', 'label' => 'Movements', 'route' => route('members.movements', $member), 'count' => 0],
         ['name' => 'invoices', 'label' => 'Invoices', 'route' => route('members.invoices', $member), 'count' => 0],
+        ['name' => 'files', 'label' => 'Files', 'route' => route('members.files', $member), 'count' => $member->attachments_count ?? 0],
     ]"
     :active="$activeTab"
 />

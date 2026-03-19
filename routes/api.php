@@ -1,9 +1,13 @@
 <?php
 
 use App\Http\Controllers\Api\V1\ActionLogController;
+use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\CountryController;
+use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\CustomFieldController;
 use App\Http\Controllers\Api\V1\CustomFieldGroupController;
+use App\Http\Controllers\Api\V1\CustomViewController;
+use App\Http\Controllers\Api\V1\ExchangeRateController;
 use App\Http\Controllers\Api\V1\ListNameController;
 use App\Http\Controllers\Api\V1\ListValueController;
 use App\Http\Controllers\Api\V1\MemberAddressController;
@@ -65,6 +69,11 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
     Route::apiResource('members.phones', MemberPhoneController::class)->except(['show'])->names('api.v1.members.phones');
     Route::apiResource('members.links', MemberLinkController::class)->except(['show'])->names('api.v1.members.links');
     Route::apiResource('members.relationships', MemberRelationshipController::class)->only(['index', 'store', 'destroy'])->names('api.v1.members.relationships');
+    Route::get('members/{member}/attachments', [AttachmentController::class, 'indexForMember'])->name('api.v1.members.attachments.index');
+
+    // Custom Views
+    Route::apiResource('custom_views', CustomViewController::class)->names('api.v1.custom_views');
+    Route::post('custom_views/{custom_view}/clone', [CustomViewController::class, 'clone'])->name('api.v1.custom_views.clone');
 
     // Countries (read-only)
     Route::apiResource('countries', CountryController::class)->only(['index', 'show'])->names('api.v1.countries');
@@ -88,4 +97,13 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
     // Tax Rates & Rules
     Route::apiResource('tax_rates', TaxRateController::class)->names('api.v1.tax_rates');
     Route::apiResource('tax_rules', TaxRuleController::class)->names('api.v1.tax_rules');
+
+    // Currencies (read-only)
+    Route::apiResource('currencies', CurrencyController::class)->only(['index', 'show'])->names('api.v1.currencies');
+
+    // Exchange Rates
+    Route::apiResource('exchange_rates', ExchangeRateController::class)->names('api.v1.exchange_rates');
+
+    // Attachments
+    Route::apiResource('attachments', AttachmentController::class)->only(['show', 'store', 'destroy'])->names('api.v1.attachments');
 });

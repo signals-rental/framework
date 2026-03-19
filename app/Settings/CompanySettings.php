@@ -21,6 +21,7 @@ class CompanySettings extends SettingsDefinition
             'time_format_php' => 'H:i',
             'number_format' => '#,##0.00',
             'fiscal_year_start' => 1,
+            'base_currency' => 'GBP',
         ];
     }
 
@@ -36,6 +37,7 @@ class CompanySettings extends SettingsDefinition
             'time_format_php' => ['required', 'string', 'max:20'],
             'number_format' => ['required', 'string', 'max:20'],
             'fiscal_year_start' => ['required', 'integer', 'min:1', 'max:12'],
+            'base_currency' => ['required', 'string', 'size:3'],
         ];
     }
 

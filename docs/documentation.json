@@ -30,6 +30,11 @@
             "pages": [
                 { "title": "API Overview", "slug": "overview" },
                 { "title": "Authentication", "slug": "authentication" },
+                { "title": "Members", "slug": "members" },
+                { "title": "Custom Views", "slug": "custom-views" },
+                { "title": "Currencies", "slug": "currencies" },
+                { "title": "Exchange Rates", "slug": "exchange-rates" },
+                { "title": "Attachments", "slug": "attachments" },
                 { "title": "Webhooks", "slug": "webhooks" }
             ]
         },

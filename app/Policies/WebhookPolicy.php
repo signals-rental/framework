@@ -2,33 +2,14 @@
 
 namespace App\Policies;
 
-use App\Models\User;
-use App\Models\Webhook;
+use App\Policies\Traits\AuthorizesByPermission;
 
 class WebhookPolicy
 {
-    public function viewAny(User $user): bool
-    {
-        return $user->can('webhooks.manage');
-    }
+    use AuthorizesByPermission;
 
-    public function view(User $user, Webhook $webhook): bool
+    protected function managePermission(): string
     {
-        return $user->can('webhooks.manage');
-    }
-
-    public function create(User $user): bool
-    {
-        return $user->can('webhooks.manage');
-    }
-
-    public function update(User $user, Webhook $webhook): bool
-    {
-        return $user->can('webhooks.manage');
-    }
-
-    public function delete(User $user, Webhook $webhook): bool
-    {
-        return $user->can('webhooks.manage');
+        return 'webhooks.manage';
     }
 }

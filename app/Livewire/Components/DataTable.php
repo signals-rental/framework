@@ -2,14 +2,22 @@
 
 namespace App\Livewire\Components;
 
+use App\Models\CustomView;
+use App\Models\UserViewPreference;
+use App\Services\ViewResolver;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+/**
+ * @property array<int, array<string, mixed>> $displayColumns
+ * @property list<array{key: string, label: string, visible: bool}> $toggleableColumns
+ */
 class DataTable extends Component
 {
     use WithPagination;
@@ -86,6 +94,20 @@ class DataTable extends Component
 
     public ?int $lastSelectedId = null;
 
+    #[Url(as: 'view')]
+    public ?int $viewId = null;
+
+    #[Locked]
+    public ?string $entityType = null;
+
+    /** @var list<string> Column keys to display (empty = show all) */
+    public array $visibleColumnKeys = [];
+
+    /** @var array<string, array<int, array<string, mixed>>> */
+    public array $availableViews = [];
+
+    public ?string $activeViewName = null;
+
     /**
      * @param  array<int, array<string, mixed>>  $columns
      * @param  array<int, string>  $searchable
@@ -106,6 +128,7 @@ class DataTable extends Component
         array $withCounts = [],
         array $scopes = [],
         array $refreshEvents = [],
+        ?string $entityType = null,
     ): void {
         if ($model === '' || ! class_exists($model) || ! is_subclass_of($model, Model::class)) {
             throw new \InvalidArgumentException('DataTable requires a valid Eloquent model class.');
@@ -132,6 +155,12 @@ class DataTable extends Component
             $this->sortDirection = $this->defaultDirection;
         }
 
+        $this->entityType = $entityType;
+
+        if ($this->entityType !== null) {
+            $this->loadAvailableViews();
+            $this->applyActiveView();
+        }
     }
 
     /**
@@ -322,6 +351,14 @@ class DataTable extends Component
             }
         }
 
+        // Apply custom view filters
+        if ($this->viewId !== null && $this->entityType !== null) {
+            $activeView = CustomView::find($this->viewId);
+            if ($activeView instanceof CustomView) {
+                app(ViewResolver::class)->applyFilters($query, $activeView);
+            }
+        }
+
         // Apply global search (capped at 200 chars)
         $search = mb_substr($this->search, 0, 200);
         if ($search !== '' && count($this->searchable) > 0) {
@@ -405,6 +442,243 @@ class DataTable extends Component
             ->all();
     }
 
+    /**
+     * Toggle a column's visibility.
+     */
+    public function toggleColumn(string $key): void
+    {
+        // If no explicit column selection yet, start from current display
+        if (empty($this->visibleColumnKeys)) {
+            $this->visibleColumnKeys = collect($this->columns)
+                ->reject(fn (array $c): bool => in_array($c['type'] ?? null, ['checkbox', 'actions']) || ($c['key'] ?? '') === 'avatar')
+                ->pluck('key')
+                ->all();
+        }
+
+        if (in_array($key, $this->visibleColumnKeys, true)) {
+            $this->visibleColumnKeys = array_values(array_filter(
+                $this->visibleColumnKeys,
+                fn (string $k): bool => $k !== $key,
+            ));
+        } else {
+            $this->visibleColumnKeys[] = $key;
+        }
+    }
+
+    /**
+     * Get all toggleable columns with their visibility state.
+     *
+     * @return list<array{key: string, label: string, visible: bool}>
+     */
+    public function getToggleableColumnsProperty(): array
+    {
+        $registry = $this->getColumnRegistry();
+        $visibleKeys = $this->visibleColumnKeys;
+
+        // If no explicit selection, all non-structural columns are visible
+        if (empty($visibleKeys)) {
+            $visibleKeys = collect($this->columns)
+                ->reject(fn (array $c): bool => in_array($c['type'] ?? null, ['checkbox', 'actions']) || ($c['key'] ?? '') === 'avatar')
+                ->pluck('key')
+                ->all();
+        }
+
+        // Use registry if available, otherwise fall back to static columns
+        if ($registry !== null) {
+            $result = [];
+            foreach ($registry->allColumns() as $col) {
+                $result[] = [
+                    'key' => $col->key,
+                    'label' => $col->label,
+                    'visible' => in_array($col->key, $visibleKeys, true),
+                ];
+            }
+
+            return $result;
+        }
+
+        return collect($this->columns)
+            ->reject(fn (array $c): bool => in_array($c['type'] ?? null, ['checkbox', 'actions']) || ($c['key'] ?? '') === 'avatar')
+            ->map(fn (array $c): array => [
+                'key' => $c['key'] ?? '',
+                'label' => $c['label'] ?? $c['key'] ?? '',
+                'visible' => in_array($c['key'] ?? '', $visibleKeys, true),
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function switchView(int $viewId): void
+    {
+        $this->viewId = $viewId;
+        $this->resetPage();
+        $this->applyActiveView();
+    }
+
+    public function clearView(): void
+    {
+        $this->viewId = null;
+        $this->activeViewName = null;
+        $this->resetPage();
+    }
+
+    #[On('view-saved')]
+    public function onViewSaved(): void
+    {
+        $this->loadAvailableViews();
+        $this->applyActiveView();
+    }
+
+    public function setDefaultView(): void
+    {
+        if ($this->viewId === null || $this->entityType === null) {
+            return;
+        }
+
+        UserViewPreference::updateOrCreate(
+            ['user_id' => auth()->id(), 'entity_type' => $this->entityType],
+            ['custom_view_id' => $this->viewId],
+        );
+    }
+
+    private function loadAvailableViews(): void
+    {
+        $user = auth()->user();
+        if (! $user instanceof \App\Models\User || $this->entityType === null) {
+            return;
+        }
+
+        $views = CustomView::query()
+            ->forEntity($this->entityType)
+            ->visibleTo($user)
+            ->orderBy('visibility')
+            ->orderBy('name')
+            ->get();
+
+        $this->availableViews = $views->groupBy('visibility')->map(function ($group) {
+            return $group->map(fn ($v) => ['id' => $v->id, 'name' => $v->name, 'is_default' => $v->is_default])->values()->all();
+        })->all();
+    }
+
+    private function applyActiveView(): void
+    {
+        if ($this->entityType === null) {
+            return;
+        }
+
+        $user = auth()->user();
+        $resolver = app(ViewResolver::class);
+        $view = $resolver->resolve($this->entityType, $this->viewId, $user instanceof \App\Models\User ? $user : null);
+
+        if ($view !== null) {
+            $this->viewId = $view->id;
+            $this->activeViewName = $view->name;
+
+            // Apply view columns
+            if (! empty($view->columns)) {
+                $this->visibleColumnKeys = $view->columns;
+            }
+
+            // Apply view sort
+            if ($view->sort_column) {
+                $this->sortField = $view->sort_column;
+                $this->sortDirection = $view->sort_direction ?? 'asc';
+            }
+
+            // Apply view per_page
+            if ($view->per_page && in_array($view->per_page, $this->perPageOptions, true)) {
+                $this->perPage = $view->per_page;
+            }
+        } else {
+            $this->visibleColumnKeys = [];
+        }
+    }
+
+    /**
+     * Get the columns to display, filtered by the active view's column selection.
+     *
+     * Always includes checkbox and actions columns. When no view columns are set,
+     * shows all columns. For view columns not in the static definitions, generates
+     * basic column definitions from the ColumnRegistry.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getDisplayColumnsProperty(): array
+    {
+        if (empty($this->visibleColumnKeys)) {
+            return $this->columns;
+        }
+
+        // Build a map of existing column definitions by key
+        $existingByKey = [];
+        $structural = []; // checkbox, actions, avatar
+        foreach ($this->columns as $col) {
+            $type = $col['type'] ?? null;
+            $key = $col['key'] ?? '';
+
+            if ($type === 'checkbox' || $type === 'actions') {
+                $structural[$type] = $col;
+            } elseif ($key === 'avatar') {
+                $structural['avatar'] = $col;
+            } else {
+                $existingByKey[$key] = $col;
+            }
+        }
+
+        // Build display columns in the view's order
+        $result = [];
+
+        // Checkbox first
+        if (isset($structural['checkbox'])) {
+            $result[] = $structural['checkbox'];
+        }
+
+        // Avatar if name is in view
+        if (isset($structural['avatar']) && in_array('name', $this->visibleColumnKeys, true)) {
+            $result[] = $structural['avatar'];
+        }
+
+        // Get column registry for generating missing definitions
+        $registry = $this->entityType !== null ? $this->getColumnRegistry() : null;
+
+        // Add columns in view order
+        foreach ($this->visibleColumnKeys as $key) {
+            if (isset($existingByKey[$key])) {
+                $result[] = $existingByKey[$key];
+            } elseif ($registry !== null) {
+                // Generate a basic column definition from the registry
+                $regCol = $registry->get($key);
+                if ($regCol !== null) {
+                    $result[] = [
+                        'key' => $regCol->key,
+                        'label' => $regCol->label,
+                        'sortable' => $regCol->sortable,
+                        'filterable' => $regCol->filterable,
+                    ];
+                }
+            }
+        }
+
+        // Actions last
+        if (isset($structural['actions'])) {
+            $result[] = $structural['actions'];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get the column registry for the current entity type.
+     */
+    private function getColumnRegistry(): ?\App\Views\ColumnRegistry
+    {
+        if ($this->entityType === 'members') {
+            return new \App\Views\MemberColumnRegistry;
+        }
+
+        return null;
+    }
+
     public function render(): View
     {
         $query = $this->buildQuery();
@@ -425,6 +699,7 @@ class DataTable extends Component
             'items' => $items,
             'activeFilterCount' => $activeFilterCount,
             'totalCount' => $items->total(),
+            'displayColumns' => $this->displayColumns,
         ]);
     }
 }

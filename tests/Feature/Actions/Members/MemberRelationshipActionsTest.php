@@ -57,6 +57,42 @@ it('deletes a member relationship', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('rejects duplicate relationship between same members', function () {
+    $contact = Member::factory()->contact()->create();
+    $organisation = Member::factory()->organisation()->create();
+
+    MemberRelationship::factory()
+        ->for($contact, 'member')
+        ->for($organisation, 'relatedMember')
+        ->create();
+
+    $data = CreateMemberRelationshipData::from([
+        'related_member_id' => $organisation->id,
+        'relationship_type' => 'employee',
+    ]);
+
+    (new CreateMemberRelationship)($contact, $data);
+})->throws(\Illuminate\Validation\ValidationException::class, 'A relationship between these members already exists.');
+
+it('rejects duplicate relationship in reverse direction', function () {
+    $contact = Member::factory()->contact()->create();
+    $organisation = Member::factory()->organisation()->create();
+
+    // Create relationship in one direction
+    MemberRelationship::factory()
+        ->for($organisation, 'member')
+        ->for($contact, 'relatedMember')
+        ->create();
+
+    // Attempt to create in the other direction
+    $data = CreateMemberRelationshipData::from([
+        'related_member_id' => $organisation->id,
+        'relationship_type' => 'employee',
+    ]);
+
+    (new CreateMemberRelationship)($contact, $data);
+})->throws(\Illuminate\Validation\ValidationException::class, 'A relationship between these members already exists.');
+
 it('rejects unauthorized relationship creation', function () {
     $regularUser = User::factory()->create();
     $this->actingAs($regularUser);

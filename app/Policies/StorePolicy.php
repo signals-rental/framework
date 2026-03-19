@@ -2,33 +2,19 @@
 
 namespace App\Policies;
 
-use App\Models\Store;
-use App\Models\User;
+use App\Policies\Traits\AuthorizesByPermission;
 
 class StorePolicy
 {
-    public function viewAny(User $user): bool
+    use AuthorizesByPermission;
+
+    protected function viewPermission(): string
     {
-        return $user->can('settings.view');
+        return 'settings.view';
     }
 
-    public function view(User $user, Store $store): bool
+    protected function managePermission(): string
     {
-        return $user->can('settings.view');
-    }
-
-    public function create(User $user): bool
-    {
-        return $user->can('settings.manage');
-    }
-
-    public function update(User $user, Store $store): bool
-    {
-        return $user->can('settings.manage');
-    }
-
-    public function delete(User $user, Store $store): bool
-    {
-        return $user->can('settings.manage');
+        return 'settings.manage';
     }
 }

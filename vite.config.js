@@ -8,14 +8,23 @@ export default defineConfig({
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
-            refresh: true,
+            refresh: [
+                'resources/views/**',
+                'routes/**',
+                'app/Livewire/**',
+            ],
         }),
         tailwindcss(),
     ],
     server: {
         cors: true,
         watch: {
-            ignored: ['**/storage/framework/views/**'],
+            ignored: [
+                '**/storage/framework/views/**',
+                '**/tests/**',
+                '**/vendor/**',
+                '**/.phpunit.cache/**',
+            ],
         },
     },
 });

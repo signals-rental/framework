@@ -115,10 +115,29 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function save(): void
     {
-        $this->validate([
-            'name' => ['required', 'string', 'max:255'],
+        $nameUniqueRule = Rule::unique('members', 'name')
+            ->where('membership_type', $this->membershipType);
+
+        if ($this->memberId) {
+            $nameUniqueRule->ignore($this->memberId);
+        }
+
+        $rules = [
+            'name' => ['required', 'string', 'max:255', $nameUniqueRule],
             'membershipType' => ['required', 'string', Rule::in(array_column(MembershipType::cases(), 'value'))],
-        ]);
+        ];
+
+        // Membership type cannot be changed after creation
+        if ($this->memberId) {
+            $member = Member::find($this->memberId);
+            if ($member && $member->membership_type->value !== $this->membershipType) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'membershipType' => ['Membership type cannot be changed after creation.'],
+                ]);
+            }
+        }
+
+        $this->validate($rules);
 
         $payload = [
             'name' => $this->name,
@@ -266,13 +285,20 @@ new #[Layout('components.layouts.app')] class extends Component {
                 {{-- ======================================== --}}
                 <div class="space-y-6">
 
+                    {{-- Icon Upload (edit mode only) --}}
+                    @if($isEditing && $member)
+                        <x-signals.form-section title="Profile Image">
+                            <livewire:components.icon-upload :model="$member" :key="'icon-'.$member->id" />
+                        </x-signals.form-section>
+                    @endif
+
                     {{-- Name & Type --}}
                     <x-signals.form-section title="Basic Info">
                         <div class="space-y-3">
                             <flux:input wire:model="name" label="Name" required />
 
                             <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                                <flux:select wire:model.live="membershipType" label="Membership Type" required>
+                                <flux:select wire:model.live="membershipType" label="Membership Type" required :disabled="$isEditing">
                                     @foreach($membershipTypes as $type)
                                         <option value="{{ $type->value }}">{{ $type->label() }}</option>
                                     @endforeach

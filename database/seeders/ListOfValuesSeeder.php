@@ -31,7 +31,7 @@ class ListOfValuesSeeder extends Seeder
             'Rating' => ['None', '1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
             'Invoice Term' => ['Due on Receipt', 'Net 7', 'Net 14', 'Net 30', 'Net 45', 'Net 60', 'Net 90', 'End of Month'],
             'Locale' => ['en-GB', 'en-US', 'en-AU', 'en-NZ', 'en-CA', 'en-IE', 'en-ZA', 'fr-FR', 'de-DE', 'es-ES', 'nl-NL', 'pt-PT', 'it-IT', 'da-DK', 'sv-SE', 'nb-NO', 'fi-FI'],
-            'Currency' => ['GBP', 'USD', 'EUR', 'AUD', 'NZD', 'CAD', 'ZAR', 'CHF', 'SEK', 'NOK', 'DKK', 'AED', 'SGD', 'HKD', 'JPY', 'INR', 'BRL', 'MXN', 'PLN', 'CZK'],
+            'File Category' => ['Contract', 'Invoice', 'Quote', 'Purchase Order', 'Certificate', 'Insurance', 'Photo', 'Floor Plan', 'Technical Spec', 'Health & Safety', 'Risk Assessment', 'Correspondence', 'Other'],
         ];
 
         foreach ($lists as $listName => $values) {

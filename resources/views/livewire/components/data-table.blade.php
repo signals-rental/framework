@@ -9,6 +9,9 @@
         @endif
 
         <div class="flex items-center gap-2 ml-auto">
+            @if($entityType)
+                @include('livewire.components.partials.view-selector')
+            @endif
             @if($activeFilterCount > 0)
                 <button wire:click="clearAllFilters" class="s-btn s-btn-ghost s-btn-xs">
                     <flux:icon.x-mark class="w-3 h-3" />
@@ -27,7 +30,7 @@
             <thead>
                 {{-- Column headers --}}
                 <tr>
-                    @foreach($columns as $col)
+                    @foreach($displayColumns as $col)
                         @if(($col['type'] ?? null) === 'checkbox')
                             <th class="s-col-check">
                                 <x-signals.checkbox
@@ -63,9 +66,9 @@
                 </tr>
 
                 {{-- Filter row --}}
-                @if(collect($columns)->contains(fn ($col) => $col['filterable'] ?? false))
+                @if(collect($displayColumns)->contains(fn ($col) => $col['filterable'] ?? false))
                     <tr class="s-table-filter">
-                        @foreach($columns as $col)
+                        @foreach($displayColumns as $col)
                             @if(($col['type'] ?? null) === 'checkbox' || ($col['type'] ?? null) === 'actions' || ($col['key'] ?? '') === 'avatar')
                                 <td></td>
                             @elseif($col['filterable'] ?? false)
@@ -95,7 +98,7 @@
                 @endif
             </thead>
 
-            <tbody wire:loading.class="s-loading" wire:target="search,sortBy,applyFilter,clearAllFilters,gotoPage,previousPage,nextPage,setPerPage,filters,refresh" style="user-select: none;">
+            <tbody wire:loading.class="s-loading" wire:target="search,sortBy,applyFilter,clearAllFilters,gotoPage,previousPage,nextPage,setPerPage,filters,refresh,switchView,clearView" style="user-select: none;">
                 @forelse($items as $item)
                     <tr
                         wire:key="row-{{ $item->id }}"
@@ -103,7 +106,7 @@
                         x-on:click="if (!$event.target.closest('a, button, .s-dropdown, .s-checkbox')) { $event.shiftKey ? $wire.shiftSelect({{ $item->id }}, pageIds) : $wire.toggleSelected({{ $item->id }}); }"
                         style="cursor: pointer;"
                     >
-                        @foreach($columns as $col)
+                        @foreach($displayColumns as $col)
                             @if(($col['type'] ?? null) === 'checkbox')
                                 <td class="s-col-check">
                                     <x-signals.checkbox
@@ -162,7 +165,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ count($columns) }}" class="text-center py-12">
+                        <td colspan="{{ count($displayColumns) }}" class="text-center py-12">
                             <div class="flex flex-col items-center gap-2 text-[var(--text-muted)]">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-10 h-10 opacity-30">
                                     <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
@@ -179,7 +182,7 @@
         <div class="s-summary-bar">
             <span>
                 Showing
-                <span class="s-summary-val">{{ count($columns) - collect($columns)->filter(fn ($c) => in_array($c['type'] ?? null, ['checkbox', 'actions']) || ($c['key'] ?? '') === 'avatar')->count() }}</span>
+                <span class="s-summary-val">{{ count($displayColumns) - collect($displayColumns)->filter(fn ($c) => in_array($c['type'] ?? null, ['checkbox', 'actions']) || ($c['key'] ?? '') === 'avatar')->count() }}</span>
                 columns
             </span>
             <span style="width: 1px; height: 14px; background: var(--card-border);"></span>
@@ -228,5 +231,10 @@
                 </button>
             </x-signals.bulk-bar>
         </div>
+    @endif
+
+    {{-- View Builder Modal --}}
+    @if($entityType)
+        <livewire:components.view-builder :entity-type="$entityType" />
     @endif
 </div>

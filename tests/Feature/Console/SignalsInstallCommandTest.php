@@ -15,11 +15,13 @@ beforeEach(function () {
     config(['database.connections.pgsql.driver' => 'sqlite']);
     $this->originalDbDefault = config('database.default');
 
-    // Back up .env so tests don't corrupt it
+    // Back up .env so tests don't corrupt it (crash-safe via .env.test-backup)
     $envPath = base_path('.env');
+    $backupPath = base_path('.env.test-backup');
     $this->envExisted = file_exists($envPath);
     if ($this->envExisted) {
         $this->originalEnv = file_get_contents($envPath);
+        file_put_contents($backupPath, $this->originalEnv);
     }
 });
 
@@ -31,13 +33,15 @@ afterEach(function () {
     // Clean up temp database
     @unlink($this->tempDb);
 
-    // Restore .env
+    // Restore .env and remove crash-safe backup
     $envPath = base_path('.env');
+    $backupPath = base_path('.env.test-backup');
     if ($this->envExisted) {
         file_put_contents($envPath, $this->originalEnv);
     } elseif (file_exists($envPath)) {
         unlink($envPath);
     }
+    @unlink($backupPath);
 
     // Clear any cached config/routes/views in case tests run without the guard
     Artisan::call('config:clear');

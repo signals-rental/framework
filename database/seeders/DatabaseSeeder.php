@@ -12,12 +12,14 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CountrySeeder::class,
             ListOfValuesSeeder::class,
+            CurrencySeeder::class,
             TaxClassSeeder::class,
             TaxRateSeeder::class,
             PermissionSeeder::class,
             RoleSeeder::class,
             EmailTemplateSeeder::class,
             NotificationTypeSeeder::class,
+            ViewSeeder::class,
         ]);
 
         User::factory()->create([
