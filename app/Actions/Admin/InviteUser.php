@@ -3,8 +3,11 @@
 namespace App\Actions\Admin;
 
 use App\Data\Admin\InviteUserData;
+use App\Enums\MembershipType;
+use App\Models\Member;
 use App\Models\User;
 use App\Notifications\UserInvitedNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class InviteUser
@@ -13,18 +16,29 @@ class InviteUser
     {
         Gate::authorize('users.invite');
 
-        $user = User::create([
-            'name' => $data->name,
-            'email' => $data->email,
-            'password' => null,
-            'email_verified_at' => now(),
-            'invited_at' => now(),
-            'is_active' => true,
-        ]);
+        $user = DB::transaction(function () use ($data): User {
+            $member = Member::create([
+                'name' => $data->name,
+                'membership_type' => MembershipType::User,
+                'is_active' => true,
+            ]);
 
-        if (! empty($data->roles)) {
-            $user->syncRoles($data->roles);
-        }
+            $user = User::create([
+                'name' => $data->name,
+                'email' => $data->email,
+                'password' => null,
+                'email_verified_at' => now(),
+                'invited_at' => now(),
+                'is_active' => true,
+                'member_id' => $member->id,
+            ]);
+
+            if (! empty($data->roles)) {
+                $user->syncRoles($data->roles);
+            }
+
+            return $user;
+        });
 
         $user->notify(new UserInvitedNotification);
 

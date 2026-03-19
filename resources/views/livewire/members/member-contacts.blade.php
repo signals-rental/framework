@@ -32,6 +32,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ->all();
 
         $columns = [
+            ['key' => 'checkbox', 'type' => 'checkbox'],
             ['key' => 'avatar', 'label' => '', 'view' => 'livewire.members.partials.column-avatar'],
             ['key' => 'name', 'label' => 'Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.members.partials.column-name'],
             ['key' => 'membership_type', 'label' => 'Type', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => $typeOptions, 'view' => 'livewire.members.partials.column-type'],

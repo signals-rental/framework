@@ -13,7 +13,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->member = $member->loadCount([
             'addresses', 'emails', 'phones', 'links', 'organisations', 'contacts',
         ]);
-        $this->member->load(['organisationTaxClass', 'organisations', 'contacts']);
+        $this->member->load(['saleTaxClass', 'purchaseTaxClass', 'organisations', 'contacts']);
     }
 
     public function rendering(View $view): void

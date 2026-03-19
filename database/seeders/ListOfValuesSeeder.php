@@ -16,6 +16,22 @@ class ListOfValuesSeeder extends Seeder
             'Phone Type' => ['Work', 'Mobile', 'Home', 'Fax'],
             'Link Type' => ['Website', 'LinkedIn', 'Facebook', 'Instagram', 'X (Twitter)', 'YouTube'],
             'Relationship Type' => ['Employee', 'Director', 'Contractor', 'Agent'],
+            'Lawful Basis Type' => [
+                'Legitimate interest - prospect/lead',
+                'Legitimate interest - customer',
+                'Legitimate interest - supplier',
+                'Consent',
+                'Contract',
+                'Legal obligation',
+                'Vital interests',
+                'Public task',
+                'Not applicable',
+            ],
+            'Location Type' => ['Internal', 'External'],
+            'Rating' => ['None', '1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+            'Invoice Term' => ['Due on Receipt', 'Net 7', 'Net 14', 'Net 30', 'Net 45', 'Net 60', 'Net 90', 'End of Month'],
+            'Locale' => ['en-GB', 'en-US', 'en-AU', 'en-NZ', 'en-CA', 'en-IE', 'en-ZA', 'fr-FR', 'de-DE', 'es-ES', 'nl-NL', 'pt-PT', 'it-IT', 'da-DK', 'sv-SE', 'nb-NO', 'fi-FI'],
+            'Currency' => ['GBP', 'USD', 'EUR', 'AUD', 'NZD', 'CAD', 'ZAR', 'CHF', 'SEK', 'NOK', 'DKK', 'AED', 'SGD', 'HKD', 'JPY', 'INR', 'BRL', 'MXN', 'PLN', 'CZK'],
         ];
 
         foreach ($lists as $listName => $values) {

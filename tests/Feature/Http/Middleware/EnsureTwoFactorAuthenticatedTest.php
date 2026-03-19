@@ -83,3 +83,13 @@ it('does not redirect when 2FA not required by settings', function () {
         ->get('/dashboard')
         ->assertOk();
 });
+
+it('allows non-admin user through when only admin 2FA is required', function () {
+    app(\App\Services\SettingsService::class)->set('security.require_2fa_admin', true, 'boolean');
+
+    $user = User::factory()->create(); // regular user, not admin, not owner
+
+    $this->actingAs($user)
+        ->get('/dashboard')
+        ->assertOk();
+});

@@ -44,11 +44,19 @@ class MemberController extends Controller
         'phones',
         'links',
         'customFieldValues',
+        'saleTaxClass',
+        'purchaseTaxClass',
+        'lawfulBasisType',
+        'contacts',
+        'organisations',
     ];
 
     /** @var list<string> */
     protected array $defaultIncludes = [
         'customFieldValues',
+        'saleTaxClass',
+        'purchaseTaxClass',
+        'lawfulBasisType',
     ];
 
     /**

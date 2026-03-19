@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\MembershipType;
+use App\Models\Member;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Collection;
@@ -36,6 +38,24 @@ class UserFactory extends Factory
             'is_admin' => false,
             'is_active' => true,
         ];
+    }
+
+    /**
+     * Configure the factory to auto-create a linked User-type member.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            if ($user->member_id === null) {
+                $member = Member::create([
+                    'name' => $user->name,
+                    'membership_type' => MembershipType::User,
+                    'is_active' => true,
+                ]);
+
+                $user->update(['member_id' => $member->id]);
+            }
+        });
     }
 
     /**

@@ -29,10 +29,36 @@ class Member extends Model implements HasSchema
         'description',
         'locale',
         'default_currency_code',
-        'organisation_tax_class_id',
+        'bookable',
+        'location_type',
+        'day_cost',
+        'hour_cost',
+        'distance_cost',
+        'flat_rate_cost',
+        'lawful_basis_type_id',
+        'sale_tax_class_id',
+        'purchase_tax_class_id',
         'tag_list',
         'icon_url',
         'icon_thumb_url',
+        'mapping_id',
+        // Organisation membership fields
+        'account_number',
+        'tax_number',
+        'peppol_id',
+        'chamber_of_commerce_number',
+        'global_location_number',
+        'is_cash',
+        'is_on_stop',
+        'rating',
+        'owned_by',
+        'price_category_id',
+        'discount_category_id',
+        'invoice_term_id',
+        'invoice_term_length',
+        // Contact membership fields
+        'title',
+        'department',
     ];
 
     /**
@@ -43,6 +69,16 @@ class Member extends Model implements HasSchema
         return [
             'membership_type' => MembershipType::class,
             'is_active' => 'boolean',
+            'bookable' => 'boolean',
+            'location_type' => 'integer',
+            'day_cost' => 'integer',
+            'hour_cost' => 'integer',
+            'distance_cost' => 'integer',
+            'flat_rate_cost' => 'integer',
+            'is_cash' => 'boolean',
+            'is_on_stop' => 'boolean',
+            'rating' => 'integer',
+            'invoice_term_length' => 'integer',
             'tag_list' => 'array',
         ];
     }
@@ -55,10 +91,19 @@ class Member extends Model implements HasSchema
         $builder->text('description')->label('Description')->searchable();
         $builder->string('locale')->label('Locale')->filterable();
         $builder->string('default_currency_code')->label('Default Currency')->filterable();
-        $builder->relation('organisation_tax_class_id')->label('Tax Class')
-            ->relation('organisationTaxClass', 'belongsTo', OrganisationTaxClass::class, 'name')
+        $builder->boolean('bookable')->label('Bookable')->filterable()->sortable();
+        $builder->relation('sale_tax_class_id')->label('Sale Tax Class')
+            ->relation('saleTaxClass', 'belongsTo', OrganisationTaxClass::class, 'name')
+            ->filterable();
+        $builder->relation('purchase_tax_class_id')->label('Purchase Tax Class')
+            ->relation('purchaseTaxClass', 'belongsTo', OrganisationTaxClass::class, 'name')
             ->filterable();
         $builder->json('tag_list')->label('Tags')->searchable();
+        $builder->string('account_number')->label('Account Number')->searchable()->filterable();
+        $builder->boolean('is_on_stop')->label('On Stop')->filterable()->sortable();
+        $builder->relation('owned_by')->label('Owner')
+            ->relation('owner', 'belongsTo', self::class, 'name')
+            ->filterable();
         $builder->datetime('created_at')->label('Created')->sortable()->filterable();
         $builder->datetime('updated_at')->label('Updated')->sortable();
     }
@@ -106,9 +151,41 @@ class Member extends Model implements HasSchema
     /**
      * @return BelongsTo<OrganisationTaxClass, $this>
      */
-    public function organisationTaxClass(): BelongsTo
+    public function saleTaxClass(): BelongsTo
     {
-        return $this->belongsTo(OrganisationTaxClass::class);
+        return $this->belongsTo(OrganisationTaxClass::class, 'sale_tax_class_id');
+    }
+
+    /**
+     * @return BelongsTo<OrganisationTaxClass, $this>
+     */
+    public function purchaseTaxClass(): BelongsTo
+    {
+        return $this->belongsTo(OrganisationTaxClass::class, 'purchase_tax_class_id');
+    }
+
+    /**
+     * @return BelongsTo<ListValue, $this>
+     */
+    public function lawfulBasisType(): BelongsTo
+    {
+        return $this->belongsTo(ListValue::class, 'lawful_basis_type_id');
+    }
+
+    /**
+     * @return BelongsTo<Member, $this>
+     */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'owned_by');
+    }
+
+    /**
+     * @return BelongsTo<ListValue, $this>
+     */
+    public function invoiceTerm(): BelongsTo
+    {
+        return $this->belongsTo(ListValue::class, 'invoice_term_id');
     }
 
     /**
@@ -203,5 +280,15 @@ class Member extends Model implements HasSchema
                 ->from('member_relationships')
                 ->where('member_id', $memberId);
         });
+    }
+
+    /**
+     * Format a money value from minor units to decimal string for API responses.
+     */
+    public function formatMoneyCost(string $attribute): string
+    {
+        $value = (int) $this->getAttribute($attribute);
+
+        return number_format($value / 100, 2, '.', '');
     }
 }

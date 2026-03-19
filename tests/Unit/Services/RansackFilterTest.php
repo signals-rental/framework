@@ -559,3 +559,28 @@ it('ignores custom field filters when customFieldModule is null', function () {
 
     expect($query->toRawSql())->toBe($baseSql);
 });
+
+it('ignores custom field filter key that has no parseable predicate', function () {
+    $baseSql = User::query()->toRawSql();
+
+    $query = $this->filter->apply(
+        User::query(),
+        ['cf.nopredicate' => 'value'],
+        $this->allowedFields,
+        customFieldModule: 'App\\Models\\User',
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
+});
+
+it('ignores filter key that is only a predicate suffix with no field name', function () {
+    $baseSql = User::query()->toRawSql();
+
+    $query = $this->filter->apply(
+        User::query(),
+        ['_eq' => 'value'],
+        $this->allowedFields,
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
+});

@@ -200,3 +200,32 @@ it('nullifies group_id when group is deleted', function () {
 
     expect($field->custom_field_group_id)->toBeNull();
 });
+
+it('accesses group name via BelongsTo relationship', function () {
+    $group = CustomFieldGroup::factory()->create(['name' => 'Compliance Info']);
+    $field = CustomField::factory()->inGroup($group)->create();
+
+    $freshField = CustomField::with('group')->find($field->id);
+
+    expect($freshField->group)->not->toBeNull()
+        ->and($freshField->group->name)->toBe('Compliance Info');
+});
+
+it('accesses values via HasMany relationship', function () {
+    $field = CustomField::factory()->create(['module_type' => 'Member']);
+    CustomFieldValue::factory()->create([
+        'custom_field_id' => $field->id,
+        'entity_type' => 'Member',
+        'entity_id' => 1,
+        'value_string' => 'alpha',
+    ]);
+    CustomFieldValue::factory()->create([
+        'custom_field_id' => $field->id,
+        'entity_type' => 'Member',
+        'entity_id' => 2,
+        'value_string' => 'beta',
+    ]);
+
+    expect($field->values)->toHaveCount(2)
+        ->and($field->values->pluck('value_string')->toArray())->toBe(['alpha', 'beta']);
+});

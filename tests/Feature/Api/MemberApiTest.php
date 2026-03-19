@@ -2,11 +2,14 @@
 
 use App\Enums\CustomFieldType;
 use App\Models\Address;
+use App\Models\Country;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
 use App\Models\Email;
 use App\Models\Link;
 use App\Models\Member;
+use App\Models\MemberRelationship;
+use App\Models\OrganisationTaxClass;
 use App\Models\Phone;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -29,11 +32,11 @@ describe('GET /api/v1/members', function () {
             ->assertOk()
             ->assertJsonStructure([
                 'members' => [
-                    '*' => ['id', 'name', 'membership_type', 'is_active', 'created_at', 'updated_at'],
+                    '*' => ['id', 'name', 'membership_type', 'active', 'created_at', 'updated_at'],
                 ],
                 'meta' => ['total', 'per_page', 'page'],
             ])
-            ->assertJsonPath('meta.total', 3);
+            ->assertJsonPath('meta.total', 4); // 3 created + 1 owner's User-type member
     });
 
     it('filters by membership_type', function () {
@@ -46,7 +49,7 @@ describe('GET /api/v1/members', function () {
             ->assertOk();
 
         expect($response->json('members'))->toHaveCount(1);
-        expect($response->json('members.0.membership_type'))->toBe('organisation');
+        expect($response->json('members.0.membership_type'))->toBe('Organisation');
     });
 
     it('includes addresses when requested', function () {
@@ -55,10 +58,10 @@ describe('GET /api/v1/members', function () {
         $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/v1/members?include=addresses')
+            ->getJson("/api/v1/members/{$member->id}?include=addresses")
             ->assertOk();
 
-        expect($response->json('members.0.addresses'))->toBeArray()->toHaveCount(1);
+        expect($response->json('member.addresses'))->toBeArray()->toHaveCount(1);
     });
 
     it('requires members:read ability', function () {
@@ -93,7 +96,7 @@ describe('POST /api/v1/members', function () {
             ])
             ->assertCreated()
             ->assertJsonPath('member.name', 'Acme Corp')
-            ->assertJsonPath('member.membership_type', 'organisation');
+            ->assertJsonPath('member.membership_type', 'Organisation');
 
         $this->assertDatabaseHas('members', ['name' => 'Acme Corp']);
     });
@@ -456,7 +459,367 @@ describe('default custom_fields in API responses', function () {
             ->getJson("/api/v1/members/{$member->id}")
             ->assertOk();
 
-        expect($response->json('member.addresses'))->toBeNull()
+        expect($response->json('member.addresses'))->toBe([])
             ->and($response->json('member.custom_fields'))->toBeArray();
+    });
+});
+
+describe('CRMS schema compatibility — single member', function () {
+    it('matches CRMS Organisation member response shape', function () {
+        $saleTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Default']);
+        $purchaseTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Default']);
+        $owner = Member::factory()->user()->create(['name' => 'Ben Bowles']);
+        $country = Country::factory()->create([
+            'name' => 'United Kingdom',
+            'code' => 'GB',
+            'currency_code' => 'GBP',
+        ]);
+
+        $member = Member::factory()->organisation()->create([
+            'name' => 'Acme Events Ltd',
+            'description' => 'Event production company',
+            'is_active' => false,
+            'bookable' => false,
+            'location_type' => 1,
+            'locale' => 'en-GB',
+            'day_cost' => 0,
+            'hour_cost' => 0,
+            'distance_cost' => 0,
+            'flat_rate_cost' => 0,
+            'sale_tax_class_id' => $saleTaxClass->id,
+            'purchase_tax_class_id' => $purchaseTaxClass->id,
+            'tag_list' => ['Review Documents'],
+            'mapping_id' => 'ce1b9fde-b19f-4b9c-bd00-30a448c757b8',
+            'account_number' => 'ACC-001',
+            'tax_number' => 'GB123456789',
+            'is_cash' => false,
+            'is_on_stop' => true,
+            'rating' => 0,
+            'owned_by' => $owner->id,
+            'discount_category_id' => 5,
+            'invoice_term_length' => 0,
+        ]);
+
+        Address::factory()->for($member, 'addressable')->create([
+            'name' => 'Acme Events Ltd',
+            'street' => '123 Main St',
+            'city' => 'London',
+            'county' => 'Greater London',
+            'postcode' => 'EC1A 1BB',
+            'country_id' => $country->id,
+            'is_primary' => true,
+        ]);
+
+        $contact = Member::factory()->contact()->create(['name' => 'Freddie Meunier']);
+        MemberRelationship::factory()->create([
+            'member_id' => $contact->id,
+            'related_member_id' => $member->id,
+        ]);
+
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}?include=addresses,emails,phones,links,contacts")
+            ->assertOk();
+
+        $data = $response->json('member');
+
+        // Core CRMS fields
+        expect($data)->toHaveKeys([
+            'id', 'name', 'description', 'active', 'bookable', 'location_type',
+            'locale', 'day_cost', 'hour_cost', 'distance_cost', 'flat_rate_cost',
+            'membership_id', 'membership_type',
+            'lawful_basis_type_id', 'lawful_basis_type_name',
+            'sale_tax_class_id', 'sale_tax_class_name',
+            'purchase_tax_class_id', 'purchase_tax_class_name',
+            'tag_list', 'custom_fields', 'icon_exists?', 'mapping_id',
+            'created_at', 'updated_at',
+            'membership', 'primary_address', 'icon', 'identity',
+            'emails', 'phones', 'links', 'addresses',
+            'service_stock_levels', 'child_members', 'parent_members',
+        ]);
+
+        // deleted_at should NOT be in response (CRMS doesn't expose it)
+        expect($data)->not->toHaveKey('deleted_at');
+
+        // Field types match CRMS
+        expect($data['id'])->toBeInt()
+            ->and($data['name'])->toBeString()
+            ->and($data['description'])->toBeString()
+            ->and($data['active'])->toBeBool()
+            ->and($data['bookable'])->toBeBool()
+            ->and($data['location_type'])->toBeInt()
+            ->and($data['locale'])->toBeString()
+            ->and($data['membership_type'])->toBe('Organisation');
+
+        // Money fields are decimal strings (CRMS format)
+        expect($data['day_cost'])->toBe('0.00')
+            ->and($data['hour_cost'])->toBe('0.00')
+            ->and($data['distance_cost'])->toBe('0.00')
+            ->and($data['flat_rate_cost'])->toBe('0.00');
+
+        // Tax class names resolved
+        expect($data['sale_tax_class_id'])->toBe($saleTaxClass->id)
+            ->and($data['sale_tax_class_name'])->toBe('Default')
+            ->and($data['purchase_tax_class_id'])->toBe($purchaseTaxClass->id)
+            ->and($data['purchase_tax_class_name'])->toBe('Default');
+
+        // Tags as array
+        expect($data['tag_list'])->toBe(['Review Documents']);
+
+        // Custom fields as object
+        expect($data['custom_fields'])->toBeArray();
+
+        // membership_id (same as id since we store on members table)
+        expect($data['membership_id'])->toBeInt();
+
+        // icon_exists derived from icon_url
+        expect($data['icon_exists?'])->toBeFalse();
+
+        // icon and identity objects
+        expect($data['icon'])->toBeNull();
+        expect($data['identity'])->toBeNull();
+
+        // Mapping ID
+        expect($data['mapping_id'])->toBe('ce1b9fde-b19f-4b9c-bd00-30a448c757b8');
+
+        // CRMS date format: Z suffix with milliseconds (e.g. 2018-07-11T11:54:17.541Z)
+        expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
+        expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
+
+        // Organisation membership object (CRMS shape)
+        expect($data['membership'])->toHaveKeys([
+            'id', 'number', 'tax_class_id', 'cash', 'on_stop', 'rating',
+            'owned_by', 'price_category_id', 'discount_category_id',
+            'tax_number', 'peppol_id', 'chamber_of_commerce_number',
+            'global_location_number', 'invoice_term', 'invoice_term_length',
+        ]);
+        expect($data['membership']['cash'])->toBeFalse()
+            ->and($data['membership']['on_stop'])->toBeTrue()
+            ->and($data['membership']['rating'])->toBe(0)
+            ->and($data['membership']['owned_by'])->toBe($owner->id)
+            ->and($data['membership']['discount_category_id'])->toBe(5)
+            ->and($data['membership']['tax_class_id'])->toBe($saleTaxClass->id)
+            ->and($data['membership']['number'])->toBe('ACC-001')
+            ->and($data['membership']['tax_number'])->toBe('GB123456789');
+
+        // Primary address object
+        expect($data['primary_address'])->not->toBeNull();
+        expect($data['primary_address'])->toHaveKeys([
+            'id', 'name', 'street', 'city', 'county', 'postcode', 'country_id', 'is_primary',
+        ]);
+        expect($data['primary_address']['city'])->toBe('London')
+            ->and($data['primary_address']['is_primary'])->toBeTrue();
+
+        // Nested arrays present (empty arrays, not null — CRMS compat)
+        expect($data['emails'])->toBeArray()
+            ->and($data['phones'])->toBeArray()
+            ->and($data['links'])->toBeArray()
+            ->and($data['addresses'])->toBeArray()
+            ->and($data['service_stock_levels'])->toBeArray();
+
+        // child_members (linked contacts for this org)
+        expect($data['child_members'])->toBeArray()->toHaveCount(1);
+        expect($data['child_members'][0])->toHaveKeys([
+            'id', 'relatable_id', 'relatable_type', 'relatable_name',
+            'relatable_membership_type', 'related_id', 'related_type',
+            'related_name', 'related_membership_type',
+        ]);
+        expect($data['child_members'][0]['related_name'])->toBe('Freddie Meunier')
+            ->and($data['child_members'][0]['related_membership_type'])->toBe('Contact')
+            ->and($data['child_members'][0]['relatable_name'])->toBe('Acme Events Ltd')
+            ->and($data['child_members'][0]['relatable_membership_type'])->toBe('Organisation');
+
+        // parent_members (empty for orgs)
+        expect($data['parent_members'])->toBeArray()->toBeEmpty();
+    });
+
+    it('matches CRMS Contact member response shape with contact membership', function () {
+        $member = Member::factory()->contact()->create([
+            'name' => 'John Smith',
+            'title' => 'Mr',
+            'department' => 'Sales',
+        ]);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        $data = $response->json('member');
+
+        // Contact membership object
+        expect($data['membership'])->toHaveKeys(['id', 'title', 'department']);
+        expect($data['membership']['title'])->toBe('Mr')
+            ->and($data['membership']['department'])->toBe('Sales');
+    });
+
+    it('returns parent_members for a Contact with linked organisations', function () {
+        $org = Member::factory()->organisation()->create(['name' => 'Parent Org']);
+        $contact = Member::factory()->contact()->create(['name' => 'Child Contact']);
+        MemberRelationship::factory()->create([
+            'member_id' => $contact->id,
+            'related_member_id' => $org->id,
+        ]);
+
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$contact->id}?include=organisations")
+            ->assertOk();
+
+        $data = $response->json('member');
+        expect($data['parent_members'])->toBeArray()->toHaveCount(1);
+        expect($data['parent_members'][0]['related_name'])->toBe('Parent Org')
+            ->and($data['parent_members'][0]['related_membership_type'])->toBe('Organisation')
+            ->and($data['parent_members'][0]['relatable_name'])->toBe('Child Contact');
+        expect($data['child_members'])->toBeArray()->toBeEmpty();
+    });
+
+    it('returns icon object when icon_url is set', function () {
+        $member = Member::factory()->create([
+            'icon_url' => 'https://example.com/icon.png',
+            'icon_thumb_url' => 'https://example.com/icon_thumb.png',
+        ]);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        expect($response->json('member.icon_exists?'))->toBeTrue();
+        expect($response->json('member.icon'))->toBe([
+            'url' => 'https://example.com/icon.png',
+            'thumb_url' => 'https://example.com/icon_thumb.png',
+        ]);
+    });
+
+    it('returns minimal membership for User type members', function () {
+        $member = Member::factory()->user()->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        $data = $response->json('member');
+        expect($data['membership'])->toBe(['id' => $member->id])
+            ->and($data['membership_type'])->toBe('User');
+    });
+
+    it('separates primary address from other addresses', function () {
+        $member = Member::factory()->create();
+        $country = Country::factory()->create();
+        Address::factory()->for($member, 'addressable')->create([
+            'is_primary' => true, 'city' => 'London', 'country_id' => $country->id,
+        ]);
+        Address::factory()->for($member, 'addressable')->create([
+            'is_primary' => false, 'city' => 'Manchester', 'country_id' => $country->id,
+        ]);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}?include=addresses")
+            ->assertOk();
+
+        $data = $response->json('member');
+        expect($data['primary_address'])->not->toBeNull()
+            ->and($data['primary_address']['city'])->toBe('London');
+        expect($data['addresses'])->toHaveCount(1)
+            ->and($data['addresses'][0]['city'])->toBe('Manchester');
+    });
+
+    it('returns resource cost values as decimal strings', function () {
+        $member = Member::factory()->create([
+            'day_cost' => 10000,
+            'hour_cost' => 1500,
+            'distance_cost' => 100,
+            'flat_rate_cost' => 30000,
+        ]);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/members/{$member->id}")
+            ->assertOk();
+
+        expect($response->json('member.day_cost'))->toBe('100.00')
+            ->and($response->json('member.hour_cost'))->toBe('15.00')
+            ->and($response->json('member.distance_cost'))->toBe('1.00')
+            ->and($response->json('member.flat_rate_cost'))->toBe('300.00');
+    });
+});
+
+describe('CRMS schema compatibility — member collection', function () {
+    it('matches CRMS collection response shape with plural key and meta', function () {
+        $saleTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Standard']);
+        Member::factory()->organisation()->create([
+            'name' => 'Org A',
+            'sale_tax_class_id' => $saleTaxClass->id,
+            'bookable' => false,
+            'location_type' => 1,
+        ]);
+        Member::factory()->contact()->create([
+            'name' => 'Contact B',
+            'title' => 'Mrs',
+            'department' => 'Finance',
+        ]);
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/members')
+            ->assertOk();
+
+        // Collection uses plural key
+        $response->assertJsonStructure([
+            'members' => [
+                '*' => [
+                    'id', 'name', 'description', 'active', 'bookable', 'location_type',
+                    'locale', 'day_cost', 'hour_cost', 'distance_cost', 'flat_rate_cost',
+                    'membership_type', 'lawful_basis_type_id',
+                    'sale_tax_class_id', 'purchase_tax_class_id',
+                    'tag_list', 'custom_fields', 'mapping_id',
+                    'created_at', 'updated_at', 'membership',
+                ],
+            ],
+            'meta' => ['total', 'per_page', 'page'],
+        ]);
+
+        // Verify each member has correct membership shape for its type
+        $members = $response->json('members');
+        $org = collect($members)->firstWhere('membership_type', 'Organisation');
+        $contact = collect($members)->firstWhere('membership_type', 'Contact');
+
+        expect($org['membership'])->toHaveKeys([
+            'id', 'number', 'tax_class_id', 'cash', 'on_stop', 'rating',
+            'owned_by', 'price_category_id', 'discount_category_id',
+            'tax_number', 'peppol_id', 'chamber_of_commerce_number',
+            'global_location_number', 'invoice_term', 'invoice_term_length',
+        ]);
+
+        expect($contact['membership'])->toHaveKeys(['id', 'title', 'department']);
+        expect($contact['membership']['title'])->toBe('Mrs');
+
+        // Money fields are decimal strings in collection too
+        expect($org['day_cost'])->toBe('0.00');
+        expect($org['location_type'])->toBe(1);
+    });
+
+    it('returns meta with pagination matching CRMS format', function () {
+        Member::factory()->count(25)->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $totalMembers = \App\Models\Member::count();
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/members?page=2&per_page=10')
+            ->assertOk();
+
+        $meta = $response->json('meta');
+        expect($meta)->toHaveKeys(['total', 'per_page', 'page'])
+            ->and($meta['total'])->toBe($totalMembers)
+            ->and($meta['per_page'])->toBe(10)
+            ->and($meta['page'])->toBe(2);
+
+        expect($response->json('members'))->toHaveCount(10);
     });
 });

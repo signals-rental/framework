@@ -251,4 +251,40 @@ describe('ActionLogData::fromModel', function () {
 
         expect($data->auditable_type)->toBe('member');
     });
+
+    it('maps all model fields correctly via fromModel', function () {
+        $log = ActionLog::factory()->forUser($this->owner)->withChanges(
+            ['name' => 'Before'],
+            ['name' => 'After'],
+        )->create([
+            'action' => 'updated',
+            'auditable_type' => 'App\\Models\\User',
+            'auditable_id' => 42,
+            'ip_address' => '192.168.1.1',
+        ]);
+
+        $data = \App\Data\Api\ActionLogData::fromModel($log->load('user'));
+
+        expect($data->id)->toBe($log->id)
+            ->and($data->user_id)->toBe($this->owner->id)
+            ->and($data->action)->toBe('updated')
+            ->and($data->auditable_type)->toBe('user')
+            ->and($data->auditable_id)->toBe(42)
+            ->and($data->old_values)->toBe(['name' => 'Before'])
+            ->and($data->new_values)->toBe(['name' => 'After'])
+            ->and($data->ip_address)->toBe('192.168.1.1')
+            ->and($data->created_at)->not->toBeNull()
+            ->and($data->user_name)->toBe($this->owner->name);
+    });
+
+    it('returns ISO 8601 created_at timestamp in fromModel', function () {
+        $log = ActionLog::factory()->forUser($this->owner)->create([
+            'auditable_type' => 'App\\Models\\Store',
+            'auditable_id' => 99,
+        ]);
+
+        $data = \App\Data\Api\ActionLogData::fromModel($log);
+
+        expect($data->created_at)->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+    });
 });

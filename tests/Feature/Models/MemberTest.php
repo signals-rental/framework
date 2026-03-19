@@ -158,13 +158,22 @@ it('navigates contacts via inverse belongs to many', function () {
         ->and($org->contacts->first()->id)->toBe($contact->id);
 });
 
-it('relates member to organisation tax class', function () {
+it('relates member to sale tax class', function () {
     $taxClass = OrganisationTaxClass::factory()->create();
     $member = Member::factory()->organisation()->create([
-        'organisation_tax_class_id' => $taxClass->id,
+        'sale_tax_class_id' => $taxClass->id,
     ]);
 
-    expect($member->organisationTaxClass->id)->toBe($taxClass->id);
+    expect($member->saleTaxClass->id)->toBe($taxClass->id);
+});
+
+it('relates member to purchase tax class', function () {
+    $taxClass = OrganisationTaxClass::factory()->create();
+    $member = Member::factory()->organisation()->create([
+        'purchase_tax_class_id' => $taxClass->id,
+    ]);
+
+    expect($member->purchaseTaxClass->id)->toBe($taxClass->id);
 });
 
 it('relates user to member via belongs to', function () {
@@ -192,9 +201,92 @@ it('casts tag_list as array', function () {
     expect($member->tag_list)->toBe(['vip', 'preferred']);
 });
 
+it('auto-creates a linked User-type member when creating a user via factory', function () {
+    $user = User::factory()->create(['name' => 'Factory User']);
+
+    expect($user->member_id)->not->toBeNull();
+
+    $member = $user->member;
+    expect($member)->not->toBeNull()
+        ->and($member->name)->toBe('Factory User')
+        ->and($member->membership_type)->toBe(MembershipType::User);
+});
+
+it('does not create duplicate member when user factory already has member_id', function () {
+    $existingMember = Member::factory()->user()->create(['name' => 'Existing']);
+    $user = User::factory()->create(['name' => 'Existing', 'member_id' => $existingMember->id]);
+
+    expect($user->member_id)->toBe($existingMember->id);
+    expect(Member::query()->where('membership_type', 'user')->where('name', 'Existing')->count())->toBe(1);
+});
+
+it('relates member to lawful basis type', function () {
+    $listName = \App\Models\ListName::factory()->create(['name' => 'Lawful Basis Type']);
+    $listValue = \App\Models\ListValue::factory()->create(['list_name_id' => $listName->id, 'name' => 'Consent']);
+    $member = Member::factory()->organisation()->create(['lawful_basis_type_id' => $listValue->id]);
+
+    expect($member->lawfulBasisType->id)->toBe($listValue->id)
+        ->and($member->lawfulBasisType->name)->toBe('Consent');
+});
+
+it('relates member to owner', function () {
+    $owner = Member::factory()->user()->create(['name' => 'Owner User']);
+    $member = Member::factory()->organisation()->create(['owned_by' => $owner->id]);
+
+    expect($member->owner->id)->toBe($owner->id)
+        ->and($member->owner->name)->toBe('Owner User');
+});
+
+it('relates member to invoice term', function () {
+    $listName = \App\Models\ListName::factory()->create(['name' => 'Invoice Term']);
+    $listValue = \App\Models\ListValue::factory()->create(['list_name_id' => $listName->id, 'name' => 'Net 30']);
+    $member = Member::factory()->organisation()->create(['invoice_term_id' => $listValue->id]);
+
+    expect($member->invoiceTerm->id)->toBe($listValue->id)
+        ->and($member->invoiceTerm->name)->toBe('Net 30');
+});
+
+it('formats money cost from minor units to decimal string', function () {
+    $member = Member::factory()->create([
+        'day_cost' => 10050,
+        'hour_cost' => 0,
+    ]);
+
+    expect($member->formatMoneyCost('day_cost'))->toBe('100.50')
+        ->and($member->formatMoneyCost('hour_cost'))->toBe('0.00');
+});
+
 it('relates store to country', function () {
     $country = Country::factory()->create();
     $store = Store::factory()->create(['country_id' => $country->id]);
 
     expect($store->country->id)->toBe($country->id);
+});
+
+it('MemberStore belongs to member', function () {
+    $member = Member::factory()->contact()->create();
+    $store = Store::factory()->create();
+
+    $memberStore = \App\Models\MemberStore::create([
+        'member_id' => $member->id,
+        'store_id' => $store->id,
+        'created_at' => now(),
+    ]);
+
+    expect($memberStore->member->id)->toBe($member->id)
+        ->and($memberStore->member)->toBeInstanceOf(Member::class);
+});
+
+it('MemberStore belongs to store', function () {
+    $member = Member::factory()->contact()->create();
+    $store = Store::factory()->create();
+
+    $memberStore = \App\Models\MemberStore::create([
+        'member_id' => $member->id,
+        'store_id' => $store->id,
+        'created_at' => now(),
+    ]);
+
+    expect($memberStore->store->id)->toBe($store->id)
+        ->and($memberStore->store)->toBeInstanceOf(Store::class);
 });

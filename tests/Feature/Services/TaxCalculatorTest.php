@@ -212,6 +212,46 @@ describe('TaxCalculator', function () {
 
         expect($result)->toBeNull();
     });
+
+    it('returns zero tax when default classes match the already-tried classes with no rule', function () {
+        $defaultOrgClass = OrganisationTaxClass::factory()->default()->create();
+        $defaultProductClass = ProductTaxClass::factory()->default()->create();
+
+        $calculator = app(TaxCalculator::class);
+        $result = $calculator->calculate(10000, 'GBP', $defaultOrgClass->id, $defaultProductClass->id);
+
+        expect($result->taxAmount)->toBe(0)
+            ->and($result->taxRateName)->toBe('No Tax');
+    });
+
+    it('returns zero tax when no default org class exists for fallback', function () {
+        $orgClass = OrganisationTaxClass::factory()->create(['is_default' => false]);
+        $productClass = ProductTaxClass::factory()->create(['is_default' => false]);
+
+        $calculator = app(TaxCalculator::class);
+        $result = $calculator->calculate(10000, 'GBP', $orgClass->id, $productClass->id);
+
+        expect($result->taxAmount)->toBe(0)
+            ->and($result->taxRateName)->toBe('No Tax');
+    });
+
+    it('rounds negative tax amounts correctly', function () {
+        $orgClass = OrganisationTaxClass::factory()->create();
+        $productClass = ProductTaxClass::factory()->create();
+        $taxRate = TaxRate::factory()->create(['name' => 'Standard', 'rate' => '20.0000']);
+        TaxRule::factory()->create([
+            'organisation_tax_class_id' => $orgClass->id,
+            'product_tax_class_id' => $productClass->id,
+            'tax_rate_id' => $taxRate->id,
+        ]);
+
+        $calculator = app(TaxCalculator::class);
+        $result = $calculator->calculate(-333, 'GBP', $orgClass->id, $productClass->id);
+
+        expect($result->netAmount)->toBe(-333)
+            ->and($result->taxAmount)->toBe(-67)
+            ->and($result->grossAmount)->toBe(-400);
+    });
 });
 
 describe('TaxResult', function () {
@@ -267,5 +307,35 @@ describe('TaxResult', function () {
         expect($result->netAmountDecimal())->toBe('3.33')
             ->and($result->taxAmountDecimal())->toBe('0.67')
             ->and($result->grossAmountDecimal())->toBe('4.00');
+    });
+
+    it('decimal accessors return integer strings for zero-exponent currencies like JPY', function () {
+        $result = new TaxResult(
+            taxRateName: 'Consumption Tax',
+            ratePercentage: '10.0000',
+            netAmount: 1000,
+            taxAmount: 100,
+            grossAmount: 1100,
+            currencyCode: 'JPY',
+        );
+
+        expect($result->netAmountDecimal())->toBe('1000')
+            ->and($result->taxAmountDecimal())->toBe('100')
+            ->and($result->grossAmountDecimal())->toBe('1100');
+    });
+
+    it('decimal accessors handle 3-exponent currencies like KWD', function () {
+        $result = new TaxResult(
+            taxRateName: 'VAT',
+            ratePercentage: '5.0000',
+            netAmount: 10000,
+            taxAmount: 500,
+            grossAmount: 10500,
+            currencyCode: 'KWD',
+        );
+
+        expect($result->netAmountDecimal())->toBe('10.000')
+            ->and($result->taxAmountDecimal())->toBe('0.500')
+            ->and($result->grossAmountDecimal())->toBe('10.500');
     });
 });

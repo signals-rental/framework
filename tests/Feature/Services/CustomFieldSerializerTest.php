@@ -293,6 +293,31 @@ it('toArray excludes deactivated fields even if values exist', function () {
         ->and($result['has_warehouse'])->toBeTrue();
 });
 
+it('fromArray coerces ListOfValues default value to integer', function () {
+    $listName = ListName::factory()->create();
+    $listValue = ListValue::factory()->forList($listName)->create(['name' => 'Default Option']);
+
+    CustomField::factory()->listOfValues()->create([
+        'name' => 'category',
+        'display_name' => 'Category',
+        'module_type' => 'Store',
+        'list_name_id' => $listName->id,
+        'default_value' => (string) $listValue->id,
+    ]);
+
+    $store = Store::factory()->create();
+    $this->serializer->fromArray($store, [], applyDefaults: true);
+
+    $cfv = CustomFieldValue::query()
+        ->where('entity_type', Store::class)
+        ->where('entity_id', $store->id)
+        ->whereHas('customField', fn ($q) => $q->where('name', 'category'))
+        ->first();
+
+    expect($cfv)->not->toBeNull()
+        ->and($cfv->value_integer)->toBe($listValue->id);
+});
+
 it('fromArray applies falsy default value like zero', function () {
     $this->textField->update(['field_type' => \App\Enums\CustomFieldType::Number, 'default_value' => '0']);
 

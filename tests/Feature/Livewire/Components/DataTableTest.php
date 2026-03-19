@@ -25,6 +25,7 @@ function memberColumns(): array
 
 it('renders the data table with items', function () {
     Member::factory()->count(3)->create();
+    $total = Member::count();
 
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
@@ -32,7 +33,7 @@ it('renders the data table with items', function () {
         'searchable' => ['name'],
     ])
         ->assertStatus(200)
-        ->assertViewHas('items', fn ($items) => $items->count() === 3);
+        ->assertViewHas('items', fn ($items) => $items->count() === $total);
 });
 
 it('sorts by column ascending and descending', function () {
@@ -85,6 +86,7 @@ it('filters by select column', function () {
 
 it('clears a single filter', function () {
     Member::factory()->count(3)->create();
+    $total = Member::count();
 
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
@@ -92,7 +94,7 @@ it('clears a single filter', function () {
     ])
         ->call('applyFilter', 'membership_type', 'contact')
         ->call('clearFilter', 'membership_type')
-        ->assertViewHas('items', fn ($items) => $items->count() === 3);
+        ->assertViewHas('items', fn ($items) => $items->count() === $total);
 });
 
 it('clears all filters and search', function () {
@@ -101,6 +103,7 @@ it('clears all filters and search', function () {
     }
 
     Member::factory()->count(3)->create();
+    $total = Member::count();
 
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
@@ -112,7 +115,7 @@ it('clears all filters and search', function () {
         ->call('clearAllFilters')
         ->assertSet('search', '')
         ->assertSet('filters', [])
-        ->assertViewHas('items', fn ($items) => $items->count() === 3);
+        ->assertViewHas('items', fn ($items) => $items->count() === $total);
 });
 
 it('toggles individual row selection', function () {
@@ -132,6 +135,7 @@ it('toggles individual row selection', function () {
 
 it('toggles select all on current page', function () {
     Member::factory()->count(3)->create();
+    $total = Member::count();
 
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
@@ -140,7 +144,7 @@ it('toggles select all on current page', function () {
     ])
         ->call('toggleSelectAll')
         ->assertSet('selectAll', true)
-        ->assertViewHas('items', fn ($items) => $items->count() === 3);
+        ->assertViewHas('items', fn ($items) => $items->count() === $total);
 });
 
 it('clears selection', function () {
@@ -158,13 +162,14 @@ it('clears selection', function () {
 
 it('paginates results', function () {
     Member::factory()->count(30)->create();
+    $total = Member::count();
 
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
         'model' => Member::class,
         'perPage' => 10,
     ])
-        ->assertViewHas('items', fn ($items) => $items->count() === 10 && $items->total() === 30);
+        ->assertViewHas('items', fn ($items) => $items->count() === 10 && $items->total() === $total);
 });
 
 it('applies default sort', function () {
@@ -268,6 +273,7 @@ it('renders empty state when no results', function () {
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
         'model' => Member::class,
+        'scopes' => ['ofType' => MembershipType::Venue],
         'emptyMessage' => 'No members found.',
     ])
         ->assertSee('No members found.');
@@ -426,17 +432,19 @@ it('applies scope with value parameter', function () {
 it('applies scope with boolean true parameter', function () {
     Member::factory()->create(['is_active' => true]);
     Member::factory()->create(['is_active' => false]);
+    $activeCount = Member::query()->active()->count();
 
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
         'model' => Member::class,
         'scopes' => ['active' => true],
     ])
-        ->assertViewHas('items', fn ($items) => $items->count() === 1);
+        ->assertViewHas('items', fn ($items) => $items->count() === $activeCount);
 });
 
 it('selects all page IDs when selectAll is toggled and renders', function () {
-    $members = Member::factory()->count(3)->create();
+    Member::factory()->count(3)->create();
+    $total = Member::count();
 
     $component = Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
@@ -446,7 +454,7 @@ it('selects all page IDs when selectAll is toggled and renders', function () {
     $component->call('toggleSelectAll');
     $selected = $component->get('selected');
 
-    expect($selected)->toHaveCount(3);
+    expect($selected)->toHaveCount($total);
 });
 
 it('removes filter when empty value is applied', function () {
@@ -480,6 +488,66 @@ it('shift-select falls back to toggle when lastSelectedId not in pageIds', funct
 
     // Should fall back to toggleSelected since lastSelectedId ($ids[0]) is not in pageIds
     expect($selected)->toContain($ids[2]);
+});
+
+it('filters by text column using ilike', function () {
+    if (config('database.default') === 'sqlite') {
+        $this->markTestSkipped('Text filter uses PostgreSQL ilike operator');
+    }
+
+    Member::factory()->create(['name' => 'Acme Events']);
+    Member::factory()->create(['name' => 'Beta Sound']);
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->call('applyFilter', 'name', 'acme')
+        ->assertViewHas('items', fn ($items) => $items->count() === 1 && $items->first()->name === 'Acme Events');
+});
+
+it('responds to multiple configured refresh events', function () {
+    $member = Member::factory()->create();
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+        'refreshEvents' => ['member-created', 'member-deleted'],
+    ])
+        ->call('toggleSelected', $member->id)
+        ->assertSet('selected', [$member->id])
+        ->dispatch('member-created')
+        ->assertSet('selected', [])
+        ->assertSet('selectAll', false);
+});
+
+it('refresh method resets selection state', function () {
+    $member = Member::factory()->create();
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->call('toggleSelected', $member->id)
+        ->assertSet('selected', [$member->id])
+        ->call('refresh')
+        ->assertSet('selected', [])
+        ->assertSet('selectAll', false)
+        ->assertSet('lastSelectedId', null);
+});
+
+it('toggleSelectAll deselects when toggled twice', function () {
+    Member::factory()->count(3)->create();
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->call('toggleSelectAll')
+        ->assertSet('selectAll', true)
+        ->call('toggleSelectAll')
+        ->assertSet('selectAll', false)
+        ->assertSet('selected', []);
 });
 
 it('resets page when updatedFilters is called', function () {

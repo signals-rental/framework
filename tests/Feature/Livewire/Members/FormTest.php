@@ -14,7 +14,13 @@ beforeEach(function () {
 it('renders the create form', function () {
     $this->get('/members/create')
         ->assertOk()
-        ->assertSee('Create Member');
+        ->assertSee('Create Contact');
+});
+
+it('renders the create form with pre-populated type', function () {
+    $this->get('/members/create?type=organisation')
+        ->assertOk()
+        ->assertSee('Create Organisation');
 });
 
 it('renders the edit form with populated data', function () {

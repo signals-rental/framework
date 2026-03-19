@@ -2,6 +2,8 @@
 
 use App\Actions\Admin\InviteUser;
 use App\Data\Admin\InviteUserData;
+use App\Enums\MembershipType;
+use App\Models\Member;
 use App\Models\User;
 use App\Notifications\UserInvitedNotification;
 use Database\Seeders\PermissionSeeder;
@@ -61,3 +63,23 @@ it('rejects unauthorized users', function () {
 
     (new InviteUser)($data);
 })->throws(AuthorizationException::class);
+
+it('creates a linked User-type member for the invited user', function () {
+    Notification::fake();
+
+    $data = InviteUserData::from([
+        'name' => 'Member Link Test',
+        'email' => 'memberlink@example.com',
+        'roles' => [],
+    ]);
+
+    $user = (new InviteUser)($data);
+
+    expect($user->member_id)->not->toBeNull();
+
+    $member = Member::find($user->member_id);
+    expect($member)->not->toBeNull()
+        ->and($member->name)->toBe('Member Link Test')
+        ->and($member->membership_type)->toBe(MembershipType::User)
+        ->and($member->is_active)->toBeTrue();
+});

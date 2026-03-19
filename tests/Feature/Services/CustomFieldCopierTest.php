@@ -366,6 +366,36 @@ describe('CustomFieldCopier', function () {
         )->toBe(1);
     });
 
+    it('skips source values whose custom field has been deleted', function () {
+        $sourceField = CustomField::factory()->create([
+            'name' => 'deleted_field',
+            'module_type' => 'Member',
+            'field_type' => CustomFieldType::String,
+        ]);
+
+        CustomField::factory()->create([
+            'name' => 'deleted_field',
+            'module_type' => 'Store',
+            'field_type' => CustomFieldType::String,
+        ]);
+
+        CustomFieldValue::factory()->create([
+            'custom_field_id' => $sourceField->id,
+            'entity_type' => Member::class,
+            'entity_id' => $this->sourceMember->id,
+            'value_string' => 'some value',
+        ]);
+
+        // Delete the source custom field definition, leaving an orphaned value
+        $sourceField->forceDelete();
+
+        $result = $this->copier->copy($this->sourceMember, $this->targetStore, 'Store');
+
+        // The orphaned value should be silently skipped (not copied, not counted as skipped)
+        expect($result->copied)->toBe(0)
+            ->and($result->skipped)->toBe(0);
+    });
+
     it('skips null source values', function () {
         $sourceField = CustomField::factory()->create([
             'name' => 'empty_field',

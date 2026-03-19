@@ -131,4 +131,33 @@ describe('PermissionRegistry', function () {
         expect($meta['layer'])->toBe('action');
         expect($meta['dependencies'])->toBe([]);
     });
+
+    it('registers multiple permissions at once via registerMany', function () {
+        $registry = new PermissionRegistry;
+        $registry->registerMany([
+            'widgets.view' => [
+                'label' => 'View Widgets',
+                'description' => 'Can view widgets',
+                'group' => 'Widgets',
+            ],
+            'widgets.create' => [
+                'label' => 'Create Widgets',
+                'description' => 'Can create widgets',
+                'group' => 'Widgets',
+                'dependencies' => ['widgets.view'],
+            ],
+            'widgets.delete' => [
+                'label' => 'Delete Widgets',
+                'description' => 'Can delete widgets',
+                'group' => 'Widgets',
+                'layer' => 'action',
+            ],
+        ]);
+
+        expect($registry->has('widgets.view'))->toBeTrue()
+            ->and($registry->has('widgets.create'))->toBeTrue()
+            ->and($registry->has('widgets.delete'))->toBeTrue()
+            ->and($registry->get('widgets.create')['dependencies'])->toBe(['widgets.view'])
+            ->and($registry->keys())->toContain('widgets.view', 'widgets.create', 'widgets.delete');
+    });
 });

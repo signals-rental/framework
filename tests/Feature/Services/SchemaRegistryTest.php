@@ -171,8 +171,10 @@ describe('SchemaRegistry', function () {
 
         expect($schema)->toHaveKeys([
             'name', 'membership_type', 'is_active', 'description',
-            'locale', 'default_currency_code', 'organisation_tax_class_id',
-            'tag_list', 'created_at', 'updated_at',
+            'locale', 'default_currency_code', 'bookable',
+            'sale_tax_class_id', 'purchase_tax_class_id',
+            'tag_list', 'account_number', 'is_on_stop',
+            'owned_by', 'created_at', 'updated_at',
         ]);
 
         expect($schema['name']->type)->toBe('string');
@@ -185,9 +187,9 @@ describe('SchemaRegistry', function () {
 
         expect($schema['is_active']->type)->toBe('boolean');
 
-        expect($schema['organisation_tax_class_id']->type)->toBe('relation');
-        expect($schema['organisation_tax_class_id']->relationName)->toBe('organisationTaxClass');
-        expect($schema['organisation_tax_class_id']->relationType)->toBe('belongsTo');
+        expect($schema['sale_tax_class_id']->type)->toBe('relation');
+        expect($schema['sale_tax_class_id']->relationName)->toBe('saleTaxClass');
+        expect($schema['sale_tax_class_id']->relationType)->toBe('belongsTo');
     });
 
     it('resolves Store schema with core fields', function () {

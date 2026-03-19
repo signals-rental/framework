@@ -31,7 +31,7 @@ it('creates a member', function () {
     $result = (new CreateMember)($data);
 
     expect($result->name)->toBe('Acme Corp');
-    expect($result->membership_type)->toBe('organisation');
+    expect($result->membership_type)->toBe('Organisation');
     expect($result->is_active)->toBeTrue();
     expect(Member::where('name', 'Acme Corp')->exists())->toBeTrue();
 

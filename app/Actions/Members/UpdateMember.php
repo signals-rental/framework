@@ -22,12 +22,14 @@ class UpdateMember
             $member->syncCustomFields($data->custom_fields);
         }
 
+        $member->refresh();
+
         event(new AuditableEvent($member, 'member.updated'));
 
         app(\App\Services\Api\WebhookService::class)->dispatch('member.updated', [
-            'member' => MemberData::fromModel($member->fresh())->toArray(),
+            'member' => MemberData::fromModel($member)->toArray(),
         ]);
 
-        return MemberData::fromModel($member->fresh());
+        return MemberData::fromModel($member);
     }
 }

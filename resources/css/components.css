@@ -1353,6 +1353,10 @@
 .s-form-section-title svg { width: 14px; height: 14px; color: var(--text-muted); }
 .s-form-section-body { padding: 16px; }
 
+/* Required field indicator — red asterisk after label */
+[data-flux-field]:has([required]) > [data-flux-label]::after,
+[data-flux-field]:has([required]) > label::after { content: ' *'; color: var(--red); font-weight: 600; }
+
 /* ================================================================ */
 /*  46. MULTIPLIER TABLE                                             */
 /* ================================================================ */
