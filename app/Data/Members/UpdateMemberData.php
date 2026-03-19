@@ -2,13 +2,15 @@
 
 namespace App\Data\Members;
 
+use App\Enums\MembershipType;
+use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
 
 class UpdateMemberData extends Data
 {
     public function __construct(
         public ?string $name = null,
-        public ?string $membership_type = null,
+        public ?MembershipType $membership_type = null,
         public ?bool $is_active = null,
         public ?string $description = null,
         public ?string $locale = null,
@@ -36,6 +38,10 @@ class UpdateMemberData extends Data
         public ?int $discount_category_id = null,
         public ?int $invoice_term_id = null,
         public ?int $invoice_term_length = null,
+        // Commerce identity fields
+        public ?string $peppol_id = null,
+        public ?string $chamber_of_commerce_number = null,
+        public ?string $global_location_number = null,
         // Contact membership fields
         public ?string $title = null,
         public ?string $department = null,
@@ -50,7 +56,7 @@ class UpdateMemberData extends Data
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'membership_type' => ['sometimes', 'string'],
+            'membership_type' => ['sometimes', new Enum(MembershipType::class)],
             'is_active' => ['sometimes', 'boolean'],
             'description' => ['sometimes', 'nullable', 'string'],
             'locale' => ['sometimes', 'nullable', 'string', 'max:10'],
@@ -77,6 +83,9 @@ class UpdateMemberData extends Data
             'discount_category_id' => ['sometimes', 'nullable', 'integer'],
             'invoice_term_id' => ['sometimes', 'nullable', 'integer', 'exists:list_values,id'],
             'invoice_term_length' => ['sometimes', 'integer', 'min:0'],
+            'peppol_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'chamber_of_commerce_number' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'global_location_number' => ['sometimes', 'nullable', 'string', 'max:255'],
             'title' => ['sometimes', 'nullable', 'string', 'max:50'],
             'department' => ['sometimes', 'nullable', 'string', 'max:255'],
             'custom_fields' => ['sometimes', 'array'],

@@ -6,19 +6,24 @@ use App\Enums\MembershipType;
 use App\Models\Member;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class SearchController
 {
     public function __invoke(Request $request): JsonResponse
     {
+        Gate::authorize('members.view');
+
         $query = $request->string('q')->trim()->value();
 
         if (mb_strlen($query) < 2) {
             return response()->json(['members' => []]);
         }
 
+        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query);
+
         $members = Member::query()
-            ->where('name', 'ilike', '%'.$query.'%')
+            ->where('name', 'ilike', '%'.$escaped.'%')
             ->orderBy('name')
             ->limit(8)
             ->get();
@@ -29,7 +34,7 @@ class SearchController
             $type = $member->membership_type;
             $words = preg_split('/\s+/', trim($member->name));
             $initials = mb_strtoupper(
-                mb_substr($words[0] ?? '', 0, 1) . mb_substr($words[1] ?? '', 0, 1)
+                mb_substr($words[0] ?? '', 0, 1).mb_substr($words[1] ?? '', 0, 1)
             );
             $results[] = [
                 'id' => $member->id,

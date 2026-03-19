@@ -45,6 +45,9 @@ class CreateMember
             'discount_category_id' => $data->discount_category_id,
             'invoice_term_id' => $data->invoice_term_id,
             'invoice_term_length' => $data->invoice_term_length,
+            'peppol_id' => $data->peppol_id,
+            'chamber_of_commerce_number' => $data->chamber_of_commerce_number,
+            'global_location_number' => $data->global_location_number,
             'title' => $data->title,
             'department' => $data->department,
         ]);
