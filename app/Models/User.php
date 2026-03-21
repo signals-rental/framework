@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
+use App\Services\SchemaBuilder;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +14,7 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
@@ -65,6 +67,25 @@ class User extends Authenticatable
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
+        $builder->string('email')->label('Email')->required()->searchable()->filterable()->sortable();
+        $builder->boolean('is_owner')->label('Owner')->filterable()->groupable();
+        $builder->boolean('is_admin')->label('Admin')->filterable()->groupable();
+        $builder->boolean('is_active')->label('Active')->filterable()->sortable()->groupable();
+        $builder->string('timezone')->label('Timezone')->filterable();
+        $builder->relation('member_id')->label('Member')
+            ->relation('member', 'belongsTo', Member::class, 'name')
+            ->filterable();
+        $builder->datetime('last_login_at')->label('Last Login')->sortable();
+        $builder->datetime('invited_at')->label('Invited')->sortable();
+        $builder->datetime('invitation_accepted_at')->label('Invitation Accepted')->sortable();
+        $builder->datetime('deactivated_at')->label('Deactivated')->sortable();
+        $builder->datetime('created_at')->label('Created')->sortable();
+        $builder->datetime('updated_at')->label('Updated')->sortable();
     }
 
     /**

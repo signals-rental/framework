@@ -41,10 +41,14 @@ class FileService
     ): Attachment {
         $uuid = (string) Str::uuid();
         $extension = $file->getClientOriginalExtension();
-        $path = $this->storePath($uuid, $extension);
+        $path = $this->storePath($uuid, $extension, $entity);
         $disk = $this->disk();
 
-        Storage::disk($disk)->put($path, $file->getContent());
+        $stored = Storage::disk($disk)->put($path, $file->getContent());
+
+        if (! $stored) {
+            throw new \RuntimeException("Failed to store file at path [{$path}] on disk [{$disk}].");
+        }
 
         return Attachment::create([
             'uuid' => $uuid,
@@ -77,11 +81,20 @@ class FileService
         $disk = $this->disk();
 
         // Store original
-        Storage::disk($disk)->put($iconPath, $file->getContent());
+        $stored = Storage::disk($disk)->put($iconPath, $file->getContent());
 
-        // Generate and store 400x400 thumbnail (preserves quality for profile display)
-        $thumbnail = $this->generateThumbnail($file, 400, 400);
-        Storage::disk($disk)->put($thumbPath, $thumbnail);
+        if (! $stored) {
+            throw new \RuntimeException("Failed to store icon at path [{$iconPath}] on disk [{$disk}].");
+        }
+
+        // Generate and store 150x150 thumbnail per spec
+        $thumbnail = $this->generateThumbnail($file, 150, 150);
+        $thumbStored = Storage::disk($disk)->put($thumbPath, $thumbnail);
+
+        if (! $thumbStored) {
+            Storage::disk($disk)->delete($iconPath);
+            throw new \RuntimeException("Failed to store thumbnail at path [{$thumbPath}] on disk [{$disk}].");
+        }
 
         return [
             'icon_url' => $iconPath,
@@ -129,10 +142,17 @@ class FileService
     }
 
     /**
-     * Generate a UUID-based storage path.
+     * Generate a UUID-based storage path organised by entity type and ID.
      */
-    private function storePath(string $uuid, string $extension): string
+    private function storePath(string $uuid, string $extension, ?Model $entity = null): string
     {
+        if ($entity !== null) {
+            $entityType = strtolower(class_basename($entity));
+            $entityId = $entity->getKey();
+
+            return "attachments/{$entityType}/{$entityId}/{$uuid}.{$extension}";
+        }
+
         return "attachments/{$uuid}.{$extension}";
     }
 }

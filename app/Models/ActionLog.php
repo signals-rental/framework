@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
+use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-class ActionLog extends Model
+class ActionLog extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\ActionLogFactory> */
     use HasFactory;
@@ -37,6 +39,18 @@ class ActionLog extends Model
             'new_values' => 'array',
             'metadata' => 'array',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('action')->label('Action')->required()->filterable()->sortable()->groupable();
+        $builder->string('auditable_type')->label('Entity Type')->filterable()->groupable();
+        $builder->integer('auditable_id')->label('Entity ID')->filterable();
+        $builder->relation('user_id')->label('User')
+            ->relation('user', 'belongsTo', User::class, 'name')
+            ->filterable();
+        $builder->string('ip_address')->label('IP Address')->filterable();
+        $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 
     /**

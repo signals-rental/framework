@@ -2,8 +2,6 @@
 
 namespace App\Providers;
 
-use App\Events\AuditableEvent;
-use App\Listeners\LogAction;
 use App\Models\User;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
@@ -19,7 +17,6 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -58,7 +55,8 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->registerBladeDirectives();
 
-        Event::listen(AuditableEvent::class, LogAction::class);
+        // LogAction is auto-discovered by Laravel via its handle(AuditableEvent) type-hint.
+        // Manual registration removed to prevent duplicate listener execution.
     }
 
     protected function configureDefaults(): void

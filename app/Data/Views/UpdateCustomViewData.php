@@ -13,6 +13,7 @@ class UpdateCustomViewData extends Data
      */
     public function __construct(
         public ?string $name = null,
+        public ?string $description = null,
         public ?string $visibility = null,
         public ?array $columns = null,
         public ?array $filters = null,
@@ -29,6 +30,7 @@ class UpdateCustomViewData extends Data
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'visibility' => ['sometimes', 'in:personal,shared'],
             'columns' => ['sometimes', 'array', 'min:1'],
             'columns.*' => ['string'],

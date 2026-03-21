@@ -91,6 +91,49 @@ it('deletes attachment with thumbnail', function () {
     Storage::disk($this->disk)->assertMissing('attachments/thumbs/test.jpg');
 });
 
+it('organises upload path by entity type and id', function () {
+    $member = Member::factory()->create();
+    $file = UploadedFile::fake()->create('report.pdf', 100, 'application/pdf');
+
+    $attachment = $this->service->upload($file, $member);
+
+    expect($attachment->file_path)->toMatch("/^attachments\/member\/{$member->id}\/[0-9a-f\-]+\.pdf$/");
+});
+
+it('generates signed url for public disk', function () {
+    $path = 'attachments/test-file.pdf';
+    Storage::disk($this->disk)->put($path, 'content');
+
+    $url = $this->service->signedUrl($path);
+
+    expect($url)->toBeString()->toContain('test-file.pdf');
+});
+
+it('throws when storage put fails on upload', function () {
+    Storage::shouldReceive('disk')->andReturnSelf();
+    Storage::shouldReceive('put')->andReturn(false);
+
+    $member = Member::factory()->create();
+    $file = UploadedFile::fake()->create('fail.pdf', 100, 'application/pdf');
+
+    $this->service->upload($file, $member);
+})->throws(\RuntimeException::class, 'Failed to store file');
+
+it('throws when icon storage put fails', function () {
+    $putCalls = 0;
+    Storage::shouldReceive('disk')->andReturnSelf();
+    Storage::shouldReceive('put')->andReturnUsing(function () use (&$putCalls) {
+        $putCalls++;
+
+        return $putCalls === 1 ? false : true;
+    });
+
+    $member = Member::factory()->create();
+    $file = UploadedFile::fake()->image('icon.jpg', 200, 200);
+
+    $this->service->uploadIcon($file, $member);
+})->throws(\RuntimeException::class, 'Failed to store icon');
+
 it('generates a uuid for the attachment', function () {
     $member = Member::factory()->create();
     $file = UploadedFile::fake()->create('test.pdf', 100, 'application/pdf');

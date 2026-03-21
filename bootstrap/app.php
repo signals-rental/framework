@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'signals.setup-required' => \App\Http\Middleware\EnsureSetupRequired::class,
             'signals.setup-complete' => \App\Http\Middleware\EnsureSetupComplete::class,
             'signals.active-user' => \App\Http\Middleware\EnsureActiveUser::class,
+            'signals.session-timeout' => \App\Http\Middleware\EnforceSessionTimeout::class,
             '2fa' => \App\Http\Middleware\EnsureTwoFactorAuthenticated::class,
         ]);
     })

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\MemberRelationshipController;
 use App\Http\Controllers\Api\V1\OrganisationTaxClassController;
 use App\Http\Controllers\Api\V1\ProductTaxClassController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\SchemaController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\SystemController;
 use App\Http\Controllers\Api\V1\TaxRateController;
@@ -42,6 +43,10 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
 
     // System
     Route::get('system/health', [SystemController::class, 'health'])->name('api.v1.system.health');
+
+    // Schema Discovery
+    Route::get('schema', [SchemaController::class, 'index'])->name('api.v1.schema.index');
+    Route::get('schema/{model}', [SchemaController::class, 'show'])->name('api.v1.schema.show');
 
     // Settings
     Route::get('settings', [SettingsController::class, 'index'])->name('api.v1.settings.index');

@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
+use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Country extends Model
+class Country extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\CountryFactory> */
     use HasFactory;
@@ -33,6 +35,19 @@ class Country extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('code')->label('Code')->required()->filterable()->sortable();
+        $builder->string('code3')->label('ISO Alpha-3')->filterable();
+        $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
+        $builder->string('currency_code')->label('Currency Code')->filterable();
+        $builder->string('phone_prefix')->label('Phone Prefix')->filterable();
+        $builder->string('default_timezone')->label('Default Timezone');
+        $builder->boolean('is_active')->label('Active')->filterable()->sortable()->groupable();
+        $builder->datetime('created_at')->label('Created')->sortable();
+        $builder->datetime('updated_at')->label('Updated')->sortable();
     }
 
     /**

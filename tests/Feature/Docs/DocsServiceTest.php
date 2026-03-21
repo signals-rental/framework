@@ -138,7 +138,7 @@ test('getChangelog extracts frontmatter correctly', function () {
     $entries = $service->getChangelog();
 
     expect($entries[0]['version'])->toBe('0.2.0')
-        ->and($entries[0]['date'])->toBe('2026-03-12')
+        ->and($entries[0]['date'])->toBe('2026-03-19')
         ->and($entries[0]['title'])->toBe('People & Places');
 });
 

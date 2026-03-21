@@ -29,7 +29,8 @@ new #[Layout('components.layouts.auth')] class extends Component {
         $this->ensureIsNotRateLimited();
 
         if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
-            RateLimiter::hit($this->throttleKey());
+            $lockoutSeconds = max(1, (int) settings('security.lockout_duration', 15)) * 60;
+            RateLimiter::hit($this->throttleKey(), $lockoutSeconds);
 
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
@@ -56,10 +57,14 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
     /**
      * Ensure the authentication request is not rate limited.
+     *
+     * Uses SecuritySettings for max attempts and lockout duration.
      */
     protected function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        $maxAttempts = max(1, (int) settings('security.max_login_attempts', 5));
+
+        if (! RateLimiter::tooManyAttempts($this->throttleKey(), $maxAttempts)) {
             return;
         }
 

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
+use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class Attachment extends Model
+class Attachment extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\AttachmentFactory> */
     use HasFactory;
@@ -39,6 +41,22 @@ class Attachment extends Model
             'file_size' => 'integer',
             'scanned_at' => 'datetime',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('uuid')->label('UUID')->filterable();
+        $builder->string('original_name')->label('File Name')->required()->searchable()->filterable()->sortable();
+        $builder->string('mime_type')->label('MIME Type')->filterable()->groupable();
+        $builder->integer('file_size')->label('File Size')->sortable()->aggregatable('sum', 'avg', 'max');
+        $builder->string('category')->label('Category')->filterable()->groupable();
+        $builder->text('description')->label('Description')->searchable();
+        $builder->string('scan_status')->label('Scan Status')->filterable()->groupable();
+        $builder->relation('uploaded_by')->label('Uploaded By')
+            ->relation('uploadedBy', 'belongsTo', User::class, 'name')
+            ->filterable();
+        $builder->datetime('created_at')->label('Created')->sortable();
+        $builder->datetime('updated_at')->label('Updated')->sortable();
     }
 
     protected static function booted(): void

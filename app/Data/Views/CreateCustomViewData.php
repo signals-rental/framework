@@ -14,6 +14,7 @@ class CreateCustomViewData extends Data
     public function __construct(
         public string $name,
         public string $entity_type,
+        public ?string $description = null,
         public string $visibility = 'personal',
         public array $columns = [],
         public array $filters = [],
@@ -30,6 +31,7 @@ class CreateCustomViewData extends Data
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'entity_type' => ['required', 'string', 'max:100'],
             'visibility' => ['sometimes', 'in:personal,shared'],
             'columns' => ['required', 'array', 'min:1'],

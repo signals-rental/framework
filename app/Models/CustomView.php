@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
+use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $description
  * @property string $entity_type
  * @property string $visibility
  * @property int|null $user_id
@@ -24,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  */
-class CustomView extends Model
+class CustomView extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\CustomViewFactory> */
     use HasFactory;
@@ -32,6 +35,7 @@ class CustomView extends Model
     /** @var list<string> */
     protected $fillable = [
         'name',
+        'description',
         'entity_type',
         'visibility',
         'user_id',
@@ -56,6 +60,22 @@ class CustomView extends Model
             'is_default' => 'boolean',
             'per_page' => 'integer',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
+        $builder->string('entity_type')->label('Entity Type')->required()->filterable()->groupable();
+        $builder->string('visibility')->label('Visibility')->required()->filterable()->groupable();
+        $builder->boolean('is_default')->label('Default')->filterable()->sortable();
+        $builder->string('sort_column')->label('Sort Column');
+        $builder->string('sort_direction')->label('Sort Direction');
+        $builder->integer('per_page')->label('Per Page');
+        $builder->relation('user_id')->label('User')
+            ->relation('user', 'belongsTo', User::class, 'name')
+            ->filterable();
+        $builder->datetime('created_at')->label('Created')->sortable();
+        $builder->datetime('updated_at')->label('Updated')->sortable();
     }
 
     /**

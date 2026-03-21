@@ -16,6 +16,7 @@ class CustomViewData extends Data
     public function __construct(
         public int $id,
         public string $name,
+        public ?string $description,
         public string $entity_type,
         public string $visibility,
         public ?int $user_id,
@@ -41,6 +42,7 @@ class CustomViewData extends Data
         return new self(
             id: $model->id,
             name: $model->name,
+            description: $model->description,
             entity_type: $model->entity_type,
             visibility: $model->visibility,
             user_id: $model->user_id,

@@ -280,7 +280,7 @@ describe('SchemaRegistry', function () {
         expect($schema['name']->source)->toBe('core');
     });
 
-    it('returns only custom fields for models without HasSchema', function () {
+    it('merges custom fields into models that implement HasSchema', function () {
         CustomField::factory()->forModule('Country')->create([
             'name' => 'region_code',
             'display_name' => 'Region Code',
@@ -289,6 +289,9 @@ describe('SchemaRegistry', function () {
         $registry = new SchemaRegistry;
         $schema = $registry->resolve(\App\Models\Country::class);
 
+        // Should have both core and custom fields
+        expect($schema)->toHaveKey('code');
+        expect($schema['code']->source)->toBe('core');
         expect($schema)->toHaveKey('region_code');
         expect($schema['region_code']->source)->toBe('custom');
     });
@@ -335,6 +338,55 @@ describe('SchemaRegistry', function () {
             expect($schema[$fieldName]->type)->toBe($expectedSchemaType, "Failed: {$fieldType->name} should map to {$expectedSchemaType}");
             expect($schema[$fieldName]->source)->toBe('custom');
         }
+    });
+
+    it('uses persistent cache on second resolve in new instance', function () {
+        $registry1 = new SchemaRegistry;
+        $registry1->resolve(Member::class);
+
+        // New instance simulates a new request — in-memory cache is empty
+        $registry2 = new SchemaRegistry;
+        $schema = $registry2->resolve(Member::class);
+
+        expect($schema)->toHaveKey('name');
+        expect($schema['name']->type)->toBe('string');
+    });
+
+    it('invalidate clears persistent cache', function () {
+        $registry1 = new SchemaRegistry;
+        $registry1->resolve(Store::class);
+
+        $registry1->invalidate(Store::class);
+
+        // New instance - persistent cache should be cleared
+        $registry2 = new SchemaRegistry;
+        $schema = $registry2->resolve(Store::class);
+
+        // Should still work (rebuilt from model), just not from cache
+        expect($schema)->toHaveKey('name');
+    });
+
+    it('invalidateAll clears all persistent cache', function () {
+        $registry1 = new SchemaRegistry;
+        $registry1->resolve(Member::class);
+        $registry1->resolve(Store::class);
+
+        $registry1->invalidateAll();
+
+        // New instance verifies rebuild works
+        $registry2 = new SchemaRegistry;
+        expect($registry2->resolve(Member::class))->toHaveKey('name');
+        expect($registry2->resolve(Store::class))->toHaveKey('name');
+    });
+
+    it('gracefully handles cache exceptions', function () {
+        \Illuminate\Support\Facades\Cache::shouldReceive('supportsTags')->andThrow(new \RuntimeException('Redis down'));
+
+        $registry = new SchemaRegistry;
+        // Should not throw — cache failures are non-fatal
+        $schema = $registry->resolve(Member::class);
+
+        expect($schema)->toHaveKey('name');
     });
 
     it('provides for() as alias for resolve()', function () {

@@ -35,10 +35,10 @@ Route::middleware(['signals.setup-required'])->group(function () {
 */
 
 Route::view('dashboard', 'dashboard')
-    ->middleware(['signals.setup-complete', 'auth', 'verified', '2fa'])
+    ->middleware(['signals.setup-complete', 'auth', 'verified', '2fa', 'signals.session-timeout'])
     ->name('dashboard');
 
-Route::middleware(['signals.setup-complete', 'auth', '2fa'])->group(function () {
+Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-timeout'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
@@ -96,7 +96,7 @@ Route::middleware(['signals.setup-complete'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin'])->group(function () {
+Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin', 'signals.session-timeout'])->group(function () {
     Volt::route('admin', 'admin.index')->name('admin.index');
     Route::redirect('admin/settings', 'admin');
 

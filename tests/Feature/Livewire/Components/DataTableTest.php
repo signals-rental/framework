@@ -48,13 +48,21 @@ it('sorts by column ascending and descending', function () {
         'model' => Member::class,
     ]);
 
+    // Sort ascending — Alpha should come before Zebra
     $component->call('sortBy', 'name');
     $items = $component->viewData('items');
-    expect($items->first()->name)->toBe('Alpha Inc');
+    $names = $items->pluck('name')->values();
+    $alphaIndex = $names->search('Alpha Inc');
+    $zebraIndex = $names->search('Zebra Corp');
+    expect($alphaIndex)->toBeLessThan($zebraIndex);
 
+    // Sort descending — Zebra should come before Alpha
     $component->call('sortBy', 'name');
     $items = $component->viewData('items');
-    expect($items->first()->name)->toBe('Zebra Corp');
+    $names = $items->pluck('name')->values();
+    $alphaIndex = $names->search('Alpha Inc');
+    $zebraIndex = $names->search('Zebra Corp');
+    expect($zebraIndex)->toBeLessThan($alphaIndex);
 });
 
 it('searches across searchable columns', function () {

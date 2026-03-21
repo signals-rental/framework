@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
+use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Currency extends Model
+class Currency extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\CurrencyFactory> */
     use HasFactory;
@@ -32,6 +34,18 @@ class Currency extends Model
             'is_enabled' => 'boolean',
             'decimal_places' => 'integer',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('code')->label('Code')->required()->filterable()->sortable();
+        $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
+        $builder->string('symbol')->label('Symbol')->filterable();
+        $builder->integer('decimal_places')->label('Decimal Places');
+        $builder->string('symbol_position')->label('Symbol Position')->filterable();
+        $builder->boolean('is_enabled')->label('Enabled')->filterable()->sortable()->groupable();
+        $builder->datetime('created_at')->label('Created')->sortable();
+        $builder->datetime('updated_at')->label('Updated')->sortable();
     }
 
     /**
