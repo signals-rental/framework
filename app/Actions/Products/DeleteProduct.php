@@ -5,6 +5,7 @@ namespace App\Actions\Products;
 use App\Events\AuditableEvent;
 use App\Models\Product;
 use App\Services\Api\WebhookService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class DeleteProduct
@@ -13,12 +14,15 @@ class DeleteProduct
     {
         Gate::authorize('products.delete');
 
-        event(new AuditableEvent($product, 'product.deleted'));
+        DB::transaction(function () use ($product): void {
+            event(new AuditableEvent($product, 'product.deleted'));
 
-        app(WebhookService::class)->dispatch('product.deleted', [
-            'id' => $product->id,
-        ]);
+            // Delete webhooks send only the ID as the resource no longer exists.
+            app(WebhookService::class)->dispatch('product.deleted', [
+                'id' => $product->id,
+            ]);
 
-        $product->delete();
+            $product->delete();
+        });
     }
 }

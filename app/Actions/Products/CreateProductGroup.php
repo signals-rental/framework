@@ -7,6 +7,7 @@ use App\Data\Products\ProductGroupData;
 use App\Events\AuditableEvent;
 use App\Models\ProductGroup;
 use App\Services\Api\WebhookService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class CreateProductGroup
@@ -15,19 +16,21 @@ class CreateProductGroup
     {
         Gate::authorize('products.create');
 
-        $group = ProductGroup::create([
-            'name' => $data->name,
-            'description' => $data->description,
-            'parent_id' => $data->parent_id,
-            'sort_order' => $data->sort_order,
-        ]);
+        return DB::transaction(function () use ($data): ProductGroupData {
+            $group = ProductGroup::create([
+                'name' => $data->name,
+                'description' => $data->description,
+                'parent_id' => $data->parent_id,
+                'sort_order' => $data->sort_order,
+            ]);
 
-        event(new AuditableEvent($group, 'product_group.created'));
+            event(new AuditableEvent($group, 'product_group.created'));
 
-        app(WebhookService::class)->dispatch('product_group.created', [
-            'product_group' => ProductGroupData::fromModel($group)->toArray(),
-        ]);
+            app(WebhookService::class)->dispatch('product_group.created', [
+                'product_group' => ProductGroupData::fromModel($group)->toArray(),
+            ]);
 
-        return ProductGroupData::fromModel($group);
+            return ProductGroupData::fromModel($group);
+        });
     }
 }

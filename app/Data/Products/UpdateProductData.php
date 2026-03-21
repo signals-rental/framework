@@ -2,7 +2,9 @@
 
 namespace App\Data\Products;
 
+use App\Enums\AllowedStockType;
 use App\Enums\ProductType;
+use App\Enums\StockMethod;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
 
@@ -13,8 +15,8 @@ class UpdateProductData extends Data
         public ?ProductType $product_type = null,
         public ?string $description = null,
         public ?int $product_group_id = null,
-        public ?int $allowed_stock_type = null,
-        public ?int $stock_method = null,
+        public ?AllowedStockType $allowed_stock_type = null,
+        public ?StockMethod $stock_method = null,
         public ?string $weight = null,
         public ?string $barcode = null,
         public ?string $sku = null,
@@ -50,8 +52,8 @@ class UpdateProductData extends Data
             'product_type' => ['sometimes', new Enum(ProductType::class)],
             'description' => ['sometimes', 'nullable', 'string'],
             'product_group_id' => ['sometimes', 'nullable', 'integer', 'exists:product_groups,id'],
-            'allowed_stock_type' => ['sometimes', 'integer', 'in:1,2,3'],
-            'stock_method' => ['sometimes', 'integer', 'in:1,2'],
+            'allowed_stock_type' => ['sometimes', new Enum(AllowedStockType::class)],
+            'stock_method' => ['sometimes', new Enum(StockMethod::class)],
             'weight' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'barcode' => ['sometimes', 'nullable', 'string', 'max:255'],
             'sku' => ['sometimes', 'nullable', 'string', 'max:255'],

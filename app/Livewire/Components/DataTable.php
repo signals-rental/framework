@@ -4,6 +4,7 @@ namespace App\Livewire\Components;
 
 use App\Models\CustomView;
 use App\Models\UserViewPreference;
+use App\Services\Api\RansackFilter;
 use App\Services\ViewResolver;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -359,14 +360,15 @@ class DataTable extends Component
             }
         }
 
-        // Apply global search (capped at 200 chars)
+        // Apply global search (capped at 200 chars, wildcards escaped)
         $search = mb_substr($this->search, 0, 200);
         if ($search !== '' && count($this->searchable) > 0) {
             $searchable = $this->searchable;
+            $escapedSearch = RansackFilter::escapeLike($search);
 
-            $query->where(function (Builder $q) use ($search, $searchable): void {
+            $query->where(function (Builder $q) use ($escapedSearch, $searchable): void {
                 foreach ($searchable as $column) {
-                    $q->orWhere($column, 'ilike', "%{$search}%");
+                    $q->orWhere($column, 'ilike', "%{$escapedSearch}%");
                 }
             });
         }
@@ -385,7 +387,7 @@ class DataTable extends Component
             if ($filterType === 'select') {
                 $query->where($column, '=', $value);
             } else {
-                $query->where($column, 'ilike', "%{$value}%");
+                $query->where($column, 'ilike', '%'.RansackFilter::escapeLike($value).'%');
             }
         }
 

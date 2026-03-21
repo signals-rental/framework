@@ -7,6 +7,7 @@ use App\Data\Activities\CreateActivityData;
 use App\Events\AuditableEvent;
 use App\Models\Activity;
 use App\Services\Api\WebhookService;
+use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -15,6 +16,8 @@ class CreateActivity
     public function __invoke(CreateActivityData $data): ActivityData
     {
         Gate::authorize('activities.create');
+
+        app(CustomFieldValidator::class)->validate('Activity', $data->custom_fields, enforceRequired: true);
 
         return DB::transaction(function () use ($data): ActivityData {
             $activity = Activity::create([
@@ -32,6 +35,8 @@ class CreateActivity
                 'completed' => $data->completed,
                 'time_status' => $data->time_status,
             ]);
+
+            $activity->syncCustomFields($data->custom_fields, applyDefaults: true);
 
             if ($data->participants !== null) {
                 foreach ($data->participants as $participant) {

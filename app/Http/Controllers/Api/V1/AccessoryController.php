@@ -2,6 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Products\CreateAccessory;
+use App\Actions\Products\DeleteAccessory;
+use App\Actions\Products\UpdateAccessory;
+use App\Data\Products\AccessoryData;
+use App\Data\Products\CreateAccessoryData;
+use App\Data\Products\UpdateAccessoryData;
 use App\Http\Controllers\Api\Controller;
 use App\Models\Accessory;
 use App\Models\Product;
@@ -22,16 +28,9 @@ class AccessoryController extends Controller
 
         $accessories = $product->accessories()->with('accessoryProduct')->get();
 
-        $items = $accessories->map(fn (Accessory $acc): array => [
-            'id' => $acc->id,
-            'product_id' => $acc->product_id,
-            'accessory_product_id' => $acc->accessory_product_id,
-            'related_name' => $acc->accessoryProduct->name ?? '',
-            'quantity' => number_format((float) $acc->quantity, 1, '.', ''),
-            'included' => $acc->included,
-            'zero_priced' => $acc->zero_priced,
-            'sort_order' => $acc->sort_order,
-        ])->all();
+        $items = $accessories->map(
+            fn (Accessory $acc): array => AccessoryData::fromModel($acc)->toArray()
+        )->all();
 
         return $this->respondWithCollection($items, 'accessories');
     }
@@ -44,31 +43,32 @@ class AccessoryController extends Controller
     {
         $this->authorizeApi('products.edit', 'products:write');
 
-        $validated = $request->validate([
-            'accessory_product_id' => ['required', 'integer', 'exists:products,id'],
-            'quantity' => ['sometimes', 'numeric', 'min:0'],
-            'included' => ['sometimes', 'boolean'],
-            'zero_priced' => ['sometimes', 'boolean'],
-            'sort_order' => ['sometimes', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validate(CreateAccessoryData::rules());
+        $dto = CreateAccessoryData::from(array_merge($validated, ['product_id' => $product->id]));
 
-        $accessory = $product->accessories()->create(array_merge(
-            $validated,
-            ['product_id' => $product->id],
-        ));
+        $result = (new CreateAccessory)($dto);
 
-        $accessory->load('accessoryProduct');
+        return $this->respondWith($result->toArray(), 'accessory', Response::HTTP_CREATED);
+    }
 
-        return $this->respondWith([
-            'id' => $accessory->id,
-            'product_id' => $accessory->product_id,
-            'accessory_product_id' => $accessory->accessory_product_id,
-            'related_name' => $accessory->accessoryProduct->name ?? '',
-            'quantity' => number_format((float) $accessory->quantity, 1, '.', ''),
-            'included' => $accessory->included,
-            'zero_priced' => $accessory->zero_priced,
-            'sort_order' => $accessory->sort_order,
-        ], 'accessory', Response::HTTP_CREATED);
+    /**
+     * Update an accessory for a product.
+     */
+    #[ApiResponse(200, 'Accessory updated', type: 'array{accessory: array{id: int, product_id: int, accessory_product_id: int, related_name: string, quantity: string, included: bool, zero_priced: bool, sort_order: int}}')]
+    public function update(Request $request, Product $product, Accessory $accessory): JsonResponse
+    {
+        $this->authorizeApi('products.edit', 'products:write');
+
+        if ($accessory->product_id !== $product->id) {
+            abort(Response::HTTP_NOT_FOUND);
+        }
+
+        $validated = $request->validate(UpdateAccessoryData::rules());
+        $dto = UpdateAccessoryData::from($validated);
+
+        $result = (new UpdateAccessory)($accessory, $dto);
+
+        return $this->respondWith($result->toArray(), 'accessory');
     }
 
     /**
@@ -83,7 +83,7 @@ class AccessoryController extends Controller
             abort(Response::HTTP_NOT_FOUND);
         }
 
-        $accessory->delete();
+        (new DeleteAccessory)($accessory);
 
         return response()->json(null, Response::HTTP_NO_CONTENT);
     }

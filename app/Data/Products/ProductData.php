@@ -2,7 +2,9 @@
 
 namespace App\Data\Products;
 
+use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
+use App\Enums\AllowedStockType;
 use App\Enums\StockMethod;
 use App\Models\Product;
 use Illuminate\Support\Carbon;
@@ -16,13 +18,6 @@ class ProductData extends Data
     /**
      * @param  list<string>  $tag_list
      * @param  array<string, mixed>  $custom_fields
-     * @param  array<string, mixed>|null  $product_group
-     * @param  array<string, mixed>|null  $tax_class
-     * @param  array<string, mixed>|null  $purchase_tax_class
-     * @param  array<string, mixed>|null  $rental_revenue_group
-     * @param  array<string, mixed>|null  $sale_revenue_group
-     * @param  array<string, mixed>|null  $sub_rental_cost_group
-     * @param  array<string, mixed>|null  $purchase_cost_group
      * @param  array<string, mixed>|null  $icon
      * @param  list<array<string, mixed>>  $accessories
      */
@@ -60,13 +55,13 @@ class ProductData extends Data
         public array $custom_fields,
         public string $created_at,
         public string $updated_at,
-        public ?array $product_group = null,
-        public ?array $tax_class = null,
-        public ?array $purchase_tax_class = null,
-        public ?array $rental_revenue_group = null,
-        public ?array $sale_revenue_group = null,
-        public ?array $sub_rental_cost_group = null,
-        public ?array $purchase_cost_group = null,
+        public ?EntityReferenceData $product_group = null,
+        public ?EntityReferenceData $tax_class = null,
+        public ?EntityReferenceData $purchase_tax_class = null,
+        public ?EntityReferenceData $rental_revenue_group = null,
+        public ?EntityReferenceData $sale_revenue_group = null,
+        public ?EntityReferenceData $sub_rental_cost_group = null,
+        public ?EntityReferenceData $purchase_cost_group = null,
         public ?array $icon = null,
         public array $accessories = [],
     ) {}
@@ -99,6 +94,9 @@ class ProductData extends Data
         /** @var \App\Enums\ProductType $productType */
         $productType = $product->product_type;
 
+        /** @var \App\Enums\AllowedStockType $allowedStockType */
+        $allowedStockType = $product->allowed_stock_type ?? AllowedStockType::Rental;
+
         return new self(
             id: $product->id,
             name: $product->name,
@@ -106,8 +104,8 @@ class ProductData extends Data
             description: $product->description,
             product_group_id: $product->product_group_id ?? 0,
             is_active: $product->is_active,
-            allowed_stock_type: $product->allowed_stock_type ?? 1,
-            allowed_stock_type_name: Product::stockTypeName($product->allowed_stock_type ?? 1),
+            allowed_stock_type: $allowedStockType->value,
+            allowed_stock_type_name: $allowedStockType->label(),
             stock_method: $stockMethod->value,
             stock_method_name: $stockMethod->label(),
             buffer_percent: number_format((float) $product->buffer_percent, 1, '.', ''),
@@ -133,25 +131,25 @@ class ProductData extends Data
             created_at: self::formatTimestamp($createdAt),
             updated_at: self::formatTimestamp($updatedAt),
             product_group: $product->relationLoaded('productGroup') && $product->productGroup
-                ? ['id' => $product->productGroup->id, 'name' => $product->productGroup->name]
+                ? EntityReferenceData::from(['id' => $product->productGroup->id, 'name' => $product->productGroup->name])
                 : null,
             tax_class: $product->relationLoaded('taxClass') && $product->taxClass
-                ? ['id' => $product->taxClass->id, 'name' => $product->taxClass->name]
+                ? EntityReferenceData::from(['id' => $product->taxClass->id, 'name' => $product->taxClass->name])
                 : null,
             purchase_tax_class: $product->relationLoaded('purchaseTaxClass') && $product->purchaseTaxClass
-                ? ['id' => $product->purchaseTaxClass->id, 'name' => $product->purchaseTaxClass->name]
+                ? EntityReferenceData::from(['id' => $product->purchaseTaxClass->id, 'name' => $product->purchaseTaxClass->name])
                 : null,
             rental_revenue_group: $product->relationLoaded('rentalRevenueGroup') && $product->rentalRevenueGroup
-                ? ['id' => $product->rentalRevenueGroup->id, 'name' => $product->rentalRevenueGroup->name]
+                ? EntityReferenceData::from(['id' => $product->rentalRevenueGroup->id, 'name' => $product->rentalRevenueGroup->name])
                 : null,
             sale_revenue_group: $product->relationLoaded('saleRevenueGroup') && $product->saleRevenueGroup
-                ? ['id' => $product->saleRevenueGroup->id, 'name' => $product->saleRevenueGroup->name]
+                ? EntityReferenceData::from(['id' => $product->saleRevenueGroup->id, 'name' => $product->saleRevenueGroup->name])
                 : null,
             sub_rental_cost_group: $product->relationLoaded('subRentalCostGroup') && $product->subRentalCostGroup
-                ? ['id' => $product->subRentalCostGroup->id, 'name' => $product->subRentalCostGroup->name]
+                ? EntityReferenceData::from(['id' => $product->subRentalCostGroup->id, 'name' => $product->subRentalCostGroup->name])
                 : null,
             purchase_cost_group: $product->relationLoaded('purchaseCostGroup') && $product->purchaseCostGroup
-                ? ['id' => $product->purchaseCostGroup->id, 'name' => $product->purchaseCostGroup->name]
+                ? EntityReferenceData::from(['id' => $product->purchaseCostGroup->id, 'name' => $product->purchaseCostGroup->name])
                 : null,
             icon: $product->icon_url ? [
                 'url' => $product->icon_url,

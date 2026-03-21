@@ -227,7 +227,7 @@ class RansackFilter
     /**
      * Escape LIKE/ILIKE wildcard characters in a user-provided value.
      */
-    private static function escapeLike(mixed $value): string
+    public static function escapeLike(mixed $value): string
     {
         return str_replace(
             ['\\', '%', '_'],

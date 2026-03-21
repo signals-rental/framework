@@ -13,6 +13,13 @@ use Illuminate\Support\Facades\Gate;
 
 class UpdateStockLevel
 {
+    /**
+     * Update an existing stock level.
+     *
+     * Field update convention (Spatie Data Optional behaviour):
+     *   - Absent key / `null` in DTO → field is not updated (retains current value)
+     *   - Empty string `""` → field is cleared (set to null in database)
+     */
     public function __invoke(StockLevel $stockLevel, UpdateStockLevelData $data): StockLevelData
     {
         Gate::authorize('stock.adjust');

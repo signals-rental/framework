@@ -74,6 +74,35 @@ it('requires products.edit permission', function () {
     (new UpdateProduct)($product, $data);
 })->throws(AuthorizationException::class);
 
+it('clears optional field to null when empty string is passed', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $product = Product::factory()->create(['description' => 'Original description']);
+
+    $data = UpdateProductData::from([
+        'description' => '',
+    ]);
+
+    $result = (new UpdateProduct)($product, $data);
+
+    expect($product->fresh()->description)->toBeNull();
+});
+
+it('leaves field unchanged when null is passed via DTO', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $product = Product::factory()->create(['description' => 'Keep this']);
+
+    $data = UpdateProductData::from([
+        'name' => 'Updated Name',
+    ]);
+
+    $result = (new UpdateProduct)($product, $data);
+
+    expect($product->fresh()->description)->toBe('Keep this')
+        ->and($product->fresh()->name)->toBe('Updated Name');
+});
+
 it('allows partial custom field updates without enforcing required', function () {
     Event::fake([AuditableEvent::class]);
 

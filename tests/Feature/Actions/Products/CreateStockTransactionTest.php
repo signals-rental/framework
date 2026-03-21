@@ -3,11 +3,13 @@
 use App\Actions\Products\CreateStockTransaction;
 use App\Data\Products\CreateStockTransactionData;
 use App\Enums\TransactionType;
+use App\Events\AuditableEvent;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -16,6 +18,8 @@ beforeEach(function () {
 });
 
 it('creates a stock transaction and updates quantity_held', function () {
+    Event::fake([AuditableEvent::class]);
+
     $user = User::factory()->owner()->create();
     $this->actingAs($user);
     $store = Store::factory()->create();
@@ -34,9 +38,15 @@ it('creates a stock transaction and updates quantity_held', function () {
     expect($result->transaction_type)->toBe(TransactionType::Buy->value);
     $stockLevel->refresh();
     expect((float) $stockLevel->quantity_held)->toBe(10.0);
+
+    Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
+        return $event->action === 'stock_transaction.created';
+    });
 });
 
 it('decrements quantity for sell transactions', function () {
+    Event::fake([AuditableEvent::class]);
+
     $user = User::factory()->owner()->create();
     $this->actingAs($user);
     $store = Store::factory()->create();
@@ -54,6 +64,8 @@ it('decrements quantity for sell transactions', function () {
 
     $stockLevel->refresh();
     expect((float) $stockLevel->quantity_held)->toBe(15.0);
+
+    Event::assertDispatched(AuditableEvent::class);
 });
 
 it('throws authorization exception without permission', function () {

@@ -68,7 +68,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->isActive = $product->is_active;
             $this->description = $product->description ?? '';
             $this->productGroupId = $product->product_group_id;
-            $this->allowedStockType = $product->allowed_stock_type ?? 1;
+            $this->allowedStockType = $product->allowed_stock_type?->value ?? 1;
             $this->stockMethod = $product->stock_method->value;
             $this->weight = $product->weight;
             $this->barcode = $product->barcode;

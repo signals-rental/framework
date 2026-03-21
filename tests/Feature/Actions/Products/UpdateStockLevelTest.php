@@ -28,8 +28,12 @@ it('updates a stock level', function () {
     $result = (new UpdateStockLevel)($stockLevel, $data);
 
     expect($result->product_id)->toBe($stockLevel->product_id);
+    expect((float) $result->quantity_held)->toBe(20.0);
+    expect((float) $stockLevel->fresh()->quantity_held)->toBe(20.0);
 
-    Event::assertDispatched(AuditableEvent::class);
+    Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
+        return $event->action === 'stock_level.updated';
+    });
 });
 
 it('requires stock.adjust permission', function () {

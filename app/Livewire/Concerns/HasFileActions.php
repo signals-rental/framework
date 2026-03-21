@@ -6,6 +6,7 @@ use App\Models\Attachment;
 use App\Services\FileService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\On;
 
 /**
@@ -38,6 +39,7 @@ trait HasFileActions
     {
         if ($this->deleteAttachmentId) {
             $attachment = Attachment::findOrFail($this->deleteAttachmentId);
+            Gate::authorize('delete', $attachment);
             app(FileService::class)->delete($attachment);
             $this->deleteAttachmentId = null;
             $this->getFileableModel()->loadCount('attachments');

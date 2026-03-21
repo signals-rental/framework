@@ -13,6 +13,13 @@ use Illuminate\Support\Facades\Gate;
 
 class UpdateProduct
 {
+    /**
+     * Update an existing product.
+     *
+     * Field update convention (Spatie Data Optional behaviour):
+     *   - Absent key / `null` in DTO → field is not updated (retains current value)
+     *   - Empty string `""` → field is cleared (set to null in database)
+     */
     public function __invoke(Product $product, UpdateProductData $data): ProductData
     {
         Gate::authorize('products.edit');

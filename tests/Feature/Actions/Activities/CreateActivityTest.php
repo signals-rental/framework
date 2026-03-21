@@ -3,11 +3,13 @@
 use App\Actions\Activities\CreateActivity;
 use App\Data\Activities\CreateActivityData;
 use App\Enums\ActivityType;
+use App\Events\AuditableEvent;
 use App\Models\Activity;
 use App\Models\Member;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -16,6 +18,8 @@ beforeEach(function () {
 });
 
 it('creates an activity with valid data', function () {
+    Event::fake([AuditableEvent::class]);
+
     $user = User::factory()->owner()->create();
     $this->actingAs($user);
 
@@ -29,6 +33,10 @@ it('creates an activity with valid data', function () {
     expect($result->subject)->toBe('Test Activity')
         ->and($result->type_id)->toBe(ActivityType::Task->value);
     expect(Activity::count())->toBe(1);
+
+    Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
+        return $event->action === 'activity.created';
+    });
 });
 
 it('creates an activity with participants', function () {

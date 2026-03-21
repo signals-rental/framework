@@ -2,6 +2,11 @@
 
 namespace App\Enums;
 
+/**
+ * Stock-level tracking method.
+ *
+ * Can override the parent product's StockCategory on a per-location basis.
+ */
 enum StockMethod: int
 {
     case Bulk = 1;

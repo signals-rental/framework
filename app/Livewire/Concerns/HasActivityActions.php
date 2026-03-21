@@ -14,7 +14,7 @@ trait HasActivityActions
             (new \App\Actions\Activities\CompleteActivity)($activity);
             $this->dispatch('activity-completed');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
-            $this->dispatch('activity-completed');
+            session()->flash('info', 'Activity was already removed.');
         }
     }
 
@@ -25,7 +25,7 @@ trait HasActivityActions
             (new \App\Actions\Activities\DeleteActivity)($activity);
             $this->dispatch('activity-deleted');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
-            $this->dispatch('activity-deleted');
+            session()->flash('info', 'Activity was already removed.');
         }
     }
 

@@ -7,6 +7,7 @@ use App\Services\FileService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -96,12 +97,7 @@ class IconUpload extends Component
         $oldIconUrl = $model->getAttribute('icon_url');
         $oldThumbUrl = $model->getAttribute('icon_thumb_url');
 
-        $model->update([
-            'icon_url' => null,
-            'icon_thumb_url' => null,
-        ]);
-
-        // Clean up files from storage
+        // Attempt storage delete first — if it fails, the DB still has valid paths
         $disk = config('filesystems.default', 'local');
         $storageDisk = $disk === 'local' ? 'public' : $disk;
 
@@ -109,16 +105,27 @@ class IconUpload extends Component
             try {
                 Storage::disk($storageDisk)->delete($oldIconUrl);
             } catch (\Throwable $e) {
-                report($e);
+                Log::warning('Failed to delete icon file from storage', [
+                    'path' => $oldIconUrl,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
         if ($oldThumbUrl) {
             try {
                 Storage::disk($storageDisk)->delete($oldThumbUrl);
             } catch (\Throwable $e) {
-                report($e);
+                Log::warning('Failed to delete icon thumbnail from storage', [
+                    'path' => $oldThumbUrl,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
+
+        $model->update([
+            'icon_url' => null,
+            'icon_thumb_url' => null,
+        ]);
 
         $this->iconPath = null;
         $this->thumbPath = null;

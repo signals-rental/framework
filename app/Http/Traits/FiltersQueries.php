@@ -82,6 +82,10 @@ trait FiltersQueries
         $viewResolver = app(ViewResolver::class);
         $view = $viewResolver->resolve($entityType, $viewId, $request->user());
 
+        if ($viewId !== null && $view === null) {
+            abort(404, 'Custom view not found.');
+        }
+
         if ($view !== null) {
             $explicitFilters = $request->input('q', []);
             if (! is_array($explicitFilters)) {

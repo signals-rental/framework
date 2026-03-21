@@ -3,6 +3,7 @@
 namespace App\Livewire\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 /** @phpstan-ignore trait.unused (used by Volt components in Blade files) */
 trait LoadsCustomFieldValues
@@ -18,6 +19,11 @@ trait LoadsCustomFieldValues
         $model->load('customFieldValues.customField');
         foreach ($model->customFieldValues as $cfv) {
             if ($cfv->customField === null) {
+                Log::warning('Orphaned custom field value: definition not found', [
+                    'custom_field_value_id' => $cfv->id,
+                    'custom_field_id' => $cfv->custom_field_id,
+                ]);
+
                 continue;
             }
             $column = $cfv->customField->field_type->valueColumn();

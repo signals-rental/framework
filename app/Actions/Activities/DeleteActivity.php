@@ -17,6 +17,7 @@ class DeleteActivity
         DB::transaction(function () use ($activity): void {
             event(new AuditableEvent($activity, 'activity.deleted'));
 
+            // Delete webhooks send only the ID as the resource no longer exists.
             app(WebhookService::class)->dispatch('activity.deleted', [
                 'id' => $activity->id,
             ]);

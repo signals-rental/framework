@@ -2,12 +2,14 @@
 
 namespace App\Data\Activities;
 
+use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
+use App\Models\ActivityParticipant;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Data;
 
@@ -17,9 +19,7 @@ class ActivityData extends Data
 
     /**
      * @param  array<string, mixed>  $custom_fields
-     * @param  list<array<string, mixed>>  $participants
-     * @param  array<string, mixed>|null  $regarding
-     * @param  array<string, mixed>|null  $owner
+     * @param  list<ActivityParticipantData>  $participants
      */
     public function __construct(
         public int $id,
@@ -43,8 +43,8 @@ class ActivityData extends Data
         public string $time_status_name,
         public string $created_at,
         public string $updated_at,
-        public ?array $regarding = null,
-        public ?array $owner = null,
+        public ?EntityReferenceData $regarding = null,
+        public ?EntityReferenceData $owner = null,
     ) {}
 
     public static function fromModel(Activity $activity): self
@@ -75,34 +75,27 @@ class ActivityData extends Data
 
         $participants = [];
         if ($activity->relationLoaded('participants')) {
-            $participants = $activity->participants->map(function ($participant) {
-                $member = $participant->relationLoaded('member') ? $participant->member : null;
-
-                return [
-                    'id' => $participant->id,
-                    'member_id' => $participant->member_id,
-                    'member_name' => $member->name ?? '',
-                    'mute' => $participant->mute,
-                ];
-            })->all();
+            $participants = $activity->participants
+                ->map(fn (ActivityParticipant $participant): ActivityParticipantData => ActivityParticipantData::fromModel($participant))
+                ->all();
         }
 
         $regarding = null;
         if ($activity->relationLoaded('regarding') && $activity->regarding) {
             /** @var \Illuminate\Database\Eloquent\Model $regardingModel */
             $regardingModel = $activity->regarding;
-            $regarding = [
+            $regarding = EntityReferenceData::from([
                 'id' => $regardingModel->getKey(),
                 'name' => $regardingModel->getAttribute('name') ?? '',
-            ];
+            ]);
         }
 
         $owner = null;
         if ($activity->relationLoaded('owner') && $activity->owner) {
-            $owner = [
+            $owner = EntityReferenceData::from([
                 'id' => $activity->owner->id,
                 'name' => $activity->owner->name,
-            ];
+            ]);
         }
 
         return new self(

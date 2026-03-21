@@ -3,6 +3,7 @@
 namespace App\Actions\Products;
 
 use App\Data\Products\MergeProductData;
+use App\Data\Products\ProductData;
 use App\Events\AuditableEvent;
 use App\Models\Accessory;
 use App\Models\Product;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Gate;
 
 class MergeProduct
 {
-    public function __invoke(MergeProductData $data): Product
+    public function __invoke(MergeProductData $data): ProductData
     {
         Gate::authorize('products.delete');
 
@@ -23,7 +24,7 @@ class MergeProduct
             throw new \InvalidArgumentException('Cannot merge products of different types.');
         }
 
-        return DB::transaction(function () use ($primary, $secondary): Product {
+        return DB::transaction(function () use ($primary, $secondary): ProductData {
             // Transfer stock levels
             $secondary->stockLevels()->update([
                 'product_id' => $primary->id,
@@ -81,7 +82,7 @@ class MergeProduct
 
             $secondary->delete();
 
-            return $primary->fresh();
+            return ProductData::fromModel($primary->refresh());
         });
     }
 }

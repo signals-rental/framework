@@ -2,6 +2,7 @@
 
 namespace App\Data\Products;
 
+use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\StockCategory;
 use App\Models\Product;
@@ -16,7 +17,6 @@ class StockLevelData extends Data
 
     /**
      * @param  array<string, mixed>  $custom_fields
-     * @param  array<string, mixed>|null  $item
      */
     public function __construct(
         public int $id,
@@ -45,7 +45,7 @@ class StockLevelData extends Data
         public array $custom_fields,
         public string $created_at,
         public string $updated_at,
-        public ?array $item = null,
+        public ?EntityReferenceData $item = null,
     ) {}
 
     public static function fromModel(StockLevel $stockLevel): self
@@ -94,7 +94,7 @@ class StockLevelData extends Data
             created_at: self::formatTimestamp($createdAt),
             updated_at: self::formatTimestamp($updatedAt),
             item: $stockLevel->relationLoaded('product') && $stockLevel->product
-                ? ['id' => $stockLevel->product->id, 'name' => $stockLevel->product->name]
+                ? EntityReferenceData::from(['id' => $stockLevel->product->id, 'name' => $stockLevel->product->name])
                 : null,
         );
     }

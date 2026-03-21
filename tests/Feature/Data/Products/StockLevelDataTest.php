@@ -88,7 +88,9 @@ it('includes item when product relation is loaded', function () {
 
     $data = StockLevelData::fromModel($stockLevel);
 
-    expect($data->item)->toBe(['id' => $product->id, 'name' => 'Test Speaker']);
+    expect($data->item)->not->toBeNull()
+        ->and($data->item->id)->toBe($product->id)
+        ->and($data->item->name)->toBe('Test Speaker');
 });
 
 it('excludes item when product relation is not loaded', function () {

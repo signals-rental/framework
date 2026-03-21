@@ -92,7 +92,9 @@ it('includes product_group when relation is loaded', function () {
 
     $data = ProductData::fromModel($product);
 
-    expect($data->product_group)->toBe(['id' => $group->id, 'name' => 'Lighting']);
+    expect($data->product_group)->not->toBeNull()
+        ->and($data->product_group->id)->toBe($group->id)
+        ->and($data->product_group->name)->toBe('Lighting');
 });
 
 it('excludes product_group when relation is not loaded', function () {

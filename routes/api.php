@@ -120,7 +120,7 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
 
     // Products
     Route::apiResource('products', ProductController::class)->names('api.v1.products');
-    Route::apiResource('products.accessories', AccessoryController::class)->only(['index', 'store', 'destroy'])->names('api.v1.products.accessories');
+    Route::apiResource('products.accessories', AccessoryController::class)->only(['index', 'store', 'update', 'destroy'])->names('api.v1.products.accessories');
 
     // Product Groups
     Route::apiResource('product_groups', ProductGroupController::class)->names('api.v1.product_groups');

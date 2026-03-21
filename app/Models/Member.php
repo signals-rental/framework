@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Enums\MembershipType;
+use App\Models\Traits\FormatsMoney;
 use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Member extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\MemberFactory> */
-    use HasAttachments, HasCustomFields, HasFactory, SoftDeletes;
+    use FormatsMoney, HasAttachments, HasCustomFields, HasFactory, SoftDeletes;
 
     /** @var list<string> */
     protected $fillable = [
@@ -311,15 +312,5 @@ class Member extends Model implements HasSchema
                 ->from('member_relationships')
                 ->where('member_id', $memberId);
         });
-    }
-
-    /**
-     * Format a money value from minor units to decimal string for API responses.
-     */
-    public function formatMoneyCost(string $attribute): string
-    {
-        $value = (int) $this->getAttribute($attribute);
-
-        return number_format($value / 100, 2, '.', '');
     }
 }

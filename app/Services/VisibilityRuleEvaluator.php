@@ -69,6 +69,8 @@ class VisibilityRuleEvaluator
         $expected = $rule['value'] ?? null;
 
         if ($field === null) {
+            \Illuminate\Support\Facades\Log::warning('Visibility rule missing field key', ['rule' => $rule]);
+
             return true;
         }
 

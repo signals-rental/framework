@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Contracts\HasSchema;
+use App\Enums\AllowedStockType;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
+use App\Models\Traits\FormatsMoney;
 use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
@@ -19,7 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Product extends Model implements HasSchema
 {
     /** @use HasFactory<\Database\Factories\ProductFactory> */
-    use HasAttachments, HasCustomFields, HasFactory, SoftDeletes;
+    use FormatsMoney, HasAttachments, HasCustomFields, HasFactory, SoftDeletes;
 
     /** @var list<string> */
     protected $fillable = [
@@ -60,6 +62,7 @@ class Product extends Model implements HasSchema
     {
         return [
             'product_type' => ProductType::class,
+            'allowed_stock_type' => AllowedStockType::class,
             'stock_method' => StockMethod::class,
             'is_active' => 'boolean',
             'accessory_only' => 'boolean',
@@ -289,25 +292,10 @@ class Product extends Model implements HasSchema
     }
 
     /**
-     * Derive a human-readable name for the allowed stock type integer.
+     * Derive a human-readable name for the allowed stock type.
      */
     public static function stockTypeName(int $type): string
     {
-        return match ($type) {
-            1 => 'Rental',
-            2 => 'Sale',
-            3 => 'Both',
-            default => 'Unknown',
-        };
-    }
-
-    /**
-     * Format a money value from minor units to decimal string for API responses.
-     */
-    public function formatMoneyCost(string $attribute): string
-    {
-        $value = (int) $this->getAttribute($attribute);
-
-        return number_format($value / 100, 2, '.', '');
+        return AllowedStockType::tryFrom($type)?->label() ?? 'Unknown';
     }
 }

@@ -142,6 +142,11 @@ class ViewResolver
     public function applySort(Builder $query, CustomView $view): Builder
     {
         if ($view->sort_column !== null) {
+            // Validate column name contains only safe identifier characters
+            if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_.]*$/', $view->sort_column)) {
+                return $query;
+            }
+
             $direction = in_array($view->sort_direction, ['asc', 'desc'], true)
                 ? $view->sort_direction
                 : 'asc';
