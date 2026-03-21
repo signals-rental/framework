@@ -38,7 +38,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             ['key' => 'membership_type', 'label' => 'Type', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => $typeOptions, 'view' => 'livewire.members.partials.column-type'],
             ['key' => 'email', 'label' => 'Primary Email', 'view' => 'livewire.members.partials.column-email'],
             ['key' => 'phone', 'label' => 'Primary Phone', 'view' => 'livewire.members.partials.column-phone'],
-            ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.members.partials.column-status'],
+            ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.partials.column-active-status'],
             ['key' => 'actions', 'type' => 'actions'],
         ];
 

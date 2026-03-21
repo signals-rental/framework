@@ -11,16 +11,15 @@ use App\Data\Activities\CreateActivityData;
 use App\Data\Activities\UpdateActivityData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\Activity;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Symfony\Component\HttpFoundation\Response;
 
 class ActivityController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -64,43 +63,73 @@ class ActivityController extends Controller
         'customFieldValues',
     ];
 
+    protected function modelClass(): string
+    {
+        return Activity::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return ActivityData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateActivityData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateActivityData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateActivity::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateActivity::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteActivity::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'activity';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'activities';
+    }
+
+    protected function entityType(): string
+    {
+        return 'activities';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'activities.view', 'create' => 'activities.create', 'edit' => 'activities.edit', 'delete' => 'activities.delete'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'activities:read', 'write' => 'activities:write'];
+    }
+
     /**
      * List activities with filtering, sorting, and pagination.
      */
     #[ApiResponse(200, 'Paginated activity list')]
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('activities.view', 'activities:read');
-
-        $query = Activity::query();
-        $query = $this->applyIncludes($query, $request);
-
-        ['query' => $query, 'view' => $view] = $this->applyViewOrFilters($query, $request, 'activities');
-
-        /** @var LengthAwarePaginator<int, Activity> $paginator */
-        $paginator = $this->paginateQuery($query, $request);
-
-        $activities = $paginator->getCollection()->map(
-            fn (Activity $activity): array => ActivityData::fromModel($activity)->toArray()
-        )->all();
-
-        $meta = [
-            'total' => $paginator->total(),
-            'per_page' => $paginator->perPage(),
-            'page' => $paginator->currentPage(),
-        ];
-
-        if ($view !== null) {
-            $meta['view'] = [
-                'id' => $view->id,
-                'name' => $view->name,
-            ];
-        }
-
-        return response()->json([
-            'activities' => $activities,
-            'meta' => $meta,
-        ]);
+        return $this->resourceIndex($request);
     }
 
     /**
@@ -109,14 +138,7 @@ class ActivityController extends Controller
     #[ApiResponse(200, 'Activity details')]
     public function show(Request $request, Activity $activity): JsonResponse
     {
-        $this->authorizeApi('activities.view', 'activities:read');
-
-        $this->applyIncludes(Activity::query(), $request, $activity);
-
-        return $this->respondWith(
-            ActivityData::fromModel($activity)->toArray(),
-            'activity',
-        );
+        return $this->resourceShow($request, $activity);
     }
 
     /**
@@ -125,18 +147,7 @@ class ActivityController extends Controller
     #[ApiResponse(201, 'Activity created')]
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('activities.create', 'activities:write');
-
-        $validated = $request->validate(CreateActivityData::rules());
-        $dto = CreateActivityData::from($validated);
-
-        $result = (new CreateActivity)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'activity',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -145,17 +156,7 @@ class ActivityController extends Controller
     #[ApiResponse(200, 'Activity updated')]
     public function update(Request $request, Activity $activity): JsonResponse
     {
-        $this->authorizeApi('activities.edit', 'activities:write');
-
-        $validated = $request->validate(UpdateActivityData::rules());
-        $dto = UpdateActivityData::from($validated);
-
-        $result = (new UpdateActivity)($activity, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'activity',
-        );
+        return $this->resourceUpdate($request, $activity);
     }
 
     /**
@@ -164,11 +165,7 @@ class ActivityController extends Controller
     #[ApiResponse(204, 'Activity deleted')]
     public function destroy(Activity $activity): JsonResponse
     {
-        $this->authorizeApi('activities.delete', 'activities:write');
-
-        (new DeleteActivity)($activity);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($activity);
     }
 
     /**

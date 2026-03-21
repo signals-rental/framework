@@ -108,7 +108,7 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
                 ['key' => 'product_group', 'label' => 'Group', 'view' => 'livewire.products.partials.column-group'],
                 ['key' => 'sku', 'label' => 'SKU', 'sortable' => true, 'view' => 'livewire.products.partials.column-sku'],
                 ['key' => 'stock_levels_count', 'label' => 'Stock', 'sortable' => true],
-                ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.products.partials.column-status'],
+                ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.partials.column-active-status'],
                 ['key' => 'created_at', 'label' => 'Created', 'sortable' => true],
                 ['key' => 'actions', 'type' => 'actions'],
             ],

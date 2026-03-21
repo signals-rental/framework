@@ -10,16 +10,15 @@ use App\Data\Members\MemberData;
 use App\Data\Members\UpdateMemberData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\CustomView;
 use App\Models\Member;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Symfony\Component\HttpFoundation\Response;
 
 class MemberController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -61,6 +60,66 @@ class MemberController extends Controller
         'lawfulBasisType',
     ];
 
+    protected function modelClass(): string
+    {
+        return Member::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return MemberData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateMemberData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateMemberData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateMember::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateMember::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteMember::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'member';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'members';
+    }
+
+    protected function entityType(): string
+    {
+        return 'members';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'members.view', 'create' => 'members.create', 'edit' => 'members.edit', 'delete' => 'members.delete'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'members:read', 'write' => 'members:write'];
+    }
+
     /**
      * List members with filtering, sorting, and pagination.
      *
@@ -77,7 +136,6 @@ class MemberController extends Controller
 
         ['query' => $query, 'view' => $view] = $this->applyViewOrFilters($query, $request, 'members');
 
-        /** @var LengthAwarePaginator<int, Member> $paginator */
         $paginator = $this->paginateQuery($query, $request);
 
         $members = $paginator->getCollection()->map(
@@ -110,14 +168,7 @@ class MemberController extends Controller
      */
     public function show(Request $request, Member $member): JsonResponse
     {
-        $this->authorizeApi('members.view', 'members:read');
-
-        $this->applyIncludes(Member::query(), $request, $member);
-
-        return $this->respondWith(
-            MemberData::fromModel($member)->toArray(),
-            'member',
-        );
+        return $this->resourceShow($request, $member);
     }
 
     /**
@@ -125,18 +176,7 @@ class MemberController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('members.create', 'members:write');
-
-        $validated = $request->validate(CreateMemberData::rules());
-        $dto = CreateMemberData::from($validated);
-
-        $result = (new CreateMember)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'member',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -144,17 +184,7 @@ class MemberController extends Controller
      */
     public function update(Request $request, Member $member): JsonResponse
     {
-        $this->authorizeApi('members.edit', 'members:write');
-
-        $validated = $request->validate(UpdateMemberData::rules());
-        $dto = UpdateMemberData::from($validated);
-
-        $result = (new UpdateMember)($member, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'member',
-        );
+        return $this->resourceUpdate($request, $member);
     }
 
     /**
@@ -162,11 +192,7 @@ class MemberController extends Controller
      */
     public function destroy(Member $member): JsonResponse
     {
-        $this->authorizeApi('members.delete', 'members:write');
-
-        (new DeleteMember)($member);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($member);
     }
 
     /**

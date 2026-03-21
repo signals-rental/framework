@@ -10,16 +10,15 @@ use App\Data\Products\ProductGroupData;
 use App\Data\Products\UpdateProductGroupData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\ProductGroup;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Symfony\Component\HttpFoundation\Response;
 
 class ProductGroupController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -47,6 +46,66 @@ class ProductGroupController extends Controller
         'customFieldValues',
     ];
 
+    protected function modelClass(): string
+    {
+        return ProductGroup::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return ProductGroupData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateProductGroupData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateProductGroupData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateProductGroup::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateProductGroup::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteProductGroup::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'product_group';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'product_groups';
+    }
+
+    protected function entityType(): string
+    {
+        return 'product_groups';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'products.view', 'create' => 'products.create', 'edit' => 'products.edit', 'delete' => 'products.delete'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'products:read', 'write' => 'products:write'];
+    }
+
     /**
      * List product groups with filtering, sorting, and pagination.
      *
@@ -57,37 +116,7 @@ class ProductGroupController extends Controller
     #[ApiResponse(200, 'Paginated product group list', type: 'array{product_groups: list<array{id: int, name: string, description: string|null, parent_id: int|null, sort_order: int, custom_fields: array<string, mixed>, created_at: string, updated_at: string}>, meta: array{total: int, per_page: int, page: int}}')]
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('products.view', 'products:read');
-
-        $query = ProductGroup::query();
-        $query = $this->applyIncludes($query, $request);
-
-        ['query' => $query, 'view' => $view] = $this->applyViewOrFilters($query, $request, 'product_groups');
-
-        /** @var LengthAwarePaginator<int, ProductGroup> $paginator */
-        $paginator = $this->paginateQuery($query, $request);
-
-        $productGroups = $paginator->getCollection()->map(
-            fn (ProductGroup $group): array => ProductGroupData::fromModel($group)->toArray()
-        )->all();
-
-        $meta = [
-            'total' => $paginator->total(),
-            'per_page' => $paginator->perPage(),
-            'page' => $paginator->currentPage(),
-        ];
-
-        if ($view !== null) {
-            $meta['view'] = [
-                'id' => $view->id,
-                'name' => $view->name,
-            ];
-        }
-
-        return response()->json([
-            'product_groups' => $productGroups,
-            'meta' => $meta,
-        ]);
+        return $this->resourceIndex($request);
     }
 
     /**
@@ -96,14 +125,7 @@ class ProductGroupController extends Controller
     #[ApiResponse(200, 'Product group details', type: 'array{product_group: array{id: int, name: string, description: string|null, parent_id: int|null, sort_order: int, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
     public function show(Request $request, ProductGroup $productGroup): JsonResponse
     {
-        $this->authorizeApi('products.view', 'products:read');
-
-        $this->applyIncludes(ProductGroup::query(), $request, $productGroup);
-
-        return $this->respondWith(
-            ProductGroupData::fromModel($productGroup)->toArray(),
-            'product_group',
-        );
+        return $this->resourceShow($request, $productGroup);
     }
 
     /**
@@ -112,18 +134,7 @@ class ProductGroupController extends Controller
     #[ApiResponse(201, 'Product group created', type: 'array{product_group: array{id: int, name: string, description: string|null, parent_id: int|null, sort_order: int, created_at: string, updated_at: string}}')]
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('products.create', 'products:write');
-
-        $validated = $request->validate(CreateProductGroupData::rules());
-        $dto = CreateProductGroupData::from($validated);
-
-        $result = (new CreateProductGroup)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'product_group',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -132,17 +143,7 @@ class ProductGroupController extends Controller
     #[ApiResponse(200, 'Product group updated', type: 'array{product_group: array{id: int, name: string, description: string|null, parent_id: int|null, sort_order: int, created_at: string, updated_at: string}}')]
     public function update(Request $request, ProductGroup $productGroup): JsonResponse
     {
-        $this->authorizeApi('products.edit', 'products:write');
-
-        $validated = $request->validate(UpdateProductGroupData::rules());
-        $dto = UpdateProductGroupData::from($validated);
-
-        $result = (new UpdateProductGroup)($productGroup, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'product_group',
-        );
+        return $this->resourceUpdate($request, $productGroup);
     }
 
     /**
@@ -151,10 +152,6 @@ class ProductGroupController extends Controller
     #[ApiResponse(204, 'Product group deleted')]
     public function destroy(ProductGroup $productGroup): JsonResponse
     {
-        $this->authorizeApi('products.delete', 'products:write');
-
-        (new DeleteProductGroup)($productGroup);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($productGroup);
     }
 }

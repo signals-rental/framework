@@ -1,30 +1,6 @@
-@php
-    $headerIconSrc = null;
-    $headerIconFullSrc = null;
-    if ($product->icon_thumb_url) {
-        try {
-            $headerIconSrc = app(\App\Services\FileService::class)->signedUrl($product->icon_thumb_url);
-        } catch (\Throwable) {}
-    }
-    if ($product->icon_url) {
-        try {
-            $headerIconFullSrc = app(\App\Services\FileService::class)->signedUrl($product->icon_url);
-        } catch (\Throwable) {}
-    }
-    $headerWords = preg_split('/\s+/', trim($product->name));
-    $headerInitials = mb_strtoupper(mb_substr($headerWords[0] ?? '', 0, 1) . mb_substr($headerWords[1] ?? '', 0, 1));
-@endphp
 <x-signals.page-header :title="$product->name">
     <x-slot:icon>
-        <div class="flex size-11 items-center justify-center overflow-hidden rounded-lg border border-[var(--card-border)] bg-white shadow-sm">
-            @if($headerIconSrc)
-                <a href="{{ $headerIconFullSrc ?? $headerIconSrc }}" target="_blank" class="block">
-                    <img src="{{ $headerIconSrc }}" alt="{{ $product->name }}" class="size-full object-cover" />
-                </a>
-            @else
-                <span class="text-sm font-bold text-[var(--text-muted)]" style="font-family: var(--font-display);">{{ $headerInitials }}</span>
-            @endif
-        </div>
+        <x-signals.entity-icon :model="$product" :size="44" />
     </x-slot:icon>
     <x-slot:breadcrumbs>
         <a href="{{ route('products.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Products</a>

@@ -4,8 +4,9 @@ use App\Actions\Members\CreateMember;
 use App\Actions\Members\UpdateMember;
 use App\Data\Members\CreateMemberData;
 use App\Data\Members\UpdateMemberData;
-use App\Enums\CustomFieldType;
 use App\Enums\MembershipType;
+use App\Livewire\Concerns\LoadsCustomFieldValues;
+use App\Livewire\Concerns\ReKeysCustomFieldErrors;
 use App\Models\CustomField;
 use App\Models\ListName;
 use App\Models\Member;
@@ -16,6 +17,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use LoadsCustomFieldValues;
+    use ReKeysCustomFieldErrors;
     public ?int $memberId = null;
 
     // Basic info
@@ -102,14 +105,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->department = $member->department;
 
             // Load existing custom field values
-            $member->load('customFieldValues.customField');
-            foreach ($member->customFieldValues as $cfv) {
-                if ($cfv->customField === null) {
-                    continue;
-                }
-                $column = $cfv->customField->field_type->valueColumn();
-                $this->customFieldValues[$cfv->customField->name] = $cfv->{$column};
-            }
+            $this->customFieldValues = $this->loadCustomFieldValuesFrom($member);
         }
     }
 
@@ -178,22 +174,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 $result = (new CreateMember)(CreateMemberData::from($payload));
             }
         } catch (\Illuminate\Validation\ValidationException $e) {
-            // CustomFieldValidator throws bare keys (e.g. "test"),
-            // DTO validation throws prefixed keys (e.g. "custom_fields.test").
-            // Re-key both to "customFieldValues.xxx" for wire:model binding.
-            $cfNames = $this->referenceData['customFields']->pluck('name')->all();
-            $reKeyed = [];
-            foreach ($e->errors() as $key => $messages) {
-                if (str_starts_with($key, 'custom_fields.')) {
-                    $fieldName = substr($key, strlen('custom_fields.'));
-                    $reKeyed["customFieldValues.{$fieldName}"] = $messages;
-                } elseif (in_array($key, $cfNames, true)) {
-                    $reKeyed["customFieldValues.{$key}"] = $messages;
-                } else {
-                    $reKeyed[$key] = $messages;
-                }
-            }
-            throw \Illuminate\Validation\ValidationException::withMessages($reKeyed);
+            $this->reKeyCustomFieldErrors($e, $this->referenceData['customFields']->pluck('name')->all());
         }
 
         $this->redirect(route('members.show', $result->id), navigate: true);
@@ -448,143 +429,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <div class="space-y-6" style="position: sticky; top: 24px;">
                     <h2 style="font-family: var(--font-display); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding-bottom: 4px; border-bottom: 1px solid var(--card-border);">Custom Fields</h2>
 
-                    @if($groupedCustomFields->isNotEmpty())
-                        @foreach($groupedCustomFields as $groupName => $fields)
-                            <x-signals.form-section :title="$groupName">
-                                <div class="space-y-3">
-                                    @foreach($fields as $field)
-                                        @php $cfLabel = ($field->display_name ?? $field->name); @endphp
-                                        <div wire:key="cf-edit-{{ $field->id }}">
-                                            @error("customFieldValues.{$field->name}")
-                                                <div class="text-xs text-[var(--red)] mb-1">{{ $message }}</div>
-                                            @enderror
-                                            @switch($field->field_type)
-                                                @case(CustomFieldType::Boolean)
-                                                    <flux:checkbox
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::Text)
-                                                @case(CustomFieldType::RichText)
-                                                    <flux:textarea
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        rows="2"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::Number)
-                                                @case(CustomFieldType::Currency)
-                                                @case(CustomFieldType::Percentage)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="number"
-                                                        step="any"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::Date)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="date"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::DateTime)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="datetime-local"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::Time)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="time"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::ListOfValues)
-                                                    <flux:select
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                    >
-                                                        <option value="">None</option>
-                                                        @if($field->listName)
-                                                            @foreach($field->listName->values->where('is_active', true)->sortBy('sort_order') as $lv)
-                                                                <option value="{{ $lv->id }}">{{ $lv->name }}</option>
-                                                            @endforeach
-                                                        @endif
-                                                    </flux:select>
-                                                    @break
-
-                                                @case(CustomFieldType::Email)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="email"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::Website)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="url"
-                                                        placeholder="https://"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::Telephone)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="tel"
-                                                    />
-                                                    @break
-
-                                                @case(CustomFieldType::Colour)
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                        type="color"
-                                                    />
-                                                    @break
-
-                                                @default
-                                                    <flux:input
-                                                        wire:model="customFieldValues.{{ $field->name }}"
-                                                        :label="$cfLabel"
-                                                        :required="$field->is_required"
-                                                    />
-                                            @endswitch
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </x-signals.form-section>
-                        @endforeach
-                    @else
-                        <x-signals.form-section title="Custom Fields">
-                            <p class="text-sm text-[var(--text-muted)]">No custom fields configured.</p>
-                        </x-signals.form-section>
-                    @endif
+                    <x-signals.custom-fields-editor :groupedCustomFields="$groupedCustomFields" />
                 </div>
             </div>
         </form>

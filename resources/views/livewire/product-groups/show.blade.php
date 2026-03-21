@@ -28,7 +28,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 ['key' => 'name', 'label' => 'Name', 'sortable' => true],
                 ['key' => 'product_type', 'label' => 'Type', 'sortable' => true, 'view' => 'livewire.products.partials.column-type'],
                 ['key' => 'sku', 'label' => 'SKU', 'sortable' => true, 'view' => 'livewire.products.partials.column-sku'],
-                ['key' => 'is_active', 'label' => 'Status', 'view' => 'livewire.products.partials.column-status'],
+                ['key' => 'is_active', 'label' => 'Status', 'view' => 'livewire.partials.column-active-status'],
                 ['key' => 'created_at', 'label' => 'Created', 'sortable' => true],
             ],
         ];

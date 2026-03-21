@@ -21,6 +21,10 @@ parameters:
             identifier: argument.templateType
             message: '#Unable to resolve the template type TComponent in call to method Livewire\\LivewireManager::test\(\)#'
             path: tests/
+        -
+            identifier: argument.templateType
+            message: '#Unable to resolve the template type TModel in call to method .+::applyIncludes\(\)#'
+            path: app/Http/Traits/ResourceActions.php
     scanDirectories:
         - tests/
     universalObjectCratesClasses:

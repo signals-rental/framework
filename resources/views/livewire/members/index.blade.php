@@ -128,7 +128,7 @@ new #[Layout('components.layouts.app')] #[Title('Members')] class extends Compon
                 ['key' => 'membership_type', 'label' => 'Type', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => $typeOptions, 'view' => 'livewire.members.partials.column-type'],
                 ['key' => 'email', 'label' => 'Primary Email', 'view' => 'livewire.members.partials.column-email'],
                 ['key' => 'phone', 'label' => 'Primary Phone', 'view' => 'livewire.members.partials.column-phone'],
-                ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.members.partials.column-status'],
+                ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.partials.column-active-status'],
                 ['key' => 'tag_list', 'label' => 'Tags', 'view' => 'livewire.members.partials.column-tags'],
                 ['key' => 'created_at', 'label' => 'Created', 'sortable' => true, 'view' => 'livewire.members.partials.column-created'],
                 ['key' => 'actions', 'type' => 'actions'],
