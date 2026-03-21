@@ -377,3 +377,71 @@ describe('GET /api/v1/webhooks/{id}/logs', function () {
             ->assertForbidden();
     });
 });
+
+describe('CRMS response shape', function () {
+    it('returns the complete webhook field set', function () {
+        $webhook = Webhook::factory()->create([
+            'user_id' => $this->owner->id,
+            'url' => 'https://example.com/hook',
+            'events' => ['user.created', 'member.updated'],
+            'is_active' => true,
+        ]);
+        $token = $this->owner->createToken('test', ['webhooks:manage'])->plainTextToken;
+
+        $data = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/webhooks/{$webhook->id}")
+            ->assertOk()
+            ->json('webhook');
+
+        // Core fields
+        expect($data['id'])->toBe($webhook->id);
+        expect($data['url'])->toBe('https://example.com/hook');
+        expect($data['events'])->toBe(['user.created', 'member.updated']);
+        expect($data['is_active'])->toBeTrue();
+        expect($data['consecutive_failures'])->toBe(0);
+
+        // Nullable timestamps
+        expect($data['disabled_at'])->toBeNull();
+
+        // ISO 8601 timestamps
+        expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+        expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+    });
+
+    it('returns correct list response with wrapping and meta', function () {
+        Webhook::factory()->count(2)->create(['user_id' => $this->owner->id]);
+        $token = $this->owner->createToken('test', ['webhooks:manage'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/webhooks')
+            ->assertOk()
+            ->assertJsonStructure([
+                'webhooks' => [
+                    '*' => [
+                        'id', 'url', 'events', 'is_active',
+                        'consecutive_failures', 'disabled_at',
+                        'created_at', 'updated_at',
+                    ],
+                ],
+                'meta' => ['total', 'per_page', 'page'],
+            ]);
+
+        expect($response->json())->toHaveKeys(['webhooks', 'meta']);
+    });
+
+    it('returns disabled_at timestamp for disabled webhooks', function () {
+        $webhook = Webhook::factory()->disabled()->create([
+            'user_id' => $this->owner->id,
+        ]);
+        $token = $this->owner->createToken('test', ['webhooks:manage'])->plainTextToken;
+
+        $data = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/webhooks/{$webhook->id}")
+            ->assertOk()
+            ->json('webhook');
+
+        expect($data['is_active'])->toBeFalse();
+        expect($data['disabled_at'])->not->toBeNull();
+        expect($data['disabled_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+    });
+});

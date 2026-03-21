@@ -53,7 +53,7 @@ describe('stub tab pages', function () {
 
         $this->get("/members/{$member->id}/activities")
             ->assertOk()
-            ->assertSee('Activities Coming Soon');
+            ->assertSee('New Activity');
     });
 
     it('renders the information tab', function () {

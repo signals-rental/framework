@@ -19,6 +19,7 @@ class IconUpload extends Component
     /** @var list<class-string<Model>> */
     private array $allowedModels = [
         Member::class,
+        \App\Models\Product::class,
     ];
 
     public int $modelId;

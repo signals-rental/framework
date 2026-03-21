@@ -29,6 +29,7 @@ class RoleSeeder extends Seeder
         );
 
         $salesPermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'opportunities.')
+            || str_starts_with($p, 'activities.')
             || str_starts_with($p, 'invoices.')
             || str_starts_with($p, 'members.')
             || $p === 'products.access'

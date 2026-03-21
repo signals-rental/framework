@@ -77,7 +77,7 @@
                             {{-- Column 2: Engagement --}}
                             <div>
                                 <div class="mega-group-label">Engagement</div>
-                                <a href="#" class="mega-item">
+                                <a href="{{ route('activities.index') }}" class="mega-item" wire:navigate>
                                     <flux:icon.calendar-days class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
                                         <span class="mega-item-label">Activities</span>
@@ -89,6 +89,45 @@
                                     <div class="flex flex-col gap-px">
                                         <span class="mega-item-label">Projects</span>
                                         <span class="mega-item-desc">Project management</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Resources mega dropdown --}}
+                <div class="nav-dropdown-wrapper">
+                    <button class="header-nav-item {{ request()->routeIs('products.*') || request()->routeIs('product-groups.*') || request()->routeIs('stock-levels.*') ? 'active' : '' }}" type="button">
+                        Resources
+                        <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+                    </button>
+                    <div class="mega-dropdown">
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-5">
+                            <div>
+                                <div class="mega-group-label">Catalogue</div>
+                                <a href="{{ route('products.index') }}" class="mega-item" wire:navigate>
+                                    <flux:icon.cube class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Products</span>
+                                        <span class="mega-item-desc">Equipment, services &amp; consumables</span>
+                                    </div>
+                                </a>
+                                <a href="{{ route('stock-levels.index') }}" class="mega-item" wire:navigate>
+                                    <flux:icon.archive-box class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Stock Levels</span>
+                                        <span class="mega-item-desc">Inventory &amp; asset tracking</span>
+                                    </div>
+                                </a>
+                            </div>
+                            <div>
+                                <div class="mega-group-label">Reference</div>
+                                <a href="{{ route('product-groups.index') }}" class="mega-item" wire:navigate>
+                                    <flux:icon.folder class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Product Groups</span>
+                                        <span class="mega-item-desc">Categories &amp; hierarchy</span>
                                     </div>
                                 </a>
                             </div>
@@ -226,6 +265,15 @@
                 </a>
             @else
                 {{-- Normal mobile sidebar --}}
+                <a class="sidebar-item {{ request()->routeIs('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.cube class="!size-[15px]" /> Products
+                </a>
+                <a class="sidebar-item {{ request()->routeIs('product-groups.*') ? 'active' : '' }}" href="{{ route('product-groups.index') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.folder class="!size-[15px]" /> Product Groups
+                </a>
+                <a class="sidebar-item {{ request()->routeIs('stock-levels.*') ? 'active' : '' }}" href="{{ route('stock-levels.index') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.archive-box class="!size-[15px]" /> Stock Levels
+                </a>
                 <div class="flex-1"></div>
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
                 @if(auth()->user()?->hasAdminAccess())

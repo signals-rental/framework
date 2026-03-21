@@ -401,3 +401,62 @@ describe('DELETE /api/v1/roles/{id}', function () {
             ->assertForbidden();
     });
 });
+
+describe('CRMS response shape', function () {
+    it('returns the complete role field set', function () {
+        $role = Role::query()->where('name', 'Admin')->first();
+        $token = $this->owner->createToken('test', ['roles:read'])->plainTextToken;
+
+        $data = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/roles/{$role->id}")
+            ->assertOk()
+            ->json('role');
+
+        // Core fields
+        expect($data['id'])->toBe($role->id);
+        expect($data['name'])->toBe('Admin');
+        expect($data['is_system'])->toBeTrue();
+        expect($data['sort_order'])->toBeInt();
+        expect($data['description'])->toBeString();
+
+        // Permissions as string array
+        expect($data['permissions'])->toBeArray();
+        expect(count($data['permissions']))->toBeGreaterThan(0);
+
+        // ISO 8601 timestamps
+        expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+        expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+    });
+
+    it('returns correct list response with wrapping and meta', function () {
+        $token = $this->owner->createToken('test', ['roles:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/roles')
+            ->assertOk()
+            ->assertJsonStructure([
+                'roles' => [
+                    '*' => [
+                        'id', 'name', 'description', 'is_system',
+                        'sort_order', 'permissions',
+                        'created_at', 'updated_at',
+                    ],
+                ],
+                'meta' => ['total', 'per_page', 'page'],
+            ]);
+
+        expect($response->json())->toHaveKeys(['roles', 'meta']);
+    });
+
+    it('returns null description when not set', function () {
+        $role = Role::create(['name' => 'NoDesc', 'guard_name' => 'web', 'is_system' => false]);
+        $token = $this->owner->createToken('test', ['roles:read'])->plainTextToken;
+
+        $data = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/roles/{$role->id}")
+            ->assertOk()
+            ->json('role');
+
+        expect($data['description'])->toBeNull();
+    });
+});

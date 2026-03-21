@@ -232,6 +232,14 @@ class Member extends Model implements HasSchema
     }
 
     /**
+     * @return MorphMany<Activity, $this>
+     */
+    public function activities(): MorphMany
+    {
+        return $this->morphMany(Activity::class, 'regarding');
+    }
+
+    /**
      * Scope to members of a given type.
      *
      * @param  Builder<Member>  $query

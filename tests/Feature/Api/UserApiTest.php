@@ -241,3 +241,87 @@ describe('DELETE /api/v1/users/{id}', function () {
             ->assertUnprocessable();
     });
 });
+
+describe('CRMS response shape', function () {
+    it('returns the complete user field set', function () {
+        $user = User::factory()->create([
+            'name' => 'Jane Doe',
+            'email' => 'jane@example.com',
+            'is_admin' => true,
+            'is_active' => true,
+        ]);
+        $user->assignRole('Admin');
+        $token = $this->owner->createToken('test', ['users:read'])->plainTextToken;
+
+        $data = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/users/{$user->id}")
+            ->assertOk()
+            ->json('user');
+
+        // Core fields
+        expect($data['id'])->toBe($user->id);
+        expect($data['name'])->toBe('Jane Doe');
+        expect($data['email'])->toBe('jane@example.com');
+        expect($data['is_admin'])->toBeTrue();
+        expect($data['is_owner'])->toBeFalse();
+        expect($data['is_active'])->toBeTrue();
+
+        // Roles as string array
+        expect($data['roles'])->toBeArray();
+        expect($data['roles'])->toContain('Admin');
+
+        // Nullable timestamp fields
+        expect($data)->toHaveKeys([
+            'email_verified_at', 'invited_at', 'invitation_accepted_at',
+            'last_login_at', 'deactivated_at',
+        ]);
+
+        // ISO 8601 timestamps
+        expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+        expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+    });
+
+    it('returns correct list response with wrapping and meta', function () {
+        User::factory()->count(2)->create();
+        $token = $this->owner->createToken('test', ['users:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/users')
+            ->assertOk()
+            ->assertJsonStructure([
+                'users' => [
+                    '*' => [
+                        'id', 'name', 'email', 'is_admin', 'is_owner', 'is_active',
+                        'email_verified_at', 'invited_at', 'invitation_accepted_at',
+                        'last_login_at', 'deactivated_at',
+                        'created_at', 'updated_at', 'roles',
+                    ],
+                ],
+                'meta' => ['total', 'per_page', 'page'],
+            ]);
+
+        expect($response->json())->toHaveKeys(['users', 'meta']);
+    });
+
+    it('returns null for unset nullable timestamp fields', function () {
+        $user = User::factory()->create([
+            'email_verified_at' => null,
+            'invited_at' => null,
+            'invitation_accepted_at' => null,
+            'last_login_at' => null,
+            'deactivated_at' => null,
+        ]);
+        $token = $this->owner->createToken('test', ['users:read'])->plainTextToken;
+
+        $data = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/users/{$user->id}")
+            ->assertOk()
+            ->json('user');
+
+        expect($data['email_verified_at'])->toBeNull();
+        expect($data['invited_at'])->toBeNull();
+        expect($data['invitation_accepted_at'])->toBeNull();
+        expect($data['last_login_at'])->toBeNull();
+        expect($data['deactivated_at'])->toBeNull();
+    });
+});

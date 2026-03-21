@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccessoryController;
 use App\Http\Controllers\Api\V1\ActionLogController;
+use App\Http\Controllers\Api\V1\ActivityController;
 use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\CountryController;
 use App\Http\Controllers\Api\V1\CurrencyController;
@@ -17,10 +19,14 @@ use App\Http\Controllers\Api\V1\MemberLinkController;
 use App\Http\Controllers\Api\V1\MemberPhoneController;
 use App\Http\Controllers\Api\V1\MemberRelationshipController;
 use App\Http\Controllers\Api\V1\OrganisationTaxClassController;
+use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductGroupController;
 use App\Http\Controllers\Api\V1\ProductTaxClassController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SchemaController;
 use App\Http\Controllers\Api\V1\SettingsController;
+use App\Http\Controllers\Api\V1\StockLevelController;
+use App\Http\Controllers\Api\V1\StockTransactionController;
 use App\Http\Controllers\Api\V1\SystemController;
 use App\Http\Controllers\Api\V1\TaxRateController;
 use App\Http\Controllers\Api\V1\TaxRuleController;
@@ -111,4 +117,23 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
 
     // Attachments
     Route::apiResource('attachments', AttachmentController::class)->only(['show', 'store', 'destroy'])->names('api.v1.attachments');
+
+    // Products
+    Route::apiResource('products', ProductController::class)->names('api.v1.products');
+    Route::apiResource('products.accessories', AccessoryController::class)->only(['index', 'store', 'destroy'])->names('api.v1.products.accessories');
+
+    // Product Groups
+    Route::apiResource('product_groups', ProductGroupController::class)->names('api.v1.product_groups');
+
+    // Stock Levels
+    Route::apiResource('stock_levels', StockLevelController::class)->names('api.v1.stock_levels');
+
+    // Stock Transactions (nested under products/stock_levels, matching CRMS)
+    Route::get('products/{product}/stock_levels/{stock_level}/stock_transactions', [StockTransactionController::class, 'index'])->name('api.v1.stock_transactions.index');
+    Route::get('products/{product}/stock_levels/{stock_level}/stock_transactions/{stock_transaction}', [StockTransactionController::class, 'show'])->name('api.v1.stock_transactions.show');
+    Route::post('products/{product}/stock_levels/{stock_level}/stock_transactions', [StockTransactionController::class, 'store'])->name('api.v1.stock_transactions.store');
+
+    // Activities
+    Route::apiResource('activities', ActivityController::class)->names('api.v1.activities');
+    Route::post('activities/{activity}/complete', [ActivityController::class, 'complete'])->name('api.v1.activities.complete');
 });

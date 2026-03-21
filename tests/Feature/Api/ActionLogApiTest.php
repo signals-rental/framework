@@ -288,3 +288,65 @@ describe('ActionLogData::fromModel', function () {
         expect($data->created_at)->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
     });
 });
+
+describe('CRMS response shape', function () {
+    it('returns the complete action log field set', function () {
+        $log = ActionLog::factory()->forUser($this->owner)->withChanges(
+            ['name' => 'Old'],
+            ['name' => 'New'],
+        )->create([
+            'action' => 'member.updated',
+            'auditable_type' => 'App\\Models\\Member',
+            'auditable_id' => 42,
+            'ip_address' => '10.0.0.1',
+        ]);
+        $token = $this->owner->createToken('test', ['action-log:read'])->plainTextToken;
+
+        $data = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/actions')
+            ->assertOk()
+            ->json('actions.0');
+
+        // Core fields
+        expect($data['id'])->toBe($log->id);
+        expect($data['user_id'])->toBe($this->owner->id);
+        expect($data['action'])->toBe('member.updated');
+        expect($data['ip_address'])->toBe('10.0.0.1');
+
+        // Auditable type mapped to friendly name
+        expect($data['auditable_type'])->toBe('member');
+        expect($data['auditable_id'])->toBe(42);
+
+        // Change values
+        expect($data['old_values'])->toBe(['name' => 'Old']);
+        expect($data['new_values'])->toBe(['name' => 'New']);
+
+        // User name resolved
+        expect($data['user_name'])->toBe($this->owner->name);
+
+        // ISO 8601 timestamp
+        expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
+    });
+
+    it('returns correct list response with wrapping and meta', function () {
+        ActionLog::factory()->count(3)->forUser($this->owner)->create();
+        $token = $this->owner->createToken('test', ['action-log:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/actions')
+            ->assertOk()
+            ->assertJsonStructure([
+                'actions' => [
+                    '*' => [
+                        'id', 'user_id', 'action', 'auditable_type', 'auditable_id',
+                        'old_values', 'new_values', 'ip_address', 'user_name',
+                        'created_at',
+                    ],
+                ],
+                'meta' => ['total', 'per_page', 'page'],
+            ]);
+
+        expect($response->json())->toHaveKeys(['actions', 'meta']);
+        expect($response->json('meta.total'))->toBe(3);
+    });
+});

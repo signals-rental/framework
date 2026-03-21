@@ -76,6 +76,34 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('members/{member}/member-contacts', 'members.member-contacts')->name('members.contacts');
     Volt::route('members/{member}/activities', 'members.activities')->name('members.activities');
     Volt::route('members/{member}/files', 'members.files')->name('members.files');
+
+    // Products
+    Volt::route('products', 'products.index')->name('products.index');
+    Volt::route('products/create', 'products.form')->name('products.create');
+    Volt::route('products/{product}', 'products.show')->name('products.show');
+    Volt::route('products/{product}/edit', 'products.form')->name('products.edit');
+    Volt::route('products/{product}/stock', 'products.stock')->name('products.stock');
+    Volt::route('products/{product}/accessories', 'products.accessories')->name('products.accessories');
+    Volt::route('products/{product}/custom-fields', 'products.custom-fields')->name('products.custom-fields');
+    Volt::route('products/{product}/activities', 'products.activities')->name('products.activities');
+    Volt::route('products/{product}/files', 'products.files')->name('products.files');
+
+    // Product Groups
+    Volt::route('product-groups', 'product-groups.index')->name('product-groups.index');
+    Volt::route('product-groups/create', 'product-groups.form')->name('product-groups.create');
+    Volt::route('product-groups/{productGroup}', 'product-groups.show')->name('product-groups.show');
+    Volt::route('product-groups/{productGroup}/edit', 'product-groups.form')->name('product-groups.edit');
+
+    // Stock Levels
+    Volt::route('stock-levels', 'stock-levels.index')->name('stock-levels.index');
+    Volt::route('stock-levels/{stockLevel}', 'stock-levels.show')->name('stock-levels.show');
+    Volt::route('stock-levels/{stockLevel}/activities', 'stock-levels.activities')->name('stock-levels.activities');
+
+    // Activities
+    Volt::route('activities', 'activities.index')->name('activities.index');
+    Volt::route('activities/create', 'activities.form')->name('activities.create');
+    Volt::route('activities/{activity}', 'activities.show')->name('activities.show');
+    Volt::route('activities/{activity}/edit', 'activities.form')->name('activities.edit');
 });
 
 /*

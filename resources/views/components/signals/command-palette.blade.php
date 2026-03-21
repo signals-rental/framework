@@ -9,6 +9,10 @@
         search: '',
         activeIndex: 0,
         memberResults: [],
+        productResults: [],
+        stockLevelResults: [],
+        productGroupResults: [],
+        activityResults: [],
         badgeColors: { 'organisation': 's-badge-blue', 'venue': 's-badge-amber', 'contact': 's-badge-green' },
         avatarColors: { 'organisation': 's-avatar-blue', 'venue': 's-avatar-amber', 'contact': 's-avatar-green' },
         searching: false,
@@ -16,8 +20,15 @@
         commands: [
             { group: 'Navigation', label: 'Dashboard', icon: 'home', url: '{{ route('dashboard') }}', keywords: 'home main overview' },
             { group: 'Navigation', label: 'Members', icon: 'users', url: '{{ route('members.index') }}', keywords: 'contacts organisations venues people' },
+            { group: 'Navigation', label: 'Products', icon: 'cube', url: '{{ route('products.index') }}', keywords: 'catalogue equipment rental sale' },
+            { group: 'Navigation', label: 'Stock Levels', icon: 'archive', url: '{{ route('stock-levels.index') }}', keywords: 'inventory stock items assets' },
+            { group: 'Navigation', label: 'Product Groups', icon: 'folder', url: '{{ route('product-groups.index') }}', keywords: 'groups categories catalogue organize' },
+            { group: 'Navigation', label: 'Activities', icon: 'calendar', url: '{{ route('activities.index') }}', keywords: 'tasks calls meetings emails notes follow-up crm' },
             { group: 'Navigation', label: 'Admin Settings', icon: 'cog', url: '{{ route('admin.settings.company') }}', keywords: 'setup configuration company' },
             { group: 'Create', label: 'New Member', icon: 'plus', url: '{{ route('members.create') }}', keywords: 'add create organisation contact venue' },
+            { group: 'Create', label: 'New Product', icon: 'plus', url: '{{ route('products.create') }}', keywords: 'add create product equipment' },
+            { group: 'Create', label: 'New Product Group', icon: 'plus', url: '{{ route('product-groups.create') }}', keywords: 'add create product group category' },
+            { group: 'Create', label: 'New Activity', icon: 'plus', url: '{{ route('activities.create') }}', keywords: 'add create activity task call meeting' },
             { group: 'Settings', label: 'Profile Settings', icon: 'user', url: '{{ route('settings.profile') }}', keywords: 'account name email' },
             { group: 'Settings', label: 'Change Password', icon: 'lock', url: '{{ route('settings.password') }}', keywords: 'security password' },
             { group: 'Settings', label: 'Appearance', icon: 'palette', url: '{{ route('settings.appearance') }}', keywords: 'theme dark light mode' },
@@ -49,6 +60,10 @@
         get allResults() {
             const results = [];
             this.memberResults.forEach(m => results.push({ group: 'Members', label: m.name, hint: m.type, icon: 'users', url: m.url, member: m }));
+            this.productResults.forEach(p => results.push({ group: 'Products', label: p.name, hint: p.type, icon: 'cube', url: p.url }));
+            this.stockLevelResults.forEach(s => results.push({ group: 'Stock Levels', label: s.name, hint: s.type, icon: 'archive', url: s.url }));
+            this.productGroupResults.forEach(g => results.push({ group: 'Product Groups', label: g.name, hint: g.type, icon: 'folder', url: g.url }));
+            this.activityResults.forEach(a => results.push({ group: 'Activities', label: a.name, hint: a.type, icon: 'calendar', url: a.url }));
             this.filteredCommands.forEach(c => results.push(c));
             return results;
         },
@@ -72,8 +87,22 @@
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 })
                 .then(r => r.json())
-                .then(data => { this.memberResults = data.members || []; this.searching = false; })
-                .catch(() => { this.memberResults = []; this.searching = false; });
+                .then(data => {
+                    this.memberResults = data.members || [];
+                    this.productResults = data.products || [];
+                    this.stockLevelResults = data.stock_levels || [];
+                    this.productGroupResults = data.product_groups || [];
+                    this.activityResults = data.activities || [];
+                    this.searching = false;
+                })
+                .catch(() => {
+                    this.memberResults = [];
+                    this.productResults = [];
+                    this.stockLevelResults = [];
+                    this.productGroupResults = [];
+                    this.activityResults = [];
+                    this.searching = false;
+                });
             }, 200);
         },
         toggle() {
@@ -82,6 +111,10 @@
                 this.search = '';
                 this.activeIndex = 0;
                 this.memberResults = [];
+                this.productResults = [];
+                this.stockLevelResults = [];
+                this.productGroupResults = [];
+                this.activityResults = [];
                 this.$nextTick(() => this.$refs.searchInput?.focus());
             }
         },
@@ -178,6 +211,10 @@
                                                 <template x-if="cmd.icon === 'heart'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></template>
                                                 <template x-if="cmd.icon === 'globe'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></template>
                                                 <template x-if="cmd.icon === 'building'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M14 8h1"/><path d="M14 12h1"/></svg></template>
+                                                <template x-if="cmd.icon === 'cube'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></template>
+                                                <template x-if="cmd.icon === 'archive'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></template>
+                                                <template x-if="cmd.icon === 'folder'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></template>
+                                                <template x-if="cmd.icon === 'calendar'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></template>
                                             </span>
                                             </template>
                                             <span class="s-command-item-label" x-text="cmd.label"></span>

@@ -49,6 +49,14 @@ class PermissionSeeder extends Seeder
             'opportunities.edit' => ['label' => 'Edit Opportunities', 'description' => 'Edit existing opportunities', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.view']],
             'opportunities.delete' => ['label' => 'Delete Opportunities', 'description' => 'Delete opportunities', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.edit']],
 
+            // Activities
+            'activities.access' => ['label' => 'Access Activities', 'description' => 'Access the activities area', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'area', 'dependencies' => []],
+            'activities.view' => ['label' => 'View Activities', 'description' => 'View activity records', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['activities.access']],
+            'activities.create' => ['label' => 'Create Activities', 'description' => 'Create new activities', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['activities.view']],
+            'activities.edit' => ['label' => 'Edit Activities', 'description' => 'Edit existing activities', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['activities.view']],
+            'activities.delete' => ['label' => 'Delete Activities', 'description' => 'Delete activities', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['activities.edit']],
+            'activities.complete' => ['label' => 'Complete Activities', 'description' => 'Mark activities as completed', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['activities.edit']],
+
             // Invoices
             'invoices.access' => ['label' => 'Access Invoices', 'description' => 'Access the invoices area', 'group' => 'Invoices', 'sub_group' => null, 'layer' => 'area', 'dependencies' => []],
             'invoices.view' => ['label' => 'View Invoices', 'description' => 'View invoices', 'group' => 'Invoices', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['invoices.access']],
