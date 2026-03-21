@@ -6,6 +6,7 @@ use App\Data\Members\CreateMemberData;
 use App\Data\Members\MemberData;
 use App\Events\AuditableEvent;
 use App\Models\Member;
+use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\Gate;
 
@@ -56,7 +57,7 @@ class CreateMember
 
         event(new AuditableEvent($member, 'member.created'));
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('member.created', [
+        app(WebhookService::class)->dispatch('member.created', [
             'member' => MemberData::fromModel($member)->toArray(),
         ]);
 

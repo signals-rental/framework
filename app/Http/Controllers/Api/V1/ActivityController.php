@@ -12,7 +12,6 @@ use App\Data\Activities\UpdateActivityData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
 use App\Models\Activity;
-use App\Services\ViewResolver;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -76,26 +75,7 @@ class ActivityController extends Controller
         $query = Activity::query();
         $query = $this->applyIncludes($query, $request);
 
-        $viewId = $request->filled('view_id') ? (int) $request->input('view_id') : null;
-        $viewResolver = app(ViewResolver::class);
-        $view = $viewResolver->resolve('activities', $viewId, $request->user());
-
-        if ($view !== null) {
-            $explicitFilters = $request->input('q', []);
-            if (! is_array($explicitFilters)) {
-                $explicitFilters = [];
-            }
-            $query = $viewResolver->applyFilters($query, $view, $explicitFilters);
-
-            if (! $request->filled('sort')) {
-                $query = $viewResolver->applySort($query, $view);
-            } else {
-                $query = $this->applySort($query, $request);
-            }
-        } else {
-            $query = $this->applyFilters($query, $request);
-            $query = $this->applySort($query, $request);
-        }
+        ['query' => $query, 'view' => $view] = $this->applyViewOrFilters($query, $request, 'activities');
 
         /** @var LengthAwarePaginator<int, Activity> $paginator */
         $paginator = $this->paginateQuery($query, $request);

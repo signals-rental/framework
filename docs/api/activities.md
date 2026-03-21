@@ -141,6 +141,8 @@ PUT /api/v1/activities/{id}
 
 Accepts the same body as create. Only include fields to update.
 
+> **Clearing nullable fields:** Omitting a field or sending `null` leaves it unchanged. To clear a nullable field to `null`, send an empty string `""` as its value.
+
 ## Delete Activity
 
 ```

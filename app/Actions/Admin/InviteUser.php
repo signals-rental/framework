@@ -8,6 +8,7 @@ use App\Enums\RoleLevel;
 use App\Models\Member;
 use App\Models\User;
 use App\Notifications\UserInvitedNotification;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -46,7 +47,7 @@ class InviteUser
 
         $user->notify(new UserInvitedNotification);
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('user.created', [
+        app(WebhookService::class)->dispatch('user.created', [
             'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
         ]);
 

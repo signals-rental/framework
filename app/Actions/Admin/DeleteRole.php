@@ -3,6 +3,7 @@
 namespace App\Actions\Admin;
 
 use App\Events\AuditableEvent;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
@@ -36,7 +37,7 @@ class DeleteRole
 
         $role->delete();
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('role.deleted', [
+        app(WebhookService::class)->dispatch('role.deleted', [
             'role' => $roleData,
         ]);
     }

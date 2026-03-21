@@ -15,7 +15,12 @@ class UpdateProductGroup
     {
         Gate::authorize('products.edit');
 
-        $group->update(array_filter($data->toArray(), fn ($v) => $v !== null));
+        $group->update(
+            collect($data->toArray())
+                ->reject(fn ($value) => $value === null)
+                ->map(fn ($value) => $value === '' ? null : $value)
+                ->all()
+        );
 
         $group->refresh();
 

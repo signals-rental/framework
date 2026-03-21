@@ -3,6 +3,7 @@
 namespace App\Actions\Admin;
 
 use App\Events\AuditableEvent;
+use App\Services\Api\WebhookService;
 use App\Services\PermissionRegistry;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Role;
@@ -30,7 +31,7 @@ class CreateRole
             $role->syncPermissions($data['permissions']);
         }
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('role.created', [
+        app(WebhookService::class)->dispatch('role.created', [
             'role' => ['id' => $role->id, 'name' => $role->name],
         ]);
 

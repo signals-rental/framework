@@ -3,6 +3,7 @@
 namespace App\Actions\Admin;
 
 use App\Events\AuditableEvent;
+use App\Services\Api\WebhookService;
 use App\Services\PermissionRegistry;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -48,7 +49,7 @@ class UpdateRole
         /** @var \Spatie\Permission\Models\Role $freshRole */
         $freshRole = $role->fresh();
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('role.updated', [
+        app(WebhookService::class)->dispatch('role.updated', [
             'role' => ['id' => $freshRole->id, 'name' => $freshRole->name],
         ]);
 

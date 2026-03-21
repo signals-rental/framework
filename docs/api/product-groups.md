@@ -84,3 +84,5 @@ Returns `201 Created`.
 ## Update / Delete
 
 Standard update (PUT, 200) and delete (DELETE, 204) patterns.
+
+> **Clearing nullable fields:** Omitting a field or sending `null` leaves it unchanged. To clear a nullable field to `null`, send an empty string `""` as its value.

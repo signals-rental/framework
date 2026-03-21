@@ -4,6 +4,7 @@ namespace App\Actions\Admin;
 
 use App\Events\AuditableEvent;
 use App\Models\User;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 
 class UpdateUser
@@ -37,7 +38,7 @@ class UpdateUser
             event(new AuditableEvent($user, 'updated', $oldValues, $newValues));
         }
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('user.updated', [
+        app(WebhookService::class)->dispatch('user.updated', [
             'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
         ]);
 

@@ -12,7 +12,6 @@ use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
 use App\Models\CustomView;
 use App\Models\Member;
-use App\Services\ViewResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -76,29 +75,7 @@ class MemberController extends Controller
         $query = Member::query();
         $query = $this->applyIncludes($query, $request);
 
-        // Resolve view if requested
-        $viewId = $request->filled('view_id') ? (int) $request->input('view_id') : null;
-        $viewResolver = app(ViewResolver::class);
-        $view = $viewResolver->resolve('members', $viewId, $request->user());
-
-        if ($view !== null) {
-            // Apply view filters, merging with explicit request filters
-            $explicitFilters = $request->input('q', []);
-            if (! is_array($explicitFilters)) {
-                $explicitFilters = [];
-            }
-            $query = $viewResolver->applyFilters($query, $view, $explicitFilters);
-
-            // Apply view sort only if no explicit sort given
-            if (! $request->filled('sort')) {
-                $query = $viewResolver->applySort($query, $view);
-            } else {
-                $query = $this->applySort($query, $request);
-            }
-        } else {
-            $query = $this->applyFilters($query, $request);
-            $query = $this->applySort($query, $request);
-        }
+        ['query' => $query, 'view' => $view] = $this->applyViewOrFilters($query, $request, 'members');
 
         /** @var LengthAwarePaginator<int, Member> $paginator */
         $paginator = $this->paginateQuery($query, $request);

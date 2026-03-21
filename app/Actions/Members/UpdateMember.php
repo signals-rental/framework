@@ -6,6 +6,7 @@ use App\Data\Members\MemberData;
 use App\Data\Members\UpdateMemberData;
 use App\Events\AuditableEvent;
 use App\Models\Member;
+use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\Gate;
 
@@ -26,7 +27,7 @@ class UpdateMember
 
         event(new AuditableEvent($member, 'member.updated'));
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('member.updated', [
+        app(WebhookService::class)->dispatch('member.updated', [
             'member' => MemberData::fromModel($member)->toArray(),
         ]);
 

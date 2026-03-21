@@ -6,6 +6,7 @@ use App\Data\Products\CreateStockLevelData;
 use App\Data\Products\StockLevelData;
 use App\Events\AuditableEvent;
 use App\Models\StockLevel;
+use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -44,7 +45,7 @@ class CreateStockLevel
 
             event(new AuditableEvent($stockLevel, 'stock_level.created'));
 
-            app(\App\Services\Api\WebhookService::class)->dispatch('stock_level.created', [
+            app(WebhookService::class)->dispatch('stock_level.created', [
                 'stock_level' => StockLevelData::fromModel($stockLevel)->toArray(),
             ]);
 

@@ -4,6 +4,7 @@ namespace App\Actions\Members;
 
 use App\Events\AuditableEvent;
 use App\Models\Member;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 
 class DeleteMember
@@ -14,7 +15,7 @@ class DeleteMember
 
         event(new AuditableEvent($member, 'member.deleted'));
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('member.deleted', [
+        app(WebhookService::class)->dispatch('member.deleted', [
             'id' => $member->id,
         ]);
 

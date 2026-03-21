@@ -4,6 +4,7 @@ namespace App\Actions\Products;
 
 use App\Events\AuditableEvent;
 use App\Models\ProductGroup;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 
 class DeleteProductGroup
@@ -14,7 +15,7 @@ class DeleteProductGroup
 
         event(new AuditableEvent($productGroup, 'product_group.deleted'));
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('product_group.deleted', [
+        app(WebhookService::class)->dispatch('product_group.deleted', [
             'id' => $productGroup->id,
         ]);
 

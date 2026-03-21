@@ -3,6 +3,7 @@
 namespace App\Actions\Admin;
 
 use App\Models\User;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -29,7 +30,7 @@ class DeactivateUser
         /** @var User $user */
         $user = $user->fresh();
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('user.deactivated', [
+        app(WebhookService::class)->dispatch('user.deactivated', [
             'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
         ]);
 

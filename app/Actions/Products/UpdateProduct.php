@@ -6,6 +6,7 @@ use App\Data\Products\ProductData;
 use App\Data\Products\UpdateProductData;
 use App\Events\AuditableEvent;
 use App\Models\Product;
+use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -17,7 +18,13 @@ class UpdateProduct
         Gate::authorize('products.edit');
 
         return DB::transaction(function () use ($product, $data): ProductData {
-            $product->update(array_filter($data->toArray(), fn ($v) => $v !== null));
+            $product->update(
+                collect($data->toArray())
+                    ->except(['custom_fields'])
+                    ->reject(fn ($value) => $value === null)
+                    ->map(fn ($value) => $value === '' ? null : $value)
+                    ->all()
+            );
 
             if ($data->custom_fields !== null) {
                 app(CustomFieldValidator::class)->validate('Product', $data->custom_fields);
@@ -28,7 +35,7 @@ class UpdateProduct
 
             event(new AuditableEvent($product, 'product.updated'));
 
-            app(\App\Services\Api\WebhookService::class)->dispatch('product.updated', [
+            app(WebhookService::class)->dispatch('product.updated', [
                 'product' => ProductData::fromModel($product)->toArray(),
             ]);
 

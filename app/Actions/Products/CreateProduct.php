@@ -6,6 +6,7 @@ use App\Data\Products\CreateProductData;
 use App\Data\Products\ProductData;
 use App\Events\AuditableEvent;
 use App\Models\Product;
+use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -52,7 +53,7 @@ class CreateProduct
 
             event(new AuditableEvent($product, 'product.created'));
 
-            app(\App\Services\Api\WebhookService::class)->dispatch('product.created', [
+            app(WebhookService::class)->dispatch('product.created', [
                 'product' => ProductData::fromModel($product)->toArray(),
             ]);
 

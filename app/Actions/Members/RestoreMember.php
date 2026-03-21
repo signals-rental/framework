@@ -4,6 +4,7 @@ namespace App\Actions\Members;
 
 use App\Events\AuditableEvent;
 use App\Models\Member;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 
 class RestoreMember
@@ -21,7 +22,7 @@ class RestoreMember
 
         event(new AuditableEvent($member, 'member.restored'));
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('member.restored', [
+        app(WebhookService::class)->dispatch('member.restored', [
             'id' => $member->id,
         ]);
     }

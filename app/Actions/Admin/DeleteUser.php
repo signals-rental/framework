@@ -4,6 +4,7 @@ namespace App\Actions\Admin;
 
 use App\Events\AuditableEvent;
 use App\Models\User;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -24,7 +25,7 @@ class DeleteUser
 
         event(new AuditableEvent($user, 'user.deleted'));
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('user.deleted', [
+        app(WebhookService::class)->dispatch('user.deleted', [
             'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
         ]);
 

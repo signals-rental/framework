@@ -8,6 +8,7 @@ use App\Enums\TransactionType;
 use App\Events\AuditableEvent;
 use App\Models\StockLevel;
 use App\Models\StockTransaction;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -38,7 +39,7 @@ class CreateStockTransaction
 
             event(new AuditableEvent($transaction, 'stock_transaction.created'));
 
-            app(\App\Services\Api\WebhookService::class)->dispatch('stock_transaction.created', [
+            app(WebhookService::class)->dispatch('stock_transaction.created', [
                 'stock_transaction' => StockTransactionData::fromModel($transaction)->toArray(),
             ]);
 

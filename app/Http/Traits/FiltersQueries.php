@@ -2,7 +2,9 @@
 
 namespace App\Http\Traits;
 
+use App\Models\CustomView;
 use App\Services\Api\RansackFilter;
+use App\Services\ViewResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -60,6 +62,44 @@ trait FiltersQueries
         $allowed = $allowedFields ?? $this->allowedSorts ?? [];
 
         return app(RansackFilter::class)->applySort($query, $sort, $allowed);
+    }
+
+    /**
+     * Apply view-based or request-based filtering and sorting.
+     *
+     * If a `view_id` is present, resolves the custom view and applies its filters/sort.
+     * Explicit request filters merge with (and override) view filters.
+     * Falls back to standard request-based filtering if no view is specified.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return array{query: Builder<TModel>, view: CustomView|null}
+     */
+    protected function applyViewOrFilters(Builder $query, Request $request, string $entityType): array
+    {
+        $viewId = $request->filled('view_id') ? (int) $request->input('view_id') : null;
+        $viewResolver = app(ViewResolver::class);
+        $view = $viewResolver->resolve($entityType, $viewId, $request->user());
+
+        if ($view !== null) {
+            $explicitFilters = $request->input('q', []);
+            if (! is_array($explicitFilters)) {
+                $explicitFilters = [];
+            }
+            $query = $viewResolver->applyFilters($query, $view, $explicitFilters);
+
+            if (! $request->filled('sort')) {
+                $query = $viewResolver->applySort($query, $view);
+            } else {
+                $query = $this->applySort($query, $request);
+            }
+        } else {
+            $query = $this->applyFilters($query, $request);
+            $query = $this->applySort($query, $request);
+        }
+
+        return ['query' => $query, 'view' => $view];
     }
 
     /**

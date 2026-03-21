@@ -6,6 +6,7 @@ use App\Data\Products\MergeProductData;
 use App\Events\AuditableEvent;
 use App\Models\Accessory;
 use App\Models\Product;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -73,7 +74,7 @@ class MergeProduct
                 'secondary_name' => $secondary->name,
             ]));
 
-            app(\App\Services\Api\WebhookService::class)->dispatch('product.merged', [
+            app(WebhookService::class)->dispatch('product.merged', [
                 'primary_id' => $primary->id,
                 'secondary_id' => $secondary->id,
             ]);

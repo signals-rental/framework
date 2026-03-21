@@ -1,13 +1,14 @@
 <?php
 
-use App\Enums\ActivityType;
-use App\Models\Activity;
+use App\Livewire\Concerns\HasActivityActions;
 use App\Models\Member;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use HasActivityActions;
+
     public Member $member;
 
     public function mount(Member $member): void
@@ -20,47 +21,13 @@ new #[Layout('components.layouts.app')] class extends Component {
         $view->title($this->member->name . ' — Activities');
     }
 
-    public function completeActivity(int $activityId): void
-    {
-        try {
-            $activity = Activity::findOrFail($activityId);
-            (new \App\Actions\Activities\CompleteActivity)($activity);
-            $this->dispatch('activity-completed');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
-            $this->dispatch('activity-completed');
-        }
-    }
-
-    public function deleteActivity(int $activityId): void
-    {
-        try {
-            $activity = Activity::findOrFail($activityId);
-            (new \App\Actions\Activities\DeleteActivity)($activity);
-            $this->dispatch('activity-deleted');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
-            $this->dispatch('activity-deleted');
-        }
-    }
-
     /**
      * @return array<string, mixed>
      */
     public function with(): array
     {
-        $typeOptions = collect(ActivityType::cases())
-            ->mapWithKeys(fn (ActivityType $t): array => [(string) $t->value => $t->label()])
-            ->all();
-
         return [
-            'columns' => [
-                ['key' => 'type_id', 'label' => 'Type', 'sortable' => true, 'view' => 'livewire.activities.partials.column-type'],
-                ['key' => 'subject', 'label' => 'Subject', 'sortable' => true],
-                ['key' => 'owner', 'label' => 'Owner', 'view' => 'livewire.activities.partials.column-owner'],
-                ['key' => 'starts_at', 'label' => 'Starts', 'sortable' => true],
-                ['key' => 'priority', 'label' => 'Priority', 'sortable' => true, 'view' => 'livewire.activities.partials.column-priority'],
-                ['key' => 'status_id', 'label' => 'Status', 'sortable' => true, 'view' => 'livewire.activities.partials.column-status'],
-                ['key' => 'actions', 'type' => 'actions'],
-            ],
+            'columns' => $this->activityColumns(),
             'scopes' => [
                 'forMember' => $this->member->id,
             ],

@@ -17,7 +17,11 @@ class UpdateActivity
         Gate::authorize('activities.edit');
 
         return DB::transaction(function () use ($activity, $data): ActivityData {
-            $attributes = array_filter($data->toArray(), fn ($v) => $v !== null);
+            $attributes = collect($data->toArray())
+                ->except(['participants', 'custom_fields'])
+                ->reject(fn ($value) => $value === null)
+                ->map(fn ($value) => $value === '' ? null : $value)
+                ->all();
 
             if (isset($attributes['regarding_type'])) {
                 $attributes['regarding_type'] = Activity::resolveRegardingType($attributes['regarding_type']);

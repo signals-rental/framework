@@ -4,6 +4,7 @@ namespace App\Actions\Members;
 
 use App\Events\AuditableEvent;
 use App\Models\Member;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -18,7 +19,7 @@ class ArchiveMember
 
             event(new AuditableEvent($member, 'member.archived'));
 
-            app(\App\Services\Api\WebhookService::class)->dispatch('member.archived', [
+            app(WebhookService::class)->dispatch('member.archived', [
                 'id' => $member->id,
             ]);
 

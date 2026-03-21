@@ -173,6 +173,8 @@ PUT /api/v1/products/{id}
 
 Only include fields to update. Omitted fields remain unchanged.
 
+> **Clearing nullable fields:** Omitting a field or sending `null` leaves it unchanged. To clear a nullable field to `null`, send an empty string `""` as its value.
+
 ### Response
 
 Returns `200 OK` with the updated product object.
