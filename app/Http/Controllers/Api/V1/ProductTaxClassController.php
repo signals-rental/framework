@@ -10,14 +10,14 @@ use App\Data\TaxClasses\TaxClassData;
 use App\Data\TaxClasses\UpdateTaxClassData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\ProductTaxClass;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class ProductTaxClassController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -31,36 +31,80 @@ class ProductTaxClassController extends Controller
         'created_at',
     ];
 
+    protected function modelClass(): string
+    {
+        return ProductTaxClass::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return TaxClassData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateTaxClassData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateTaxClassData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateProductTaxClass::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateProductTaxClass::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteProductTaxClass::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'product_tax_class';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'product_tax_classes';
+    }
+
+    protected function entityType(): string
+    {
+        return 'product_tax_classes';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'tax-classes.view', 'create' => 'tax-classes.manage', 'edit' => 'tax-classes.manage', 'delete' => 'tax-classes.manage'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'tax-classes:read', 'write' => 'tax-classes:write'];
+    }
+
     /**
      * List product tax classes.
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        $query = ProductTaxClass::query();
-        $query = $this->applyFilters($query, $request);
-        $query = $this->applySort($query, $request);
-        $paginator = $this->paginateQuery($query, $request);
-
-        $classes = $paginator->getCollection()->map(
-            fn (ProductTaxClass $taxClass): array => TaxClassData::fromModel($taxClass)->toArray()
-        )->all();
-
-        return $this->respondWithCollection($classes, 'product_tax_classes', $paginator);
+        return $this->resourceIndex($request);
     }
 
     /**
      * Show a single product tax class.
      */
-    public function show(ProductTaxClass $productTaxClass): JsonResponse
+    public function show(Request $request, ProductTaxClass $productTaxClass): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        return $this->respondWith(
-            TaxClassData::fromModel($productTaxClass)->toArray(),
-            'product_tax_class',
-        );
+        return $this->resourceShow($request, $productTaxClass);
     }
 
     /**
@@ -68,18 +112,7 @@ class ProductTaxClassController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(CreateTaxClassData::rules());
-        $dto = CreateTaxClassData::from($validated);
-
-        $result = (new CreateProductTaxClass)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'product_tax_class',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -87,17 +120,7 @@ class ProductTaxClassController extends Controller
      */
     public function update(Request $request, ProductTaxClass $productTaxClass): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(UpdateTaxClassData::rules());
-        $dto = UpdateTaxClassData::from($validated);
-
-        $result = (new UpdateProductTaxClass)($productTaxClass, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'product_tax_class',
-        );
+        return $this->resourceUpdate($request, $productTaxClass);
     }
 
     /**
@@ -105,10 +128,6 @@ class ProductTaxClassController extends Controller
      */
     public function destroy(ProductTaxClass $productTaxClass): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        (new DeleteProductTaxClass)($productTaxClass);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($productTaxClass);
     }
 }

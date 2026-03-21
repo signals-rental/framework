@@ -2,33 +2,19 @@
 
 namespace App\Policies;
 
-use App\Models\StockLevel;
-use App\Models\User;
+use App\Policies\Traits\AuthorizesByPermission;
 
 class StockLevelPolicy
 {
-    public function viewAny(User $user): bool
+    use AuthorizesByPermission;
+
+    protected function viewPermission(): string
     {
-        return $user->can('stock.view');
+        return 'stock.view';
     }
 
-    public function view(User $user, StockLevel $stockLevel): bool
+    protected function managePermission(): string
     {
-        return $user->can('stock.view');
-    }
-
-    public function create(User $user): bool
-    {
-        return $user->can('stock.adjust');
-    }
-
-    public function update(User $user, StockLevel $stockLevel): bool
-    {
-        return $user->can('stock.adjust');
-    }
-
-    public function delete(User $user, StockLevel $stockLevel): bool
-    {
-        return $user->can('stock.adjust');
+        return 'stock.adjust';
     }
 }

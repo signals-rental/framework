@@ -289,6 +289,19 @@ class Product extends Model implements HasSchema
     }
 
     /**
+     * Derive a human-readable name for the allowed stock type integer.
+     */
+    public static function stockTypeName(int $type): string
+    {
+        return match ($type) {
+            1 => 'Rental',
+            2 => 'Sale',
+            3 => 'Both',
+            default => 'Unknown',
+        };
+    }
+
+    /**
      * Format a money value from minor units to decimal string for API responses.
      */
     public function formatMoneyCost(string $attribute): string

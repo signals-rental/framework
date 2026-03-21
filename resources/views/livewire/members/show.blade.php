@@ -21,39 +21,6 @@ new #[Layout('components.layouts.app')] class extends Component {
         $view->title($this->member->name);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function with(): array
-    {
-        $words = preg_split('/\s+/', trim($this->member->name));
-        $initials = mb_strtoupper(
-            mb_substr($words[0] ?? '', 0, 1) . mb_substr($words[1] ?? '', 0, 1)
-        );
-
-        $iconSrc = null;
-        $iconFullSrc = null;
-        $fileService = app(\App\Services\FileService::class);
-        if ($this->member->icon_thumb_url) {
-            try {
-                $iconSrc = $fileService->signedUrl($this->member->icon_thumb_url);
-            } catch (\Throwable) {
-                // Fall back to initials
-            }
-        }
-        if ($this->member->icon_url) {
-            try {
-                $iconFullSrc = $fileService->signedUrl($this->member->icon_url);
-            } catch (\Throwable) {
-            }
-        }
-
-        return [
-            'initials' => $initials,
-            'iconSrc' => $iconSrc,
-            'iconFullSrc' => $iconFullSrc,
-        ];
-    }
 }; ?>
 
 <section class="w-full">

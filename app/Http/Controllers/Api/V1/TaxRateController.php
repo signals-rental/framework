@@ -10,14 +10,14 @@ use App\Data\Tax\TaxRateData;
 use App\Data\Tax\UpdateTaxRateData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\TaxRate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class TaxRateController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -32,36 +32,80 @@ class TaxRateController extends Controller
         'created_at',
     ];
 
+    protected function modelClass(): string
+    {
+        return TaxRate::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return TaxRateData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateTaxRateData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateTaxRateData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateTaxRate::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateTaxRate::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteTaxRate::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'tax_rate';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'tax_rates';
+    }
+
+    protected function entityType(): string
+    {
+        return 'tax_rates';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'tax-classes.view', 'create' => 'tax-classes.manage', 'edit' => 'tax-classes.manage', 'delete' => 'tax-classes.manage'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'tax-classes:read', 'write' => 'tax-classes:write'];
+    }
+
     /**
      * List tax rates.
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        $query = TaxRate::query();
-        $query = $this->applyFilters($query, $request);
-        $query = $this->applySort($query, $request);
-        $paginator = $this->paginateQuery($query, $request);
-
-        $rates = $paginator->getCollection()->map(
-            fn (TaxRate $taxRate): array => TaxRateData::fromModel($taxRate)->toArray()
-        )->all();
-
-        return $this->respondWithCollection($rates, 'tax_rates', $paginator);
+        return $this->resourceIndex($request);
     }
 
     /**
      * Show a single tax rate.
      */
-    public function show(TaxRate $taxRate): JsonResponse
+    public function show(Request $request, TaxRate $taxRate): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        return $this->respondWith(
-            TaxRateData::fromModel($taxRate)->toArray(),
-            'tax_rate',
-        );
+        return $this->resourceShow($request, $taxRate);
     }
 
     /**
@@ -69,18 +113,7 @@ class TaxRateController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(CreateTaxRateData::rules());
-        $dto = CreateTaxRateData::from($validated);
-
-        $result = (new CreateTaxRate)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'tax_rate',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -88,17 +121,7 @@ class TaxRateController extends Controller
      */
     public function update(Request $request, TaxRate $taxRate): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(UpdateTaxRateData::rules());
-        $dto = UpdateTaxRateData::from($validated);
-
-        $result = (new UpdateTaxRate)($taxRate, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'tax_rate',
-        );
+        return $this->resourceUpdate($request, $taxRate);
     }
 
     /**
@@ -106,10 +129,6 @@ class TaxRateController extends Controller
      */
     public function destroy(TaxRate $taxRate): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        (new DeleteTaxRate)($taxRate);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($taxRate);
     }
 }

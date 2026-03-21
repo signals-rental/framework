@@ -2,33 +2,34 @@
 
 namespace App\Policies;
 
-use App\Models\Member;
-use App\Models\User;
+use App\Policies\Traits\AuthorizesByPermission;
 
 class MemberPolicy
 {
-    public function viewAny(User $user): bool
+    use AuthorizesByPermission;
+
+    protected function viewPermission(): string
     {
-        return $user->can('members.view');
+        return 'members.view';
     }
 
-    public function view(User $user, Member $member): bool
+    protected function managePermission(): string
     {
-        return $user->can('members.view');
+        return 'members.create';
     }
 
-    public function create(User $user): bool
+    protected function createPermission(): string
     {
-        return $user->can('members.create');
+        return 'members.create';
     }
 
-    public function update(User $user, Member $member): bool
+    protected function editPermission(): string
     {
-        return $user->can('members.edit');
+        return 'members.edit';
     }
 
-    public function delete(User $user, Member $member): bool
+    protected function deletePermission(): string
     {
-        return $user->can('members.delete');
+        return 'members.delete';
     }
 }

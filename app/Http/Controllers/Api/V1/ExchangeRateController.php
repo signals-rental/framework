@@ -10,14 +10,14 @@ use App\Data\ExchangeRates\ExchangeRateData;
 use App\Data\ExchangeRates\UpdateExchangeRateData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\ExchangeRate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class ExchangeRateController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -33,6 +33,66 @@ class ExchangeRateController extends Controller
         'target_currency_code',
     ];
 
+    protected function modelClass(): string
+    {
+        return ExchangeRate::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return ExchangeRateData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateExchangeRateData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateExchangeRateData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateExchangeRate::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateExchangeRate::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteExchangeRate::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'exchange_rate';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'exchange_rates';
+    }
+
+    protected function entityType(): string
+    {
+        return 'exchange_rates';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'settings.manage', 'create' => 'settings.manage', 'edit' => 'settings.manage', 'delete' => 'settings.manage'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'exchange_rates:read', 'write' => 'exchange_rates:write'];
+    }
+
     /**
      * List exchange rates with filtering, sorting, and pagination.
      *
@@ -40,18 +100,7 @@ class ExchangeRateController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('settings.manage', 'exchange_rates:read');
-
-        $query = ExchangeRate::query();
-        $query = $this->applyFilters($query, $request);
-        $query = $this->applySort($query, $request);
-        $paginator = $this->paginateQuery($query, $request);
-
-        $rates = $paginator->getCollection()->map(
-            fn (ExchangeRate $rate): array => ExchangeRateData::fromModel($rate)->toArray()
-        )->all();
-
-        return $this->respondWithCollection($rates, 'exchange_rates', $paginator);
+        return $this->resourceIndex($request);
     }
 
     /**
@@ -59,14 +108,9 @@ class ExchangeRateController extends Controller
      *
      * @response array{exchange_rate: ExchangeRateData}
      */
-    public function show(ExchangeRate $exchangeRate): JsonResponse
+    public function show(Request $request, ExchangeRate $exchangeRate): JsonResponse
     {
-        $this->authorizeApi('settings.manage', 'exchange_rates:read');
-
-        return $this->respondWith(
-            ExchangeRateData::fromModel($exchangeRate)->toArray(),
-            'exchange_rate',
-        );
+        return $this->resourceShow($request, $exchangeRate);
     }
 
     /**
@@ -76,18 +120,7 @@ class ExchangeRateController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('settings.manage', 'exchange_rates:write');
-
-        $validated = $request->validate(CreateExchangeRateData::rules());
-        $dto = CreateExchangeRateData::from($validated);
-
-        $result = (new CreateExchangeRate)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'exchange_rate',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -97,17 +130,7 @@ class ExchangeRateController extends Controller
      */
     public function update(Request $request, ExchangeRate $exchangeRate): JsonResponse
     {
-        $this->authorizeApi('settings.manage', 'exchange_rates:write');
-
-        $validated = $request->validate(UpdateExchangeRateData::rules());
-        $dto = UpdateExchangeRateData::from($validated);
-
-        $result = (new UpdateExchangeRate)($exchangeRate, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'exchange_rate',
-        );
+        return $this->resourceUpdate($request, $exchangeRate);
     }
 
     /**
@@ -115,10 +138,6 @@ class ExchangeRateController extends Controller
      */
     public function destroy(ExchangeRate $exchangeRate): JsonResponse
     {
-        $this->authorizeApi('settings.manage', 'exchange_rates:write');
-
-        (new DeleteExchangeRate)($exchangeRate);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($exchangeRate);
     }
 }

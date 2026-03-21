@@ -2,33 +2,24 @@
 
 namespace App\Policies;
 
-use App\Models\ProductGroup;
-use App\Models\User;
+use App\Policies\Traits\AuthorizesByPermission;
 
 class ProductGroupPolicy
 {
-    public function viewAny(User $user): bool
+    use AuthorizesByPermission;
+
+    protected function viewPermission(): string
     {
-        return $user->can('products.view');
+        return 'products.view';
     }
 
-    public function view(User $user, ProductGroup $productGroup): bool
+    protected function managePermission(): string
     {
-        return $user->can('products.view');
+        return 'products.edit';
     }
 
-    public function create(User $user): bool
+    protected function deletePermission(): string
     {
-        return $user->can('products.edit');
-    }
-
-    public function update(User $user, ProductGroup $productGroup): bool
-    {
-        return $user->can('products.edit');
-    }
-
-    public function delete(User $user, ProductGroup $productGroup): bool
-    {
-        return $user->can('products.edit');
+        return 'products.delete';
     }
 }

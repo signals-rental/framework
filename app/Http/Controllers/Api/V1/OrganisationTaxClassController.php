@@ -10,14 +10,14 @@ use App\Data\TaxClasses\TaxClassData;
 use App\Data\TaxClasses\UpdateTaxClassData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\OrganisationTaxClass;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class OrganisationTaxClassController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -31,36 +31,80 @@ class OrganisationTaxClassController extends Controller
         'created_at',
     ];
 
+    protected function modelClass(): string
+    {
+        return OrganisationTaxClass::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return TaxClassData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateTaxClassData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateTaxClassData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateOrganisationTaxClass::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateOrganisationTaxClass::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteOrganisationTaxClass::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'organisation_tax_class';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'organisation_tax_classes';
+    }
+
+    protected function entityType(): string
+    {
+        return 'organisation_tax_classes';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'tax-classes.view', 'create' => 'tax-classes.manage', 'edit' => 'tax-classes.manage', 'delete' => 'tax-classes.manage'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'tax-classes:read', 'write' => 'tax-classes:write'];
+    }
+
     /**
      * List organisation tax classes.
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        $query = OrganisationTaxClass::query();
-        $query = $this->applyFilters($query, $request);
-        $query = $this->applySort($query, $request);
-        $paginator = $this->paginateQuery($query, $request);
-
-        $classes = $paginator->getCollection()->map(
-            fn (OrganisationTaxClass $taxClass): array => TaxClassData::fromModel($taxClass)->toArray()
-        )->all();
-
-        return $this->respondWithCollection($classes, 'organisation_tax_classes', $paginator);
+        return $this->resourceIndex($request);
     }
 
     /**
      * Show a single organisation tax class.
      */
-    public function show(OrganisationTaxClass $organisationTaxClass): JsonResponse
+    public function show(Request $request, OrganisationTaxClass $organisationTaxClass): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        return $this->respondWith(
-            TaxClassData::fromModel($organisationTaxClass)->toArray(),
-            'organisation_tax_class',
-        );
+        return $this->resourceShow($request, $organisationTaxClass);
     }
 
     /**
@@ -68,18 +112,7 @@ class OrganisationTaxClassController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(CreateTaxClassData::rules());
-        $dto = CreateTaxClassData::from($validated);
-
-        $result = (new CreateOrganisationTaxClass)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'organisation_tax_class',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -87,17 +120,7 @@ class OrganisationTaxClassController extends Controller
      */
     public function update(Request $request, OrganisationTaxClass $organisationTaxClass): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(UpdateTaxClassData::rules());
-        $dto = UpdateTaxClassData::from($validated);
-
-        $result = (new UpdateOrganisationTaxClass)($organisationTaxClass, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'organisation_tax_class',
-        );
+        return $this->resourceUpdate($request, $organisationTaxClass);
     }
 
     /**
@@ -105,10 +128,6 @@ class OrganisationTaxClassController extends Controller
      */
     public function destroy(OrganisationTaxClass $organisationTaxClass): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        (new DeleteOrganisationTaxClass)($organisationTaxClass);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($organisationTaxClass);
     }
 }

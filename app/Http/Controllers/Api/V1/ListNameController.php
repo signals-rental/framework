@@ -10,14 +10,14 @@ use App\Data\ListValues\ListNameData;
 use App\Data\ListValues\UpdateListNameData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\ListName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class ListNameController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -31,29 +31,78 @@ class ListNameController extends Controller
         'created_at',
     ];
 
+    protected function modelClass(): string
+    {
+        return ListName::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return ListNameData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateListNameData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateListNameData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateListName::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateListName::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteListName::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'list_name';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'list_names';
+    }
+
+    protected function entityType(): string
+    {
+        return 'list_names';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'list-values.view', 'create' => 'list-values.manage', 'edit' => 'list-values.manage', 'delete' => 'list-values.manage'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'static-data:read', 'write' => 'static-data:write'];
+    }
+
     /**
      * List all list names.
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('list-values.view', 'static-data:read');
-
-        $query = ListName::query();
-        $query = $this->applyFilters($query, $request);
-        $query = $this->applySort($query, $request);
-        $paginator = $this->paginateQuery($query, $request);
-
-        $lists = $paginator->getCollection()->map(
-            fn (ListName $listName): array => ListNameData::fromModel($listName)->toArray()
-        )->all();
-
-        return $this->respondWithCollection($lists, 'list_names', $paginator);
+        return $this->resourceIndex($request);
     }
 
     /**
      * Show a single list name with its values.
      */
-    public function show(ListName $listName): JsonResponse
+    public function show(Request $request, ListName $listName): JsonResponse
     {
         $this->authorizeApi('list-values.view', 'static-data:read');
 
@@ -70,18 +119,7 @@ class ListNameController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('list-values.manage', 'static-data:write');
-
-        $validated = $request->validate(CreateListNameData::rules());
-        $dto = CreateListNameData::from($validated);
-
-        $result = (new CreateListName)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'list_name',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -89,17 +127,7 @@ class ListNameController extends Controller
      */
     public function update(Request $request, ListName $listName): JsonResponse
     {
-        $this->authorizeApi('list-values.manage', 'static-data:write');
-
-        $validated = $request->validate(UpdateListNameData::rules());
-        $dto = UpdateListNameData::from($validated);
-
-        $result = (new UpdateListName)($listName, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'list_name',
-        );
+        return $this->resourceUpdate($request, $listName);
     }
 
     /**
@@ -107,10 +135,6 @@ class ListNameController extends Controller
      */
     public function destroy(ListName $listName): JsonResponse
     {
-        $this->authorizeApi('list-values.manage', 'static-data:write');
-
-        (new DeleteListName)($listName);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($listName);
     }
 }

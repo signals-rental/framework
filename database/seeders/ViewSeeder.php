@@ -16,261 +16,65 @@ class ViewSeeder extends Seeder
      */
     public function run(): void
     {
-        $memberRegistry = new MemberColumnRegistry;
-        $memberDefaultColumns = $memberRegistry->defaultColumns();
+        $memberDefaultColumns = (new MemberColumnRegistry)->defaultColumns();
 
         $memberViews = [
-            [
-                'name' => 'All Members',
-                'entity_type' => 'members',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => true,
-                'columns' => $memberDefaultColumns,
-                'filters' => [],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Organisations Only',
-                'entity_type' => 'members',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $memberDefaultColumns,
-                'filters' => [
-                    ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'organisation'],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Contacts Only',
-                'entity_type' => 'members',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $memberDefaultColumns,
-                'filters' => [
-                    ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'contact'],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Active Venues',
-                'entity_type' => 'members',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $memberDefaultColumns,
-                'filters' => [
-                    ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'venue'],
-                    ['field' => 'is_active', 'predicate' => 'eq', 'value' => true],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Inactive Members',
-                'entity_type' => 'members',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $memberDefaultColumns,
-                'filters' => [
-                    ['field' => 'is_active', 'predicate' => 'eq', 'value' => false],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
+            $this->systemView('All Members', 'members', $memberDefaultColumns, isDefault: true),
+            $this->systemView('Organisations Only', 'members', $memberDefaultColumns, filters: [
+                ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'organisation'],
+            ]),
+            $this->systemView('Contacts Only', 'members', $memberDefaultColumns, filters: [
+                ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'contact'],
+            ]),
+            $this->systemView('Active Venues', 'members', $memberDefaultColumns, filters: [
+                ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'venue'],
+                ['field' => 'is_active', 'predicate' => 'eq', 'value' => true],
+            ]),
+            $this->systemView('Inactive Members', 'members', $memberDefaultColumns, filters: [
+                ['field' => 'is_active', 'predicate' => 'eq', 'value' => false],
+            ]),
         ];
 
-        $productRegistry = new ProductColumnRegistry;
-        $productDefaultColumns = $productRegistry->defaultColumns();
+        $productDefaultColumns = (new ProductColumnRegistry)->defaultColumns();
 
         $productViews = [
-            [
-                'name' => 'All Products',
-                'entity_type' => 'products',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => true,
-                'columns' => $productDefaultColumns,
-                'filters' => [],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Rental Products',
-                'entity_type' => 'products',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $productDefaultColumns,
-                'filters' => [
-                    ['field' => 'product_type', 'predicate' => 'eq', 'value' => 'rental'],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Sale Products',
-                'entity_type' => 'products',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $productDefaultColumns,
-                'filters' => [
-                    ['field' => 'product_type', 'predicate' => 'eq', 'value' => 'sale'],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Active Products',
-                'entity_type' => 'products',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $productDefaultColumns,
-                'filters' => [
-                    ['field' => 'is_active', 'predicate' => 'eq', 'value' => true],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Inactive Products',
-                'entity_type' => 'products',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $productDefaultColumns,
-                'filters' => [
-                    ['field' => 'is_active', 'predicate' => 'eq', 'value' => false],
-                ],
-                'sort_column' => 'name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
+            $this->systemView('All Products', 'products', $productDefaultColumns, isDefault: true),
+            $this->systemView('Rental Products', 'products', $productDefaultColumns, filters: [
+                ['field' => 'product_type', 'predicate' => 'eq', 'value' => 'rental'],
+            ]),
+            $this->systemView('Sale Products', 'products', $productDefaultColumns, filters: [
+                ['field' => 'product_type', 'predicate' => 'eq', 'value' => 'sale'],
+            ]),
+            $this->systemView('Active Products', 'products', $productDefaultColumns, filters: [
+                ['field' => 'is_active', 'predicate' => 'eq', 'value' => true],
+            ]),
+            $this->systemView('Inactive Products', 'products', $productDefaultColumns, filters: [
+                ['field' => 'is_active', 'predicate' => 'eq', 'value' => false],
+            ]),
         ];
 
-        $stockLevelRegistry = new StockLevelColumnRegistry;
-        $stockLevelDefaultColumns = $stockLevelRegistry->defaultColumns();
+        $stockLevelDefaultColumns = (new StockLevelColumnRegistry)->defaultColumns();
 
         $stockLevelViews = [
-            [
-                'name' => 'All Stock Levels',
-                'entity_type' => 'stock_levels',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => true,
-                'columns' => $stockLevelDefaultColumns,
-                'filters' => [],
-                'sort_column' => 'item_name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Serialised Stock',
-                'entity_type' => 'stock_levels',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $stockLevelDefaultColumns,
-                'filters' => [
-                    ['field' => 'stock_category', 'predicate' => 'eq', 'value' => 50],
-                ],
-                'sort_column' => 'item_name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Bulk Stock',
-                'entity_type' => 'stock_levels',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $stockLevelDefaultColumns,
-                'filters' => [
-                    ['field' => 'stock_category', 'predicate' => 'eq', 'value' => 10],
-                ],
-                'sort_column' => 'item_name',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
+            $this->systemView('All Stock Levels', 'stock_levels', $stockLevelDefaultColumns, isDefault: true, sortColumn: 'item_name'),
+            $this->systemView('Serialised Stock', 'stock_levels', $stockLevelDefaultColumns, filters: [
+                ['field' => 'stock_category', 'predicate' => 'eq', 'value' => 50],
+            ], sortColumn: 'item_name'),
+            $this->systemView('Bulk Stock', 'stock_levels', $stockLevelDefaultColumns, filters: [
+                ['field' => 'stock_category', 'predicate' => 'eq', 'value' => 10],
+            ], sortColumn: 'item_name'),
         ];
 
-        $activityRegistry = new ActivityColumnRegistry;
-        $activityDefaultColumns = $activityRegistry->defaultColumns();
+        $activityDefaultColumns = (new ActivityColumnRegistry)->defaultColumns();
 
         $activityViews = [
-            [
-                'name' => 'All Activities',
-                'entity_type' => 'activities',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => true,
-                'columns' => $activityDefaultColumns,
-                'filters' => [],
-                'sort_column' => 'created_at',
-                'sort_direction' => 'desc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Scheduled Activities',
-                'entity_type' => 'activities',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $activityDefaultColumns,
-                'filters' => [
-                    ['field' => 'status_id', 'predicate' => 'eq', 'value' => 2001],
-                ],
-                'sort_column' => 'starts_at',
-                'sort_direction' => 'asc',
-                'per_page' => 20,
-                'config' => [],
-            ],
-            [
-                'name' => 'Completed Activities',
-                'entity_type' => 'activities',
-                'visibility' => 'system',
-                'user_id' => null,
-                'is_default' => false,
-                'columns' => $activityDefaultColumns,
-                'filters' => [
-                    ['field' => 'status_id', 'predicate' => 'eq', 'value' => 2002],
-                ],
-                'sort_column' => 'created_at',
-                'sort_direction' => 'desc',
-                'per_page' => 20,
-                'config' => [],
-            ],
+            $this->systemView('All Activities', 'activities', $activityDefaultColumns, isDefault: true, sortColumn: 'created_at', sortDirection: 'desc'),
+            $this->systemView('Scheduled Activities', 'activities', $activityDefaultColumns, filters: [
+                ['field' => 'status_id', 'predicate' => 'eq', 'value' => 2001],
+            ], sortColumn: 'starts_at'),
+            $this->systemView('Completed Activities', 'activities', $activityDefaultColumns, filters: [
+                ['field' => 'status_id', 'predicate' => 'eq', 'value' => 2002],
+            ], sortColumn: 'created_at', sortDirection: 'desc'),
         ];
 
         $allViews = array_merge($memberViews, $productViews, $stockLevelViews, $activityViews);
@@ -284,5 +88,36 @@ class ViewSeeder extends Seeder
                 $view,
             );
         }
+    }
+
+    /**
+     * Build a system view definition array.
+     *
+     * @param  list<string>  $columns
+     * @param  list<array{field: string, predicate: string, value: mixed}>  $filters
+     * @return array<string, mixed>
+     */
+    private function systemView(
+        string $name,
+        string $entityType,
+        array $columns,
+        bool $isDefault = false,
+        array $filters = [],
+        string $sortColumn = 'name',
+        string $sortDirection = 'asc',
+    ): array {
+        return [
+            'name' => $name,
+            'entity_type' => $entityType,
+            'visibility' => 'system',
+            'user_id' => null,
+            'is_default' => $isDefault,
+            'columns' => $columns,
+            'filters' => $filters,
+            'sort_column' => $sortColumn,
+            'sort_direction' => $sortDirection,
+            'per_page' => 20,
+            'config' => [],
+        ];
     }
 }

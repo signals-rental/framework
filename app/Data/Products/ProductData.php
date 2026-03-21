@@ -71,19 +71,6 @@ class ProductData extends Data
         public array $accessories = [],
     ) {}
 
-    /**
-     * Derive a human-readable name for the allowed stock type.
-     */
-    private static function stockTypeName(int $type): string
-    {
-        return match ($type) {
-            1 => 'Rental',
-            2 => 'Sale',
-            3 => 'Both',
-            default => 'Unknown',
-        };
-    }
-
     public static function fromModel(Product $product): self
     {
         /** @var Carbon $createdAt */
@@ -120,7 +107,7 @@ class ProductData extends Data
             product_group_id: $product->product_group_id ?? 0,
             is_active: $product->is_active,
             allowed_stock_type: $product->allowed_stock_type ?? 1,
-            allowed_stock_type_name: self::stockTypeName($product->allowed_stock_type ?? 1),
+            allowed_stock_type_name: Product::stockTypeName($product->allowed_stock_type ?? 1),
             stock_method: $stockMethod->value,
             stock_method_name: $stockMethod->label(),
             buffer_percent: number_format((float) $product->buffer_percent, 1, '.', ''),

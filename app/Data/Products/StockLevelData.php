@@ -3,6 +3,8 @@
 namespace App\Data\Products;
 
 use App\Data\Concerns\FormatsTimestamps;
+use App\Enums\StockCategory;
+use App\Models\Product;
 use App\Models\StockLevel;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Attributes\MapOutputName;
@@ -46,30 +48,6 @@ class StockLevelData extends Data
         public ?array $item = null,
     ) {}
 
-    /**
-     * Derive a human-readable name for the stock type.
-     */
-    private static function stockTypeName(int $type): string
-    {
-        return match ($type) {
-            1 => 'Rental',
-            2 => 'Sale',
-            default => 'Unknown',
-        };
-    }
-
-    /**
-     * Derive a human-readable name for the stock category.
-     */
-    private static function stockCategoryName(int $category): string
-    {
-        return match ($category) {
-            10 => 'Bulk Stock',
-            50 => 'Serialised Stock',
-            default => 'Unknown',
-        };
-    }
-
     public static function fromModel(StockLevel $stockLevel): self
     {
         /** @var Carbon $createdAt */
@@ -97,9 +75,9 @@ class StockLevelData extends Data
             barcode: $stockLevel->barcode ?? null,
             location: $stockLevel->location ?? null,
             stock_type: $stockType,
-            stock_type_name: self::stockTypeName($stockType),
+            stock_type_name: Product::stockTypeName($stockType),
             stock_category: $stockCategory,
-            stock_category_name: self::stockCategoryName($stockCategory),
+            stock_category_name: StockCategory::tryFrom($stockCategory)?->label() ?? 'Unknown',
             quantity_held: number_format((float) ($stockLevel->quantity_held ?? 0), 1, '.', ''),
             quantity_allocated: number_format((float) ($stockLevel->quantity_allocated ?? 0), 1, '.', ''),
             quantity_unavailable: number_format((float) ($stockLevel->quantity_unavailable ?? 0), 1, '.', ''),

@@ -10,14 +10,14 @@ use App\Data\Tax\TaxRuleData;
 use App\Data\Tax\UpdateTaxRuleData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Http\Traits\ResourceActions;
 use App\Models\TaxRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class TaxRuleController extends Controller
 {
-    use FiltersQueries;
+    use FiltersQueries, ResourceActions;
 
     /** @var list<string> */
     protected array $allowedFilters = [
@@ -33,36 +33,80 @@ class TaxRuleController extends Controller
         'created_at',
     ];
 
+    protected function modelClass(): string
+    {
+        return TaxRule::class;
+    }
+
+    protected function responseDataClass(): string
+    {
+        return TaxRuleData::class;
+    }
+
+    protected function createDataClass(): string
+    {
+        return CreateTaxRuleData::class;
+    }
+
+    protected function updateDataClass(): string
+    {
+        return UpdateTaxRuleData::class;
+    }
+
+    protected function createActionClass(): string
+    {
+        return CreateTaxRule::class;
+    }
+
+    protected function updateActionClass(): string
+    {
+        return UpdateTaxRule::class;
+    }
+
+    protected function deleteActionClass(): string
+    {
+        return DeleteTaxRule::class;
+    }
+
+    protected function singularKey(): string
+    {
+        return 'tax_rule';
+    }
+
+    protected function pluralKey(): string
+    {
+        return 'tax_rules';
+    }
+
+    protected function entityType(): string
+    {
+        return 'tax_rules';
+    }
+
+    protected function permissions(): array
+    {
+        return ['view' => 'tax-classes.view', 'create' => 'tax-classes.manage', 'edit' => 'tax-classes.manage', 'delete' => 'tax-classes.manage'];
+    }
+
+    protected function abilities(): array
+    {
+        return ['read' => 'tax-classes:read', 'write' => 'tax-classes:write'];
+    }
+
     /**
      * List tax rules.
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        $query = TaxRule::query();
-        $query = $this->applyFilters($query, $request);
-        $query = $this->applySort($query, $request);
-        $paginator = $this->paginateQuery($query, $request);
-
-        $rules = $paginator->getCollection()->map(
-            fn (TaxRule $taxRule): array => TaxRuleData::fromModel($taxRule)->toArray()
-        )->all();
-
-        return $this->respondWithCollection($rules, 'tax_rules', $paginator);
+        return $this->resourceIndex($request);
     }
 
     /**
      * Show a single tax rule.
      */
-    public function show(TaxRule $taxRule): JsonResponse
+    public function show(Request $request, TaxRule $taxRule): JsonResponse
     {
-        $this->authorizeApi('tax-classes.view', 'tax-classes:read');
-
-        return $this->respondWith(
-            TaxRuleData::fromModel($taxRule)->toArray(),
-            'tax_rule',
-        );
+        return $this->resourceShow($request, $taxRule);
     }
 
     /**
@@ -70,18 +114,7 @@ class TaxRuleController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(CreateTaxRuleData::rules());
-        $dto = CreateTaxRuleData::from($validated);
-
-        $result = (new CreateTaxRule)($dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'tax_rule',
-            Response::HTTP_CREATED,
-        );
+        return $this->resourceStore($request);
     }
 
     /**
@@ -89,17 +122,7 @@ class TaxRuleController extends Controller
      */
     public function update(Request $request, TaxRule $taxRule): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        $validated = $request->validate(UpdateTaxRuleData::rules());
-        $dto = UpdateTaxRuleData::from($validated);
-
-        $result = (new UpdateTaxRule)($taxRule, $dto);
-
-        return $this->respondWith(
-            $result->toArray(),
-            'tax_rule',
-        );
+        return $this->resourceUpdate($request, $taxRule);
     }
 
     /**
@@ -107,10 +130,6 @@ class TaxRuleController extends Controller
      */
     public function destroy(TaxRule $taxRule): JsonResponse
     {
-        $this->authorizeApi('tax-classes.manage', 'tax-classes:write');
-
-        (new DeleteTaxRule)($taxRule);
-
-        return response()->json(null, Response::HTTP_NO_CONTENT);
+        return $this->resourceDestroy($taxRule);
     }
 }

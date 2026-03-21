@@ -4,32 +4,35 @@ namespace App\Policies;
 
 use App\Models\Activity;
 use App\Models\User;
+use App\Policies\Traits\AuthorizesByPermission;
 
 class ActivityPolicy
 {
-    public function viewAny(User $user): bool
+    use AuthorizesByPermission;
+
+    protected function viewPermission(): string
     {
-        return $user->can('activities.view');
+        return 'activities.view';
     }
 
-    public function view(User $user, Activity $activity): bool
+    protected function managePermission(): string
     {
-        return $user->can('activities.view');
+        return 'activities.create';
     }
 
-    public function create(User $user): bool
+    protected function createPermission(): string
     {
-        return $user->can('activities.create');
+        return 'activities.create';
     }
 
-    public function update(User $user, Activity $activity): bool
+    protected function editPermission(): string
     {
-        return $user->can('activities.edit');
+        return 'activities.edit';
     }
 
-    public function delete(User $user, Activity $activity): bool
+    protected function deletePermission(): string
     {
-        return $user->can('activities.delete');
+        return 'activities.delete';
     }
 
     public function complete(User $user, Activity $activity): bool

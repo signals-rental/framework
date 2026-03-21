@@ -29,6 +29,33 @@ trait AuthorizesByPermission
      */
     abstract protected function managePermission(): string;
 
+    /**
+     * The permission required for create operations.
+     * Defaults to managePermission() if not overridden.
+     */
+    protected function createPermission(): string
+    {
+        return $this->managePermission();
+    }
+
+    /**
+     * The permission required for update operations.
+     * Defaults to managePermission() if not overridden.
+     */
+    protected function editPermission(): string
+    {
+        return $this->managePermission();
+    }
+
+    /**
+     * The permission required for delete operations.
+     * Defaults to managePermission() if not overridden.
+     */
+    protected function deletePermission(): string
+    {
+        return $this->managePermission();
+    }
+
     public function viewAny(User $user): bool
     {
         return $user->can($this->viewPermission());
@@ -41,16 +68,16 @@ trait AuthorizesByPermission
 
     public function create(User $user): bool
     {
-        return $user->can($this->managePermission());
+        return $user->can($this->createPermission());
     }
 
     public function update(User $user, ?Model $model = null): bool
     {
-        return $user->can($this->managePermission());
+        return $user->can($this->editPermission());
     }
 
     public function delete(User $user, ?Model $model = null): bool
     {
-        return $user->can($this->managePermission());
+        return $user->can($this->deletePermission());
     }
 }
