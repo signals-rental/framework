@@ -31,6 +31,10 @@ class SchemaController extends Controller
         'custom_views' => \App\Models\CustomView::class,
         'tax_rates' => \App\Models\TaxRate::class,
         'tax_rules' => \App\Models\TaxRule::class,
+        'products' => \App\Models\Product::class,
+        'product_groups' => \App\Models\ProductGroup::class,
+        'stock_levels' => \App\Models\StockLevel::class,
+        'activities' => \App\Models\Activity::class,
     ];
 
     /**

@@ -22,16 +22,24 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function completeActivity(int $activityId): void
     {
-        $activity = Activity::findOrFail($activityId);
-        (new \App\Actions\Activities\CompleteActivity)($activity);
-        $this->dispatch('activity-completed');
+        try {
+            $activity = Activity::findOrFail($activityId);
+            (new \App\Actions\Activities\CompleteActivity)($activity);
+            $this->dispatch('activity-completed');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            $this->dispatch('activity-completed');
+        }
     }
 
     public function deleteActivity(int $activityId): void
     {
-        $activity = Activity::findOrFail($activityId);
-        (new \App\Actions\Activities\DeleteActivity)($activity);
-        $this->dispatch('activity-deleted');
+        try {
+            $activity = Activity::findOrFail($activityId);
+            (new \App\Actions\Activities\DeleteActivity)($activity);
+            $this->dispatch('activity-deleted');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            $this->dispatch('activity-deleted');
+        }
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Enums\TransactionType;
 use App\Events\AuditableEvent;
 use App\Models\StockLevel;
 use App\Models\StockTransaction;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class CreateStockTransaction
@@ -16,26 +17,32 @@ class CreateStockTransaction
     {
         Gate::authorize('stock.adjust');
 
-        $stockLevel = StockLevel::findOrFail($data->stock_level_id);
+        return DB::transaction(function () use ($data): StockTransactionData {
+            $stockLevel = StockLevel::findOrFail($data->stock_level_id);
 
-        $transaction = StockTransaction::create([
-            'stock_level_id' => $data->stock_level_id,
-            'store_id' => $data->store_id ?? $stockLevel->store_id,
-            'transaction_type' => $data->transaction_type,
-            'transaction_at' => $data->transaction_at ?? now(),
-            'quantity' => $data->quantity,
-            'description' => $data->description,
-            'manual' => true,
-        ]);
+            $transaction = StockTransaction::create([
+                'stock_level_id' => $data->stock_level_id,
+                'store_id' => $data->store_id ?? $stockLevel->store_id,
+                'transaction_type' => $data->transaction_type,
+                'transaction_at' => $data->transaction_at ?? now(),
+                'quantity' => $data->quantity,
+                'description' => $data->description,
+                'manual' => true,
+            ]);
 
-        // Update stock level quantity based on transaction type
-        /** @var TransactionType $type */
-        $type = $transaction->transaction_type;
-        $signedQty = (float) $data->quantity * $type->quantitySign();
-        $stockLevel->increment('quantity_held', $signedQty);
+            // Update stock level quantity based on transaction type
+            /** @var TransactionType $type */
+            $type = $transaction->transaction_type;
+            $signedQty = (float) $data->quantity * $type->quantitySign();
+            $stockLevel->increment('quantity_held', $signedQty);
 
-        event(new AuditableEvent($transaction, 'stock_transaction.created'));
+            event(new AuditableEvent($transaction, 'stock_transaction.created'));
 
-        return StockTransactionData::fromModel($transaction);
+            app(\App\Services\Api\WebhookService::class)->dispatch('stock_transaction.created', [
+                'stock_transaction' => StockTransactionData::fromModel($transaction)->toArray(),
+            ]);
+
+            return StockTransactionData::fromModel($transaction);
+        });
     }
 }

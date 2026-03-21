@@ -49,18 +49,28 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
 
     public function deleteActivity(int $activityId): void
     {
-        $activity = Activity::findOrFail($activityId);
-        (new \App\Actions\Activities\DeleteActivity)($activity);
-        $this->refreshCounts();
-        $this->dispatch('activity-deleted');
+        try {
+            $activity = Activity::findOrFail($activityId);
+            (new \App\Actions\Activities\DeleteActivity)($activity);
+            $this->refreshCounts();
+            $this->dispatch('activity-deleted');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            $this->refreshCounts();
+            $this->dispatch('activity-deleted');
+        }
     }
 
     public function completeActivity(int $activityId): void
     {
-        $activity = Activity::findOrFail($activityId);
-        (new \App\Actions\Activities\CompleteActivity)($activity);
-        $this->refreshCounts();
-        $this->dispatch('activity-completed');
+        try {
+            $activity = Activity::findOrFail($activityId);
+            (new \App\Actions\Activities\CompleteActivity)($activity);
+            $this->refreshCounts();
+            $this->dispatch('activity-completed');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            $this->refreshCounts();
+            $this->dispatch('activity-completed');
+        }
     }
 
     public function refreshCounts(): void

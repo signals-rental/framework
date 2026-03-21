@@ -293,6 +293,8 @@
 .s-badge-blue   { background: var(--s-blue-bg);    color: #2563eb; }
 .s-badge-violet { background: var(--s-violet-bg);  color: var(--violet); }
 
+.s-badge-zinc   { background: rgba(113, 113, 122, 0.08); color: #52525b; }
+
 /* Opportunity lifecycle badge variants */
 .s-badge-draft  { background: rgba(100, 116, 139, 0.08); color: var(--grey); }
 .s-badge-quote  { background: rgba(37, 99, 235, 0.08);   color: var(--blue); }
@@ -304,6 +306,7 @@
 .dark .s-badge-red    { color: #f87171; }
 .dark .s-badge-blue   { color: #60a5fa; }
 .dark .s-badge-violet { color: #a78bfa; }
+.dark .s-badge-zinc   { background: rgba(161, 161, 170, 0.15); color: #a1a1aa; }
 .dark .s-badge-draft { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
 .dark .s-badge-quote { background: rgba(37, 99, 235, 0.12); color: #60a5fa; }
 .dark .s-badge-order { background: rgba(5, 150, 105, 0.12); color: #4ade80; }

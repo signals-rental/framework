@@ -55,6 +55,7 @@ View complete product information organised across tabs.
 | Accessories | Linked accessory products |
 | Custom Fields | User-defined custom field values |
 | Files | Attached documents and images |
+| Activities | /products/{id}/activities | Activity log for this product |
 
 ### Product Header
 

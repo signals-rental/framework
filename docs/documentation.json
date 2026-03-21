@@ -36,6 +36,7 @@
                 { "title": "Members", "slug": "members" },
                 { "title": "Products", "slug": "products" },
                 { "title": "Stock Levels", "slug": "stock-levels" },
+                { "title": "Stock Transactions", "slug": "stock-transactions" },
                 { "title": "Activities", "slug": "activities" },
                 { "title": "Product Groups", "slug": "product-groups" },
                 { "title": "Custom Views", "slug": "custom-views" },

@@ -79,7 +79,7 @@ new #[Layout('components.layouts.app')] #[Title('Stock Levels')] class extends C
             empty-message="No stock levels found."
             actions-view="livewire.stock-levels.partials.row-actions"
             toolbar-view="livewire.stock-levels.partials.toolbar"
-            entity-type="stock-levels"
+            entity-type="stock_levels"
             :key="'stock-levels-table-' . $statusFilter"
         />
     </div>

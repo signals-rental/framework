@@ -54,7 +54,9 @@ class IconUpload extends Component
 
         try {
             return app(\App\Services\FileService::class)->signedUrl($this->thumbPath);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return null;
         }
     }

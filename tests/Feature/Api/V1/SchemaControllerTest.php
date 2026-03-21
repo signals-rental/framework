@@ -17,6 +17,7 @@ describe('GET /api/v1/schema', function () {
                 'members', 'stores', 'addresses', 'countries', 'currencies',
                 'exchange_rates', 'emails', 'phones', 'links', 'attachments',
                 'users', 'action_logs', 'webhooks', 'custom_views', 'tax_rates', 'tax_rules',
+                'products', 'product_groups', 'stock_levels', 'activities',
             ])))]);
     });
 });

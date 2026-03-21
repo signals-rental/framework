@@ -2,6 +2,7 @@
 
 namespace App\Data\Products;
 
+use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\TransactionType;
 use App\Models\StockTransaction;
 use Illuminate\Support\Carbon;
@@ -9,6 +10,8 @@ use Spatie\LaravelData\Data;
 
 class StockTransactionData extends Data
 {
+    use FormatsTimestamps;
+
     public function __construct(
         public int $id,
         public int $stock_level_id,
@@ -25,11 +28,6 @@ class StockTransactionData extends Data
         public string $created_at,
         public string $updated_at,
     ) {}
-
-    private static function formatTimestamp(\DateTimeInterface $timestamp): string
-    {
-        return Carbon::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
-    }
 
     public static function fromModel(StockTransaction $transaction): self
     {

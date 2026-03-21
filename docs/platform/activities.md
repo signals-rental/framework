@@ -49,3 +49,47 @@ View full activity details including description, linked entities, and audit his
 **Route:** `/activities/create`
 
 Create a new activity by specifying subject, type, status, priority, owner, and optional regarding association.
+
+## Editing Activities
+
+**Route:** `/activities/{id}/edit`
+
+Edit an existing activity using the same form as create.
+
+### Form Fields
+
+| Field | Description |
+|-------|-------------|
+| Subject | Activity title or summary (required) |
+| Description | Detailed notes or body text |
+| Location | Where the activity takes place |
+| Type | Activity type (Task, Call, Meeting, Email, Note) |
+| Status | Current status |
+| Priority | Priority level |
+| Time Status | Free, Busy, or Tentative |
+| Owner | Assigned user |
+| Regarding Type | Entity type the activity relates to (Member, Opportunity, etc.) |
+| Regarding ID | ID of the related entity |
+| Starts At | Scheduled start date/time |
+| Ends At | Scheduled end date/time |
+
+## Permissions
+
+| Permission | Description |
+|------------|-------------|
+| `activities.access` | Access the activities module |
+| `activities.view` | View activity details |
+| `activities.create` | Create new activities |
+| `activities.edit` | Edit existing activities |
+| `activities.delete` | Delete activities |
+| `activities.complete` | Mark activities as complete |
+
+## Scoped Activity Tabs
+
+Activities can be viewed in context on related entity detail pages:
+
+| Entity | Tab Location | Description |
+|--------|-------------|-------------|
+| Member | `/members/{id}` Activities tab | Activities linked to this member |
+| Product | `/products/{id}` Activities tab | Activities linked to this product |
+| Stock Level | `/stock-levels/{id}` Activities tab | Activities linked to this stock level |

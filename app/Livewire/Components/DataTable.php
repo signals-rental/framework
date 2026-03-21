@@ -672,11 +672,13 @@ class DataTable extends Component
      */
     private function getColumnRegistry(): ?\App\Views\ColumnRegistry
     {
-        if ($this->entityType === 'members') {
-            return new \App\Views\MemberColumnRegistry;
-        }
-
-        return null;
+        return match ($this->entityType) {
+            'members' => new \App\Views\MemberColumnRegistry,
+            'products' => new \App\Views\ProductColumnRegistry,
+            'stock_levels' => new \App\Views\StockLevelColumnRegistry,
+            'activities' => new \App\Views\ActivityColumnRegistry,
+            default => null,
+        };
     }
 
     public function render(): View

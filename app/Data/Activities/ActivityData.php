@@ -2,6 +2,7 @@
 
 namespace App\Data\Activities;
 
+use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
@@ -12,6 +13,8 @@ use Spatie\LaravelData\Data;
 
 class ActivityData extends Data
 {
+    use FormatsTimestamps;
+
     /**
      * @param  array<string, mixed>  $custom_fields
      * @param  list<array<string, mixed>>  $participants
@@ -43,11 +46,6 @@ class ActivityData extends Data
         public ?array $regarding = null,
         public ?array $owner = null,
     ) {}
-
-    private static function formatTimestamp(\DateTimeInterface $timestamp): string
-    {
-        return Carbon::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
-    }
 
     public static function fromModel(Activity $activity): self
     {

@@ -1,5 +1,9 @@
 <?php
 
+use App\Actions\Products\CreateProductGroup;
+use App\Actions\Products\UpdateProductGroup;
+use App\Data\Products\CreateProductGroupData;
+use App\Data\Products\UpdateProductGroupData;
 use App\Models\ProductGroup;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -26,18 +30,23 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         if ($this->groupId) {
             $group = ProductGroup::findOrFail($this->groupId);
-            $group->update([
-                'name' => $this->name,
-                'description' => $this->description ?: null,
-            ]);
+            $result = (new UpdateProductGroup)(
+                $group,
+                UpdateProductGroupData::from([
+                    'name' => $this->name,
+                    'description' => $this->description ?: null,
+                ])
+            );
         } else {
-            $group = ProductGroup::create([
-                'name' => $this->name,
-                'description' => $this->description ?: null,
-            ]);
+            $result = (new CreateProductGroup)(
+                CreateProductGroupData::from([
+                    'name' => $this->name,
+                    'description' => $this->description ?: null,
+                ])
+            );
         }
 
-        $this->redirect(route('product-groups.show', $group->id), navigate: true);
+        $this->redirect(route('product-groups.show', $result->id), navigate: true);
     }
 
     /**

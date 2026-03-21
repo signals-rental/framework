@@ -7,6 +7,7 @@ use App\Data\Activities\UpdateActivityData;
 use App\Events\AuditableEvent;
 use App\Models\Activity;
 use App\Services\Api\WebhookService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class UpdateActivity
@@ -15,32 +16,34 @@ class UpdateActivity
     {
         Gate::authorize('activities.edit');
 
-        $attributes = array_filter($data->toArray(), fn ($v) => $v !== null);
+        return DB::transaction(function () use ($activity, $data): ActivityData {
+            $attributes = array_filter($data->toArray(), fn ($v) => $v !== null);
 
-        if (isset($attributes['regarding_type'])) {
-            $attributes['regarding_type'] = Activity::resolveRegardingType($attributes['regarding_type']);
-        }
-
-        $activity->update($attributes);
-
-        if ($data->participants !== null) {
-            $activity->participants()->delete();
-            foreach ($data->participants as $participant) {
-                $activity->participants()->create([
-                    'member_id' => $participant['member_id'],
-                    'mute' => $participant['mute'] ?? false,
-                ]);
+            if (isset($attributes['regarding_type'])) {
+                $attributes['regarding_type'] = Activity::resolveRegardingType($attributes['regarding_type']);
             }
-        }
 
-        $activity->refresh();
+            $activity->update($attributes);
 
-        event(new AuditableEvent($activity, 'activity.updated'));
+            if ($data->participants !== null) {
+                $activity->participants()->delete();
+                foreach ($data->participants as $participant) {
+                    $activity->participants()->create([
+                        'member_id' => $participant['member_id'],
+                        'mute' => $participant['mute'] ?? false,
+                    ]);
+                }
+            }
 
-        app(WebhookService::class)->dispatch('activity.updated', [
-            'activity' => ActivityData::fromModel($activity->load(['owner', 'participants.member']))->toArray(),
-        ]);
+            $activity->refresh();
 
-        return ActivityData::fromModel($activity->load(['owner', 'participants.member']));
+            event(new AuditableEvent($activity, 'activity.updated'));
+
+            app(WebhookService::class)->dispatch('activity.updated', [
+                'activity' => ActivityData::fromModel($activity->load(['owner', 'participants.member']))->toArray(),
+            ]);
+
+            return ActivityData::fromModel($activity->load(['owner', 'participants.member']));
+        });
     }
 }

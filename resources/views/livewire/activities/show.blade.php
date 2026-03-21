@@ -57,7 +57,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         Complete
                     </button>
                 @endif
-                <a href="{{ route('activities.edit', $activity->id) }}" wire:navigate class="s-btn s-btn-sm s-btn-secondary">Edit</a>
+                <a href="{{ route('activities.edit', $activity->id) }}" wire:navigate class="s-btn s-btn-sm s-btn-ghost">Edit</a>
                 <button wire:click="deleteActivity" wire:confirm="Are you sure you want to delete this activity?" class="s-btn s-btn-sm s-btn-danger">Delete</button>
             </div>
         </x-slot:actions>

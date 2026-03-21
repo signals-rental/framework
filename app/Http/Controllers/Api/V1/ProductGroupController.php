@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Products\CreateProductGroup;
+use App\Actions\Products\DeleteProductGroup;
+use App\Actions\Products\UpdateProductGroup;
+use App\Data\Products\CreateProductGroupData;
 use App\Data\Products\ProductGroupData;
+use App\Data\Products\UpdateProductGroupData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
 use App\Models\ProductGroup;
@@ -130,19 +135,15 @@ class ProductGroupController extends Controller
     #[ApiResponse(201, 'Product group created', type: 'array{product_group: array{id: int, name: string, description: string|null, parent_id: int|null, sort_order: int, created_at: string, updated_at: string}}')]
     public function store(Request $request): JsonResponse
     {
-        $this->authorizeApi('products.edit', 'products:write');
+        $this->authorizeApi('products.create', 'products:write');
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['sometimes', 'nullable', 'string'],
-            'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:product_groups,id'],
-            'sort_order' => ['sometimes', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validate(CreateProductGroupData::rules());
+        $dto = CreateProductGroupData::from($validated);
 
-        $group = ProductGroup::create($validated);
+        $result = (new CreateProductGroup)($dto);
 
         return $this->respondWith(
-            ProductGroupData::fromModel($group)->toArray(),
+            $result->toArray(),
             'product_group',
             Response::HTTP_CREATED,
         );
@@ -156,18 +157,13 @@ class ProductGroupController extends Controller
     {
         $this->authorizeApi('products.edit', 'products:write');
 
-        $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'description' => ['sometimes', 'nullable', 'string'],
-            'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:product_groups,id'],
-            'sort_order' => ['sometimes', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validate(UpdateProductGroupData::rules());
+        $dto = UpdateProductGroupData::from($validated);
 
-        $productGroup->update($validated);
-        $productGroup->refresh();
+        $result = (new UpdateProductGroup)($productGroup, $dto);
 
         return $this->respondWith(
-            ProductGroupData::fromModel($productGroup)->toArray(),
+            $result->toArray(),
             'product_group',
         );
     }
@@ -178,9 +174,9 @@ class ProductGroupController extends Controller
     #[ApiResponse(204, 'Product group deleted')]
     public function destroy(ProductGroup $productGroup): JsonResponse
     {
-        $this->authorizeApi('products.edit', 'products:write');
+        $this->authorizeApi('products.delete', 'products:write');
 
-        $productGroup->delete();
+        (new DeleteProductGroup)($productGroup);
 
         return response()->json(null, Response::HTTP_NO_CONTENT);
     }

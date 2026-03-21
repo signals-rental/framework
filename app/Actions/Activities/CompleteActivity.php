@@ -22,10 +22,12 @@ class CompleteActivity
 
         event(new AuditableEvent($activity, 'activity.completed'));
 
+        $activity->load(['owner', 'participants.member']);
+
         app(WebhookService::class)->dispatch('activity.completed', [
-            'activity' => ActivityData::fromModel($activity->load(['owner', 'participants.member']))->toArray(),
+            'activity' => ActivityData::fromModel($activity)->toArray(),
         ]);
 
-        return ActivityData::fromModel($activity->load(['owner', 'participants.member']));
+        return ActivityData::fromModel($activity);
     }
 }

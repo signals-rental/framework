@@ -86,7 +86,7 @@ class VisibilityRuleEvaluator
             'lt' => is_numeric($actual) && is_numeric($expected) && $actual < $expected,
             'lte' => is_numeric($actual) && is_numeric($expected) && $actual <= $expected,
             'contains' => is_string($actual) && is_string($expected) && str_contains($actual, $expected),
-            default => true,
+            default => tap(true, fn () => \Illuminate\Support\Facades\Log::warning("Unknown visibility rule operator: {$operator}", $rule)),
         };
     }
 

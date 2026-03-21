@@ -38,7 +38,13 @@ class Activity extends Model implements HasSchema
             return null;
         }
 
-        return self::$regardingMap[$type] ?? $type;
+        if (! isset(self::$regardingMap[$type])) {
+            throw new \InvalidArgumentException(
+                "Unknown regarding_type '{$type}'. Valid types: ".implode(', ', array_keys(self::$regardingMap))
+            );
+        }
+
+        return self::$regardingMap[$type];
     }
 
     /**

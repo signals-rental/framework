@@ -11,7 +11,7 @@ class CreateStockTransactionData extends Data
     public function __construct(
         public int $stock_level_id,
         public ?int $store_id = null,
-        public int $transaction_type = 4,
+        public int $transaction_type = TransactionType::Buy->value,
         public ?string $transaction_at = null,
         public string $quantity = '1.0',
         public ?string $description = null,

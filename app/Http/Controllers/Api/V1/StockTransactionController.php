@@ -22,8 +22,12 @@ class StockTransactionController extends Controller
     {
         $this->authorizeApi('stock.view', 'stock:read');
 
+        $stockLevel = \App\Models\StockLevel::where('id', $stockLevelId)
+            ->where('product_id', $productId)
+            ->firstOrFail();
+
         $transactions = StockTransaction::query()
-            ->where('stock_level_id', $stockLevelId)
+            ->where('stock_level_id', $stockLevel->id)
             ->orderByDesc('transaction_at')
             ->paginate(
                 perPage: (int) $request->input('per_page', 20),
@@ -52,6 +56,12 @@ class StockTransactionController extends Controller
     {
         $this->authorizeApi('stock.view', 'stock:read');
 
+        \App\Models\StockLevel::where('id', $stockLevelId)
+            ->where('product_id', $productId)
+            ->firstOrFail();
+
+        abort_unless($stockTransaction->stock_level_id === (int) $stockLevelId, 404);
+
         return $this->respondWith(
             StockTransactionData::fromModel($stockTransaction)->toArray(),
             'stock_transaction',
@@ -67,6 +77,10 @@ class StockTransactionController extends Controller
     public function store(Request $request, int $productId, int $stockLevelId): JsonResponse
     {
         $this->authorizeApi('stock.adjust', 'stock:write');
+
+        \App\Models\StockLevel::where('id', $stockLevelId)
+            ->where('product_id', $productId)
+            ->firstOrFail();
 
         $request->merge(['stock_level_id' => $stockLevelId]);
         $validated = $request->validate(CreateStockTransactionData::rules());

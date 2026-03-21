@@ -57,6 +57,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             default-sort="item_name"
             empty-message="No stock levels found for this product."
             actions-view="livewire.stock-levels.partials.row-actions"
+            toolbar-view="livewire.products.partials.stock-toolbar"
             entity-type="stock-levels"
             :key="'product-stock-' . $product->id"
         />

@@ -41,6 +41,18 @@ describe('GET stock_transactions', function () {
             ])
             ->assertJsonPath('meta.total', 3);
     });
+
+    it('requires authentication', function () {
+        $this->getJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions")
+            ->assertUnauthorized();
+    });
+
+    it('returns forbidden without proper ability', function () {
+        $token = $this->owner->createToken('test', ['products:read'])->plainTextToken;
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions")
+            ->assertForbidden();
+    });
 });
 
 describe('POST stock_transactions', function () {
@@ -88,6 +100,27 @@ describe('POST stock_transactions', function () {
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('transaction_type');
+    });
+
+    it('requires authentication', function () {
+        $this->postJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions", [
+            'transaction_type' => 4,
+            'quantity' => '1.0',
+            'transaction_at' => now()->toISOString(),
+        ])->assertUnauthorized();
+    });
+
+    it('returns 404 when stock level does not belong to product', function () {
+        $otherProduct = \App\Models\Product::factory()->create();
+        $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$otherProduct->id}/stock_levels/{$this->stockLevel->id}/stock_transactions", [
+                'transaction_type' => 4,
+                'quantity' => '1.0',
+                'transaction_at' => now()->toISOString(),
+            ])
+            ->assertNotFound();
     });
 
     it('matches CRMS response shape', function () {

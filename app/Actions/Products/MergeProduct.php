@@ -4,6 +4,7 @@ namespace App\Actions\Products;
 
 use App\Data\Products\MergeProductData;
 use App\Events\AuditableEvent;
+use App\Models\Accessory;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -39,17 +40,17 @@ class MergeProduct
             $secondary->accessories()->delete();
 
             // Transfer inverse accessories (where secondary is used as an accessory)
-            $existingInverseProductIds = DB::table('accessories')
+            $existingInverseProductIds = Accessory::query()
                 ->where('accessory_product_id', $primary->id)
                 ->pluck('product_id')
                 ->toArray();
 
-            DB::table('accessories')
+            Accessory::query()
                 ->where('accessory_product_id', $secondary->id)
                 ->whereNotIn('product_id', [...$existingInverseProductIds, $primary->id])
                 ->update(['accessory_product_id' => $primary->id]);
 
-            DB::table('accessories')
+            Accessory::query()
                 ->where('accessory_product_id', $secondary->id)
                 ->delete();
 
@@ -71,6 +72,11 @@ class MergeProduct
                 'secondary_id' => $secondary->id,
                 'secondary_name' => $secondary->name,
             ]));
+
+            app(\App\Services\Api\WebhookService::class)->dispatch('product.merged', [
+                'primary_id' => $primary->id,
+                'secondary_id' => $secondary->id,
+            ]);
 
             $secondary->delete();
 

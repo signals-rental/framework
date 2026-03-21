@@ -2,6 +2,7 @@
 
 namespace App\Data\Members;
 
+use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\MembershipType;
 use App\Models\Member;
 use Illuminate\Support\Carbon;
@@ -10,6 +11,8 @@ use Spatie\LaravelData\Data;
 
 class MemberData extends Data
 {
+    use FormatsTimestamps;
+
     /**
      * @param  list<string>  $tag_list
      * @param  array<string, mixed>  $custom_fields
@@ -65,14 +68,6 @@ class MemberData extends Data
         public array $child_members = [],
         public array $parent_members = [],
     ) {}
-
-    /**
-     * Format a Carbon timestamp in CRMS format (UTC with Z suffix and milliseconds).
-     */
-    private static function formatTimestamp(\DateTimeInterface $timestamp): string
-    {
-        return Carbon::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
-    }
 
     public static function fromModel(Member $member): self
     {

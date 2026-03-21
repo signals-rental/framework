@@ -71,6 +71,13 @@ describe('GET /api/v1/activities', function () {
     it('requires authentication', function () {
         $this->getJson('/api/v1/activities')->assertUnauthorized();
     });
+
+    it('returns forbidden without proper ability', function () {
+        $token = $this->owner->createToken('test', ['products:read'])->plainTextToken;
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/activities')
+            ->assertForbidden();
+    });
 });
 
 describe('GET /api/v1/activities/{id}', function () {
@@ -170,6 +177,13 @@ describe('POST /api/v1/activities', function () {
             ->assertUnprocessable()
             ->assertJsonValidationErrors('subject');
     });
+
+    it('returns forbidden without write ability', function () {
+        $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/activities', ['subject' => 'Test'])
+            ->assertForbidden();
+    });
 });
 
 describe('PUT /api/v1/activities/{id}', function () {
@@ -196,6 +210,14 @@ describe('DELETE /api/v1/activities/{id}', function () {
             ->assertNoContent();
 
         expect(Activity::find($activity->id))->toBeNull();
+    });
+
+    it('returns forbidden without write ability', function () {
+        $activity = Activity::factory()->create();
+        $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/activities/{$activity->id}")
+            ->assertForbidden();
     });
 });
 

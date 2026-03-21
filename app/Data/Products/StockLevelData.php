@@ -2,6 +2,7 @@
 
 namespace App\Data\Products;
 
+use App\Data\Concerns\FormatsTimestamps;
 use App\Models\StockLevel;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Attributes\MapOutputName;
@@ -9,6 +10,8 @@ use Spatie\LaravelData\Data;
 
 class StockLevelData extends Data
 {
+    use FormatsTimestamps;
+
     /**
      * @param  array<string, mixed>  $custom_fields
      * @param  array<string, mixed>|null  $item
@@ -42,14 +45,6 @@ class StockLevelData extends Data
         public string $updated_at,
         public ?array $item = null,
     ) {}
-
-    /**
-     * Format a Carbon timestamp in CRMS format (UTC with Z suffix and milliseconds).
-     */
-    private static function formatTimestamp(\DateTimeInterface $timestamp): string
-    {
-        return Carbon::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
-    }
 
     /**
      * Derive a human-readable name for the stock type.

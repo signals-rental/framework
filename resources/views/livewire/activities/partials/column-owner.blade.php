@@ -1,1 +1,1 @@
-<span class="text-sm">{{ $row->owner?->name ?? '—' }}</span>
+<span class="text-sm">{{ $item->owner?->name ?? '—' }}</span>

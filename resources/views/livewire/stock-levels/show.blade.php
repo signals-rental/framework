@@ -35,24 +35,29 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $this->validate([
             'transactionQuantity' => ['required', 'numeric', 'min:0.01'],
+            'transactionType' => ['required', 'integer', \Illuminate\Validation\Rule::in(\App\Enums\TransactionType::manualCreationValues())],
         ]);
 
-        $dto = \App\Data\Products\CreateStockTransactionData::from([
-            'stock_level_id' => $this->stockLevel->id,
-            'store_id' => $this->stockLevel->store_id,
-            'transaction_type' => $this->transactionType,
-            'transaction_at' => $this->transactionAt,
-            'quantity' => $this->transactionQuantity,
-            'description' => $this->transactionDescription ?: null,
-        ]);
+        try {
+            $dto = \App\Data\Products\CreateStockTransactionData::from([
+                'stock_level_id' => $this->stockLevel->id,
+                'store_id' => $this->stockLevel->store_id,
+                'transaction_type' => $this->transactionType,
+                'transaction_at' => $this->transactionAt,
+                'quantity' => $this->transactionQuantity,
+                'description' => $this->transactionDescription ?: null,
+            ]);
 
-        (new \App\Actions\Products\CreateStockTransaction)($dto);
+            (new \App\Actions\Products\CreateStockTransaction)($dto);
 
-        $this->stockLevel->refresh();
-        $this->stockLevel->load(['product', 'store', 'member', 'stockTransactions']);
-        $this->showTransactionForm = false;
-        $this->transactionQuantity = '1.0';
-        $this->transactionDescription = '';
+            $this->stockLevel->refresh();
+            $this->stockLevel->load(['product', 'store', 'member', 'stockTransactions']);
+            $this->showTransactionForm = false;
+            $this->transactionQuantity = '1.0';
+            $this->transactionDescription = '';
+        } catch (\Illuminate\Auth\Access\AuthorizationException) {
+            $this->addError('transactionQuantity', 'You do not have permission to adjust stock.');
+        }
     }
 }; ?>
 
@@ -129,7 +134,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
 
                 @if($showTransactionForm)
-                    <div class="mb-6 p-4 rounded-lg border border-[var(--card-border)] bg-[var(--s-subtle)]">
+                    <div class="mb-6 p-4 border border-[var(--card-border)] bg-[var(--s-subtle)]">
                         <form wire:submit="addTransaction">
                             <div class="grid grid-cols-4 gap-4 max-md:grid-cols-2 max-sm:grid-cols-1">
                                 <flux:select wire:model="transactionType" label="Type">
@@ -150,7 +155,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 @endif
 
                 @if($stockLevel->stockTransactions->isNotEmpty())
-                    <div class="overflow-x-auto">
+                    <div class="s-table-wrap">
                         <table class="s-table w-full">
                             <thead>
                                 <tr>

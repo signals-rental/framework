@@ -39,6 +39,14 @@ Browse all stock levels with search, filtering, and sorting.
 
 View complete stock level information including quantities, location, and associated product details.
 
+### Transactions Panel
+
+The stock level detail page includes an inline "Add Transaction" form for recording stock movements (adjustments, transfers, write-offs). Transactions are displayed in a chronological list below the form.
+
+### Activities Tab
+
+Stock levels have an Activities tab showing all activities linked to this stock level via the regarding association.
+
 ## Custom Views
 
 System views for stock levels:

@@ -43,7 +43,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <span>{{ $productGroup->name }}</span>
         </x-slot:breadcrumbs>
         <x-slot:actions>
-            <a href="{{ route('product-groups.edit', $productGroup->id) }}" wire:navigate class="s-btn s-btn-sm s-btn-secondary">Edit</a>
+            <a href="{{ route('product-groups.edit', $productGroup->id) }}" wire:navigate class="s-btn s-btn-sm s-btn-ghost">Edit</a>
         </x-slot:actions>
     </x-signals.page-header>
 

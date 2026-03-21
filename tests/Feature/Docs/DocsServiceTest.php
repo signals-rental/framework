@@ -104,7 +104,7 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
     $service = app(DocsService::class);
     $index = $service->getSearchIndex();
 
-    expect($index)->toBeArray()->toHaveCount(30)
+    expect($index)->toBeArray()->toHaveCount(31)
         ->and($index[0])->toHaveKeys(['title', 'section', 'url', 'content'])
         ->and($index[0]['title'])->toBe('Introduction')
         ->and($index[0]['section'])->toBe('Getting Started')

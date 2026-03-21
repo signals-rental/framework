@@ -2,6 +2,7 @@
 
 namespace App\Data\Products;
 
+use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\StockMethod;
 use App\Models\Product;
 use Illuminate\Support\Carbon;
@@ -10,6 +11,8 @@ use Spatie\LaravelData\Data;
 
 class ProductData extends Data
 {
+    use FormatsTimestamps;
+
     /**
      * @param  list<string>  $tag_list
      * @param  array<string, mixed>  $custom_fields
@@ -67,14 +70,6 @@ class ProductData extends Data
         public ?array $icon = null,
         public array $accessories = [],
     ) {}
-
-    /**
-     * Format a Carbon timestamp in CRMS format (UTC with Z suffix and milliseconds).
-     */
-    private static function formatTimestamp(\DateTimeInterface $timestamp): string
-    {
-        return Carbon::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
-    }
 
     /**
      * Derive a human-readable name for the allowed stock type.

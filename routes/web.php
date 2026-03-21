@@ -96,7 +96,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
 
     // Stock Levels
     Volt::route('stock-levels', 'stock-levels.index')->name('stock-levels.index');
+    Volt::route('stock-levels/create', 'stock-levels.form')->name('stock-levels.create');
     Volt::route('stock-levels/{stockLevel}', 'stock-levels.show')->name('stock-levels.show');
+    Volt::route('stock-levels/{stockLevel}/edit', 'stock-levels.form')->name('stock-levels.edit');
     Volt::route('stock-levels/{stockLevel}/activities', 'stock-levels.activities')->name('stock-levels.activities');
 
     // Activities

@@ -3,7 +3,7 @@
     {{-- Split-button style trigger --}}
     <div class="s-btn-split">
         <button class="s-btn s-btn-sm s-btn-split-main" type="button" wire:click="switchView({{ $viewId ?? 'null' }})">
-            {{ $activeViewName ?? 'All Members' }}
+            {{ $activeViewName ?? 'All ' . str($entityType)->replace('_', ' ')->title() }}
         </button>
         <button class="s-btn s-btn-sm s-btn-split-trigger" type="button" x-on:click="open = !open">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>

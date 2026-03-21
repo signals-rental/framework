@@ -2,12 +2,15 @@
 
 namespace App\Data\Products;
 
+use App\Data\Concerns\FormatsTimestamps;
 use App\Models\ProductGroup;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Data;
 
 class ProductGroupData extends Data
 {
+    use FormatsTimestamps;
+
     /**
      * @param  array<string, mixed>  $custom_fields
      * @param  array<string, mixed>|null  $icon
@@ -25,14 +28,6 @@ class ProductGroupData extends Data
         public ?array $icon = null,
         public ?array $parent = null,
     ) {}
-
-    /**
-     * Format a Carbon timestamp in CRMS format (UTC with Z suffix and milliseconds).
-     */
-    private static function formatTimestamp(\DateTimeInterface $timestamp): string
-    {
-        return Carbon::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
-    }
 
     public static function fromModel(ProductGroup $group): self
     {
