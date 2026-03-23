@@ -10,7 +10,11 @@ use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
 use App\Models\Member;
+use App\Models\Product;
+use App\Models\StockLevel;
 use App\Models\User;
+use Illuminate\Support\Collection;
+use App\Services\Api\RansackFilter;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -28,6 +32,11 @@ new #[Layout('components.layouts.app')] class extends Component {
     public ?int $regardingId = null;
     public ?string $startsAt = null;
     public ?string $endsAt = null;
+
+    public string $regardingSearch = '';
+    public string $regardingSelectedName = '';
+    public string $ownerSearch = '';
+    public string $ownerSelectedName = '';
 
     public function mount(?Activity $activity = null): void
     {
@@ -58,6 +67,112 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->startsAt = $activity->starts_at?->format('Y-m-d\TH:i');
             $this->endsAt = $activity->ends_at?->format('Y-m-d\TH:i');
         }
+
+        // Resolve selected names for autocomplete display
+        $this->resolveRegardingName();
+        $this->resolveOwnerName();
+    }
+
+    /**
+     * Reset regarding selection when the entity type changes.
+     */
+    public function updatedRegardingType(): void
+    {
+        $this->regardingId = null;
+        $this->regardingSearch = '';
+        $this->regardingSelectedName = '';
+    }
+
+    /**
+     * Search results for the regarding entity autocomplete.
+     *
+     * @return Collection<int, mixed>
+     */
+    public function getRegardingOptionsProperty(): Collection
+    {
+        if ($this->regardingSearch === '' || $this->regardingType === null) {
+            return collect();
+        }
+
+        return match ($this->regardingType) {
+            'Member' => Member::query()
+                ->where('is_active', true)
+                ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->regardingSearch) . '%')
+                ->orderBy('name')
+                ->limit(15)
+                ->get(['id', 'name']),
+            'Product' => Product::query()
+                ->where('is_active', true)
+                ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->regardingSearch) . '%')
+                ->orderBy('name')
+                ->limit(15)
+                ->get(['id', 'name']),
+            'StockLevel' => StockLevel::query()
+                ->where('item_name', 'ilike', '%' . RansackFilter::escapeLike($this->regardingSearch) . '%')
+                ->orderBy('item_name')
+                ->limit(15)
+                ->get(['id', 'item_name as name']),
+            default => collect(),
+        };
+    }
+
+    /**
+     * Select a regarding entity from the autocomplete results.
+     */
+    public function selectRegarding(int $id, string $name): void
+    {
+        $this->regardingId = $id;
+        $this->regardingSelectedName = $name;
+        $this->regardingSearch = '';
+    }
+
+    /**
+     * Clear the selected regarding entity.
+     */
+    public function clearRegarding(): void
+    {
+        $this->regardingId = null;
+        $this->regardingSelectedName = '';
+        $this->regardingSearch = '';
+    }
+
+    /**
+     * Search results for the owner autocomplete.
+     *
+     * @return Collection<int, mixed>
+     */
+    public function getOwnerOptionsProperty(): Collection
+    {
+        if ($this->ownerSearch === '') {
+            return collect();
+        }
+
+        return User::query()
+            ->where('is_active', true)
+            ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->ownerSearch) . '%')
+            ->orderBy('name')
+            ->limit(15)
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * Select an owner from the autocomplete results.
+     */
+    public function selectOwner(int $id, string $name): void
+    {
+        $this->ownedBy = $id;
+        $this->ownerSelectedName = $name;
+        $this->ownerSearch = '';
+    }
+
+    /**
+     * Clear the selected owner.
+     */
+    public function clearOwner(): void
+    {
+        $this->ownedBy = null;
+        $this->ownerSelectedName = '';
+        $this->ownerSearch = '';
     }
 
     public function save(): void
@@ -96,17 +211,42 @@ new #[Layout('components.layouts.app')] class extends Component {
      */
     public function with(): array
     {
-        $isEditing = $this->activityId !== null;
-
         return [
-            'isEditing' => $isEditing,
+            'isEditing' => $this->activityId !== null,
             'activityTypes' => ActivityType::cases(),
             'activityStatuses' => ActivityStatus::cases(),
             'activityPriorities' => ActivityPriority::cases(),
             'timeStatuses' => TimeStatus::cases(),
-            'users' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'members' => Member::query()->where('is_active', true)->orderBy('name')->limit(100)->get(['id', 'name']),
         ];
+    }
+
+    /**
+     * Resolve the display name for the currently selected regarding entity.
+     */
+    private function resolveRegardingName(): void
+    {
+        if ($this->regardingId === null || $this->regardingType === null) {
+            return;
+        }
+
+        $this->regardingSelectedName = match ($this->regardingType) {
+            'Member' => Member::query()->where('id', $this->regardingId)->value('name') ?? '',
+            'Product' => Product::query()->where('id', $this->regardingId)->value('name') ?? '',
+            'StockLevel' => StockLevel::query()->where('id', $this->regardingId)->value('item_name') ?? '',
+            default => '',
+        };
+    }
+
+    /**
+     * Resolve the display name for the currently selected owner.
+     */
+    private function resolveOwnerName(): void
+    {
+        if ($this->ownedBy === null) {
+            return;
+        }
+
+        $this->ownerSelectedName = User::query()->where('id', $this->ownedBy)->value('name') ?? '';
     }
 }; ?>
 
@@ -193,11 +333,40 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <div class="space-y-6" style="position: sticky; top: 24px;">
                     <x-signals.form-section title="Assignment">
                         <div class="space-y-3">
-                            <flux:select wire:model="ownedBy" label="Owner">
-                                @foreach($users as $user)
-                                    <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                @endforeach
-                            </flux:select>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Owner</label>
+                                @if($ownerSelectedName)
+                                    <div class="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
+                                        <span class="flex-1 truncate">{{ $ownerSelectedName }}</span>
+                                        <button type="button" wire:click="clearOwner" class="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0">&times;</button>
+                                    </div>
+                                @else
+                                    <div x-data="{ open: false }" x-on:click.away="open = false" class="relative">
+                                        <flux:input
+                                            wire:model.live.debounce.300ms="ownerSearch"
+                                            placeholder="Search users..."
+                                            x-on:focus="open = true"
+                                            x-on:input="open = true"
+                                            autocomplete="off"
+                                        />
+                                        @if($this->ownerOptions->isNotEmpty())
+                                            <div x-show="open" x-cloak class="absolute z-50 mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] shadow-lg max-h-60 overflow-y-auto">
+                                                @foreach($this->ownerOptions as $option)
+                                                    <button
+                                                        type="button"
+                                                        wire:key="owner-{{ $option->id }}"
+                                                        wire:click="selectOwner({{ $option->id }}, '{{ str_replace("'", "\\'", $option->name) }}')"
+                                                        x-on:click="open = false"
+                                                        class="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)] transition-colors"
+                                                    >
+                                                        {{ $option->name }}
+                                                    </button>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     </x-signals.form-section>
 
@@ -210,13 +379,43 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <option value="StockLevel">Stock Level</option>
                             </flux:select>
 
-                            @if($regardingType === 'Member')
-                                <flux:select wire:model="regardingId" label="Member">
-                                    <option value="">Select a member...</option>
-                                    @foreach($members as $member)
-                                        <option value="{{ $member->id }}">{{ $member->name }}</option>
-                                    @endforeach
-                                </flux:select>
+                            @if($regardingType)
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">
+                                        {{ match($regardingType) { 'Member' => 'Member', 'Product' => 'Product', 'StockLevel' => 'Stock Level', default => 'Entity' } }}
+                                    </label>
+                                    @if($regardingSelectedName)
+                                        <div class="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
+                                            <span class="flex-1 truncate">{{ $regardingSelectedName }}</span>
+                                            <button type="button" wire:click="clearRegarding" class="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0">&times;</button>
+                                        </div>
+                                    @else
+                                        <div x-data="{ open: false }" x-on:click.away="open = false" class="relative">
+                                            <flux:input
+                                                wire:model.live.debounce.300ms="regardingSearch"
+                                                placeholder="Search {{ strtolower(match($regardingType) { 'StockLevel' => 'stock levels', 'Member' => 'members', 'Product' => 'products', default => 'entities' }) }}..."
+                                                x-on:focus="open = true"
+                                                x-on:input="open = true"
+                                                autocomplete="off"
+                                            />
+                                            @if($this->regardingOptions->isNotEmpty())
+                                                <div x-show="open" x-cloak class="absolute z-50 mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] shadow-lg max-h-60 overflow-y-auto">
+                                                    @foreach($this->regardingOptions as $option)
+                                                        <button
+                                                            type="button"
+                                                            wire:key="regarding-{{ $option->id }}"
+                                                            wire:click="selectRegarding({{ $option->id }}, '{{ str_replace("'", "\\'", $option->name) }}')"
+                                                            x-on:click="open = false"
+                                                            class="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)] transition-colors"
+                                                        >
+                                                            {{ $option->name }}
+                                                        </button>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
                             @endif
                         </div>
                     </x-signals.form-section>

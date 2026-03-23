@@ -15,7 +15,9 @@ use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\ProductTaxClass;
 use App\Models\RevenueGroup;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\Rule;
+use App\Services\Api\RansackFilter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -29,6 +31,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public bool $isActive = true;
     public string $description = '';
     public ?int $productGroupId = null;
+    public string $productGroupSearch = '';
     public int $allowedStockType = 1;
     public int $stockMethod = 1;
     public ?string $weight = null;
@@ -49,6 +52,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public ?int $purchaseCostGroupId = null;
     public int $purchasePrice = 0;
     public ?int $countryOfOriginId = null;
+    public string $countrySearch = '';
     public ?string $tagList = null;
     /** @var array<string, mixed> */
     public array $customFieldValues = [];
@@ -59,6 +63,11 @@ new #[Layout('components.layouts.app')] class extends Component {
         $type = request()->query('type');
         if (is_string($type) && in_array($type, array_column(ProductType::cases(), 'value'))) {
             $this->productType = $type;
+        }
+
+        // Force bulk stock method for Sale products
+        if ($this->productType === 'sale') {
+            $this->stockMethod = StockMethod::Bulk->value;
         }
 
         if ($product?->exists) {
@@ -90,9 +99,112 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->countryOfOriginId = $product->country_of_origin_id;
             $this->tagList = $product->tag_list ? implode(', ', $product->tag_list) : null;
 
+            // Force bulk stock method for Sale products
+            if ($this->productType === 'sale') {
+                $this->stockMethod = StockMethod::Bulk->value;
+            }
+
             // Load existing custom field values
             $this->customFieldValues = $this->loadCustomFieldValuesFrom($product);
         }
+    }
+
+    /**
+     * When product type changes, enforce Sale = Bulk stock method.
+     */
+    public function updatedProductType(string $value): void
+    {
+        if ($value === 'sale') {
+            $this->stockMethod = StockMethod::Bulk->value;
+        }
+    }
+
+    /**
+     * Prevent Serialised stock method for Sale products.
+     */
+    public function updatedStockMethod(): void
+    {
+        if ($this->productType === 'sale') {
+            $this->stockMethod = StockMethod::Bulk->value;
+        }
+    }
+
+    /**
+     * Select a product group from the autocomplete results.
+     */
+    public function selectProductGroup(int $id): void
+    {
+        $this->productGroupId = $id;
+        $this->productGroupSearch = '';
+    }
+
+    /**
+     * Select a country from the autocomplete results.
+     */
+    public function selectCountry(int $id): void
+    {
+        $this->countryOfOriginId = $id;
+        $this->countrySearch = '';
+    }
+
+    /**
+     * @return Collection<int, ProductGroup>
+     */
+    #[Computed]
+    public function productGroupResults(): Collection
+    {
+        if (strlen($this->productGroupSearch) < 1) {
+            return new Collection;
+        }
+
+        return ProductGroup::query()
+            ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->productGroupSearch) . '%')
+            ->orderBy('name')
+            ->limit(15)
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * @return Collection<int, Country>
+     */
+    #[Computed]
+    public function countryResults(): Collection
+    {
+        if (strlen($this->countrySearch) < 1) {
+            return new Collection;
+        }
+
+        return Country::query()
+            ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->countrySearch) . '%')
+            ->orderBy('name')
+            ->limit(15)
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * Get the selected product group name for display.
+     */
+    #[Computed]
+    public function selectedProductGroupName(): ?string
+    {
+        if (! $this->productGroupId) {
+            return null;
+        }
+
+        return ProductGroup::query()->where('id', $this->productGroupId)->value('name');
+    }
+
+    /**
+     * Get the selected country name for display.
+     */
+    #[Computed]
+    public function selectedCountryName(): ?string
+    {
+        if (! $this->countryOfOriginId) {
+            return null;
+        }
+
+        return Country::query()->where('id', $this->countryOfOriginId)->value('name');
     }
 
     public function save(): void
@@ -157,11 +269,9 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function referenceData(): array
     {
         return [
-            'productGroups' => ProductGroup::query()->orderBy('name')->get(['id', 'name']),
             'taxClasses' => ProductTaxClass::query()->orderBy('name')->get(),
             'revenueGroups' => RevenueGroup::query()->orderBy('name')->get(['id', 'name']),
             'costGroups' => CostGroup::query()->orderBy('name')->get(['id', 'name']),
-            'countries' => Country::query()->orderBy('name')->get(['id', 'name']),
             'customFields' => CustomField::query()
                 ->forModule('Product')
                 ->active()
@@ -184,11 +294,9 @@ new #[Layout('components.layouts.app')] class extends Component {
             'product' => $isEditing ? Product::find($this->productId)?->loadCount(['stockLevels', 'accessories', 'attachments']) : null,
             'productTypes' => ProductType::cases(),
             'stockMethods' => StockMethod::cases(),
-            'productGroups' => $ref['productGroups'],
             'taxClasses' => $ref['taxClasses'],
             'revenueGroups' => $ref['revenueGroups'],
             'costGroups' => $ref['costGroups'],
-            'countries' => $ref['countries'],
             'customFields' => $ref['customFields'],
             'groupedCustomFields' => $ref['customFields']->groupBy(fn ($f) => $f->group?->name ?? 'General'),
         ];
@@ -239,41 +347,74 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     @endforeach
                                 </flux:select>
 
-                                <flux:select wire:model="productGroupId" label="Product Group">
-                                    <option value="">None</option>
-                                    @foreach($productGroups as $group)
-                                        <option value="{{ $group->id }}">{{ $group->name }}</option>
-                                    @endforeach
-                                </flux:select>
+                                {{-- Product Group autocomplete --}}
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Product Group</label>
+                                    <div x-data="{ open: false }" class="relative">
+                                        <div class="flex items-center gap-1">
+                                            @if($this->productGroupId)
+                                                <div class="s-chip flex items-center gap-1.5 px-2 py-1.5 w-full">
+                                                    <span class="flex-1 text-[13px]">{{ $this->selectedProductGroupName }}</span>
+                                                    <button type="button" wire:click="$set('productGroupId', null)" class="opacity-50 hover:opacity-100">&times;</button>
+                                                </div>
+                                            @else
+                                                <flux:input wire:model.live.debounce.300ms="productGroupSearch" placeholder="Search product groups..." x-on:focus="open = true" x-on:input="open = true" />
+                                            @endif
+                                        </div>
+                                        @if(!$this->productGroupId && count($this->productGroupResults) > 0)
+                                            <div x-show="open" x-on:click.outside="open = false" class="s-dropdown" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 50; margin-top: 4px;">
+                                                @foreach($this->productGroupResults as $group)
+                                                    <button type="button" wire:click="selectProductGroup({{ $group->id }})" x-on:click="open = false" class="s-dropdown-item w-full text-left">{{ $group->name }}</button>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </x-signals.form-section>
-
-                    {{-- Identification --}}
-                    <x-signals.form-section title="Identification">
-                        <div class="space-y-3">
-                            <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                                <flux:input wire:model="sku" label="SKU" />
-                                <flux:input wire:model="barcode" label="Barcode" />
-                            </div>
-                            <flux:input wire:model="weight" label="Weight" type="number" step="any" min="0" />
                         </div>
                     </x-signals.form-section>
 
                     {{-- Stock --}}
                     <x-signals.form-section title="Stock">
                         <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                            <flux:select wire:model="stockMethod" label="Stock Method">
-                                @foreach($stockMethods as $method)
-                                    <option value="{{ $method->value }}">{{ $method->label() }}</option>
-                                @endforeach
-                            </flux:select>
+                            <div>
+                                @if($productType === 'sale')
+                                    <flux:select wire:model.live="stockMethod" label="Stock Method" disabled>
+                                        <option value="{{ \App\Enums\StockMethod::Bulk->value }}">{{ \App\Enums\StockMethod::Bulk->label() }}</option>
+                                    </flux:select>
+                                    <p class="text-xs text-[var(--text-muted)] mt-1">Sale products use Bulk stock method only.</p>
+                                @else
+                                    <flux:select wire:model.live="stockMethod" label="Stock Method">
+                                        @foreach($stockMethods as $method)
+                                            <option value="{{ $method->value }}">{{ $method->label() }}</option>
+                                        @endforeach
+                                    </flux:select>
+                                @endif
+                            </div>
 
                             <flux:select wire:model="allowedStockType" label="Allowed Stock Type">
                                 <option value="1">Rental</option>
                                 <option value="2">Sale</option>
                                 <option value="3">Both</option>
                             </flux:select>
+                        </div>
+                    </x-signals.form-section>
+
+                    {{-- Identification (after Stock so barcode logic can reference stockMethod) --}}
+                    <x-signals.form-section title="Identification">
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+                                <flux:input wire:model="sku" label="SKU" />
+                                <div>
+                                    @if($stockMethod == \App\Enums\StockMethod::Serialised->value)
+                                        <flux:input wire:model="barcode" label="Barcode" disabled />
+                                        <p class="text-xs text-[var(--text-muted)] mt-1">Serialised items get individual barcodes at stock level.</p>
+                                    @else
+                                        <flux:input wire:model="barcode" label="Barcode" />
+                                    @endif
+                                </div>
+                            </div>
+                            <flux:input wire:model="weight" label="Weight" type="number" step="any" min="0" />
                         </div>
                     </x-signals.form-section>
 
@@ -348,12 +489,29 @@ new #[Layout('components.layouts.app')] class extends Component {
                     {{-- Other --}}
                     <x-signals.form-section title="Other">
                         <div class="space-y-3">
-                            <flux:select wire:model="countryOfOriginId" label="Country of Origin">
-                                <option value="">None</option>
-                                @foreach($countries as $country)
-                                    <option value="{{ $country->id }}">{{ $country->name }}</option>
-                                @endforeach
-                            </flux:select>
+                            {{-- Country of Origin autocomplete --}}
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Country of Origin</label>
+                                <div x-data="{ open: false }" class="relative">
+                                    <div class="flex items-center gap-1">
+                                        @if($this->countryOfOriginId)
+                                            <div class="s-chip flex items-center gap-1.5 px-2 py-1.5 w-full">
+                                                <span class="flex-1 text-[13px]">{{ $this->selectedCountryName }}</span>
+                                                <button type="button" wire:click="$set('countryOfOriginId', null)" class="opacity-50 hover:opacity-100">&times;</button>
+                                            </div>
+                                        @else
+                                            <flux:input wire:model.live.debounce.300ms="countrySearch" placeholder="Search countries..." x-on:focus="open = true" x-on:input="open = true" />
+                                        @endif
+                                    </div>
+                                    @if(!$this->countryOfOriginId && count($this->countryResults) > 0)
+                                        <div x-show="open" x-on:click.outside="open = false" class="s-dropdown" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 50; margin-top: 4px;">
+                                            @foreach($this->countryResults as $country)
+                                                <button type="button" wire:click="selectCountry({{ $country->id }})" x-on:click="open = false" class="s-dropdown-item w-full text-left">{{ $country->name }}</button>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
 
                             <flux:input wire:model="tagList" label="Tags" placeholder="Comma-separated tags" />
                         </div>
@@ -364,7 +522,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                         <div class="flex items-center gap-6 pt-1 flex-wrap">
                             <flux:checkbox wire:model="isActive" label="Active" />
                             <flux:checkbox wire:model="accessoryOnly" label="Accessory Only" />
-                            <flux:checkbox wire:model="system" label="System" />
                             <flux:checkbox wire:model="discountable" label="Discountable" />
                         </div>
                     </x-signals.form-section>

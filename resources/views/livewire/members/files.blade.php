@@ -59,5 +59,5 @@ new #[Layout('components.layouts.app')] class extends Component {
     </div>
 
     {{-- Upload Modal (separate Livewire component for file upload isolation) --}}
-    <livewire:members.file-upload-modal :member-id="$member->id" />
+    <livewire:components.file-upload-modal :model-type="\App\Models\Member::class" :model-id="$member->id" />
 </section>

@@ -56,6 +56,22 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
         $this->dispatch('product-restored');
     }
 
+    /**
+     * @param  array<int, int>  $ids
+     */
+    public function archiveSelected(array $ids): void
+    {
+        $action = new \App\Actions\Products\DeleteProduct;
+        foreach ($ids as $id) {
+            $product = Product::find($id);
+            if ($product) {
+                $action($product);
+            }
+        }
+        $this->refreshTypeCounts();
+        $this->dispatch('product-archived');
+    }
+
     #[On('product-archived')]
     #[On('product-restored')]
     public function refreshTypeCounts(): void
@@ -173,6 +189,7 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
             default-sort="name"
             empty-message="No products found."
             actions-view="livewire.products.partials.row-actions"
+            bulk-actions-view="livewire.products.partials.bulk-actions"
             toolbar-view="livewire.products.partials.toolbar"
             entity-type="products"
             :key="'products-table-' . $typeFilter . '-' . $archiveFilter"

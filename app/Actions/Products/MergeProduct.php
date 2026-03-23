@@ -15,7 +15,7 @@ class MergeProduct
 {
     public function __invoke(MergeProductData $data): ProductData
     {
-        Gate::authorize('products.delete');
+        Gate::authorize('products.edit');
 
         $primary = Product::findOrFail($data->primary_id);
         $secondary = Product::findOrFail($data->secondary_id);

@@ -34,7 +34,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         {{-- ============================================================ --}}
         <div class="space-y-6">
             @if($product->description)
-                <div class="rounded-lg border border-[var(--card-border)] bg-white px-3 py-2">
+                <div class="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2">
                     <p class="text-xs text-[var(--text-secondary)]">
                         {{ $product->description }}
                     </p>
@@ -146,4 +146,6 @@ new #[Layout('components.layouts.app')] class extends Component {
             </x-signals.panel>
         </div>
     </div>
+
+    <livewire:products.merge-modal />
 </section>

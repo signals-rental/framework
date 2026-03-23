@@ -6,6 +6,7 @@ use App\Models\CustomView;
 use App\Views\ActivityColumnRegistry;
 use App\Views\MemberColumnRegistry;
 use App\Views\ProductColumnRegistry;
+use App\Views\ProductGroupColumnRegistry;
 use App\Views\StockLevelColumnRegistry;
 use Illuminate\Database\Seeder;
 
@@ -77,7 +78,13 @@ class ViewSeeder extends Seeder
             ], sortColumn: 'created_at', sortDirection: 'desc'),
         ];
 
-        $allViews = array_merge($memberViews, $productViews, $stockLevelViews, $activityViews);
+        $productGroupDefaultColumns = (new ProductGroupColumnRegistry)->defaultColumns();
+
+        $productGroupViews = [
+            $this->systemView('All Product Groups', 'product_groups', $productGroupDefaultColumns, isDefault: true),
+        ];
+
+        $allViews = array_merge($memberViews, $productViews, $stockLevelViews, $activityViews, $productGroupViews);
 
         foreach ($allViews as $view) {
             CustomView::query()->updateOrCreate(

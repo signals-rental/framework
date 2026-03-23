@@ -1,9 +1,8 @@
-@if(!empty($availableViews))
 <div x-data="{ open: false }" x-ref="viewWrap" class="relative">
     {{-- Split-button style trigger --}}
     <div class="s-btn-split">
         <button class="s-btn s-btn-sm s-btn-split-main" type="button" wire:click="switchView({{ $viewId ?? 'null' }})">
-            {{ $activeViewName ?? 'All ' . str($entityType)->replace('_', ' ')->title() }}
+            {{ $viewId === null ? 'Default' : $activeViewName }}
         </button>
         <button class="s-btn s-btn-sm s-btn-split-trigger" type="button" x-on:click="open = !open">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -34,13 +33,16 @@
                             wire:click="switchView({{ $viewOption['id'] }})"
                             x-on:click="open = false"
                             class="s-dropdown-item {{ $viewId === $viewOption['id'] ? 'font-semibold' : '' }}"
-                            style="width: 100%; text-align: left;{{ $viewId === $viewOption['id'] ? ' color: var(--green);' : '' }}">
+                            style="width: 100%; text-align: left;{{ $viewId === $viewOption['id'] ? ' color: var(--blue);' : '' }}">
                             @if($viewId === $viewOption['id'])
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 12px; height: 12px; flex-shrink: 0;"><polyline points="20 6 9 17 4 12"/></svg>
                             @else
                                 <span style="width: 12px; flex-shrink: 0;"></span>
                             @endif
                             {{ $viewOption['name'] }}
+                            @if($viewOption['is_default'] ?? false)
+                                <span style="font-size: 10px; opacity: 0.5; margin-left: auto;">default</span>
+                            @endif
                         </button>
                     @endforeach
                 @endif
@@ -57,10 +59,9 @@
             @endif
 
             <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
-            <button x-on:click="open = false; $dispatch('open-view-builder', { viewId: null })" class="s-dropdown-item" style="width: 100%; text-align: left; color: var(--green);">
+            <button x-on:click="open = false; $dispatch('open-view-builder', { viewId: null })" class="s-dropdown-item" style="width: 100%; text-align: left; color: var(--blue);">
                 + New custom view
             </button>
         </div>
     </div>
 </div>
-@endif

@@ -679,8 +679,70 @@ class DataTable extends Component
             'products' => new \App\Views\ProductColumnRegistry,
             'stock_levels' => new \App\Views\StockLevelColumnRegistry,
             'activities' => new \App\Views\ActivityColumnRegistry,
+            'product_groups' => new \App\Views\ProductGroupColumnRegistry,
             default => null,
         };
+    }
+
+    /**
+     * Export current query results as CSV using visible columns.
+     */
+    public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $exportColumns = collect($this->displayColumns)
+            ->reject(fn (array $col): bool => in_array($col['type'] ?? null, ['checkbox', 'actions'], true))
+            ->reject(fn (array $col): bool => ($col['key'] ?? '') === 'avatar')
+            ->values()
+            ->all();
+
+        $headers = array_map(fn (array $col): string => $col['label'] ?? $col['key'], $exportColumns);
+        $keys = array_map(fn (array $col): string => $col['key'], $exportColumns);
+
+        // Always prepend ID column
+        if (! in_array('id', $keys, true)) {
+            array_unshift($headers, 'ID');
+            array_unshift($keys, 'id');
+        }
+
+        $filename = ($this->entityType ?? 'export').'-'.now()->format('Y-m-d').'.csv';
+
+        return response()->streamDownload(function () use ($keys, $headers): void {
+            $handle = fopen('php://output', 'w');
+            if ($handle === false) {
+                throw new \RuntimeException('Unable to open output stream for CSV export.');
+            }
+            fputcsv($handle, $headers);
+
+            $this->buildQuery()->chunk(500, function ($rows) use ($handle, $keys): void {
+                foreach ($rows as $row) {
+                    $csvRow = [];
+                    foreach ($keys as $key) {
+                        $value = data_get($row, $key);
+
+                        if ($value instanceof \BackedEnum) {
+                            $value = method_exists($value, 'label') ? $value->label() : $value->value;
+                        } elseif ($value instanceof \DateTimeInterface) {
+                            $value = $value->format('Y-m-d H:i:s');
+                        } elseif ($value instanceof Model) {
+                            $value = $value->name ?? $value->getKey();
+                        } elseif (is_array($value) || is_object($value)) {
+                            $encoded = json_encode($value);
+                            $value = $encoded !== false ? $encoded : '[encoding error]';
+                        } elseif (is_bool($value)) {
+                            $value = $value ? 'Yes' : 'No';
+                        }
+
+                        $csvRow[] = $value;
+                    }
+
+                    fputcsv($handle, $csvRow);
+                }
+            });
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     public function render(): View

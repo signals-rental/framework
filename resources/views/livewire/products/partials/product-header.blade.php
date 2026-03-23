@@ -54,15 +54,19 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                 Stock Level
             </a>
-            <div class="s-dropdown-item" style="opacity: 0.5; cursor: default;">
+            <a href="{{ route('products.accessories', $product) }}" wire:navigate class="s-dropdown-item" style="text-decoration: none;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.735-3.684-1.757 1.757a4.5 4.5 0 0 1-6.364 0 4.5 4.5 0 0 1 0-6.364l4.5-4.5a4.5 4.5 0 0 1 6.364 6.364l-1.757 1.757"/></svg>
                 Accessory
-            </div>
+            </a>
             <div class="s-dropdown-divider"></div>
-            <div class="s-dropdown-item" style="opacity: 0.5; cursor: default;">
+            <button
+                x-on:click="open = false; Livewire.dispatch('open-merge-modal', { productA: {{ $product->id }}, productB: 0 })"
+                class="s-dropdown-item"
+                style="width: 100%;"
+            >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 Merge with...
-            </div>
+            </button>
         </x-signals.split-button>
     </x-slot:actions>
 </x-signals.page-header>

@@ -42,10 +42,11 @@
                         {{-- Selected --}}
                         <div class="rounded-md border border-[var(--card-border)] p-2">
                             <div class="px-1 pb-1.5 pt-0.5 font-[var(--font-mono)] text-[9px] font-medium uppercase tracking-wider text-[var(--text-muted)]">Selected ({{ count($selectedColumns) }})</div>
-                            <div class="max-h-[200px] overflow-y-auto">
+                            <div class="flex max-h-[200px] flex-col gap-0.5 overflow-y-auto">
                                 @foreach($this->selectedColumnDetails as $index => $col)
                                     <div wire:key="selected-{{ $col['key'] }}-{{ $index }}"
-                                        class="s-chip s-chip-green mb-0.5 flex items-center gap-1 px-2 py-1.5">
+                                        class="s-chip s-chip-green flex w-full items-center gap-1.5 px-2 py-1.5">
+                                        <span class="w-4 shrink-0 text-center text-[10px] font-semibold opacity-40">{{ $index + 1 }}</span>
                                         <span class="flex-1 text-[13px]">{{ $col['label'] }}</span>
                                         <button wire:click="moveUp({{ $index }})" class="border-0 bg-transparent p-0 {{ $index === 0 ? 'opacity-20 cursor-default' : 'opacity-50 cursor-pointer' }}" @if($index === 0) disabled @endif>
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-2.5"><polyline points="18 15 12 9 6 15"/></svg>
