@@ -3,6 +3,9 @@
 namespace App\Livewire\Concerns;
 
 use App\Models\Activity;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Log;
 
 /** @phpstan-ignore trait.unused (used by Volt components in Blade files) */
 trait HasActivityActions
@@ -13,8 +16,16 @@ trait HasActivityActions
             $activity = Activity::findOrFail($activityId);
             (new \App\Actions\Activities\CompleteActivity)($activity);
             $this->dispatch('activity-completed');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+        } catch (ModelNotFoundException) {
             session()->flash('info', 'Activity was already removed.');
+        } catch (AuthorizationException) {
+            session()->flash('error', 'You do not have permission to complete this activity.');
+        } catch (\Throwable $e) {
+            Log::error('Failed to complete activity', [
+                'activity_id' => $activityId,
+                'error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'Something went wrong. Please try again.');
         }
     }
 
@@ -24,8 +35,16 @@ trait HasActivityActions
             $activity = Activity::findOrFail($activityId);
             (new \App\Actions\Activities\DeleteActivity)($activity);
             $this->dispatch('activity-deleted');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+        } catch (ModelNotFoundException) {
             session()->flash('info', 'Activity was already removed.');
+        } catch (AuthorizationException) {
+            session()->flash('error', 'You do not have permission to delete this activity.');
+        } catch (\Throwable $e) {
+            Log::error('Failed to delete activity', [
+                'activity_id' => $activityId,
+                'error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'Something went wrong. Please try again.');
         }
     }
 

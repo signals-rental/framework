@@ -157,3 +157,21 @@ it('member has activities morphMany', function () {
 
     expect($member->activities)->toHaveCount(2);
 });
+
+it('scopes to activities of a specific type', function () {
+    Activity::factory()->create(['type_id' => ActivityType::Task]);
+    Activity::factory()->create(['type_id' => ActivityType::Call]);
+    Activity::factory()->create(['type_id' => ActivityType::Task]);
+
+    expect(Activity::ofType(ActivityType::Task)->count())->toBe(2);
+    expect(Activity::ofType(ActivityType::Call)->count())->toBe(1);
+});
+
+it('scopes to activities with a specific status', function () {
+    Activity::factory()->create(['status_id' => ActivityStatus::Scheduled]);
+    Activity::factory()->create(['status_id' => ActivityStatus::Completed]);
+    Activity::factory()->create(['status_id' => ActivityStatus::Scheduled]);
+
+    expect(Activity::ofStatus(ActivityStatus::Scheduled)->count())->toBe(2);
+    expect(Activity::ofStatus(ActivityStatus::Completed)->count())->toBe(1);
+});

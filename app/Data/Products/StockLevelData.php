@@ -4,8 +4,8 @@ namespace App\Data\Products;
 
 use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
+use App\Enums\AllowedStockType;
 use App\Enums\StockCategory;
-use App\Models\Product;
 use App\Models\StockLevel;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Attributes\MapOutputName;
@@ -56,8 +56,13 @@ class StockLevelData extends Data
         /** @var Carbon $updatedAt */
         $updatedAt = $stockLevel->updated_at;
 
-        $stockType = (int) ($stockLevel->stock_type ?? 1);
-        $stockCategory = (int) ($stockLevel->stock_category ?? 10);
+        /** @var AllowedStockType $stockTypeEnum */
+        $stockTypeEnum = $stockLevel->stock_type ?? AllowedStockType::Rental;
+        $stockType = $stockTypeEnum->value;
+
+        /** @var StockCategory $stockCategoryEnum */
+        $stockCategoryEnum = $stockLevel->stock_category ?? StockCategory::BulkStock;
+        $stockCategory = $stockCategoryEnum->value;
 
         return new self(
             id: $stockLevel->id,
@@ -75,9 +80,9 @@ class StockLevelData extends Data
             barcode: $stockLevel->barcode ?? null,
             location: $stockLevel->location ?? null,
             stock_type: $stockType,
-            stock_type_name: Product::stockTypeName($stockType),
+            stock_type_name: $stockTypeEnum->label(),
             stock_category: $stockCategory,
-            stock_category_name: StockCategory::tryFrom($stockCategory)?->label() ?? 'Unknown',
+            stock_category_name: $stockCategoryEnum->label(),
             quantity_held: number_format((float) ($stockLevel->quantity_held ?? 0), 1, '.', ''),
             quantity_allocated: number_format((float) ($stockLevel->quantity_allocated ?? 0), 1, '.', ''),
             quantity_unavailable: number_format((float) ($stockLevel->quantity_unavailable ?? 0), 1, '.', ''),

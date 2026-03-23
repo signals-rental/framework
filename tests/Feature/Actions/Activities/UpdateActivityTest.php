@@ -55,6 +55,32 @@ it('replaces participants when provided', function () {
     expect($result->participants[0]->member_id)->toBe($member2->id);
 });
 
+it('clears optional field to null when empty string is passed', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $activity = Activity::factory()->create(['description' => 'Original']);
+
+    $dto = UpdateActivityData::from(['description' => '']);
+    $result = (new UpdateActivity)($activity, $dto);
+
+    expect($activity->refresh()->description)->toBeNull();
+});
+
+it('leaves field unchanged when null is passed via DTO', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $activity = Activity::factory()->create(['description' => 'Original']);
+
+    $dto = UpdateActivityData::from(['subject' => 'New Subject']);
+    (new UpdateActivity)($activity, $dto);
+
+    expect($activity->refresh()->description)->toBe('Original');
+});
+
 it('throws authorization exception without permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

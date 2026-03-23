@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\AllowedStockType;
+use App\Enums\StockCategory;
 use App\Models\Member;
 use App\Models\Product;
 use App\Models\StockLevel;
@@ -96,7 +98,7 @@ it('scopes to serialized stock', function () {
     $serialized = StockLevel::query()->serialized()->get();
 
     expect($serialized)->toHaveCount(1);
-    expect($serialized->first()->stock_category)->toBe(50);
+    expect($serialized->first()->stock_category)->toBe(StockCategory::SerialisedStock);
 });
 
 it('scopes to bulk stock', function () {
@@ -106,7 +108,7 @@ it('scopes to bulk stock', function () {
     $bulk = StockLevel::query()->bulk()->get();
 
     expect($bulk)->toHaveCount(1);
-    expect($bulk->first()->stock_category)->toBe(10);
+    expect($bulk->first()->stock_category)->toBe(StockCategory::BulkStock);
 });
 
 it('casts quantity fields to decimal', function () {
@@ -125,14 +127,14 @@ it('casts quantity fields to decimal', function () {
     expect($stockLevel->quantity_on_order)->toBe('5.00');
 });
 
-it('casts stock_type and stock_category to integer', function () {
+it('casts stock_type and stock_category to enums', function () {
     $stockLevel = StockLevel::factory()->create([
         'stock_type' => 1,
         'stock_category' => 50,
     ]);
 
-    expect($stockLevel->stock_type)->toBeInt();
-    expect($stockLevel->stock_category)->toBeInt();
+    expect($stockLevel->stock_type)->toBe(AllowedStockType::Rental);
+    expect($stockLevel->stock_category)->toBe(StockCategory::SerialisedStock);
 });
 
 it('casts datetime fields', function () {
@@ -153,7 +155,7 @@ it('casts datetime fields', function () {
 it('creates a serialised stock level via factory', function () {
     $stockLevel = StockLevel::factory()->serialised()->create();
 
-    expect($stockLevel->stock_category)->toBe(50);
+    expect($stockLevel->stock_category)->toBe(StockCategory::SerialisedStock);
     expect((float) $stockLevel->quantity_held)->toBe(1.00);
     expect($stockLevel->serial_number)->not->toBeNull();
     expect($stockLevel->asset_number)->not->toBeNull();
@@ -163,7 +165,7 @@ it('creates a serialised stock level via factory', function () {
 it('creates a bulk stock level via factory', function () {
     $stockLevel = StockLevel::factory()->bulk()->create();
 
-    expect($stockLevel->stock_category)->toBe(10);
+    expect($stockLevel->stock_category)->toBe(StockCategory::BulkStock);
     expect((float) $stockLevel->quantity_held)->toBeGreaterThanOrEqual(5);
 });
 

@@ -126,8 +126,8 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
                 ['key' => 'actions', 'type' => 'actions'],
             ],
             'scopes' => [
-                ...($this->typeFilter !== '' ? ['where' => ['type_id', (int) $this->typeFilter]] : []),
-                ...($this->statusFilter !== '' ? ['where' => ['status_id', (int) $this->statusFilter]] : []),
+                ...($this->typeFilter !== '' ? ['ofType' => ActivityType::from((int) $this->typeFilter)] : []),
+                ...($this->statusFilter !== '' ? ['ofStatus' => ActivityStatus::from((int) $this->statusFilter)] : []),
             ],
         ];
     }

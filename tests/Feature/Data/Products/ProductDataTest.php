@@ -125,13 +125,13 @@ it('returns empty custom_fields when relation is not loaded', function () {
     expect($data->custom_fields)->toBe([]);
 });
 
-it('defaults product_group_id to 0 when null', function () {
+it('returns null product_group_id when unset', function () {
     $product = Product::factory()->create(['product_group_id' => null]);
     $product->refresh();
 
     $data = ProductData::fromModel($product);
 
-    expect($data->product_group_id)->toBe(0);
+    expect($data->product_group_id)->toBeNull();
 });
 
 it('returns null icon when no icon_url set', function () {

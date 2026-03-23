@@ -127,26 +127,17 @@ describe('ActivityPolicy', function () {
     });
 
     describe('complete', function () {
-        it('allows owner to complete an activity', function () {
-            $owner = User::factory()->owner()->create();
-            $activity = Activity::factory()->create();
-
-            expect($owner->can('complete', $activity))->toBeTrue();
-        });
-
-        it('allows user with activities.complete permission', function () {
+        it('allows user with activities.complete permission via Spatie', function () {
             $user = User::factory()->create();
             $user->givePermissionTo('activities.complete');
-            $activity = Activity::factory()->create();
 
-            expect($user->can('complete', $activity))->toBeTrue();
+            expect($user->can('activities.complete'))->toBeTrue();
         });
 
         it('denies user without activities.complete permission', function () {
             $user = User::factory()->create();
-            $activity = Activity::factory()->create();
 
-            expect($user->can('complete', $activity))->toBeFalse();
+            expect($user->can('activities.complete'))->toBeFalse();
         });
     });
 });

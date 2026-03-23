@@ -6,6 +6,7 @@ use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
+use App\Models\Activity;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
 
@@ -43,7 +44,7 @@ class CreateActivityData extends Data
             'description' => ['sometimes', 'nullable', 'string'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'regarding_id' => ['sometimes', 'nullable', 'required_with:regarding_type', 'integer'],
-            'regarding_type' => ['sometimes', 'nullable', 'required_with:regarding_id', 'string', 'in:Member,Product,StockLevel'],
+            'regarding_type' => ['sometimes', 'nullable', 'required_with:regarding_id', 'string', 'in:'.implode(',', array_keys(Activity::$regardingMap))],
             'owned_by' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],

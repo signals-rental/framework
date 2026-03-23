@@ -7,6 +7,7 @@ use App\Data\Products\UpdateProductGroupData;
 use App\Events\AuditableEvent;
 use App\Models\ProductGroup;
 use App\Services\Api\WebhookService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class UpdateProductGroup
@@ -22,21 +23,23 @@ class UpdateProductGroup
     {
         Gate::authorize('products.edit');
 
-        $group->update(
-            collect($data->toArray())
-                ->reject(fn ($value) => $value === null)
-                ->map(fn ($value) => $value === '' ? null : $value)
-                ->all()
-        );
+        return DB::transaction(function () use ($group, $data): ProductGroupData {
+            $group->update(
+                collect($data->toArray())
+                    ->reject(fn ($value) => $value === null)
+                    ->map(fn ($value) => $value === '' ? null : $value)
+                    ->all()
+            );
 
-        $group->refresh();
+            $group->refresh();
 
-        event(new AuditableEvent($group, 'product_group.updated'));
+            event(new AuditableEvent($group, 'product_group.updated'));
 
-        app(WebhookService::class)->dispatch('product_group.updated', [
-            'product_group' => ProductGroupData::fromModel($group)->toArray(),
-        ]);
+            app(WebhookService::class)->dispatch('product_group.updated', [
+                'product_group' => ProductGroupData::fromModel($group)->toArray(),
+            ]);
 
-        return ProductGroupData::fromModel($group);
+            return ProductGroupData::fromModel($group);
+        });
     }
 }

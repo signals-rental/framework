@@ -26,13 +26,13 @@ class StockTransactionController extends Controller
             ->where('product_id', $productId)
             ->firstOrFail();
 
+        $perPage = max(min((int) $request->input('per_page', 20), 100), 1);
+        $page = max((int) $request->input('page', 1), 1);
+
         $transactions = StockTransaction::query()
             ->where('stock_level_id', $stockLevel->id)
             ->orderByDesc('transaction_at')
-            ->paginate(
-                perPage: (int) $request->input('per_page', 20),
-                page: (int) $request->input('page', 1),
-            );
+            ->paginate(perPage: $perPage, page: $page);
 
         $items = $transactions->getCollection()->map(
             fn (StockTransaction $t): array => StockTransactionData::fromModel($t)->toArray()

@@ -36,6 +36,28 @@ it('updates a stock level', function () {
     });
 });
 
+it('clears optional field to null when empty string is passed', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $stockLevel = StockLevel::factory()->create(['location' => 'Warehouse A']);
+
+    $data = UpdateStockLevelData::from(['location' => '']);
+    (new UpdateStockLevel)($stockLevel, $data);
+
+    expect($stockLevel->refresh()->location)->toBeNull();
+});
+
+it('leaves field unchanged when null is passed via DTO', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $stockLevel = StockLevel::factory()->create(['location' => 'Warehouse A']);
+
+    $data = UpdateStockLevelData::from(['item_name' => 'New Name']);
+    (new UpdateStockLevel)($stockLevel, $data);
+
+    expect($stockLevel->refresh()->location)->toBe('Warehouse A');
+});
+
 it('requires stock.adjust permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -70,6 +70,32 @@ describe('POST /api/v1/products/{product}/accessories', function () {
     });
 });
 
+describe('PUT /api/v1/products/{product}/accessories/{accessory}', function () {
+    it('updates an accessory', function () {
+        $accessory = Accessory::factory()->create(['product_id' => $this->product->id, 'quantity' => 1]);
+        $token = $this->owner->createToken('test', ['products:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/products/{$this->product->id}/accessories/{$accessory->id}", [
+                'quantity' => 5,
+            ])
+            ->assertOk()
+            ->assertJsonPath('accessory.quantity', '5.0');
+    });
+
+    it('returns 404 for accessory on wrong product', function () {
+        $otherProduct = Product::factory()->create();
+        $accessory = Accessory::factory()->create(['product_id' => $otherProduct->id]);
+        $token = $this->owner->createToken('test', ['products:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/products/{$this->product->id}/accessories/{$accessory->id}", [
+                'quantity' => 5,
+            ])
+            ->assertNotFound();
+    });
+});
+
 describe('DELETE /api/v1/products/{product}/accessories/{accessory}', function () {
     it('deletes an accessory', function () {
         $accessory = Accessory::factory()->create(['product_id' => $this->product->id]);

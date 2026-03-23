@@ -2,6 +2,10 @@
 
 namespace App\Data\Products;
 
+use App\Enums\AllowedStockType;
+use App\Enums\StockCategory;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
 
 class UpdateStockLevelData extends Data
@@ -17,10 +21,10 @@ class UpdateStockLevelData extends Data
         public ?string $location = null,
         public ?int $stock_type = null,
         public ?int $stock_category = null,
-        public ?int $quantity_held = null,
-        public ?int $quantity_allocated = null,
-        public ?int $quantity_unavailable = null,
-        public ?int $quantity_on_order = null,
+        public ?string $quantity_held = null,
+        public ?string $quantity_allocated = null,
+        public ?string $quantity_unavailable = null,
+        public ?string $quantity_on_order = null,
         public ?int $container_stock_level_id = null,
         public ?string $container_mode = null,
         public ?string $starts_at = null,
@@ -43,12 +47,12 @@ class UpdateStockLevelData extends Data
             'serial_number' => ['sometimes', 'nullable', 'string', 'max:255'],
             'barcode' => ['sometimes', 'nullable', 'string', 'max:255'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'stock_type' => ['sometimes', 'integer', 'in:1,2'],
-            'stock_category' => ['sometimes', 'integer', 'in:10,50'],
-            'quantity_held' => ['sometimes', 'integer', 'min:0'],
-            'quantity_allocated' => ['sometimes', 'integer', 'min:0'],
-            'quantity_unavailable' => ['sometimes', 'integer', 'min:0'],
-            'quantity_on_order' => ['sometimes', 'integer', 'min:0'],
+            'stock_type' => ['sometimes', 'integer', Rule::in([AllowedStockType::Rental->value, AllowedStockType::Sale->value])],
+            'stock_category' => ['sometimes', 'integer', new Enum(StockCategory::class)],
+            'quantity_held' => ['sometimes', 'numeric', 'min:0'],
+            'quantity_allocated' => ['sometimes', 'numeric', 'min:0'],
+            'quantity_unavailable' => ['sometimes', 'numeric', 'min:0'],
+            'quantity_on_order' => ['sometimes', 'numeric', 'min:0'],
             'container_stock_level_id' => ['sometimes', 'nullable', 'integer', 'exists:stock_levels,id'],
             'container_mode' => ['sometimes', 'nullable', 'string', 'max:255'],
             'starts_at' => ['sometimes', 'nullable', 'date'],

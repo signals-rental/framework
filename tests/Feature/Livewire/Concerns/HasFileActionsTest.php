@@ -53,7 +53,11 @@ it('rejects deletion when user lacks authorization', function () {
     Volt::test('products.files', ['product' => $product])
         ->call('confirmDelete', $attachment->id)
         ->call('deleteAttachment')
-        ->assertForbidden();
+        ->assertSet('deleteAttachmentId', null)
+        ->assertOk(); // Auth exception is caught gracefully, no 403
+
+    // Attachment should not be deleted (auth was denied)
+    expect(Attachment::find($attachment->id))->not->toBeNull();
 });
 
 it('cancels delete and resets deleteAttachmentId', function () {

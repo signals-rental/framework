@@ -2,8 +2,6 @@
 
 namespace App\Policies;
 
-use App\Models\Activity;
-use App\Models\User;
 use App\Policies\Traits\AuthorizesByPermission;
 
 class ActivityPolicy
@@ -33,10 +31,5 @@ class ActivityPolicy
     protected function deletePermission(): string
     {
         return 'activities.delete';
-    }
-
-    public function complete(User $user, Activity $activity): bool
-    {
-        return $user->can('activities.complete');
     }
 }

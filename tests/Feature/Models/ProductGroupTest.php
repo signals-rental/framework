@@ -75,3 +75,24 @@ it('defaults parent_id to null for root groups', function () {
 
     expect($group->parent_id)->toBeNull();
 });
+
+it('has many products', function () {
+    $group = ProductGroup::factory()->create();
+    \App\Models\Product::factory()->count(3)->create(['product_group_id' => $group->id]);
+
+    expect($group->products)->toHaveCount(3);
+    expect($group->products->first())->toBeInstanceOf(\App\Models\Product::class);
+});
+
+it('defines a schema', function () {
+    $builder = new \App\Services\SchemaBuilder;
+    ProductGroup::defineSchema($builder);
+
+    $fields = $builder->build();
+
+    expect($fields)->toHaveKey('name');
+    expect($fields)->toHaveKey('description');
+    expect($fields)->toHaveKey('parent_id');
+    expect($fields)->toHaveKey('sort_order');
+    expect($fields)->toHaveKey('created_at');
+});

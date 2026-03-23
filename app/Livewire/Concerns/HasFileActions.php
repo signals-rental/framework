@@ -4,9 +4,12 @@ namespace App\Livewire\Concerns;
 
 use App\Models\Attachment;
 use App\Services\FileService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\On;
 
 /**
@@ -37,13 +40,28 @@ trait HasFileActions
 
     public function deleteAttachment(): void
     {
-        if ($this->deleteAttachmentId) {
+        if (! $this->deleteAttachmentId) {
+            return;
+        }
+
+        try {
             $attachment = Attachment::findOrFail($this->deleteAttachmentId);
             Gate::authorize('delete', $attachment);
             app(FileService::class)->delete($attachment);
-            $this->deleteAttachmentId = null;
-            $this->getFileableModel()->loadCount('attachments');
+        } catch (ModelNotFoundException) {
+            session()->flash('info', 'File was already deleted.');
+        } catch (AuthorizationException) {
+            session()->flash('error', 'You do not have permission to delete this file.');
+        } catch (\Throwable $e) {
+            Log::error('File deletion failed', [
+                'attachment_id' => $this->deleteAttachmentId,
+                'error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'The file could not be deleted. Please try again.');
         }
+
+        $this->deleteAttachmentId = null;
+        $this->getFileableModel()->loadCount('attachments');
     }
 
     public function cancelDelete(): void

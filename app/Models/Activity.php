@@ -186,6 +186,28 @@ class Activity extends Model implements HasSchema
     }
 
     /**
+     * Scope to activities of a specific type.
+     *
+     * @param  Builder<Activity>  $query
+     * @return Builder<Activity>
+     */
+    public function scopeOfType(Builder $query, ActivityType $type): Builder
+    {
+        return $query->where('type_id', $type);
+    }
+
+    /**
+     * Scope to activities with a specific status.
+     *
+     * @param  Builder<Activity>  $query
+     * @return Builder<Activity>
+     */
+    public function scopeOfStatus(Builder $query, ActivityStatus $status): Builder
+    {
+        return $query->where('status_id', $status);
+    }
+
+    /**
      * Scope to pending (not completed) activities.
      *
      * @param  Builder<Activity>  $query

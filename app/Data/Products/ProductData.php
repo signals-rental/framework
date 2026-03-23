@@ -26,7 +26,7 @@ class ProductData extends Data
         public string $name,
         public string $type,
         public ?string $description,
-        public int $product_group_id,
+        public ?int $product_group_id,
         #[MapOutputName('active')]
         public bool $is_active,
         public int $allowed_stock_type,
@@ -102,7 +102,7 @@ class ProductData extends Data
             name: $product->name,
             type: $productType->label(),
             description: $product->description,
-            product_group_id: $product->product_group_id ?? 0,
+            product_group_id: $product->product_group_id,
             is_active: $product->is_active,
             allowed_stock_type: $allowedStockType->value,
             allowed_stock_type_name: $allowedStockType->label(),

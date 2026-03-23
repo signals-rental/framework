@@ -70,8 +70,8 @@ class StockTransaction extends Model
     {
         /** @var TransactionType $type */
         $type = $this->transaction_type;
-        $signed = (float) $this->quantity * $type->quantitySign();
+        $signed = bcmul((string) $this->quantity, (string) $type->quantitySign(), 2);
 
-        return number_format($signed, 1, '.', '');
+        return number_format((float) $signed, 1, '.', '');
     }
 }

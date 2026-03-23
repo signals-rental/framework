@@ -114,3 +114,55 @@ it('does not merge when products are not set', function () {
         ->assertNotDispatched('product-merged')
         ->assertNoRedirect();
 });
+
+it('clears search results when query is too short', function () {
+    $productA = Product::factory()->rental()->create();
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id)
+        ->set('mergeSearch', 'X')
+        ->assertSet('mergeSearchResults', []);
+});
+
+it('clears search results when no product is selected', function () {
+    Livewire::test(MergeModal::class)
+        ->set('mergeSearch', 'Something')
+        ->assertSet('mergeSearchResults', []);
+});
+
+it('selects a merge target', function () {
+    $productA = Product::factory()->rental()->create();
+    $productB = Product::factory()->rental()->create();
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id)
+        ->call('selectMergeTarget', $productB->id)
+        ->assertSet('productBId', $productB->id)
+        ->assertSet('mergeSearch', '')
+        ->assertSet('mergeSearchResults', []);
+});
+
+it('clears merge target', function () {
+    $productA = Product::factory()->rental()->create();
+    $productB = Product::factory()->rental()->create();
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id, productB: $productB->id)
+        ->call('clearMergeTarget')
+        ->assertSet('productBId', null)
+        ->assertSet('mergeSearch', '')
+        ->assertSet('mergeSearchResults', []);
+});
+
+it('rejects merge when primary is not one of the selected products', function () {
+    $productA = Product::factory()->rental()->create();
+    $productB = Product::factory()->rental()->create();
+    $other = Product::factory()->rental()->create();
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id, productB: $productB->id)
+        ->set('primaryId', $other->id)
+        ->call('merge')
+        ->assertNotDispatched('product-merged')
+        ->assertNoRedirect();
+});

@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Contracts\HasSchema;
+use App\Enums\AllowedStockType;
+use App\Enums\StockCategory;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,8 +48,8 @@ class StockLevel extends Model implements HasSchema
     protected function casts(): array
     {
         return [
-            'stock_type' => 'integer',
-            'stock_category' => 'integer',
+            'stock_type' => AllowedStockType::class,
+            'stock_category' => StockCategory::class,
             'quantity_held' => 'decimal:2',
             'quantity_allocated' => 'decimal:2',
             'quantity_unavailable' => 'decimal:2',
@@ -189,7 +191,7 @@ class StockLevel extends Model implements HasSchema
      */
     public function scopeSerialized(Builder $query): Builder
     {
-        return $query->where('stock_category', 50);
+        return $query->where('stock_category', StockCategory::SerialisedStock);
     }
 
     /**
@@ -200,6 +202,6 @@ class StockLevel extends Model implements HasSchema
      */
     public function scopeBulk(Builder $query): Builder
     {
-        return $query->where('stock_category', 10);
+        return $query->where('stock_category', StockCategory::BulkStock);
     }
 }

@@ -34,7 +34,7 @@ class CreateStockTransaction
             // Update stock level quantity based on transaction type
             /** @var TransactionType $type */
             $type = $transaction->transaction_type;
-            $signedQty = (float) $data->quantity * $type->quantitySign();
+            $signedQty = (float) bcmul((string) $data->quantity, (string) $type->quantitySign(), 2);
             $stockLevel->increment('quantity_held', $signedQty);
 
             event(new AuditableEvent($transaction, 'stock_transaction.created'));

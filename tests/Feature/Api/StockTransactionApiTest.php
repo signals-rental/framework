@@ -55,6 +55,34 @@ describe('GET stock_transactions', function () {
     });
 });
 
+describe('GET stock_transactions/{id}', function () {
+    it('shows a single transaction', function () {
+        $txn = StockTransaction::factory()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions/{$txn->id}")
+            ->assertOk()
+            ->assertJsonPath('stock_transaction.id', $txn->id);
+    });
+
+    it('returns 404 for transaction on wrong stock level', function () {
+        $otherStockLevel = StockLevel::factory()->create();
+        $txn = StockTransaction::factory()->create([
+            'stock_level_id' => $otherStockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions/{$txn->id}")
+            ->assertNotFound();
+    });
+});
+
 describe('POST stock_transactions', function () {
     it('creates a buy transaction', function () {
         $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
