@@ -59,13 +59,6 @@
     </head>
     <body class="min-h-screen bg-[var(--content-bg)] text-[13px] leading-normal text-[var(--text-primary)] antialiased">
 
-        {{-- Conf banner --}}
-        <div style="background: var(--green); padding: 10px 0; text-align: center; font-family: var(--font-display); font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;">
-            <a href="https://signals.rent/conf" style="color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-                Signals Conf 2026 — 15 July, Union Theatre, London. Register now <span>&rarr;</span>
-            </a>
-        </div>
-
         {{-- Docs header --}}
         <header class="docs-header">
             <a href="{{ route('home') }}" class="docs-header-brand">
