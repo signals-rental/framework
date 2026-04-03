@@ -90,7 +90,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header title="Log in to your account" description="Enter your email and password below to log in" />
+    <x-auth-header title="Log in to your account" :description="config('signals.tenant') ? 'Signing in to ' . config('signals.tenant') : 'Enter your email and password below to log in'" />
 
     @if (session('status'))
         <x-signals.alert type="success">{{ session('status') }}</x-signals.alert>
