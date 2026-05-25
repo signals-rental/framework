@@ -4,14 +4,13 @@ use App\Enums\BasePeriod;
 use App\Enums\CalculationStrategyType;
 
 it('has correct cases', function () {
-    expect(CalculationStrategyType::cases())->toHaveCount(4);
+    expect(CalculationStrategyType::cases())->toHaveCount(3);
 });
 
 it('has correct string values', function (CalculationStrategyType $type, string $expected) {
     expect($type->value)->toBe($expected);
 })->with([
     [CalculationStrategyType::Period, 'period'],
-    [CalculationStrategyType::Usage, 'usage'],
     [CalculationStrategyType::Fixed, 'fixed'],
     [CalculationStrategyType::Hybrid, 'hybrid'],
 ]);
@@ -20,7 +19,6 @@ it('returns correct labels', function (CalculationStrategyType $type, string $ex
     expect($type->label())->toBe($expected);
 })->with([
     [CalculationStrategyType::Period, 'Period-based'],
-    [CalculationStrategyType::Usage, 'Usage-based'],
     [CalculationStrategyType::Fixed, 'Fixed'],
     [CalculationStrategyType::Hybrid, 'Hybrid'],
 ]);
@@ -41,12 +39,6 @@ it('allows all five base periods for the period strategy', function () {
     ]);
 });
 
-it('allows only daily for the usage strategy', function () {
-    expect(CalculationStrategyType::Usage->allowedBasePeriods())->toBe([
-        BasePeriod::Daily,
-    ]);
-});
-
 it('allows daily, weekly and monthly for the hybrid strategy', function () {
     expect(CalculationStrategyType::Hybrid->allowedBasePeriods())->toBe([
         BasePeriod::Daily,
@@ -63,7 +55,6 @@ it('reports whether a base period is required', function (CalculationStrategyTyp
     expect($type->requiresBasePeriod())->toBe($expected);
 })->with([
     [CalculationStrategyType::Period, true],
-    [CalculationStrategyType::Usage, true],
     [CalculationStrategyType::Hybrid, true],
     [CalculationStrategyType::Fixed, false],
 ]);

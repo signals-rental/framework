@@ -19,7 +19,6 @@ it('exposes the supplied values as readonly properties', function () {
         strategyConfig: ['leeway_minutes' => 30],
         transactionType: RateTransactionType::Rental,
         storeId: 3,
-        usageUnits: 4,
         extra: ['note' => 'seasonal'],
     );
 
@@ -32,7 +31,6 @@ it('exposes the supplied values as readonly properties', function () {
         ->and($context->strategyConfig)->toBe(['leeway_minutes' => 30])
         ->and($context->transactionType)->toBe(RateTransactionType::Rental)
         ->and($context->storeId)->toBe(3)
-        ->and($context->usageUnits)->toBe(4)
         ->and($context->extra)->toBe(['note' => 'seasonal']);
 });
 
@@ -50,6 +48,5 @@ it('applies sensible defaults for optional values', function () {
 
     expect($context->basePeriod)->toBeNull()
         ->and($context->storeId)->toBeNull()
-        ->and($context->usageUnits)->toBeNull()
         ->and($context->extra)->toBe([]);
 });

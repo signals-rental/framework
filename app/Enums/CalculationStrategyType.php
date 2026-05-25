@@ -11,7 +11,6 @@ namespace App\Enums;
 enum CalculationStrategyType: string
 {
     case Period = 'period';
-    case Usage = 'usage';
     case Fixed = 'fixed';
     case Hybrid = 'hybrid';
 
@@ -19,7 +18,6 @@ enum CalculationStrategyType: string
     {
         return match ($this) {
             self::Period => 'Period-based',
-            self::Usage => 'Usage-based',
             self::Fixed => 'Fixed',
             self::Hybrid => 'Hybrid',
         };
@@ -40,9 +38,6 @@ enum CalculationStrategyType: string
                 BasePeriod::Weekly,
                 BasePeriod::Monthly,
             ],
-            self::Usage => [
-                BasePeriod::Daily,
-            ],
             self::Hybrid => [
                 BasePeriod::Daily,
                 BasePeriod::Weekly,
@@ -58,7 +53,7 @@ enum CalculationStrategyType: string
     public function requiresBasePeriod(): bool
     {
         return match ($this) {
-            self::Period, self::Usage, self::Hybrid => true,
+            self::Period, self::Hybrid => true,
             self::Fixed => false,
         };
     }

@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
  * Carries everything a calculation strategy or modifier needs to derive a
  * charge: the unit price (in minor units), the rental window, quantity, the
  * resolved base period, the strategy's validated config, and contextual
- * metadata (store, transaction type, optional usage units, free-form extras).
+ * metadata (store, transaction type, free-form extras).
  */
 class CalculationContext
 {
