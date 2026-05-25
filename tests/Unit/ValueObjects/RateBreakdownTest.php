@@ -3,6 +3,9 @@
 use App\ValueObjects\RateBreakdown;
 use App\ValueObjects\RateLineItem;
 
+/**
+ * @param  array<int, RateLineItem>  $lineItems
+ */
 function breakdown(int $perUnitSubtotalMinor = 0, int $quantity = 1, array $lineItems = []): RateBreakdown
 {
     return new RateBreakdown(
