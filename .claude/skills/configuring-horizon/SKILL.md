@@ -1,25 +1,12 @@
 ---
 name: configuring-horizon
-description: "Configures Laravel Horizon for Redis queue management. Activate when the user explicitly mentions Horizon by name. Covers Horizon installation, supervisor configuration, worker processes, dashboard authorization, auto-scaling, balancing strategies, job monitoring, metrics, tags, and notifications. Also applies when troubleshooting Horizon-specific issues such as blank metrics, LongWaitDetected alerts, or misconfigured Horizon workers. Do NOT activate for generic queue, Redis, or job monitoring questions that do not mention Horizon."
+description: "Use this skill whenever the user mentions Horizon by name in a Laravel context. Covers the full Horizon lifecycle: installing Horizon (horizon:install, Sail setup), configuring config/horizon.php (supervisor blocks, queue assignments, balancing strategies, minProcesses/maxProcesses), fixing the dashboard (authorization via Gate::define viewHorizon, blank metrics, horizon:snapshot scheduling), and troubleshooting production issues (worker crashes, timeout chain ordering, LongWaitDetected notifications, waits config). Also covers job tagging and silencing. Do not use for generic Laravel queues without Horizon, SQS or database drivers, standalone Redis setup, Linux supervisord, Telescope, or job batching."
 license: MIT
 metadata:
   author: laravel
 ---
 
 # Horizon Configuration
-
-## When to Apply
-
-Activate this skill when the user explicitly mentions **Horizon** by name. Examples:
-
-- Installing or configuring Horizon
-- Setting up Horizon supervisors or worker processes
-- Restricting access to the Horizon dashboard
-- Configuring Horizon auto-scaling or balancing strategies
-- Setting up Horizon job monitoring, tags, metrics, or notifications
-- Troubleshooting Horizon blank metrics or LongWaitDetected alerts
-
-Do NOT activate for generic queue workers, Redis configuration, or job monitoring questions that do not mention Horizon.
 
 ## Documentation
 
@@ -59,7 +46,7 @@ Define supervisors in `config/horizon.php`. The `environments` array merges into
 
 'environments' => [
     'production' => [
-        'supervisor-1' => ['maxProcesses' => 10, 'balanceCooldown' => 3],
+        'supervisor-1' => ['maxProcesses' => 20, 'balanceCooldown' => 3],
     ],
     'local' => [
         'supervisor-1' => ['maxProcesses' => 2],
