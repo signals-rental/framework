@@ -37,7 +37,7 @@ class ProductController extends Controller
         'updated_at',
     ];
 
-    protected string $customFieldModule = 'Product';
+    protected ?string $customFieldModule = 'Product';
 
     /** @var list<string> */
     protected array $allowedSorts = [

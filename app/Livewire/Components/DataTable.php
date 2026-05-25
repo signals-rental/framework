@@ -3,17 +3,26 @@
 namespace App\Livewire\Components;
 
 use App\Models\CustomView;
+use App\Models\User;
 use App\Models\UserViewPreference;
 use App\Services\Api\RansackFilter;
 use App\Services\ViewResolver;
+use App\Views\ActivityColumnRegistry;
+use App\Views\ColumnRegistry;
+use App\Views\MemberColumnRegistry;
+use App\Views\ProductColumnRegistry;
+use App\Views\ProductGroupColumnRegistry;
+use App\Views\StockLevelColumnRegistry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * @property array<int, array<string, mixed>> $displayColumns
@@ -320,14 +329,14 @@ class DataTable extends Component
     }
 
     /**
-     * @return Builder<\Illuminate\Database\Eloquent\Model>
+     * @return Builder<Model>
      */
     protected function buildQuery(): Builder
     {
-        /** @var class-string<\Illuminate\Database\Eloquent\Model> $modelClass */
+        /** @var class-string<Model> $modelClass */
         $modelClass = $this->model;
 
-        /** @var Builder<\Illuminate\Database\Eloquent\Model> $query */
+        /** @var Builder<Model> $query */
         $query = $modelClass::query();
 
         // Eager load relationships
@@ -546,7 +555,7 @@ class DataTable extends Component
     private function loadAvailableViews(): void
     {
         $user = auth()->user();
-        if (! $user instanceof \App\Models\User || $this->entityType === null) {
+        if (! $user instanceof User || $this->entityType === null) {
             return;
         }
 
@@ -557,9 +566,12 @@ class DataTable extends Component
             ->orderBy('name')
             ->get();
 
-        $this->availableViews = $views->groupBy('visibility')->map(function ($group) {
-            return $group->map(fn ($v) => ['id' => $v->id, 'name' => $v->name, 'is_default' => $v->is_default])->values()->all();
-        })->all();
+        $this->availableViews = $views->groupBy('visibility')->map(
+            fn (Collection $group): array => $group
+                ->map(fn (CustomView $v): array => ['id' => $v->id, 'name' => $v->name, 'is_default' => $v->is_default])
+                ->values()
+                ->all()
+        )->all();
     }
 
     private function applyActiveView(): void
@@ -570,7 +582,7 @@ class DataTable extends Component
 
         $user = auth()->user();
         $resolver = app(ViewResolver::class);
-        $view = $resolver->resolve($this->entityType, $this->viewId, $user instanceof \App\Models\User ? $user : null);
+        $view = $resolver->resolve($this->entityType, $this->viewId, $user instanceof User ? $user : null);
 
         if ($view !== null) {
             $this->viewId = $view->id;
@@ -672,14 +684,14 @@ class DataTable extends Component
     /**
      * Get the column registry for the current entity type.
      */
-    private function getColumnRegistry(): ?\App\Views\ColumnRegistry
+    private function getColumnRegistry(): ?ColumnRegistry
     {
         return match ($this->entityType) {
-            'members' => new \App\Views\MemberColumnRegistry,
-            'products' => new \App\Views\ProductColumnRegistry,
-            'stock_levels' => new \App\Views\StockLevelColumnRegistry,
-            'activities' => new \App\Views\ActivityColumnRegistry,
-            'product_groups' => new \App\Views\ProductGroupColumnRegistry,
+            'members' => new MemberColumnRegistry,
+            'products' => new ProductColumnRegistry,
+            'stock_levels' => new StockLevelColumnRegistry,
+            'activities' => new ActivityColumnRegistry,
+            'product_groups' => new ProductGroupColumnRegistry,
             default => null,
         };
     }
@@ -687,7 +699,7 @@ class DataTable extends Component
     /**
      * Export current query results as CSV using visible columns.
      */
-    public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
+    public function exportCsv(): StreamedResponse
     {
         $exportColumns = collect($this->displayColumns)
             ->reject(fn (array $col): bool => in_array($col['type'] ?? null, ['checkbox', 'actions'], true))

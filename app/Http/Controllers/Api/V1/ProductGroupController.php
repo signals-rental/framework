@@ -26,7 +26,7 @@ class ProductGroupController extends Controller
         'parent_id',
     ];
 
-    protected string $customFieldModule = 'ProductGroup';
+    protected ?string $customFieldModule = 'ProductGroup';
 
     /** @var list<string> */
     protected array $allowedSorts = [

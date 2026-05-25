@@ -36,7 +36,7 @@ class ActivityController extends Controller
         'created_at',
     ];
 
-    protected string $customFieldModule = 'Activity';
+    protected ?string $customFieldModule = 'Activity';
 
     /** @var list<string> */
     protected array $allowedSorts = [

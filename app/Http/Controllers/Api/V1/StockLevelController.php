@@ -32,7 +32,7 @@ class StockLevelController extends Controller
         'created_at',
     ];
 
-    protected string $customFieldModule = 'StockLevel';
+    protected ?string $customFieldModule = 'StockLevel';
 
     /** @var list<string> */
     protected array $allowedSorts = [
