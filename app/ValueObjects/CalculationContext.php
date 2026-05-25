@@ -26,7 +26,6 @@ class CalculationContext
      * @param  array<string, mixed>  $strategyConfig  Validated strategy configuration
      * @param  RateTransactionType  $transactionType  Transaction context (rental, sale, service)
      * @param  int|null  $storeId  Store the charge applies at, or null for all stores
-     * @param  int|null  $usageUnits  Actual usage units when a usage-based strategy is in play
      * @param  array<string, mixed>  $extra  Free-form metadata for plugin strategies/modifiers
      */
     public function __construct(
@@ -39,7 +38,6 @@ class CalculationContext
         public readonly array $strategyConfig,
         public readonly RateTransactionType $transactionType,
         public readonly ?int $storeId = null,
-        public readonly ?int $usageUnits = null,
         public readonly array $extra = [],
     ) {}
 }
