@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\CustomFieldType;
+use App\Models\Country;
 use App\Models\CustomField;
 use App\Models\Member;
 use App\Models\Store;
@@ -7,6 +9,7 @@ use App\Services\FieldBuilder;
 use App\Services\SchemaBuilder;
 use App\Services\SchemaRegistry;
 use App\ValueObjects\FieldDefinition;
+use Illuminate\Support\Facades\Cache;
 
 describe('SchemaBuilder', function () {
     it('builds field definitions with correct types', function () {
@@ -287,7 +290,7 @@ describe('SchemaRegistry', function () {
         ]);
 
         $registry = new SchemaRegistry;
-        $schema = $registry->resolve(\App\Models\Country::class);
+        $schema = $registry->resolve(Country::class);
 
         // Should have both core and custom fields
         expect($schema)->toHaveKey('code');
@@ -298,25 +301,25 @@ describe('SchemaRegistry', function () {
 
     it('maps all CustomFieldType values to correct schema types', function () {
         $expectedMappings = [
-            [\App\Enums\CustomFieldType::String, 'string'],
-            [\App\Enums\CustomFieldType::Email, 'string'],
-            [\App\Enums\CustomFieldType::Website, 'string'],
-            [\App\Enums\CustomFieldType::Telephone, 'string'],
-            [\App\Enums\CustomFieldType::AutoNumber, 'string'],
-            [\App\Enums\CustomFieldType::Colour, 'string'],
-            [\App\Enums\CustomFieldType::Text, 'text'],
-            [\App\Enums\CustomFieldType::RichText, 'text'],
-            [\App\Enums\CustomFieldType::Number, 'decimal'],
-            [\App\Enums\CustomFieldType::Percentage, 'decimal'],
-            [\App\Enums\CustomFieldType::Boolean, 'boolean'],
-            [\App\Enums\CustomFieldType::Date, 'date'],
-            [\App\Enums\CustomFieldType::DateTime, 'datetime'],
-            [\App\Enums\CustomFieldType::Time, 'string'],
-            [\App\Enums\CustomFieldType::Currency, 'currency'],
-            [\App\Enums\CustomFieldType::ListOfValues, 'enum'],
-            [\App\Enums\CustomFieldType::MultiListOfValues, 'json'],
-            [\App\Enums\CustomFieldType::FileImage, 'json'],
-            [\App\Enums\CustomFieldType::JsonKeyValue, 'json'],
+            [CustomFieldType::String, 'string'],
+            [CustomFieldType::Email, 'string'],
+            [CustomFieldType::Website, 'string'],
+            [CustomFieldType::Telephone, 'string'],
+            [CustomFieldType::AutoNumber, 'string'],
+            [CustomFieldType::Colour, 'string'],
+            [CustomFieldType::Text, 'text'],
+            [CustomFieldType::RichText, 'text'],
+            [CustomFieldType::Number, 'decimal'],
+            [CustomFieldType::Percentage, 'decimal'],
+            [CustomFieldType::Boolean, 'boolean'],
+            [CustomFieldType::Date, 'date'],
+            [CustomFieldType::DateTime, 'datetime'],
+            [CustomFieldType::Time, 'string'],
+            [CustomFieldType::Currency, 'currency'],
+            [CustomFieldType::ListOfValues, 'enum'],
+            [CustomFieldType::MultiListOfValues, 'json'],
+            [CustomFieldType::FileImage, 'json'],
+            [CustomFieldType::JsonKeyValue, 'json'],
         ];
 
         $registry = new SchemaRegistry;
@@ -380,7 +383,7 @@ describe('SchemaRegistry', function () {
     });
 
     it('gracefully handles cache exceptions', function () {
-        \Illuminate\Support\Facades\Cache::shouldReceive('supportsTags')->andThrow(new \RuntimeException('Redis down'));
+        Cache::shouldReceive('supportsTags')->andThrow(new RuntimeException('Redis down'));
 
         $registry = new SchemaRegistry;
         // Should not throw — cache failures are non-fatal
@@ -397,4 +400,42 @@ describe('SchemaRegistry', function () {
 
         expect($resolved)->toBe($forResult);
     });
+
+    it('falls back to untagged cache when the store does not support tags', function () {
+        Cache::shouldReceive('supportsTags')->andReturn(false);
+        Cache::shouldReceive('get')->andReturn(null);
+        Cache::shouldReceive('put')->atLeast()->once();
+        Cache::shouldReceive('forget')->atLeast()->once();
+
+        $registry = new SchemaRegistry;
+        $registry->resolve(Member::class);   // persistentGet + persistentPut (untagged)
+        $registry->resolve(Store::class);
+        $registry->invalidate(Store::class); // persistentForget (untagged)
+        $registry->invalidateAll();           // persistentFlush forgets each remaining key (Member)
+
+        expect($registry->resolve(Member::class))->toHaveKey('name');
+    });
+
+    it('swallows exceptions when untagged forget fails on invalidate', function () {
+        Cache::shouldReceive('supportsTags')->andReturn(false);
+        Cache::shouldReceive('forget')->andThrow(new RuntimeException('Redis down'));
+
+        $registry = new SchemaRegistry;
+
+        // Should not throw — cache failures are reported and swallowed.
+        $registry->invalidate(Member::class);
+    })->throwsNoExceptions();
+
+    it('swallows exceptions when untagged flush fails on invalidateAll', function () {
+        Cache::shouldReceive('supportsTags')->andReturn(false);
+        Cache::shouldReceive('get')->andReturn(null);
+        Cache::shouldReceive('put');
+        Cache::shouldReceive('forget')->andThrow(new RuntimeException('Redis down'));
+
+        $registry = new SchemaRegistry;
+        $registry->resolve(Member::class); // populate in-memory keys to flush
+
+        // Should not throw — the flush failure is reported and swallowed.
+        $registry->invalidateAll();
+    })->throwsNoExceptions();
 });

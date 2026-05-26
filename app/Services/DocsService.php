@@ -19,6 +19,19 @@ class DocsService
     private ?MarkdownConverter $converter = null;
 
     /**
+     * @param  string|null  $docsPath  Filesystem root for documentation files. Defaults to base_path('docs').
+     */
+    public function __construct(private readonly ?string $docsPath = null) {}
+
+    /**
+     * Resolve the documentation root directory.
+     */
+    private function docsRoot(): string
+    {
+        return $this->docsPath ?? base_path('docs');
+    }
+
+    /**
      * Load and decode the documentation navigation manifest.
      *
      * @return array{sections: array<int, array{title: string, slug: string, pages: array<int, array{title: string, slug: string}>}>}
@@ -146,7 +159,7 @@ class DocsService
      */
     public function changelogExists(): bool
     {
-        $dir = base_path('docs/changelog');
+        $dir = $this->docsRoot().'/changelog';
 
         if (! is_dir($dir)) {
             return false;
@@ -256,7 +269,7 @@ class DocsService
      */
     private function resolveFilePath(string $section, string $page): ?string
     {
-        $docsBase = base_path('docs');
+        $docsBase = $this->docsRoot();
         $expectedPath = $docsBase.DIRECTORY_SEPARATOR.$section.DIRECTORY_SEPARATOR.$page.'.md';
 
         $realPath = realpath($expectedPath);
@@ -281,7 +294,7 @@ class DocsService
      */
     private function loadManifest(): array
     {
-        $path = base_path('docs/documentation.json');
+        $path = $this->docsRoot().'/documentation.json';
 
         if (! file_exists($path)) {
             return ['sections' => []];
@@ -408,7 +421,7 @@ class DocsService
      */
     private function loadChangelogEntries(): array
     {
-        $dir = base_path('docs/changelog');
+        $dir = $this->docsRoot().'/changelog';
 
         if (! is_dir($dir)) {
             return [];

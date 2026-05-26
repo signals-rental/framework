@@ -117,7 +117,7 @@ it('throws when storage put fails on upload', function () {
     $file = UploadedFile::fake()->create('fail.pdf', 100, 'application/pdf');
 
     $this->service->upload($file, $member);
-})->throws(\RuntimeException::class, 'Failed to store file');
+})->throws(RuntimeException::class, 'Failed to store file');
 
 it('throws when icon storage put fails', function () {
     $putCalls = 0;
@@ -132,7 +132,7 @@ it('throws when icon storage put fails', function () {
     $file = UploadedFile::fake()->image('icon.jpg', 200, 200);
 
     $this->service->uploadIcon($file, $member);
-})->throws(\RuntimeException::class, 'Failed to store icon');
+})->throws(RuntimeException::class, 'Failed to store icon');
 
 it('generates a uuid for the attachment', function () {
     $member = Member::factory()->create();
@@ -142,4 +142,54 @@ it('generates a uuid for the attachment', function () {
 
     expect($attachment->uuid)->not->toBeNull()
         ->and($attachment->uuid)->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/');
+});
+
+it('uses the configured disk directly when it is not local', function () {
+    config(['filesystems.default' => 'public']);
+    Storage::fake('public');
+
+    $member = Member::factory()->create();
+    $file = UploadedFile::fake()->create('report.pdf', 100, 'application/pdf');
+
+    $attachment = (new FileService)->upload($file, $member);
+
+    expect($attachment->disk)->toBe('public');
+    Storage::disk('public')->assertExists($attachment->file_path);
+});
+
+it('cleans up the icon and throws when thumbnail storage fails', function () {
+    $putCalls = 0;
+    Storage::shouldReceive('disk')->andReturnSelf();
+    Storage::shouldReceive('put')->andReturnUsing(function () use (&$putCalls) {
+        $putCalls++;
+
+        // Icon stores successfully, thumbnail fails.
+        return $putCalls !== 2;
+    });
+    Storage::shouldReceive('delete')->once();
+
+    $member = Member::factory()->create();
+    $file = UploadedFile::fake()->image('icon.jpg', 200, 200);
+
+    (new FileService)->uploadIcon($file, $member);
+})->throws(RuntimeException::class, 'Failed to store thumbnail');
+
+it('generates a temporary signed url for non-local disks', function () {
+    config(['filesystems.default' => 's3']);
+
+    Storage::shouldReceive('disk')->with('s3')->andReturnSelf();
+    Storage::shouldReceive('temporaryUrl')->once()->andReturn('https://s3.example.com/signed-file');
+
+    $url = (new FileService)->signedUrl('attachments/x.pdf');
+
+    expect($url)->toBe('https://s3.example.com/signed-file');
+});
+
+it('builds a flat storage path when no entity is provided', function () {
+    $service = new FileService;
+    $method = new ReflectionMethod($service, 'storePath');
+
+    $path = $method->invoke($service, 'abc-uuid', 'pdf', null);
+
+    expect($path)->toBe('attachments/abc-uuid.pdf');
 });

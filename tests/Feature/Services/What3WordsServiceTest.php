@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\What3WordsService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 it('convertToCoordinates returns null when no API key is configured', function () {
@@ -124,6 +125,17 @@ it('geocodeAddress returns null on HTTP failure', function () {
     Http::fake([
         'nominatim.openstreetmap.org/*' => Http::response(null, 500),
     ]);
+
+    $service = new What3WordsService;
+    $result = $service->geocodeAddress('London, UK');
+
+    expect($result)->toBeNull();
+});
+
+it('geocodeAddress returns null when the connection fails', function () {
+    Http::fake(function () {
+        throw new ConnectionException('Connection timed out');
+    });
 
     $service = new What3WordsService;
     $result = $service->geocodeAddress('London, UK');
