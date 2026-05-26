@@ -668,7 +668,10 @@ it('resolves the product group column registry', function () {
         'entityType' => 'product_groups',
     ])->instance();
 
-    expect($instance->getToggleableColumnsProperty())->toBeArray()->not->toBeEmpty();
+    $toggleable = $instance->getToggleableColumnsProperty();
+
+    expect($toggleable)->toBeArray();
+    expect($toggleable)->not->toBeEmpty();
 });
 
 it('exports current results as CSV across all value types', function () {

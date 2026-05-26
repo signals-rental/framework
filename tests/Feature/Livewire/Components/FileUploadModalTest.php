@@ -19,6 +19,9 @@ beforeEach(function () {
     $this->member = Member::factory()->create();
 });
 
+/**
+ * @return Testable<FileUploadModal>
+ */
 function fileUploadModal(): Testable
 {
     return Livewire::test(FileUploadModal::class, [
