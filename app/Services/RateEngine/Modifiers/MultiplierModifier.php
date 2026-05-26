@@ -3,6 +3,9 @@
 namespace App\Services\RateEngine\Modifiers;
 
 use App\Contracts\RateModifier;
+use App\Support\ConfigSchema\Fields\DecimalField;
+use App\Support\ConfigSchema\Fields\RepeaterField;
+use App\Support\ConfigSchema\Schema;
 use App\ValueObjects\CalculationContext;
 use App\ValueObjects\RateBreakdown;
 use App\ValueObjects\RateLineItem;
@@ -40,6 +43,15 @@ class MultiplierModifier implements RateModifier
     public function priority(): int
     {
         return 100;
+    }
+
+    public function configSchema(): Schema
+    {
+        return Schema::make(
+            RepeaterField::make('tiers')->label('Tiers')->minItems(1)->fields(
+                DecimalField::make('multiplier')->label('Multiplier')->required()->default('1.0'),
+            ),
+        );
     }
 
     public function apply(RateBreakdown $breakdown, array $config, CalculationContext $context): RateBreakdown

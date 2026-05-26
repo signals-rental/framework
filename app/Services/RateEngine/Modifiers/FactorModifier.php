@@ -3,6 +3,10 @@
 namespace App\Services\RateEngine\Modifiers;
 
 use App\Contracts\RateModifier;
+use App\Support\ConfigSchema\Fields\DecimalField;
+use App\Support\ConfigSchema\Fields\NumberField;
+use App\Support\ConfigSchema\Fields\RepeaterField;
+use App\Support\ConfigSchema\Schema;
 use App\ValueObjects\CalculationContext;
 use App\ValueObjects\RateBreakdown;
 use Brick\Math\RoundingMode;
@@ -38,6 +42,17 @@ class FactorModifier implements RateModifier
     public function priority(): int
     {
         return 200;
+    }
+
+    public function configSchema(): Schema
+    {
+        return Schema::make(
+            RepeaterField::make('ranges')->label('Ranges')->minItems(1)->fields(
+                NumberField::make('from')->label('From')->required()->min(1)->default(1),
+                NumberField::make('to')->label('To')->min(1),
+                DecimalField::make('factor')->label('Factor')->required()->default('1.0'),
+            ),
+        );
     }
 
     public function apply(RateBreakdown $breakdown, array $config, CalculationContext $context): RateBreakdown

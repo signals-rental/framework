@@ -4,6 +4,7 @@ namespace App\Contracts;
 
 use App\Enums\BasePeriod;
 use App\Enums\CalculationStrategyType;
+use App\Support\ConfigSchema\Schema;
 use App\ValueObjects\CalculationContext;
 use App\ValueObjects\RateBreakdown;
 
@@ -49,6 +50,13 @@ interface CalculationStrategy
      * strategy.
      */
     public function supportsFactor(): bool;
+
+    /**
+     * The declarative schema for this strategy's `strategy_config`, used to
+     * validate and render its configuration. An empty schema means the strategy
+     * has no configurable options (e.g. fixed charges).
+     */
+    public function configSchema(): Schema;
 
     /**
      * Produce the base breakdown for the given context, before any modifiers.

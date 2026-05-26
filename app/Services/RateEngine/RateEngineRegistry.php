@@ -4,6 +4,7 @@ namespace App\Services\RateEngine;
 
 use App\Contracts\CalculationStrategy;
 use App\Contracts\RateModifier;
+use App\Support\ConfigSchema\Section;
 use InvalidArgumentException;
 
 /**
@@ -78,5 +79,67 @@ class RateEngineRegistry
         usort($modifiers, static fn (RateModifier $a, RateModifier $b): int => $a->priority() <=> $b->priority());
 
         return $modifiers;
+    }
+
+    /**
+     * Compose the form sections for a rate definition: the strategy's "Options"
+     * section (omitted when the strategy has no config) followed by one section
+     * per enabled modifier, in registry priority order.
+     *
+     * @param  array<int, string>  $enabledModifierIds
+     * @return array<int, Section>
+     */
+    public function composeSections(string $strategyId, array $enabledModifierIds): array
+    {
+        $sections = [];
+
+        $strategySchema = $this->strategy($strategyId)->configSchema();
+
+        if (! $strategySchema->isEmpty()) {
+            $sections[] = new Section('options', 'Options', $strategySchema);
+        }
+
+        foreach ($this->modifiers() as $modifier) {
+            if (in_array($modifier->identifier(), $enabledModifierIds, true)) {
+                $sections[] = new Section($modifier->identifier(), $modifier->label(), $modifier->configSchema());
+            }
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Sanitise a strategy's config against its schema (cast visible values, drop
+     * hidden ones).
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    public function sanitiseStrategyConfig(string $strategyId, array $config): array
+    {
+        return $this->strategy($strategyId)->configSchema()->sanitise($config);
+    }
+
+    /**
+     * Sanitise modifier configs: keep only enabled modifiers, sanitising each
+     * against its schema, so disabled modifiers' config never persists.
+     *
+     * @param  array<int, string>  $enabledModifierIds
+     * @param  array<string, array<string, mixed>>  $configs
+     * @return array<string, array<string, mixed>>
+     */
+    public function sanitiseModifierConfigs(array $enabledModifierIds, array $configs): array
+    {
+        $sanitised = [];
+
+        foreach ($this->modifiers() as $modifier) {
+            $id = $modifier->identifier();
+
+            if (in_array($id, $enabledModifierIds, true)) {
+                $sanitised[$id] = $modifier->configSchema()->sanitise($configs[$id] ?? []);
+            }
+        }
+
+        return $sanitised;
     }
 }

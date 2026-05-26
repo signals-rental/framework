@@ -6,6 +6,7 @@ use App\Contracts\CalculationStrategy;
 use App\Enums\BasePeriod;
 use App\Enums\CalculationStrategyType;
 use App\Services\RateEngine\Strategies\Concerns\CountsChargeableUnits;
+use App\Support\ConfigSchema\Schema;
 use App\ValueObjects\CalculationContext;
 use App\ValueObjects\RateBreakdown;
 use App\ValueObjects\RateLineItem;
@@ -50,6 +51,11 @@ class PeriodStrategy implements CalculationStrategy
     public function supportsFactor(): bool
     {
         return true;
+    }
+
+    public function configSchema(): Schema
+    {
+        return Schema::make(...$this->timeOptionFields());
     }
 
     public function calculate(CalculationContext $context): RateBreakdown

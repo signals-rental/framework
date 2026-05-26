@@ -2,6 +2,7 @@
 
 namespace App\Contracts;
 
+use App\Support\ConfigSchema\Schema;
 use App\ValueObjects\CalculationContext;
 use App\ValueObjects\RateBreakdown;
 
@@ -37,6 +38,12 @@ interface RateModifier
      * should use values above 200 to run after the core modifiers.
      */
     public function priority(): int;
+
+    /**
+     * The declarative schema for this modifier's entry in `modifier_configs`,
+     * used to validate and render its configuration.
+     */
+    public function configSchema(): Schema;
 
     /**
      * Apply this modifier to the breakdown, returning a new instance. The

@@ -6,6 +6,8 @@ use App\Contracts\CalculationStrategy;
 use App\Enums\BasePeriod;
 use App\Enums\CalculationStrategyType;
 use App\Services\RateEngine\Strategies\Concerns\CountsChargeableUnits;
+use App\Support\ConfigSchema\Fields\NumberField;
+use App\Support\ConfigSchema\Schema;
 use App\ValueObjects\CalculationContext;
 use App\ValueObjects\RateBreakdown;
 use App\ValueObjects\RateLineItem;
@@ -55,6 +57,15 @@ class HybridStrategy implements CalculationStrategy
     public function supportsFactor(): bool
     {
         return false;
+    }
+
+    public function configSchema(): Schema
+    {
+        return Schema::make(
+            NumberField::make('fixed_charge')->label('Fixed Charge')->default(0)->min(0),
+            NumberField::make('fixed_period_units')->label('Fixed Period Units')->default(1)->min(0),
+            ...$this->timeOptionFields(),
+        );
     }
 
     public function calculate(CalculationContext $context): RateBreakdown
