@@ -2,6 +2,7 @@
 
 use App\Models\Member;
 use App\Models\User;
+use App\Policies\MemberPolicy;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 
@@ -123,6 +124,15 @@ describe('MemberPolicy', function () {
             $member = Member::factory()->create();
 
             expect($user->can('delete', $member))->toBeFalse();
+        });
+    });
+
+    describe('managePermission', function () {
+        it('returns the members.create permission', function () {
+            $policy = new MemberPolicy;
+            $method = (new ReflectionMethod($policy, 'managePermission'));
+
+            expect($method->invoke($policy))->toBe('members.create');
         });
     });
 });

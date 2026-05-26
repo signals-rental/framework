@@ -8,7 +8,9 @@ use App\Models\Activity;
 use App\Models\ActivityParticipant;
 use App\Models\Member;
 use App\Models\Product;
+use App\Models\StockLevel;
 use App\Models\User;
+use App\Services\SchemaRegistry;
 
 it('has correct fillable attributes', function () {
     $activity = new Activity;
@@ -174,4 +176,52 @@ it('scopes to activities with a specific status', function () {
 
     expect(Activity::ofStatus(ActivityStatus::Scheduled)->count())->toBe(2);
     expect(Activity::ofStatus(ActivityStatus::Completed)->count())->toBe(1);
+});
+
+it('scopes to activities for a stock level', function () {
+    $stockLevel = StockLevel::factory()->create();
+    Activity::factory()->forStockLevel($stockLevel)->create();
+    Activity::factory()->create();
+
+    expect(Activity::forStockLevel($stockLevel->id)->count())->toBe(1);
+});
+
+it('resolves a CRMS short regarding_type to a class name', function () {
+    expect(Activity::resolveRegardingType('Member'))->toBe(Member::class)
+        ->and(Activity::resolveRegardingType('Product'))->toBe(Product::class)
+        ->and(Activity::resolveRegardingType('StockLevel'))->toBe(StockLevel::class);
+});
+
+it('returns null when resolving a null regarding_type', function () {
+    expect(Activity::resolveRegardingType(null))->toBeNull();
+});
+
+it('throws for an unknown regarding_type', function () {
+    Activity::resolveRegardingType('Unknown');
+})->throws(InvalidArgumentException::class);
+
+it('converts a class name to a CRMS short regarding_type', function () {
+    expect(Activity::shortRegardingType(Member::class))->toBe('Member')
+        ->and(Activity::shortRegardingType(Product::class))->toBe('Product')
+        ->and(Activity::shortRegardingType(StockLevel::class))->toBe('StockLevel');
+});
+
+it('returns null when shortening a null regarding_type', function () {
+    expect(Activity::shortRegardingType(null))->toBeNull();
+});
+
+it('falls back to class basename for an unmapped regarding_type', function () {
+    expect(Activity::shortRegardingType(User::class))->toBe('User');
+});
+
+it('defines its schema with core field definitions', function () {
+    $schema = (new SchemaRegistry)->resolve(Activity::class);
+
+    expect($schema)->toHaveKeys([
+        'subject', 'description', 'location', 'type_id', 'status_id', 'priority',
+        'time_status', 'completed', 'regarding_type', 'regarding_id', 'owned_by',
+        'starts_at', 'ends_at', 'tag_list',
+    ]);
+    expect($schema['subject']->required)->toBeTrue()
+        ->and($schema['owned_by']->relationType)->toBe('belongsTo');
 });

@@ -2,12 +2,16 @@
 
 use App\Enums\MembershipType;
 use App\Models\Country;
+use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\MemberRelationship;
 use App\Models\Membership;
+use App\Models\MemberStore;
 use App\Models\OrganisationTaxClass;
 use App\Models\Store;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 
 it('creates a member with contact type', function () {
     $member = Member::factory()->contact()->create(['name' => 'John Doe']);
@@ -128,7 +132,7 @@ it('enforces unique member relationship pairs', function () {
     expect(fn () => MemberRelationship::factory()->create([
         'member_id' => $contact->id,
         'related_member_id' => $org->id,
-    ]))->toThrow(\Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 });
 
 it('navigates organisations via belongs to many', function () {
@@ -221,8 +225,8 @@ it('does not create duplicate member when user factory already has member_id', f
 });
 
 it('relates member to lawful basis type', function () {
-    $listName = \App\Models\ListName::factory()->create(['name' => 'Lawful Basis Type']);
-    $listValue = \App\Models\ListValue::factory()->create(['list_name_id' => $listName->id, 'name' => 'Consent']);
+    $listName = ListName::factory()->create(['name' => 'Lawful Basis Type']);
+    $listValue = ListValue::factory()->create(['list_name_id' => $listName->id, 'name' => 'Consent']);
     $member = Member::factory()->organisation()->create(['lawful_basis_type_id' => $listValue->id]);
 
     expect($member->lawfulBasisType->id)->toBe($listValue->id)
@@ -238,8 +242,8 @@ it('relates member to owner', function () {
 });
 
 it('relates member to invoice term', function () {
-    $listName = \App\Models\ListName::factory()->create(['name' => 'Invoice Term']);
-    $listValue = \App\Models\ListValue::factory()->create(['list_name_id' => $listName->id, 'name' => 'Net 30']);
+    $listName = ListName::factory()->create(['name' => 'Invoice Term']);
+    $listValue = ListValue::factory()->create(['list_name_id' => $listName->id, 'name' => 'Net 30']);
     $member = Member::factory()->organisation()->create(['invoice_term_id' => $listValue->id]);
 
     expect($member->invoiceTerm->id)->toBe($listValue->id)
@@ -267,7 +271,7 @@ it('MemberStore belongs to member', function () {
     $member = Member::factory()->contact()->create();
     $store = Store::factory()->create();
 
-    $memberStore = \App\Models\MemberStore::create([
+    $memberStore = MemberStore::create([
         'member_id' => $member->id,
         'store_id' => $store->id,
         'created_at' => now(),
@@ -281,7 +285,7 @@ it('MemberStore belongs to store', function () {
     $member = Member::factory()->contact()->create();
     $store = Store::factory()->create();
 
-    $memberStore = \App\Models\MemberStore::create([
+    $memberStore = MemberStore::create([
         'member_id' => $member->id,
         'store_id' => $store->id,
         'created_at' => now(),
@@ -289,4 +293,37 @@ it('MemberStore belongs to store', function () {
 
     expect($memberStore->store->id)->toBe($store->id)
         ->and($memberStore->store)->toBeInstanceOf(Store::class);
+});
+
+it('has direct member relationship records via hasMany', function () {
+    $contact = Member::factory()->contact()->create();
+    $org = Member::factory()->organisation()->create();
+
+    MemberRelationship::factory()->create([
+        'member_id' => $contact->id,
+        'related_member_id' => $org->id,
+    ]);
+
+    expect($contact->memberRelationships)->toHaveCount(1)
+        ->and($contact->memberRelationships->first())->toBeInstanceOf(MemberRelationship::class)
+        ->and($contact->memberRelationships->first()->related_member_id)->toBe($org->id);
+});
+
+it('scopes to archived (soft-deleted) members only', function () {
+    $archived = Member::factory()->create();
+    $archived->delete();
+    Member::factory()->create();
+
+    $results = Member::query()->archived()->get();
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->id)->toBe($archived->id);
+});
+
+it('scopes to include archived members', function () {
+    $archived = Member::factory()->create();
+    $archived->delete();
+    Member::factory()->create();
+
+    expect(Member::query()->withArchived()->count())->toBe(2);
 });

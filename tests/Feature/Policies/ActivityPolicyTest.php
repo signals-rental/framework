@@ -2,6 +2,7 @@
 
 use App\Models\Activity;
 use App\Models\User;
+use App\Policies\ActivityPolicy;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 
@@ -123,6 +124,15 @@ describe('ActivityPolicy', function () {
             $activity = Activity::factory()->create();
 
             expect($user->can('delete', $activity))->toBeFalse();
+        });
+    });
+
+    describe('managePermission', function () {
+        it('returns the activities.create permission', function () {
+            $policy = new ActivityPolicy;
+            $method = (new ReflectionMethod($policy, 'managePermission'));
+
+            expect($method->invoke($policy))->toBe('activities.create');
         });
     });
 

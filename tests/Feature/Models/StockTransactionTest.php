@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TransactionType;
+use App\Models\Member;
 use App\Models\StockLevel;
 use App\Models\StockTransaction;
 use App\Models\Store;
@@ -36,6 +37,29 @@ it('calculates positive quantity_move for buy', function () {
 it('calculates negative quantity_move for sell', function () {
     $txn = StockTransaction::factory()->sell()->create(['quantity' => '3.0']);
     expect($txn->quantity_move)->toBe('-3.0');
+});
+
+it('resolves the polymorphic source relationship', function () {
+    $member = Member::factory()->create();
+    $txn = StockTransaction::factory()->create([
+        'source_id' => $member->id,
+        'source_type' => $member->getMorphClass(),
+    ]);
+
+    $source = $txn->source;
+
+    expect($source)->toBeInstanceOf(Member::class);
+    /** @var Member $source */
+    expect($source->id)->toBe($member->id);
+});
+
+it('returns null source when no source is set', function () {
+    $txn = StockTransaction::factory()->create([
+        'source_id' => null,
+        'source_type' => null,
+    ]);
+
+    expect($txn->source)->toBeNull();
 });
 
 it('stock level has many transactions', function () {

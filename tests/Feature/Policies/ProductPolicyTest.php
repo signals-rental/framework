@@ -2,6 +2,7 @@
 
 use App\Models\Product;
 use App\Models\User;
+use App\Policies\ProductPolicy;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 
@@ -123,6 +124,15 @@ describe('ProductPolicy', function () {
             $product = Product::factory()->create();
 
             expect($user->can('delete', $product))->toBeFalse();
+        });
+    });
+
+    describe('managePermission', function () {
+        it('returns the products.create permission', function () {
+            $policy = new ProductPolicy;
+            $method = (new ReflectionMethod($policy, 'managePermission'));
+
+            expect($method->invoke($policy))->toBe('products.create');
         });
     });
 });
