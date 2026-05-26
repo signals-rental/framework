@@ -121,6 +121,22 @@ it('coerces the day_type string into the DayType enum for business hours', funct
         ->and($breakdown->perUnitSubtotalMinor)->toBe(1600);
 });
 
+it('throws when no base period is supplied', function () {
+    $context = new CalculationContext(
+        unitPriceMinor: 10000,
+        currency: 'GBP',
+        start: Carbon::parse('2026-01-05 00:00:00'),
+        end: Carbon::parse('2026-01-10 00:00:00'),
+        quantity: 1,
+        basePeriod: null,
+        strategyConfig: [],
+        transactionType: RateTransactionType::Rental,
+    );
+
+    expect(fn () => (new PeriodStrategy)->calculate($context))
+        ->toThrow(RuntimeException::class, 'The period strategy requires a base period.');
+});
+
 it('labels each base period sensibly', function (BasePeriod $period, string $label) {
     $breakdown = (new PeriodStrategy)->calculate(periodContext(
         start: '2026-01-05 00:00:00',

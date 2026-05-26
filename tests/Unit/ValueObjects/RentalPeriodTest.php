@@ -125,6 +125,18 @@ it('ignores hours outside the business window entirely', function () {
     ]))->toBe(1);
 });
 
+it('yields zero business minutes when the cut-off collapses the window to nothing', function () {
+    // Same-day rental: start 14:00, return 08:00 (before the 09:00 last-day cut-off),
+    // so the final partial day is dropped, leaving an effective end (start of day)
+    // that is at or before the start. businessHoursMinutes returns 0, floored to one unit.
+    expect(period('2026-01-12 14:00', '2026-01-12 08:00')->chargeableUnits(BasePeriod::Daily, [
+        'day_type' => DayType::Business,
+        'business_hours_start' => '09:00',
+        'business_hours_end' => '17:00',
+        'last_day_cutoff' => '09:00',
+    ]))->toBe(1);
+});
+
 it('charges hourly units against the clock', function () {
     // 3h15m = 195 minutes; ceil(195 / 60) = 4 hourly units.
     expect(period('2026-01-12 09:00', '2026-01-12 12:15')->chargeableUnits(BasePeriod::Hourly, []))

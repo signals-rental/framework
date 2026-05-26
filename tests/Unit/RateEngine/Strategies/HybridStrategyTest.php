@@ -130,3 +130,19 @@ it('carries quantity through to the breakdown total', function () {
         ->and($breakdown->perUnitSubtotalMinor)->toBe(36000)
         ->and($breakdown->totalMinor())->toBe(180000);
 });
+
+it('throws when no base period is supplied', function () {
+    $context = new CalculationContext(
+        unitPriceMinor: 4000,
+        currency: 'GBP',
+        start: Carbon::parse('2026-01-05 00:00:00'),
+        end: Carbon::parse('2026-01-12 00:00:00'),
+        quantity: 1,
+        basePeriod: null,
+        strategyConfig: ['fixed_charge' => 20000, 'fixed_period_units' => 3],
+        transactionType: RateTransactionType::Rental,
+    );
+
+    expect(fn () => (new HybridStrategy)->calculate($context))
+        ->toThrow(RuntimeException::class, 'The hybrid strategy requires a base period.');
+});
