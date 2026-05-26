@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             EmailTemplateSeeder::class,
             NotificationTypeSeeder::class,
             ViewSeeder::class,
+            RateDefinitionPresetSeeder::class,
             ProductSeeder::class,
             ActivitySeeder::class,
         ]);

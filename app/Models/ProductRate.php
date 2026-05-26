@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Contracts\HasSchema;
 use App\Enums\RateTransactionType;
 use App\Models\Traits\FormatsMoney;
+use App\Services\RateEngine\RateResolver;
 use App\Services\SchemaBuilder;
 use Carbon\CarbonInterface;
 use Database\Factories\ProductRateFactory;
@@ -20,6 +21,16 @@ class ProductRate extends Model implements HasSchema
 {
     /** @use HasFactory<ProductRateFactory> */
     use FormatsMoney, HasFactory;
+
+    protected static function booted(): void
+    {
+        $flush = static function (ProductRate $rate): void {
+            RateResolver::flushProduct($rate->product_id);
+        };
+
+        static::saved($flush);
+        static::deleted($flush);
+    }
 
     /** @var list<string> */
     protected $fillable = [

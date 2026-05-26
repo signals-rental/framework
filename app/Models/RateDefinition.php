@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Contracts\HasSchema;
 use App\Enums\BasePeriod;
 use App\Enums\CalculationStrategyType;
+use App\Services\RateEngine\RateResolver;
 use App\Services\SchemaBuilder;
 use Database\Factories\RateDefinitionFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +18,16 @@ class RateDefinition extends Model implements HasSchema
 {
     /** @use HasFactory<RateDefinitionFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        $flush = static function (): void {
+            RateResolver::flushAll();
+        };
+
+        static::saved($flush);
+        static::deleted($flush);
+    }
 
     /** @var list<string> */
     protected $fillable = [
