@@ -4,8 +4,13 @@ use App\Models\User;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
+use App\Services\SettingsService;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rules\Password;
 
 it('registers DocsService as singleton', function () {
     $a = app(DocsService::class);
@@ -51,6 +56,20 @@ it('defines the owner gate', function () {
     expect(Gate::forUser($user)->allows('owner'))->toBeFalse();
 });
 
+it('compiles the localdate blade directive', function () {
+    $compiled = Blade::compileString('@localdate($value)');
+
+    expect($compiled)->toContain('App\Support\Formatter')
+        ->toContain('->date($value)');
+});
+
+it('compiles the localdatetime blade directive', function () {
+    $compiled = Blade::compileString('@localdatetime($value)');
+
+    expect($compiled)->toContain('App\Support\Formatter')
+        ->toContain('->dateTime($value)');
+});
+
 it('configures API rate limiter', function () {
     $limiter = RateLimiter::limiter('api');
 
@@ -62,40 +81,40 @@ it('configures rate limiter for api with settings-driven limits', function () {
 
     // Create a mock request with an authenticated user
     $user = User::factory()->create();
-    $request = \Illuminate\Http\Request::create('/api/v1/test');
+    $request = Request::create('/api/v1/test');
     $request->setUserResolver(fn () => $user);
 
     $result = $limiter($request);
 
-    expect($result)->toBeInstanceOf(\Illuminate\Cache\RateLimiting\Limit::class);
+    expect($result)->toBeInstanceOf(Limit::class);
 });
 
 it('configures rate limiter with unauthenticated fallback', function () {
     $limiter = RateLimiter::limiter('api');
 
-    $request = \Illuminate\Http\Request::create('/api/v1/test');
+    $request = Request::create('/api/v1/test');
     $request->setUserResolver(fn () => null);
 
     $result = $limiter($request);
 
-    expect($result)->toBeInstanceOf(\Illuminate\Cache\RateLimiting\Limit::class);
+    expect($result)->toBeInstanceOf(Limit::class);
 });
 
 it('rate limiter falls back to defaults when settings throws', function () {
     // Bind a mock SettingsService that throws on any call
-    $mock = Mockery::mock(\App\Services\SettingsService::class);
-    $mock->shouldReceive('get')->andThrow(new \RuntimeException('Settings unavailable'));
-    app()->instance(\App\Services\SettingsService::class, $mock);
+    $mock = Mockery::mock(SettingsService::class);
+    $mock->shouldReceive('get')->andThrow(new RuntimeException('Settings unavailable'));
+    app()->instance(SettingsService::class, $mock);
 
     $limiter = RateLimiter::limiter('api');
 
     $user = User::factory()->create();
-    $request = \Illuminate\Http\Request::create('/api/v1/test');
+    $request = Request::create('/api/v1/test');
     $request->setUserResolver(fn () => $user);
 
     $result = $limiter($request);
 
-    expect($result)->toBeInstanceOf(\Illuminate\Cache\RateLimiting\Limit::class);
+    expect($result)->toBeInstanceOf(Limit::class);
 });
 
 it('returns password rules in production environment', function () {
@@ -110,9 +129,9 @@ it('returns password rules in production environment', function () {
     // Temporarily mock app()->isProduction() by swapping the callback
     app()->detectEnvironment(fn () => 'production');
 
-    $rule = \Illuminate\Validation\Rules\Password::defaults();
+    $rule = Password::defaults();
 
-    expect($rule)->toBeInstanceOf(\Illuminate\Validation\Rules\Password::class);
+    expect($rule)->toBeInstanceOf(Password::class);
 
     // Restore environment
     app()->detectEnvironment(fn () => 'testing');
@@ -121,8 +140,8 @@ it('returns password rules in production environment', function () {
 it('returns basic password rules in non-production environment', function () {
     app()->detectEnvironment(fn () => 'testing');
 
-    $rule = \Illuminate\Validation\Rules\Password::defaults();
+    $rule = Password::defaults();
 
     // In non-production, the callback returns null so Password::defaults() gives a basic Password rule
-    expect($rule)->toBeInstanceOf(\Illuminate\Validation\Rules\Password::class);
+    expect($rule)->toBeInstanceOf(Password::class);
 });

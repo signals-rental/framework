@@ -3,6 +3,7 @@
 use App\Livewire\Components\IconUpload;
 use App\Models\Member;
 use App\Models\User;
+use App\Services\FileService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Http\UploadedFile;
@@ -118,9 +119,9 @@ it('returns null thumb display url when file service throws', function () {
         'icon_thumb_url' => 'icons/thumbs/test.jpg',
     ]);
 
-    $mockService = Mockery::mock(\App\Services\FileService::class);
-    $mockService->shouldReceive('signedUrl')->andThrow(new \RuntimeException('S3 unavailable'));
-    app()->instance(\App\Services\FileService::class, $mockService);
+    $mockService = Mockery::mock(FileService::class);
+    $mockService->shouldReceive('signedUrl')->andThrow(new RuntimeException('S3 unavailable'));
+    app()->instance(FileService::class, $mockService);
 
     /** @var IconUpload $instance */
     $instance = Livewire::test(IconUpload::class, ['model' => $this->member])->instance();
@@ -129,15 +130,40 @@ it('returns null thumb display url when file service throws', function () {
 });
 
 it('handles upload failure gracefully', function () {
-    $mockService = Mockery::mock(\App\Services\FileService::class);
-    $mockService->shouldReceive('uploadIcon')->andThrow(new \RuntimeException('Upload failed'));
-    app()->instance(\App\Services\FileService::class, $mockService);
+    $mockService = Mockery::mock(FileService::class);
+    $mockService->shouldReceive('uploadIcon')->andThrow(new RuntimeException('Upload failed'));
+    app()->instance(FileService::class, $mockService);
 
     $photo = UploadedFile::fake()->image('avatar.jpg', 300, 300);
 
     Livewire::test(IconUpload::class, ['model' => $this->member])
         ->set('photo', $photo)
         ->assertHasErrors(['photo']);
+});
+
+it('logs and continues when storage deletion fails during removal', function () {
+    $this->member->update([
+        'icon_url' => 'icons/test.jpg',
+        'icon_thumb_url' => 'icons/thumbs/test.jpg',
+    ]);
+
+    Storage::shouldReceive('disk')->andReturnSelf();
+    Storage::shouldReceive('delete')->andThrow(new RuntimeException('S3 down'));
+
+    Livewire::test(IconUpload::class, ['model' => $this->member])
+        ->call('removeIcon')
+        ->assertDispatched('icon-updated');
+
+    $this->member->refresh();
+    expect($this->member->icon_url)->toBeNull()
+        ->and($this->member->icon_thumb_url)->toBeNull();
+});
+
+it('aborts when the model class is not allowlisted', function () {
+    Livewire::test(IconUpload::class, ['model' => $this->member])
+        ->set('modelClass', User::class)
+        ->call('removeIcon')
+        ->assertForbidden();
 });
 
 it('mounts with existing icon paths from model', function () {

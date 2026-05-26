@@ -63,3 +63,36 @@ it('handles string null password correctly', function () {
 
     expect($result['success'])->toBeFalse();
 });
+
+it('authenticates when a real password is supplied', function () {
+    if (! extension_loaded('redis')) {
+        $this->markTestSkipped('Redis extension not loaded');
+    }
+
+    $client = Mockery::mock(Redis::class);
+    $client->shouldReceive('connect')->once()->andReturnTrue();
+    $client->shouldReceive('auth')->once()->with('s3cret')->andReturnTrue();
+    $client->shouldReceive('ping')->once()->andReturnTrue();
+    $client->shouldReceive('info')->once()->with('server')->andReturn(['redis_version' => '7.2.0']);
+    $client->shouldReceive('close')->once()->andReturnTrue();
+
+    $tester = new class($client) extends RedisConnectionTester
+    {
+        public function __construct(private Redis $client) {}
+
+        protected function makeClient(): Redis
+        {
+            return $this->client;
+        }
+    };
+
+    $result = $tester->test([
+        'host' => '127.0.0.1',
+        'port' => 6379,
+        'password' => 's3cret',
+    ]);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['version'])->toBe('Redis 7.2.0')
+        ->and($result['error'])->toBeNull();
+});

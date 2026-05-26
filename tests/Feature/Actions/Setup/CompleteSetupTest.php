@@ -14,6 +14,7 @@ pest()->group('env-writing');
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Artisan;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -178,6 +179,23 @@ it('marks setup as complete in config', function () {
     $data = makeSetupData();
 
     (new CompleteSetup)($data);
+
+    expect(config('signals.setup_complete'))->toBeTrue();
+});
+
+it('caches config instead of clearing when not running unit tests', function () {
+    Artisan::shouldReceive('call')->once()->with('config:cache');
+
+    // runningUnitTests() keys off env === 'testing'; flip it so the production
+    // branch (config:cache) runs instead of config:clear.
+    app()->detectEnvironment(fn () => 'production');
+
+    try {
+        $action = new CompleteSetup;
+        (new ReflectionMethod($action, 'markSetupComplete'))->invoke($action);
+    } finally {
+        app()->detectEnvironment(fn () => 'testing');
+    }
 
     expect(config('signals.setup_complete'))->toBeTrue();
 });
