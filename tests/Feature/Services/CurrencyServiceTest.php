@@ -90,6 +90,12 @@ it('throws RuntimeException when no rate exists', function () {
     $this->service->convert(10000, 'EUR', 'JPY');
 })->throws(RuntimeException::class);
 
+it('returns rate of 1 when getRate is called for the same currency', function () {
+    // convert() short-circuits same-currency before calling getRate, so exercise
+    // getRate directly to cover its own from === to branch.
+    expect($this->service->getRate('GBP', 'GBP'))->toBe('1.00000000');
+});
+
 it('gets the base currency from settings', function () {
     app(SettingsService::class)->set('company.base_currency', 'GBP');
 

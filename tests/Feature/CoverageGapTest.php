@@ -11,18 +11,36 @@ use App\Actions\Views\CreateCustomView;
 use App\Data\Api\ActionLogData;
 use App\Data\Attachments\AttachmentData;
 use App\Data\Views\CreateCustomViewData;
+use App\Enums\CustomFieldType;
 use App\Models\ActionLog;
 use App\Models\Attachment;
+use App\Models\Currency;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
+use App\Models\CustomView;
 use App\Models\EmailTemplate;
 use App\Models\Member;
+use App\Models\MemberRelationship;
+use App\Models\Scopes\StoreScope;
 use App\Models\User;
 use App\Services\CurrencyService;
 use App\Services\CustomFieldCopier;
+use App\Services\CustomFieldSerializer;
+use App\Services\CustomFieldValidator;
 use App\Services\EmailTemplateRenderer;
 use App\Services\PermissionRegistry;
+use App\Services\ViewResolver;
+use App\Support\Formatter;
+use App\Views\MemberColumnRegistry;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Role;
 
 describe('CreateCustomView action (direct invocation)', function () {
     beforeEach(function () {
@@ -46,7 +64,7 @@ describe('CreateCustomView action (direct invocation)', function () {
     });
 
     it('creates a shared custom view with roles', function () {
-        $role = \Spatie\Permission\Models\Role::first();
+        $role = Role::first();
 
         $data = new CreateCustomViewData(
             name: 'Team View',
@@ -60,7 +78,7 @@ describe('CreateCustomView action (direct invocation)', function () {
 
         expect($result->visibility)->toBe('shared');
 
-        $view = \App\Models\CustomView::find($result->id);
+        $view = CustomView::find($result->id);
         expect($view->roles)->toHaveCount(1);
     });
 });
@@ -123,6 +141,26 @@ describe('AttachmentData::fromModel', function () {
             ->and($dto->thumb_url)->toBeNull();
     });
 
+    it('falls back to the raw path when temporary URL generation fails', function () {
+        // A non-local/public disk backed by the local driver, which does not support
+        // temporaryUrl(), so resolveUrl() catches the Throwable and returns the raw path.
+        config()->set('filesystems.disks.no_temp_urls', [
+            'driver' => 'local',
+            'root' => storage_path('framework/testing/no-temp'),
+        ]);
+
+        $attachment = Attachment::factory()->create([
+            'file_path' => 'attachments/doc.pdf',
+            'thumb_path' => null,
+            'disk' => 'no_temp_urls',
+        ]);
+
+        $dto = AttachmentData::fromModel($attachment);
+
+        // temporaryUrl threw, so the catch returns the unmodified path.
+        expect($dto->url)->toBe('attachments/doc.pdf');
+    });
+
     it('resolves thumb URL when present', function () {
         Storage::fake('public');
         Storage::disk('public')->put('attachments/test.pdf', 'content');
@@ -153,7 +191,7 @@ describe('EnsureTwoFactorAuthenticated middleware', function () {
             'two_factor_recovery_codes' => null,
         ]);
 
-        \Illuminate\Support\Facades\Route::middleware(['web', '2fa'])->get('/2fa-test', fn () => 'ok');
+        Route::middleware(['web', '2fa'])->get('/2fa-test', fn () => 'ok');
 
         $this->actingAs($user)
             ->get('/2fa-test')
@@ -169,7 +207,7 @@ describe('EnsureTwoFactorAuthenticated middleware', function () {
             'two_factor_recovery_codes' => null,
         ]);
 
-        \Illuminate\Support\Facades\Route::middleware(['web', '2fa'])->get('/2fa-admin-test', fn () => 'ok');
+        Route::middleware(['web', '2fa'])->get('/2fa-admin-test', fn () => 'ok');
 
         $this->actingAs($admin)
             ->get('/2fa-admin-test')
@@ -179,7 +217,7 @@ describe('EnsureTwoFactorAuthenticated middleware', function () {
 
 describe('StoreScope', function () {
     it('withoutScoping disables then re-enables scope', function () {
-        $result = \App\Models\Scopes\StoreScope::withoutScoping(function () {
+        $result = StoreScope::withoutScoping(function () {
             return 'inner-result';
         });
 
@@ -189,7 +227,7 @@ describe('StoreScope', function () {
 
 describe('CurrencyService::baseCurrency', function () {
     it('returns the base currency model', function () {
-        \App\Models\Currency::factory()->create(['code' => 'GBP', 'is_enabled' => true]);
+        Currency::factory()->create(['code' => 'GBP', 'is_enabled' => true]);
         settings()->set('company.base_currency', 'GBP');
 
         $service = new CurrencyService;
@@ -204,12 +242,12 @@ describe('CustomFieldCopier::copy', function () {
         $source = Member::factory()->create();
         $target = Member::factory()->create();
 
-        $field = \App\Models\CustomField::factory()->forModule('Member')->create([
+        $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'po_reference',
             'display_name' => 'PO Reference',
         ]);
 
-        \App\Models\CustomFieldValue::create([
+        CustomFieldValue::create([
             'custom_field_id' => $field->id,
             'entity_type' => $source->getMorphClass(),
             'entity_id' => $source->id,
@@ -312,7 +350,7 @@ describe('Member model scopes', function () {
         $org = Member::factory()->organisation()->create();
         $contact = Member::factory()->contact()->create();
 
-        \App\Models\MemberRelationship::create([
+        MemberRelationship::create([
             'member_id' => $contact->id,
             'related_member_id' => $org->id,
             'relationship_type' => 'employee',
@@ -327,7 +365,7 @@ describe('Member model scopes', function () {
         $org = Member::factory()->organisation()->create();
         $contact = Member::factory()->contact()->create();
 
-        \App\Models\MemberRelationship::create([
+        MemberRelationship::create([
             'member_id' => $contact->id,
             'related_member_id' => $org->id,
             'relationship_type' => 'employee',
@@ -341,12 +379,12 @@ describe('Member model scopes', function () {
 
 describe('CustomFieldSerializer::coerceDefaultValue', function () {
     it('is exercised through custom field creation with defaults', function () {
-        $field = \App\Models\CustomField::factory()->boolean()->forModule('Member')->create([
+        $field = CustomField::factory()->boolean()->forModule('Member')->create([
             'default_value' => 'true',
         ]);
 
         $member = Member::factory()->create();
-        $serializer = app(\App\Services\CustomFieldSerializer::class);
+        $serializer = app(CustomFieldSerializer::class);
 
         $serializer->fromArray($member, [], applyDefaults: true);
         $result = $serializer->toArray($member);
@@ -361,7 +399,7 @@ describe('ViewResolver::applyFilters with various logic types', function () {
         $this->seed(RoleSeeder::class);
         $this->actingAs(User::factory()->owner()->create());
 
-        $view = \App\Models\CustomView::factory()->create([
+        $view = CustomView::factory()->create([
             'entity_type' => 'members',
             'columns' => ['name', 'membership_type'],
             'filters' => [
@@ -372,11 +410,29 @@ describe('ViewResolver::applyFilters with various logic types', function () {
             ],
         ]);
 
-        $resolver = app(\App\Services\ViewResolver::class);
+        $resolver = app(ViewResolver::class);
         $query = Member::query();
         $result = $resolver->applyFilters($query, $view);
 
-        expect($result)->toBeInstanceOf(\Illuminate\Database\Eloquent\Builder::class);
+        expect($result)->toBeInstanceOf(Builder::class);
+    });
+});
+
+describe('ActionLogData::fromModel with null auditable type', function () {
+    it('returns null friendly type when auditable_type is null', function () {
+        $log = ActionLog::factory()->make([
+            'user_id' => null,
+            'action' => 'system.event',
+            'auditable_id' => null,
+        ]);
+        // The DB column is non-nullable; null it in-memory (via forceFill so the
+        // typed attribute accepts null) to exercise friendlyType()'s null guard.
+        $log->forceFill(['auditable_type' => null, 'id' => 1]);
+
+        $dto = ActionLogData::fromModel($log);
+
+        expect($dto->auditable_type)->toBeNull()
+            ->and($dto->action)->toBe('system.event');
     });
 });
 
@@ -401,7 +457,7 @@ describe('AttachmentController::indexForMember', function () {
         $this->seed(PermissionSeeder::class);
         $this->seed(RoleSeeder::class);
         $user = User::factory()->owner()->create();
-        \Laravel\Sanctum\Sanctum::actingAs($user, ['*']);
+        Sanctum::actingAs($user, ['*']);
 
         $member = Member::factory()->create();
         Attachment::factory()->create([
@@ -424,11 +480,11 @@ describe('MemberController with view_id filtering', function () {
         $this->seed(PermissionSeeder::class);
         $this->seed(RoleSeeder::class);
         $user = User::factory()->owner()->create();
-        \Laravel\Sanctum\Sanctum::actingAs($user, ['*']);
+        Sanctum::actingAs($user, ['*']);
 
         $member = Member::factory()->create();
 
-        $view = \App\Models\CustomView::factory()->create([
+        $view = CustomView::factory()->create([
             'entity_type' => 'members',
             'visibility' => 'system',
             'columns' => ['name', 'membership_type'],
@@ -498,7 +554,7 @@ describe('Member::formatMoneyCost', function () {
 
 describe('Formatter edge cases', function () {
     beforeEach(function () {
-        \App\Models\Currency::factory()->create([
+        Currency::factory()->create([
             'code' => 'GBP', 'name' => 'British Pound', 'symbol' => '£',
             'decimal_places' => 2, 'is_enabled' => true,
         ]);
@@ -509,13 +565,13 @@ describe('Formatter edge cases', function () {
     });
 
     it('formats money under 1000 without thousands separator', function () {
-        $formatter = app(\App\Support\Formatter::class);
+        $formatter = app(Formatter::class);
         expect($formatter->money(99900, 'GBP'))->toBe('£999.00');
     });
 
     it('formats money with no base currency setting', function () {
         settings()->set('company.base_currency', null);
-        $formatter = app(\App\Support\Formatter::class);
+        $formatter = app(Formatter::class);
         // Falls back to GBP default
         expect($formatter->money(100))->toBeString();
     });
@@ -523,14 +579,14 @@ describe('Formatter edge cases', function () {
 
 describe('ColumnRegistry custom field integration edge cases', function () {
     it('merges non-filterable non-sortable custom fields', function () {
-        \App\Models\CustomField::factory()->forModule('Member')->create([
+        CustomField::factory()->forModule('Member')->create([
             'name' => 'internal_notes',
             'display_name' => 'Internal Notes',
-            'field_type' => \App\Enums\CustomFieldType::Text,
+            'field_type' => CustomFieldType::Text,
             'is_searchable' => false,
         ]);
 
-        $registry = new \App\Views\MemberColumnRegistry;
+        $registry = new MemberColumnRegistry;
         $columns = $registry->allColumns();
 
         expect($columns)->toHaveKey('cf.internal_notes');
@@ -539,8 +595,8 @@ describe('ColumnRegistry custom field integration edge cases', function () {
 
 describe('StoreScope with nested withoutScoping', function () {
     it('restores previous state when nested', function () {
-        $result = \App\Models\Scopes\StoreScope::withoutScoping(function () {
-            return \App\Models\Scopes\StoreScope::withoutScoping(function () {
+        $result = StoreScope::withoutScoping(function () {
+            return StoreScope::withoutScoping(function () {
                 return 'nested';
             });
         });
@@ -555,21 +611,21 @@ describe('CurrencyService::baseCurrency with missing setting', function () {
 
         $service = new CurrencyService;
         $service->baseCurrency();
-    })->throws(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    })->throws(ModelNotFoundException::class);
 });
 
 describe('CustomFieldValidator edge case', function () {
     it('validates multi list of values with non-array input', function () {
-        $field = \App\Models\CustomField::factory()->forModule('Member')->create([
+        $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'multi_test',
-            'field_type' => \App\Enums\CustomFieldType::MultiListOfValues,
+            'field_type' => CustomFieldType::MultiListOfValues,
         ]);
 
-        $validator = app(\App\Services\CustomFieldValidator::class);
+        $validator = app(CustomFieldValidator::class);
 
         try {
             $validator->validate('Member', ['multi_test' => 'not-an-array']);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             expect($e->errors())->toHaveKey('multi_test');
         }
     });

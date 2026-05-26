@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Member;
 use App\Views\Column;
+use App\Views\ColumnRegistry;
 use App\Views\MemberColumnRegistry;
 
 describe('Column', function () {
@@ -84,6 +86,35 @@ describe('Column', function () {
             ->and(Column::make('c')->type('datetime')->type)->toBe('datetime')
             ->and(Column::make('d')->type('money')->type)->toBe('money')
             ->and(Column::make('e')->type('tags')->type)->toBe('tags');
+    });
+});
+
+describe('ColumnRegistry base defaultColumns', function () {
+    it('derives default columns from all column keys when not overridden', function () {
+        // A registry that does NOT override defaultColumns(), exercising the base
+        // implementation (array_keys of allColumns) which concrete registries override.
+        $registry = new class extends ColumnRegistry
+        {
+            public function entityType(): string
+            {
+                return 'members';
+            }
+
+            public function modelClass(): string
+            {
+                return Member::class;
+            }
+
+            protected function columns(): array
+            {
+                return [
+                    Column::make('alpha')->label('Alpha'),
+                    Column::make('beta')->label('Beta'),
+                ];
+            }
+        };
+
+        expect($registry->defaultColumns())->toBe(['alpha', 'beta']);
     });
 });
 

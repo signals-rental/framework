@@ -3,8 +3,11 @@
 use App\Data\Products\ProductData;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
+use App\Models\CostGroup;
 use App\Models\Product;
 use App\Models\ProductGroup;
+use App\Models\ProductTaxClass;
+use App\Models\RevenueGroup;
 
 it('maps is_active to active key in output', function () {
     $product = Product::factory()->create(['is_active' => true]);
@@ -141,6 +144,53 @@ it('returns null icon when no icon_url set', function () {
     $data = ProductData::fromModel($product);
 
     expect($data->icon)->toBeNull();
+});
+
+it('includes tax class, revenue and cost group references when relations are loaded', function () {
+    $taxClass = ProductTaxClass::factory()->create(['name' => 'Standard VAT']);
+    $purchaseTaxClass = ProductTaxClass::factory()->create(['name' => 'Reduced VAT']);
+    $rentalRevenue = RevenueGroup::factory()->create(['name' => 'Rental Income']);
+    $saleRevenue = RevenueGroup::factory()->create(['name' => 'Sale Income']);
+    $subRentalCost = CostGroup::factory()->create(['name' => 'Sub-hire Cost']);
+    $purchaseCost = CostGroup::factory()->create(['name' => 'Purchase Cost']);
+
+    $product = Product::factory()->create([
+        'tax_class_id' => $taxClass->id,
+        'purchase_tax_class_id' => $purchaseTaxClass->id,
+        'rental_revenue_group_id' => $rentalRevenue->id,
+        'sale_revenue_group_id' => $saleRevenue->id,
+        'sub_rental_cost_group_id' => $subRentalCost->id,
+        'purchase_cost_group_id' => $purchaseCost->id,
+    ]);
+
+    $product->load([
+        'taxClass', 'purchaseTaxClass', 'rentalRevenueGroup',
+        'saleRevenueGroup', 'subRentalCostGroup', 'purchaseCostGroup',
+    ]);
+
+    $data = ProductData::fromModel($product);
+
+    expect($data->tax_class)->not->toBeNull()
+        ->and($data->tax_class->name)->toBe('Standard VAT')
+        ->and($data->purchase_tax_class->name)->toBe('Reduced VAT')
+        ->and($data->rental_revenue_group->name)->toBe('Rental Income')
+        ->and($data->sale_revenue_group->name)->toBe('Sale Income')
+        ->and($data->sub_rental_cost_group->name)->toBe('Sub-hire Cost')
+        ->and($data->purchase_cost_group->name)->toBe('Purchase Cost');
+});
+
+it('excludes tax class and group references when relations are not loaded', function () {
+    $taxClass = ProductTaxClass::factory()->create();
+    $product = Product::factory()->create(['tax_class_id' => $taxClass->id]);
+
+    $data = ProductData::fromModel($product);
+
+    expect($data->tax_class)->toBeNull()
+        ->and($data->purchase_tax_class)->toBeNull()
+        ->and($data->rental_revenue_group)->toBeNull()
+        ->and($data->sale_revenue_group)->toBeNull()
+        ->and($data->sub_rental_cost_group)->toBeNull()
+        ->and($data->purchase_cost_group)->toBeNull();
 });
 
 it('returns icon with url and thumb_url when set', function () {

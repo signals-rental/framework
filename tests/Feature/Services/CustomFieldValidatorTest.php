@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use App\Models\ListName;
 use App\Models\ListValue;
@@ -231,7 +232,7 @@ it('generates correct rules for a percentage field', function () {
 it('generates correct rules for a time field', function () {
     CustomField::factory()->forModule('Opportunity')->create([
         'name' => 'start_time',
-        'field_type' => \App\Enums\CustomFieldType::Time,
+        'field_type' => CustomFieldType::Time,
     ]);
 
     $rules = $this->validator->rules('Opportunity', ['start_time' => '14:30:00']);
@@ -243,7 +244,7 @@ it('generates correct rules for a time field', function () {
 it('generates correct rules for a datetime field', function () {
     CustomField::factory()->forModule('Opportunity')->create([
         'name' => 'event_start',
-        'field_type' => \App\Enums\CustomFieldType::DateTime,
+        'field_type' => CustomFieldType::DateTime,
     ]);
 
     $rules = $this->validator->rules('Opportunity', ['event_start' => '2026-01-15 14:30:00']);
@@ -279,7 +280,7 @@ it('generates correct rules for a text field', function () {
 it('generates correct rules for a json key-value field', function () {
     CustomField::factory()->forModule('Opportunity')->create([
         'name' => 'metadata',
-        'field_type' => \App\Enums\CustomFieldType::JsonKeyValue,
+        'field_type' => CustomFieldType::JsonKeyValue,
     ]);
 
     $rules = $this->validator->rules('Opportunity', ['metadata' => ['key' => 'value']]);
@@ -313,7 +314,7 @@ it('returns null rules for AutoNumber field type', function () {
 it('returns null rules for FileImage field type', function () {
     CustomField::factory()->forModule('Opportunity')->create([
         'name' => 'photo',
-        'field_type' => \App\Enums\CustomFieldType::FileImage,
+        'field_type' => CustomFieldType::FileImage,
     ]);
 
     $rules = $this->validator->rules('Opportunity', ['photo' => 'some-file']);
@@ -375,7 +376,7 @@ it('generates rules for text field without max_length', function () {
 it('generates list of values rules without list_name_id', function () {
     CustomField::factory()->forModule('Opportunity')->create([
         'name' => 'orphan_list',
-        'field_type' => \App\Enums\CustomFieldType::ListOfValues,
+        'field_type' => CustomFieldType::ListOfValues,
         'list_name_id' => null,
     ]);
 
@@ -388,7 +389,7 @@ it('generates list of values rules without list_name_id', function () {
 it('generates multi list of values rules without list_name_id', function () {
     CustomField::factory()->forModule('Opportunity')->create([
         'name' => 'orphan_multi',
-        'field_type' => \App\Enums\CustomFieldType::MultiListOfValues,
+        'field_type' => CustomFieldType::MultiListOfValues,
         'list_name_id' => null,
     ]);
 
@@ -449,6 +450,29 @@ it('without enforceRequired does not include rules for absent fields', function 
     $rules = $this->validator->rules('Opportunity', []);
 
     expect($rules)->not->toHaveKey('mandatory_ref');
+});
+
+it('multi list of values closure returns early for non-array values', function () {
+    // Field with a list_name_id so the closure validation rule is registered.
+    $listName = ListName::factory()->create();
+    ListValue::factory()->forList($listName)->create(['name' => 'Red']);
+
+    CustomField::factory()->multiListOfValues()->forModule('Opportunity')->create([
+        'name' => 'colours',
+        'list_name_id' => $listName->id,
+    ]);
+
+    // A non-array value: the closure's is_array guard returns early (no per-item
+    // failures added), while the 'array' rule produces the validation error.
+    try {
+        $this->validator->validate('Opportunity', ['colours' => 'not-an-array']);
+        $this->fail('Expected ValidationException was not thrown');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('colours');
+        // The closure did not append an "invalid value" message for a non-array input.
+        $messages = implode(' ', $e->errors()['colours']);
+        expect($messages)->not->toContain('contains an invalid value');
+    }
 });
 
 it('rejects unknown custom field names in validate', function () {
