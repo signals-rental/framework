@@ -34,6 +34,25 @@ it('implements the calculation strategy contract', function () {
     expect(new HybridStrategy)->toBeInstanceOf(CalculationStrategy::class);
 });
 
+it('omits the fixed line item when no fixed period is configured', function () {
+    // An unconfigured hybrid (e.g. the empty-config preset) has fixed_period_units 0.
+    // Every unit is billed at the unit price; there must be no "first 0 days" line
+    // and no overlapping period ranges.
+    $breakdown = (new HybridStrategy)->calculate(hybridContext(
+        unitPriceMinor: 4000,
+        strategyConfig: [],
+    ));
+
+    expect($breakdown->units)->toBe(7)
+        ->and($breakdown->perUnitSubtotalMinor)->toBe(28000) // 0 fixed + 7 × 4000
+        ->and($breakdown->lineItems)->toHaveCount(1);
+
+    $line = $breakdown->lineItems[0];
+
+    expect($line->periodFrom)->toBe(1)
+        ->and($line->periodTo)->toBe(7);
+});
+
 it('declares its identifier, label, support flags and allowed base periods', function () {
     $strategy = new HybridStrategy;
 

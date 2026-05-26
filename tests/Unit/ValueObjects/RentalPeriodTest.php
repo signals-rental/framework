@@ -59,14 +59,25 @@ it('keeps the final day when returned after the last-day cut-off', function () {
     ]))->toBe(3);
 });
 
-it('still counts the first day even when a first-day cut-off is supplied (v1 forward-compat)', function () {
-    // first_day_cutoff is accepted but must not change the unit count in v1.
-    $withoutCutoff = period('2026-01-12 14:00', '2026-01-14 14:00')
+it('charges the first day in full when collection is after the first-day cut-off', function () {
+    // Pick up Mon 14:00 (after the 12:00 cut-off), return Tue 11:00. The late
+    // collection must not shrink the first day: the start floors to Mon 00:00 so
+    // Monday is billed in full (Mon 00:00 -> Tue 11:00 = 35h => 2 units).
+    $withoutCutoff = period('2026-01-12 14:00', '2026-01-13 11:00')
         ->chargeableUnits(BasePeriod::Daily, []);
-    $withCutoff = period('2026-01-12 14:00', '2026-01-14 14:00')
-        ->chargeableUnits(BasePeriod::Daily, ['first_day_cutoff' => '09:00']);
+    $withCutoff = period('2026-01-12 14:00', '2026-01-13 11:00')
+        ->chargeableUnits(BasePeriod::Daily, ['first_day_cutoff' => '12:00']);
 
-    expect($withCutoff)->toBe($withoutCutoff)->toBe(2);
+    expect($withoutCutoff)->toBe(1)
+        ->and($withCutoff)->toBe(2);
+});
+
+it('leaves the count unchanged when collection is at or before the first-day cut-off', function () {
+    // Pick up Mon 09:00 (before the 12:00 cut-off): no flooring, so a 23h rental
+    // (Mon 09:00 -> Tue 08:00) stays a single chargeable day.
+    expect(period('2026-01-12 09:00', '2026-01-13 08:00')->chargeableUnits(BasePeriod::Daily, [
+        'first_day_cutoff' => '12:00',
+    ]))->toBe(1);
 });
 
 it('scales a rental week by rental_days_per_week', function () {
@@ -85,6 +96,13 @@ it('defaults a rental week to seven days', function () {
     // 7 calendar days = one default week.
     expect(period('2026-01-12 00:00', '2026-01-19 00:00')->chargeableUnits(BasePeriod::Weekly, []))
         ->toBe(1);
+});
+
+it('treats a zero or negative rental_days_per_week as one day to avoid a divide-by-zero', function () {
+    // A malformed config of 0 days/week must not crash; it falls back to a 1-day week.
+    expect(period('2026-01-12 00:00', '2026-01-13 00:00')->chargeableUnits(BasePeriod::Weekly, [
+        'rental_days_per_week' => 0,
+    ]))->toBe(1);
 });
 
 it('counts only business-hours minutes when day type is business', function () {

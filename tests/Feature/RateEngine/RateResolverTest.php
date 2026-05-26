@@ -61,6 +61,18 @@ it('prefers a store-specific rate over an all-stores rate at equal priority', fu
     expect($resolved->id)->toBe($storeRate->id);
 });
 
+it('picks the highest-priority store-specific rate when several exist for the store', function () {
+    $product = Product::factory()->create();
+    $store = Store::factory()->create();
+    ProductRate::factory()->for($product)->for($store)->withPriority(1)->create(['price' => 1000]);
+    $winner = ProductRate::factory()->for($product)->for($store)->withPriority(10)->create(['price' => 7000]);
+
+    $resolved = resolver()->resolve($product, RateTransactionType::Rental, $store->id);
+
+    expect($resolved->id)->toBe($winner->id)
+        ->and($resolved->price)->toBe(7000);
+});
+
 it('falls back to an all-stores rate when no store-specific rate exists', function () {
     $product = Product::factory()->create();
     $store = Store::factory()->create();
@@ -80,6 +92,30 @@ it('only matches rates valid on the requested date', function () {
 
     expect(resolver()->resolve($product, RateTransactionType::Rental, null, Carbon::parse('2026-07-15')))->toBeNull()
         ->and(resolver()->resolve($product, RateTransactionType::Rental, null, Carbon::parse('2026-06-15')))->not->toBeNull();
+});
+
+it('matches a rate on the final valid day regardless of the time of day', function () {
+    $product = Product::factory()->create();
+    ProductRate::factory()->for($product)->create([
+        'valid_from' => '2026-06-01',
+        'valid_to' => '2026-06-30',
+    ]);
+
+    // Mid-afternoon on the last valid day: the rate must still resolve. A naive
+    // timestamp comparison (valid_to midnight >= 14:00) would drop it a day early.
+    $resolved = resolver()->resolve($product, RateTransactionType::Rental, null, Carbon::parse('2026-06-30 14:00:00'));
+
+    expect($resolved)->not->toBeNull();
+});
+
+it('does not match the day after the validity window closes', function () {
+    $product = Product::factory()->create();
+    ProductRate::factory()->for($product)->create([
+        'valid_from' => '2026-06-01',
+        'valid_to' => '2026-06-30',
+    ]);
+
+    expect(resolver()->resolve($product, RateTransactionType::Rental, null, Carbon::parse('2026-07-01 00:01:00')))->toBeNull();
 });
 
 it('matches open-ended validity windows', function () {

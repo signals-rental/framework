@@ -66,7 +66,7 @@ class HybridStrategy implements CalculationStrategy
         }
 
         $fixedCharge = (int) ($context->strategyConfig['fixed_charge'] ?? 0);
-        $fixedPeriodUnits = (int) ($context->strategyConfig['fixed_period_units'] ?? 0);
+        $fixedPeriodUnits = max(0, (int) ($context->strategyConfig['fixed_period_units'] ?? 0));
 
         $units = $this->chargeableUnits($context, $period);
         $unitLabel = $this->unitLabel($period);
@@ -75,18 +75,20 @@ class HybridStrategy implements CalculationStrategy
         $subsequentSubtotalMinor = $subsequentUnits * $context->unitPriceMinor;
         $perUnitSubtotalMinor = $fixedCharge + $subsequentSubtotalMinor;
 
-        $coveredUnits = min($units, $fixedPeriodUnits);
+        $lineItems = [];
 
-        $lineItems = [
-            new RateLineItem(
+        // Only show the fixed block when it actually covers an initial period; an
+        // unconfigured hybrid (no fixed period) bills every unit at the unit price.
+        if ($fixedPeriodUnits > 0) {
+            $lineItems[] = new RateLineItem(
                 periodFrom: 1,
-                periodTo: max(1, $coveredUnits),
+                periodTo: min($units, $fixedPeriodUnits),
                 label: sprintf('Fixed charge (first %d %s) × %d', $fixedPeriodUnits, $unitLabel, $fixedCharge),
                 multiplier: '1.0',
                 unitPriceMinor: $fixedCharge,
                 lineTotalMinor: $fixedCharge,
-            ),
-        ];
+            );
+        }
 
         if ($subsequentUnits > 0) {
             $lineItems[] = new RateLineItem(

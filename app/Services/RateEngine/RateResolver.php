@@ -63,6 +63,10 @@ class RateResolver
         ?int $storeId,
         CarbonInterface $date,
     ): ?ProductRate {
+        // valid_from/valid_to are date columns (no time); compare on the calendar
+        // date so a rate stays valid for the whole of its final day.
+        $onDate = $date->toDateString();
+
         return ProductRate::query()
             ->with('rateDefinition')
             ->where('product_id', $product->id)
@@ -74,11 +78,11 @@ class RateResolver
                     $query->orWhere('store_id', $storeId);
                 }
             })
-            ->where(function ($query) use ($date): void {
-                $query->whereNull('valid_from')->orWhere('valid_from', '<=', $date);
+            ->where(function ($query) use ($onDate): void {
+                $query->whereNull('valid_from')->orWhere('valid_from', '<=', $onDate);
             })
-            ->where(function ($query) use ($date): void {
-                $query->whereNull('valid_to')->orWhere('valid_to', '>=', $date);
+            ->where(function ($query) use ($onDate): void {
+                $query->whereNull('valid_to')->orWhere('valid_to', '>=', $onDate);
             })
             ->orderByDesc('priority')
             ->orderByRaw('store_id IS NULL') // store-specific (non-null) first

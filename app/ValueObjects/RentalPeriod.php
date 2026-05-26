@@ -30,8 +30,9 @@ class RentalPeriod
      *  - business_hours_end (string "HH:MM"): end of the business window
      *  - rental_days_per_week (int, default 7): days that make up one weekly unit
      *  - leeway_minutes (int, default 0): grace period before the next unit accrues
-     *  - first_day_cutoff (string "HH:MM"|null): accepted for forward-compat; v1 still
-     *    counts the first day in full and does NOT alter the unit count
+     *  - first_day_cutoff (string "HH:MM"|null): when the collection time-of-day is
+     *    later than this cut-off, the first day is charged in full (the effective
+     *    start floors to the start of that day) so a late pickup is not pro-rated
      *  - last_day_cutoff (string "HH:MM"|null): when the return time-of-day is earlier
      *    than this cut-off, the final partial day is dropped
      *
@@ -48,7 +49,13 @@ class RentalPeriod
             $effEnd = $effEnd->copy()->startOfDay();
         }
 
-        // Step 3: first_day_cutoff is accepted but intentionally does not affect v1 units.
+        // Step 3: when collection is after the first-day cut-off, charge the first
+        // day in full by flooring the effective start to the beginning of that day,
+        // so a late pickup never shrinks the first day's charge.
+        $firstDayCutoff = $this->parseTime($timeOptions['first_day_cutoff'] ?? null);
+        if ($firstDayCutoff !== null && $this->minutesIntoDay($effStart) > $firstDayCutoff) {
+            $effStart = $effStart->copy()->startOfDay();
+        }
 
         // Step 4: measure the chargeable duration in minutes.
         $dayType = $timeOptions['day_type'] ?? DayType::Clock;
@@ -64,7 +71,8 @@ class RentalPeriod
         }
 
         // Step 5: resolve the length of one chargeable unit in minutes.
-        $rentalDaysPerWeek = (int) ($timeOptions['rental_days_per_week'] ?? 7);
+        // Floor the rental week at one day so a malformed 0 cannot divide by zero.
+        $rentalDaysPerWeek = max(1, (int) ($timeOptions['rental_days_per_week'] ?? 7));
         $periodMinutes = $period === BasePeriod::Weekly
             ? $rentalDaysPerWeek * 1440
             : $period->minutes();

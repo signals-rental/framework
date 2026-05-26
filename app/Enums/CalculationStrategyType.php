@@ -48,13 +48,11 @@ enum CalculationStrategyType: string
     }
 
     /**
-     * Whether a base period must be supplied for this strategy.
+     * Whether a base period must be supplied for this strategy. Derived from
+     * {@see self::allowedBasePeriods()} so the two never drift.
      */
     public function requiresBasePeriod(): bool
     {
-        return match ($this) {
-            self::Period, self::Hybrid => true,
-            self::Fixed => false,
-        };
+        return $this->allowedBasePeriods() !== [];
     }
 }

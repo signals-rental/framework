@@ -176,6 +176,26 @@ it('rounds fractional per-day prices half up', function () {
         ->and($breakdown->perUnitSubtotalMinor)->toBe(233);
 });
 
+it('keeps line items reconciled with the per-unit subtotal when rounding bites', function () {
+    // £3.33/day with a 0.5 tier rounds each day to 167 (332.5 -> 333 wait: 333*0.5=166.5 -> 167).
+    // Per-tier rounding: a 4-day group at 0.5 = 167 × 4 = 668, and the per-unit
+    // subtotal must equal the sum of the line totals (no drift).
+    $config = ['tiers' => [['multiplier' => '0.5']]];
+
+    $breakdown = (new MultiplierModifier)->apply(
+        baseDailyBreakdown(units: 4, unitPriceMinor: 333),
+        $config,
+        multiplierContext(),
+    );
+
+    $lineTotalSum = array_sum(array_map(fn ($line) => $line->lineTotalMinor, $breakdown->lineItems));
+
+    expect($breakdown->lineItems[0]->unitPriceMinor)->toBe(167)
+        ->and($breakdown->lineItems[0]->lineTotalMinor)->toBe(668)
+        ->and($breakdown->perUnitSubtotalMinor)->toBe(668)
+        ->and($breakdown->perUnitSubtotalMinor)->toBe($lineTotalSum);
+});
+
 it('treats an empty tier list as a no-op multiplier of 1.0', function () {
     $breakdown = (new MultiplierModifier)->apply(baseDailyBreakdown(), ['tiers' => []], multiplierContext());
 
