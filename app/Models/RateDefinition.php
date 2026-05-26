@@ -14,6 +14,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property CalculationStrategyType $calculation_strategy
+ * @property BasePeriod|null $base_period
+ * @property list<string> $enabled_modifiers
+ * @property array<string, mixed> $strategy_config
+ * @property array<string, array<string, mixed>> $modifier_configs
+ */
 class RateDefinition extends Model implements HasSchema
 {
     /** @use HasFactory<RateDefinitionFactory> */

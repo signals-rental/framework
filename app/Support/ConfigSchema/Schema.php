@@ -44,14 +44,15 @@ class Schema
      * fields are excluded.
      *
      * @param  array<string, mixed>  $values
+     * @param  string  $prefix  Path prefix for the rule keys (e.g. `strategy_config`)
      * @return array<string, array<int, mixed>>
      */
-    public function validationRules(array $values): array
+    public function validationRules(array $values, string $prefix = ''): array
     {
         $rules = [];
 
         foreach ($this->fields as $field) {
-            $rules += $field->validationRules('', $values);
+            $rules += $field->validationRules($prefix, $values);
         }
 
         return $rules;

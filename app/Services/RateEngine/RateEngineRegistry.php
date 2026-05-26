@@ -109,6 +109,32 @@ class RateEngineRegistry
     }
 
     /**
+     * Composed Laravel validation rules for a rate definition's config, keyed by
+     * dot-path under `strategy_config` and `modifier_configs.{id}` so the action
+     * layer can validate the whole config in one pass. Only enabled modifiers
+     * contribute rules.
+     *
+     * @param  array<int, string>  $enabledModifierIds
+     * @param  array<string, mixed>  $strategyConfig
+     * @param  array<string, array<string, mixed>>  $modifierConfigs
+     * @return array<string, array<int, mixed>>
+     */
+    public function configRules(string $strategyId, array $enabledModifierIds, array $strategyConfig, array $modifierConfigs): array
+    {
+        $rules = $this->strategy($strategyId)->configSchema()->validationRules($strategyConfig, 'strategy_config');
+
+        foreach ($this->modifiers() as $modifier) {
+            $id = $modifier->identifier();
+
+            if (in_array($id, $enabledModifierIds, true)) {
+                $rules += $modifier->configSchema()->validationRules($modifierConfigs[$id] ?? [], "modifier_configs.{$id}");
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
      * Sanitise a strategy's config against its schema (cast visible values, drop
      * hidden ones).
      *

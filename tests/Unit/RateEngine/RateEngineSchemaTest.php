@@ -107,6 +107,21 @@ it('sanitises modifier configs, dropping disabled modifiers and casting enabled 
         ->and($sanitised['multiplier']['tiers'][0])->toBe(['multiplier' => '0.5']);
 });
 
+it('composes prefixed config validation rules for a strategy and its enabled modifiers', function () {
+    $rules = schemaRegistry()->configRules(
+        'period',
+        ['multiplier'],
+        ['day_type' => 'clock'],
+        ['multiplier' => ['tiers' => []], 'factor' => ['ranges' => []]],
+    );
+
+    expect($rules)->toHaveKey('strategy_config.day_type')
+        ->and($rules)->toHaveKey('strategy_config.leeway_minutes')
+        ->and($rules)->toHaveKey('modifier_configs.multiplier.tiers')
+        ->and($rules)->toHaveKey('modifier_configs.multiplier.tiers.*.multiplier')
+        ->and($rules)->not->toHaveKey('modifier_configs.factor.ranges'); // factor disabled
+});
+
 it('sanitises strategy config, stripping hidden fields', function () {
     $sanitised = schemaRegistry()->sanitiseStrategyConfig('period', [
         'day_type' => 'clock',

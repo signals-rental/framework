@@ -86,6 +86,13 @@ it('produces ordered field metadata', function () {
         ->and(array_column($meta, 'key'))->toBe(['day_type', 'business_hours', 'leeway_minutes']);
 });
 
+it('prefixes rule paths when a prefix is supplied', function () {
+    $rules = optionsSchema()->validationRules(['day_type' => 'clock'], 'strategy_config');
+
+    expect($rules)->toHaveKeys(['strategy_config.day_type', 'strategy_config.leeway_minutes'])
+        ->and($rules)->not->toHaveKey('day_type');
+});
+
 it('treats an empty schema as no rules and no defaults', function () {
     $schema = Schema::make();
 
