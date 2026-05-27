@@ -3,6 +3,7 @@
 use App\Models\Product;
 use App\Models\ProductRate;
 use App\Models\RateDefinition;
+use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -68,6 +69,45 @@ describe('POST /api/v1/products/{product}/calculate_rate', function () {
             ->assertOk()
             ->assertJsonPath('rate_breakdown.quantity', 8)
             ->assertJsonPath('rate_breakdown.total', '4000.00');
+    });
+
+    it('resolves the store-specific rate when store_id is supplied', function () {
+        $store = Store::factory()->create();
+        $definition = RateDefinition::factory()->create();
+        // An all-stores rate and a store-specific rate at the same priority; the
+        // store-specific one must win when its store_id is passed.
+        ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $definition->id,
+            'store_id' => null,
+            'transaction_type' => 'rental',
+            'price' => 5000,
+            'currency' => 'GBP',
+            'priority' => 0,
+        ]);
+        $storeRate = ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $definition->id,
+            'store_id' => $store->id,
+            'transaction_type' => 'rental',
+            'price' => 10000,
+            'currency' => 'GBP',
+            'priority' => 0,
+        ]);
+        $token = $this->owner->createToken('test', ['rates:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$this->product->id}/calculate_rate", [
+                'quantity' => 1,
+                'start' => '2026-01-05T00:00:00Z',
+                'end' => '2026-01-10T00:00:00Z',
+                'transaction_type' => 'rental',
+                'store_id' => $store->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.resolved', true)
+            ->assertJsonPath('meta.product_rate_id', $storeRate->id)
+            ->assertJsonPath('rate_breakdown.unit_price', '100.00');
     });
 
     it('falls back to a zero-priced breakdown when no rate resolves', function () {

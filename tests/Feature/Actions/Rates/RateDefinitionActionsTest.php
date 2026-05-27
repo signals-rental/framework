@@ -11,6 +11,7 @@ use App\Enums\CalculationStrategyType;
 use App\Events\AuditableEvent;
 use App\Models\RateDefinition;
 use App\Models\User;
+use App\Services\Api\WebhookService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -234,4 +235,64 @@ it('forbids duplicating a rate definition without permission', function () {
 
     expect(fn () => (new DuplicateRateDefinition)($definition))
         ->toThrow(AuthorizationException::class);
+});
+
+it('rejects an unknown (unregistered) modifier', function () {
+    (new CreateRateDefinition)(createDefinitionData([
+        'enabled_modifiers' => ['bogus'],
+    ]));
+})->throws(ValidationException::class);
+
+it('duplicates a custom definition, preserving description and lineage', function () {
+    $original = RateDefinition::factory()->create([
+        'name' => 'My Custom',
+        'description' => 'Seasonal weekly rate',
+        'is_preset' => false,
+    ]);
+
+    $copy = (new DuplicateRateDefinition)($original);
+
+    expect($copy->name)->toBe('My Custom (Copy)')
+        ->and($copy->is_preset)->toBeFalse()
+        ->and($copy->preset_slug)->toBeNull()
+        ->and($copy->cloned_from_id)->toBe($original->id)
+        ->and($copy->description)->toBe('Seasonal weekly rate');
+});
+
+it('dispatches a webhook when creating a rate definition', function () {
+    $this->mock(WebhookService::class)
+        ->shouldReceive('dispatch')->once()
+        ->with('rate_definition.created', Mockery::type('array'));
+
+    (new CreateRateDefinition)(createDefinitionData());
+});
+
+it('dispatches a webhook when updating a rate definition', function () {
+    $definition = RateDefinition::factory()->create(['calculation_strategy' => CalculationStrategyType::Period]);
+
+    $this->mock(WebhookService::class)
+        ->shouldReceive('dispatch')->once()
+        ->with('rate_definition.updated', Mockery::type('array'));
+
+    (new UpdateRateDefinition)($definition, UpdateRateDefinitionData::from(['name' => 'Renamed']));
+});
+
+it('dispatches a webhook when deleting a rate definition', function () {
+    $definition = RateDefinition::factory()->create(['is_preset' => false]);
+
+    $this->mock(WebhookService::class)
+        ->shouldReceive('dispatch')->once()
+        ->with('rate_definition.deleted', Mockery::type('array'));
+
+    (new DeleteRateDefinition)($definition);
+});
+
+it('dispatches a created webhook when duplicating a rate definition', function () {
+    $definition = RateDefinition::factory()->create();
+
+    $this->mock(WebhookService::class)
+        ->shouldReceive('dispatch')->once()
+        ->with('rate_definition.created', Mockery::type('array'));
+
+    (new DuplicateRateDefinition)($definition);
 });

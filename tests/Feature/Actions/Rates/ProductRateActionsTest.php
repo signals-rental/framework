@@ -192,3 +192,35 @@ it('excludes a given rate id from the overlap check (for updates)', function () 
 
     expect($overlaps)->toHaveCount(0);
 });
+
+it('detects an overlap scoped to a specific store', function () {
+    $product = Product::factory()->create();
+    $store = Store::factory()->create();
+    ProductRate::factory()->for($product)->withPriority(1)->create([
+        'transaction_type' => RateTransactionType::Rental,
+        'store_id' => $store->id,
+        'valid_from' => null,
+        'valid_to' => null,
+    ]);
+
+    // Same store -> overlaps; a different (null/all) store at the same priority does not.
+    expect(app(ProductRateOverlapChecker::class)->overlapping($product->id, $store->id, RateTransactionType::Rental, 1, null, null))->toHaveCount(1)
+        ->and(app(ProductRateOverlapChecker::class)->overlapping($product->id, null, RateTransactionType::Rental, 1, null, null))->toHaveCount(0);
+});
+
+it('treats a null bound as open-ended when detecting overlap', function () {
+    $product = Product::factory()->create();
+    // Existing rate is open-ended from 2026-06-01 (valid_to null).
+    ProductRate::factory()->for($product)->withPriority(1)->create([
+        'transaction_type' => RateTransactionType::Rental,
+        'store_id' => null,
+        'valid_from' => '2026-06-01',
+        'valid_to' => null,
+    ]);
+
+    $checker = app(ProductRateOverlapChecker::class);
+
+    // A window ending after the open start overlaps; one ending before it does not.
+    expect($checker->overlapping($product->id, null, RateTransactionType::Rental, 1, '2026-01-01', '2026-07-01'))->toHaveCount(1)
+        ->and($checker->overlapping($product->id, null, RateTransactionType::Rental, 1, '2026-01-01', '2026-05-01'))->toHaveCount(0);
+});
