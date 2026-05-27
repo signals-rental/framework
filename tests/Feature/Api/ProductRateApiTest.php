@@ -150,6 +150,33 @@ describe('PUT /api/v1/products/{product}/rates/{rate}', function () {
             ->assertJsonPath('meta.overlapping_rate_ids', []);
     });
 
+    it('warns (non-blocking) when an update moves a rate into an overlap', function () {
+        $existing = ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $this->definition->id,
+            'store_id' => null,
+            'transaction_type' => 'rental',
+            'priority' => 0,
+            'valid_from' => null,
+            'valid_to' => null,
+        ]);
+        $rate = ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $this->definition->id,
+            'store_id' => null,
+            'transaction_type' => 'rental',
+            'priority' => 5, // no overlap yet
+            'valid_from' => null,
+            'valid_to' => null,
+        ]);
+        $token = $this->owner->createToken('test', ['rates:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/products/{$this->product->id}/rates/{$rate->id}", ['priority' => 0])
+            ->assertOk()
+            ->assertJsonPath('meta.overlapping_rate_ids', [$existing->id]);
+    });
+
     it('returns 404 when updating a rate that belongs to a different product', function () {
         $otherProduct = Product::factory()->create();
         $rate = ProductRate::factory()->create(['product_id' => $otherProduct->id, 'rate_definition_id' => $this->definition->id]);

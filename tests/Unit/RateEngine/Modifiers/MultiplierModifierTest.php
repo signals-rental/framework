@@ -145,6 +145,27 @@ it('inherits the last defined tier forward beyond the configured rows', function
         ->and($line->lineTotalMinor)->toBe(25000);
 });
 
+it('inherits a zero final tier forward instead of treating it as undefined', function () {
+    // A trailing tier of "0" (free periods) must carry forward as 0, not fall
+    // back to 1.0 — the string "0" is falsy and was previously coerced.
+    $config = ['tiers' => [['multiplier' => '1.0'], ['multiplier' => '0']]];
+
+    $breakdown = (new MultiplierModifier)->apply(baseDailyBreakdown(), $config, multiplierContext());
+
+    // Day 1 @ 1.0 = 10000; days 2-5 @ 0 = 0.
+    expect($breakdown->perUnitSubtotalMinor)->toBe(10000)
+        ->and($breakdown->lineItems)->toHaveCount(2);
+
+    [$first, $second] = $breakdown->lineItems;
+
+    expect($first->multiplier)->toBe('1.0')
+        ->and($first->periodTo)->toBe(1)
+        ->and($second->multiplier)->toBe('0')
+        ->and($second->periodFrom)->toBe(2)
+        ->and($second->periodTo)->toBe(5)
+        ->and($second->lineTotalMinor)->toBe(0);
+});
+
 it('uses only as many tiers as there are units', function () {
     // 5 tiers defined but only 2 units; days 3-5 do not exist.
     $config = ['tiers' => [

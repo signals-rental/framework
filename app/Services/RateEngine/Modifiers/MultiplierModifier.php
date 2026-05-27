@@ -118,8 +118,10 @@ class MultiplierModifier implements RateModifier
 
         $perPeriod = [];
 
+        $last = $values === [] ? '1.0' : (string) end($values);
+
         for ($period = 1; $period <= $units; $period++) {
-            $perPeriod[$period] = $values[$period - 1] ?? (end($values) ?: '1.0');
+            $perPeriod[$period] = $values[$period - 1] ?? $last;
         }
 
         return $perPeriod;

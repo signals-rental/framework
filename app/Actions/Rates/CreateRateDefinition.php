@@ -22,16 +22,19 @@ class CreateRateDefinition
 
         $strategy = $data->calculation_strategy->value;
 
+        $this->validateStrategyCompatibility($data->calculation_strategy, $data->base_period, $data->enabled_modifiers);
         $this->validateRateConfig($strategy, $data->enabled_modifiers, $data->strategy_config, $data->modifier_configs);
 
-        return DB::transaction(function () use ($data, $strategy): RateDefinitionData {
+        $basePeriod = $data->calculation_strategy->requiresBasePeriod() ? $data->base_period : null;
+
+        return DB::transaction(function () use ($data, $strategy, $basePeriod): RateDefinitionData {
             $registry = app(RateEngineRegistry::class);
 
             $definition = RateDefinition::create([
                 'name' => $data->name,
                 'description' => $data->description,
                 'calculation_strategy' => $data->calculation_strategy,
-                'base_period' => $data->base_period,
+                'base_period' => $basePeriod,
                 'enabled_modifiers' => $data->enabled_modifiers,
                 'strategy_config' => $registry->sanitiseStrategyConfig($strategy, $data->strategy_config),
                 'modifier_configs' => $registry->sanitiseModifierConfigs($data->enabled_modifiers, $data->modifier_configs),

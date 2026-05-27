@@ -67,6 +67,22 @@ it('updates a product rate', function () {
         ->and($result->priority)->toBe(9);
 });
 
+it('forbids updating a product rate without permission', function () {
+    $this->actingAs(User::factory()->create());
+    $rate = ProductRate::factory()->create();
+
+    expect(fn () => (new UpdateProductRate)($rate, UpdateProductRateData::from(['price' => 100])))
+        ->toThrow(AuthorizationException::class);
+});
+
+it('forbids deleting a product rate without permission', function () {
+    $this->actingAs(User::factory()->create());
+    $rate = ProductRate::factory()->create();
+
+    expect(fn () => (new DeleteProductRate)($rate))
+        ->toThrow(AuthorizationException::class);
+});
+
 it('deletes a product rate', function () {
     Event::fake([AuditableEvent::class]);
     $rate = ProductRate::factory()->create();

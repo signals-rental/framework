@@ -22,14 +22,17 @@ class UpdateRateDefinition
 
         // Resolve the effective strategy, modifiers and config (incoming values
         // override the persisted ones) so the whole config validates together.
-        $strategy = ($data->calculation_strategy ?? $definition->calculation_strategy)->value;
+        $strategyType = $data->calculation_strategy ?? $definition->calculation_strategy;
+        $strategy = $strategyType->value;
+        $basePeriod = $data->base_period ?? $definition->base_period;
         $enabledModifiers = $data->enabled_modifiers ?? $definition->enabled_modifiers ?? [];
         $strategyConfig = $data->strategy_config ?? $definition->strategy_config ?? [];
         $modifierConfigs = $data->modifier_configs ?? $definition->modifier_configs ?? [];
 
+        $this->validateStrategyCompatibility($strategyType, $basePeriod, $enabledModifiers);
         $this->validateRateConfig($strategy, $enabledModifiers, $strategyConfig, $modifierConfigs);
 
-        return DB::transaction(function () use ($definition, $data, $strategy, $enabledModifiers, $strategyConfig, $modifierConfigs): RateDefinitionData {
+        return DB::transaction(function () use ($definition, $data, $strategyType, $strategy, $basePeriod, $enabledModifiers, $strategyConfig, $modifierConfigs): RateDefinitionData {
             $registry = app(RateEngineRegistry::class);
 
             if ($data->name !== null) {
@@ -44,9 +47,9 @@ class UpdateRateDefinition
                 $definition->calculation_strategy = $data->calculation_strategy;
             }
 
-            if ($data->base_period !== null) {
-                $definition->base_period = $data->base_period;
-            }
+            // Strategies that do not use a base period (e.g. fixed) have it cleared
+            // so switching strategy never leaves a stale period behind.
+            $definition->base_period = $strategyType->requiresBasePeriod() ? $basePeriod : null;
 
             $definition->enabled_modifiers = $enabledModifiers;
             $definition->strategy_config = $registry->sanitiseStrategyConfig($strategy, $strategyConfig);

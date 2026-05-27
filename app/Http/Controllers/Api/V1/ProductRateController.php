@@ -63,9 +63,11 @@ class ProductRateController extends Controller
     }
 
     /**
-     * Assign a rate to a product. The response `meta.overlapping_rate_ids` lists
-     * any existing same-priority rates with overlapping validity windows — a
-     * non-blocking configuration warning.
+     * Assign a rate to a product.
+     *
+     * The response `meta.overlapping_rate_ids` lists any existing same-priority
+     * rates with overlapping validity windows — a non-blocking configuration
+     * warning.
      */
     #[ApiResponse(201, 'Product rate created', type: 'array{product_rate: array{id: int, product_id: int, rate_definition_id: int, store_id: int|null, transaction_type: string, transaction_type_name: string, price: string, currency: string, valid_from: string|null, valid_to: string|null, priority: int, created_at: string, updated_at: string}, meta: array{overlapping_rate_ids: list<int>}}')]
     public function store(Request $request, Product $product): JsonResponse
@@ -85,8 +87,11 @@ class ProductRateController extends Controller
     }
 
     /**
-     * Update a rate assignment for a product. See {@see self::store()} for the
-     * non-blocking overlap warning in `meta.overlapping_rate_ids`.
+     * Update a rate assignment for a product.
+     *
+     * As with creation, the response `meta.overlapping_rate_ids` lists any
+     * existing same-priority rates with overlapping validity windows — a
+     * non-blocking configuration warning.
      */
     #[ApiResponse(200, 'Product rate updated', type: 'array{product_rate: array{id: int, product_id: int, rate_definition_id: int, store_id: int|null, transaction_type: string, transaction_type_name: string, price: string, currency: string, valid_from: string|null, valid_to: string|null, priority: int, created_at: string, updated_at: string}, meta: array{overlapping_rate_ids: list<int>}}')]
     public function update(Request $request, Product $product, ProductRate $rate): JsonResponse

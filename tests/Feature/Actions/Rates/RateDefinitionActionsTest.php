@@ -155,3 +155,74 @@ it('duplicates a definition as a non-preset copy with lineage', function () {
         ->and($copy->cloned_from_id)->toBe($original->id)
         ->and($copy->modifier_configs)->toBe($original->modifier_configs);
 });
+
+it('rejects a strategy that requires a base period when none is given', function () {
+    (new CreateRateDefinition)(createDefinitionData(['base_period' => null]));
+})->throws(ValidationException::class);
+
+it('rejects a base period outside the strategy allowed set', function () {
+    // Hybrid permits daily/weekly/monthly only — half_hourly is invalid.
+    (new CreateRateDefinition)(createDefinitionData([
+        'calculation_strategy' => 'hybrid',
+        'base_period' => 'half_hourly',
+    ]));
+})->throws(ValidationException::class);
+
+it('rejects a modifier the strategy does not support', function () {
+    // Fixed supports factor but not multiplier.
+    (new CreateRateDefinition)(createDefinitionData([
+        'calculation_strategy' => 'fixed',
+        'base_period' => null,
+        'enabled_modifiers' => ['multiplier'],
+        'modifier_configs' => ['multiplier' => ['tiers' => [['multiplier' => '0.5']]]],
+    ]));
+})->throws(ValidationException::class);
+
+it('clears the base period when the strategy does not use one', function () {
+    $result = (new CreateRateDefinition)(createDefinitionData([
+        'calculation_strategy' => 'fixed',
+        'base_period' => 'daily', // ignored — fixed has no base period
+        'strategy_config' => [],
+    ]));
+
+    expect($result->calculation_strategy)->toBe('fixed')
+        ->and($result->base_period)->toBeNull();
+});
+
+it('clears a stale base period when switching to a strategy without one', function () {
+    $definition = RateDefinition::factory()->create([
+        'calculation_strategy' => CalculationStrategyType::Period,
+    ]);
+
+    $result = (new UpdateRateDefinition)($definition, UpdateRateDefinitionData::from([
+        'calculation_strategy' => 'fixed',
+        'strategy_config' => [],
+    ]));
+
+    expect($result->calculation_strategy)->toBe('fixed')
+        ->and($result->base_period)->toBeNull();
+});
+
+it('forbids updating a rate definition without permission', function () {
+    $this->actingAs(User::factory()->create()); // no rates.edit
+    $definition = RateDefinition::factory()->create();
+
+    expect(fn () => (new UpdateRateDefinition)($definition, UpdateRateDefinitionData::from(['name' => 'Nope'])))
+        ->toThrow(AuthorizationException::class);
+});
+
+it('forbids deleting a rate definition without permission', function () {
+    $this->actingAs(User::factory()->create()); // no rates.delete
+    $definition = RateDefinition::factory()->create();
+
+    expect(fn () => (new DeleteRateDefinition)($definition))
+        ->toThrow(AuthorizationException::class);
+});
+
+it('forbids duplicating a rate definition without permission', function () {
+    $this->actingAs(User::factory()->create()); // no rates.create
+    $definition = RateDefinition::factory()->create();
+
+    expect(fn () => (new DuplicateRateDefinition)($definition))
+        ->toThrow(AuthorizationException::class);
+});
