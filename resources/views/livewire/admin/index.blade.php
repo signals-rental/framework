@@ -64,6 +64,13 @@ new #[Layout('components.layouts.app')] #[Title('System Administration')] class 
                     ['label' => 'Tax Rules', 'description' => 'Map tax classes to rates', 'icon' => 'table-cells', 'route' => 'admin.settings.tax.rules'],
                 ],
             ],
+            'pricing' => [
+                'title' => 'Pricing',
+                'description' => 'Rate definitions and pricing engines.',
+                'items' => [
+                    ['label' => 'Rate Definitions', 'description' => 'Composable pricing engines for products', 'icon' => 'calculator', 'route' => 'admin.settings.rate-definitions', 'gate' => 'rates.view'],
+                ],
+            ],
             'system' => [
                 'title' => 'System',
                 'description' => 'Logs, health checks, webhooks, and infrastructure.',

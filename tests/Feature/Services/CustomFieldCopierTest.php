@@ -8,6 +8,7 @@ use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\Store;
 use App\Services\CustomFieldCopier;
+use App\ValueObjects\CopyResult;
 
 describe('CustomFieldCopier', function () {
     beforeEach(function () {
@@ -426,7 +427,7 @@ describe('CustomFieldCopier', function () {
 
 describe('CopyResult', function () {
     it('serializes to array correctly', function () {
-        $result = new \App\ValueObjects\CopyResult(
+        $result = new CopyResult(
             copied: 2,
             skipped: 1,
             fieldsCopied: ['region', 'priority'],
@@ -442,7 +443,7 @@ describe('CopyResult', function () {
     });
 
     it('has empty arrays by default', function () {
-        $result = new \App\ValueObjects\CopyResult(copied: 0, skipped: 0);
+        $result = new CopyResult(copied: 0, skipped: 0);
 
         expect($result->fieldsCopied)->toBe([])
             ->and($result->fieldsSkipped)->toBe([])

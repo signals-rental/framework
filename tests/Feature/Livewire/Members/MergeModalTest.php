@@ -123,6 +123,31 @@ it('merge uses memberA as secondary when primaryId is switched to memberB', func
     expect(Member::find($memberB->id))->not->toBeNull();
 });
 
+it('merge handles a vanished member via the ModelNotFound branch', function () {
+    $logSpy = Log::spy();
+
+    $memberA = Member::factory()->contact()->create();
+    $memberB = Member::factory()->contact()->create();
+
+    $component = Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $memberA->id, memberB: $memberB->id);
+
+    // Soft-delete the secondary: the row still satisfies the DTO's exists:members,id
+    // rule, but MergeMember's findOrFail (which respects the soft-delete scope) throws
+    // ModelNotFoundException, exercising that dedicated catch branch (not the generic one).
+    $memberB->delete();
+
+    $component->call('merge')
+        ->assertNoRedirect()
+        ->assertNotDispatched('member-merged');
+
+    // The ModelNotFound branch does not log; only the generic Throwable branch logs.
+    $logSpy->shouldNotHaveReceived('error');
+
+    // The primary member is untouched.
+    expect(Member::find($memberA->id))->not->toBeNull();
+});
+
 it('with() provides member data to the view', function () {
     $memberA = Member::factory()->contact()->create(['name' => 'Alice']);
     $memberB = Member::factory()->contact()->create(['name' => 'Bob']);

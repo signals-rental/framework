@@ -78,8 +78,10 @@ class SchemaRegistry
      */
     public function invalidateAll(): void
     {
-        $this->memory = [];
+        // Flush before clearing in-memory state: the tagless cache fallback in
+        // persistentFlush() relies on $this->memory to know which keys to forget.
         $this->persistentFlush();
+        $this->memory = [];
     }
 
     /**

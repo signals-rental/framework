@@ -10,6 +10,7 @@ use App\Models\Traits\FormatsMoney;
 use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
+use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\ProductFactory> */
+    /** @use HasFactory<ProductFactory> */
     use FormatsMoney, HasAttachments, HasCustomFields, HasFactory, SoftDeletes;
 
     /** @var list<string> */
@@ -184,6 +185,16 @@ class Product extends Model implements HasSchema
     public function stockLevels(): HasMany
     {
         return $this->hasMany(StockLevel::class);
+    }
+
+    /**
+     * Rate assignments for this product.
+     *
+     * @return HasMany<ProductRate, $this>
+     */
+    public function rates(): HasMany
+    {
+        return $this->hasMany(ProductRate::class);
     }
 
     /**

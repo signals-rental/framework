@@ -71,6 +71,13 @@ class PermissionSeeder extends Seeder
             'products.edit' => ['label' => 'Edit Products', 'description' => 'Edit existing products', 'group' => 'Products', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['products.view']],
             'products.delete' => ['label' => 'Delete Products', 'description' => 'Delete products', 'group' => 'Products', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['products.edit']],
 
+            // Rates
+            'rates.access' => ['label' => 'Access Rates', 'description' => 'Access the rate definitions area', 'group' => 'Rates', 'sub_group' => null, 'layer' => 'area', 'dependencies' => []],
+            'rates.view' => ['label' => 'View Rates', 'description' => 'View rate definitions and product rates', 'group' => 'Rates', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['rates.access']],
+            'rates.create' => ['label' => 'Create Rates', 'description' => 'Create rate definitions and product rates', 'group' => 'Rates', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['rates.view']],
+            'rates.edit' => ['label' => 'Edit Rates', 'description' => 'Edit rate definitions and product rates', 'group' => 'Rates', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['rates.view']],
+            'rates.delete' => ['label' => 'Delete Rates', 'description' => 'Delete rate definitions and product rates', 'group' => 'Rates', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['rates.edit']],
+
             // Stock
             'stock.access' => ['label' => 'Access Stock', 'description' => 'Access the stock area', 'group' => 'Stock', 'sub_group' => null, 'layer' => 'area', 'dependencies' => []],
             'stock.view' => ['label' => 'View Stock', 'description' => 'View stock levels and movements', 'group' => 'Stock', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['stock.access']],

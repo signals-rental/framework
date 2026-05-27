@@ -191,6 +191,40 @@ describe('onViewSaved', function () {
     });
 });
 
+describe('applyActiveView', function () {
+    it('applies per_page from the resolved view', function () {
+        Member::factory()->count(3)->create();
+
+        $view = CustomView::factory()->create([
+            'entity_type' => 'members',
+            'visibility' => 'system',
+            'user_id' => null,
+            'name' => 'Paged View',
+            'per_page' => 24,
+        ]);
+
+        $component = Livewire::test(DataTable::class, [
+            'columns' => viewColumns(),
+            'model' => Member::class,
+            'entityType' => 'members',
+        ]);
+
+        $component->call('switchView', $view->id);
+
+        expect($component->get('perPage'))->toBe(24);
+    });
+
+    it('skips loading views when no user is authenticated', function () {
+        auth()->logout();
+
+        Livewire::test(DataTable::class, [
+            'columns' => viewColumns(),
+            'model' => Member::class,
+            'entityType' => 'members',
+        ])->assertStatus(200);
+    });
+});
+
 describe('getDisplayColumnsProperty', function () {
     it('returns all columns when no view is set', function () {
         Member::factory()->create();
@@ -266,7 +300,7 @@ describe('getToggleableColumnsProperty', function () {
         $component->set('visibleColumnKeys', ['name']);
 
         // Access computed property via the component instance method
-        /** @var \App\Livewire\Components\DataTable $instance */
+        /** @var DataTable $instance */
         $instance = $component->instance();
         $toggleable = $instance->getToggleableColumnsProperty();
 

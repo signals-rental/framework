@@ -24,7 +24,8 @@
                 { "title": "Custom Fields", "slug": "custom-fields" },
                 { "title": "Lists", "slug": "lists" },
                 { "title": "Tax Classes", "slug": "tax-classes" },
-                { "title": "Countries", "slug": "countries" }
+                { "title": "Countries", "slug": "countries" },
+                { "title": "Rate Definitions", "slug": "rate-definitions" }
             ]
         },
         {
@@ -43,7 +44,8 @@
                 { "title": "Currencies", "slug": "currencies" },
                 { "title": "Exchange Rates", "slug": "exchange-rates" },
                 { "title": "Attachments", "slug": "attachments" },
-                { "title": "Webhooks", "slug": "webhooks" }
+                { "title": "Webhooks", "slug": "webhooks" },
+                { "title": "Rate Definitions", "slug": "rate-definitions" }
             ]
         },
         {

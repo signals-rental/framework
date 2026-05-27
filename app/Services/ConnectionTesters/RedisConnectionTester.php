@@ -16,7 +16,7 @@ class RedisConnectionTester
     public function test(array $config): array
     {
         try {
-            $redis = new Redis;
+            $redis = $this->makeClient();
             $redis->connect($config['host'], $config['port'], 5.0);
 
             if ($config['password'] && $config['password'] !== 'null') {
@@ -40,5 +40,13 @@ class RedisConnectionTester
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Create the underlying Redis client. Overridable so tests can inject a double.
+     */
+    protected function makeClient(): Redis
+    {
+        return new Redis;
     }
 }

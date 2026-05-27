@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Spatie\Permission\Models\Role;
 
 describe('hasTwoFactorEnabled', function () {
     it('returns true when both secret and recovery codes are set', function () {
@@ -81,7 +82,7 @@ describe('hasAdminAccess', function () {
 
     it('returns true for user with Admin role', function () {
         // Create the Admin role for this test
-        \Spatie\Permission\Models\Role::create(['name' => 'Admin', 'guard_name' => 'web']);
+        Role::create(['name' => 'Admin', 'guard_name' => 'web']);
         $user = User::factory()->create();
         $user->assignRole('Admin');
 
@@ -92,6 +93,21 @@ describe('hasAdminAccess', function () {
         $user = User::factory()->create();
 
         expect($user->hasAdminAccess())->toBeFalse();
+    });
+});
+
+describe('accessibleStoreIds', function () {
+    it('returns an empty array for a non-owner user with no member_id', function () {
+        $user = User::factory()->create();
+
+        // The factory auto-assigns a member; clear it after creation so the
+        // "! $this->member_id" early-return branch is exercised.
+        $user->forceFill(['member_id' => null])->save();
+        $user->refresh();
+
+        expect($user->isOwner())->toBeFalse()
+            ->and($user->hasAdminAccess())->toBeFalse()
+            ->and($user->accessibleStoreIds())->toBe([]);
     });
 });
 

@@ -105,6 +105,22 @@ describe('GET /api/v1/activities/{id}', function () {
         expect($response->json('activity.owner.name'))->toBe('John');
     });
 
+    it('includes regarding entity reference when requested', function () {
+        $member = Member::factory()->create(['name' => 'Acme Ltd']);
+        $activity = Activity::factory()->create([
+            'regarding_type' => Member::class,
+            'regarding_id' => $member->id,
+        ]);
+        $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/activities/{$activity->id}?include=regarding")
+            ->assertOk();
+
+        expect($response->json('activity.regarding.id'))->toBe($member->id)
+            ->and($response->json('activity.regarding.name'))->toBe('Acme Ltd');
+    });
+
     it('includes participants when requested', function () {
         $activity = Activity::factory()->create();
         $member = Member::factory()->create(['name' => 'Jane Doe']);

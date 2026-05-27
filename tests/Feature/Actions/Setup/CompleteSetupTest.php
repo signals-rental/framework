@@ -11,9 +11,11 @@ use App\Models\Membership;
 use App\Models\OrganisationTaxClass;
 
 pest()->group('env-writing');
+use App\Models\RateDefinition;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Artisan;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -182,6 +184,23 @@ it('marks setup as complete in config', function () {
     expect(config('signals.setup_complete'))->toBeTrue();
 });
 
+it('caches config instead of clearing when not running unit tests', function () {
+    Artisan::shouldReceive('call')->once()->with('config:cache');
+
+    // runningUnitTests() keys off env === 'testing'; flip it so the production
+    // branch (config:cache) runs instead of config:clear.
+    app()->detectEnvironment(fn () => 'production');
+
+    try {
+        $action = new CompleteSetup;
+        (new ReflectionMethod($action, 'markSetupComplete'))->invoke($action);
+    } finally {
+        app()->detectEnvironment(fn () => 'testing');
+    }
+
+    expect(config('signals.setup_complete'))->toBeTrue();
+});
+
 it('writes SIGNALS_SETUP_COMPLETE to env file', function () {
     $data = makeSetupData();
 
@@ -200,7 +219,8 @@ it('seeds reference data on completion', function () {
         ->and(ListName::count())->toBeGreaterThan(0)
         ->and(OrganisationTaxClass::count())->toBeGreaterThan(0)
         ->and(Permission::count())->toBeGreaterThan(0)
-        ->and(Role::count())->toBeGreaterThan(0);
+        ->and(Role::count())->toBeGreaterThan(0)
+        ->and(RateDefinition::where('is_preset', true)->count())->toBe(11);
 });
 
 it('creates a member record linked to admin user', function () {

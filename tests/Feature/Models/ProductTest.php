@@ -1,13 +1,18 @@
 <?php
 
+use App\Enums\AllowedStockType;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
+use App\Models\Accessory;
+use App\Models\Activity;
 use App\Models\CostGroup;
 use App\Models\Country;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\ProductTaxClass;
 use App\Models\RevenueGroup;
+use App\Models\StockLevel;
+use App\Services\SchemaRegistry;
 
 it('has correct fillable attributes', function () {
     $product = new Product;
@@ -237,4 +242,74 @@ it('nullifies product_group_id when group is deleted', function () {
     $product->refresh();
 
     expect($product->product_group_id)->toBeNull();
+});
+
+it('has many stock levels', function () {
+    $product = Product::factory()->create();
+    StockLevel::factory()->count(2)->create(['product_id' => $product->id]);
+
+    expect($product->stockLevels)->toHaveCount(2)
+        ->and($product->stockLevels->first())->toBeInstanceOf(StockLevel::class);
+});
+
+it('has many accessories', function () {
+    $product = Product::factory()->create();
+    Accessory::factory()->count(3)->create(['product_id' => $product->id]);
+
+    expect($product->accessories)->toHaveCount(3)
+        ->and($product->accessories->first())->toBeInstanceOf(Accessory::class);
+});
+
+it('has many accessoryOf records (used as an accessory)', function () {
+    $product = Product::factory()->create();
+    Accessory::factory()->count(2)->create(['accessory_product_id' => $product->id]);
+
+    expect($product->accessoryOf)->toHaveCount(2)
+        ->and($product->accessoryOf->first())->toBeInstanceOf(Accessory::class);
+});
+
+it('has activities via morphMany', function () {
+    $product = Product::factory()->create();
+    Activity::factory()->forProduct($product)->count(2)->create();
+
+    expect($product->activities)->toHaveCount(2)
+        ->and($product->activities->first())->toBeInstanceOf(Activity::class);
+});
+
+it('scopes to archived products', function () {
+    $archived = Product::factory()->create();
+    $archived->delete();
+    Product::factory()->create();
+
+    expect(Product::query()->archived()->count())->toBe(1);
+});
+
+it('scopes to include archived products', function () {
+    $archived = Product::factory()->create();
+    $archived->delete();
+    Product::factory()->create();
+
+    expect(Product::query()->withArchived()->count())->toBe(2);
+});
+
+it('derives a human-readable name for an allowed stock type', function () {
+    expect(Product::stockTypeName(AllowedStockType::Rental->value))->toBe(AllowedStockType::Rental->label())
+        ->and(Product::stockTypeName(AllowedStockType::Sale->value))->toBe(AllowedStockType::Sale->label());
+});
+
+it('returns Unknown for an invalid stock type value', function () {
+    expect(Product::stockTypeName(99999))->toBe('Unknown');
+});
+
+it('defines its schema with core field definitions', function () {
+    $schema = (new SchemaRegistry)->resolve(Product::class);
+
+    expect($schema)->toHaveKeys([
+        'name', 'description', 'product_type', 'stock_method', 'is_active',
+        'accessory_only', 'discountable', 'barcode', 'sku', 'weight',
+        'replacement_charge', 'buffer_percent', 'product_group_id', 'tax_class_id',
+        'country_of_origin_id', 'tag_list', 'sub_rental_price', 'purchase_price',
+    ]);
+    expect($schema['name']->required)->toBeTrue()
+        ->and($schema['product_group_id']->relationType)->toBe('belongsTo');
 });

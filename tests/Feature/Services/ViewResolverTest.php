@@ -146,6 +146,43 @@ it('defaults to asc for invalid sort direction', function () {
     expect($query->getQuery()->orders[0]['direction'])->toBe('asc');
 });
 
+it('applies AND logic between non-first filters', function () {
+    Member::factory()->create(['name' => 'Active Org', 'membership_type' => 'organisation', 'is_active' => true]);
+    Member::factory()->create(['name' => 'Inactive Org', 'membership_type' => 'organisation', 'is_active' => false]);
+    Member::factory()->create(['name' => 'Active Contact', 'membership_type' => 'contact', 'is_active' => true]);
+
+    $view = CustomView::factory()->create([
+        'entity_type' => 'members',
+        'filters' => [
+            ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'organisation', 'logic' => 'and'],
+            ['field' => 'is_active', 'predicate' => 'eq', 'value' => true, 'logic' => 'and'],
+        ],
+    ]);
+
+    $query = Member::query();
+    $this->resolver->applyFilters($query, $view);
+    $results = $query->get();
+
+    // organisation AND is_active=true => only "Active Org"
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->name)->toBe('Active Org');
+});
+
+it('does not apply sort for an invalid sort column name', function () {
+    $view = CustomView::factory()->create([
+        'entity_type' => 'members',
+        'sort_column' => 'name; DROP TABLE members',
+    ]);
+
+    $query = Member::query();
+    $beforeSql = $query->toSql();
+    $this->resolver->applySort($query, $view);
+
+    // The unsafe column name fails the identifier regex, so no order-by is added.
+    expect($query->getQuery()->orders)->toBeNull()
+        ->and($query->toSql())->toBe($beforeSql);
+});
+
 it('applies view filters to query', function () {
     $view = CustomView::factory()->create([
         'entity_type' => 'members',

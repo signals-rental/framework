@@ -2,6 +2,7 @@
 
 namespace App\Services\Api;
 
+use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -164,7 +165,9 @@ class RansackFilter
     /**
      * Apply a single predicate condition to the query builder.
      *
-     * @param  Builder<Model>  $query
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      */
     private function applyPredicate(Builder $query, string $field, string $predicate, mixed $value): void
     {
@@ -197,7 +200,9 @@ class RansackFilter
      *
      * Supports filtering by field name or numeric field ID (CRMS compatibility).
      *
-     * @param  Builder<Model>  $query
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      */
     private function applyCustomFieldFilter(
         Builder $query,
@@ -214,7 +219,7 @@ class RansackFilter
             return;
         }
 
-        /** @var \App\Enums\CustomFieldType $fieldType */
+        /** @var CustomFieldType $fieldType */
         $fieldType = $customField->field_type;
         $valueColumn = $fieldType->valueColumn();
 

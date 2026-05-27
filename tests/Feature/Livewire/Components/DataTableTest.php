@@ -3,8 +3,13 @@
 use App\Enums\MembershipType;
 use App\Livewire\Components\DataTable;
 use App\Models\Member;
+use App\Models\OrganisationTaxClass;
+use App\Models\ProductGroup;
 use App\Models\User;
+use Illuminate\View\ViewException;
+use Livewire\Exceptions\EventHandlerDoesNotExist;
 use Livewire\Livewire;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 use function Pest\Laravel\actingAs;
 
@@ -360,13 +365,13 @@ it('throws when dispatching events not in refreshEvents', function () {
         ->call('toggleSelected', $member->id)
         ->assertSet('selected', [$member->id])
         ->dispatch('some-other-event');
-})->throws(\Livewire\Exceptions\EventHandlerDoesNotExist::class);
+})->throws(EventHandlerDoesNotExist::class);
 
 it('throws exception for invalid model class', function () {
     expect(fn () => Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
         'model' => 'NonExistentModel',
-    ]))->toThrow(\Illuminate\View\ViewException::class);
+    ]))->toThrow(ViewException::class);
 });
 
 it('caps search input at 200 characters', function () {
@@ -400,7 +405,7 @@ it('throws exception for invalid scope name', function () {
         'columns' => memberColumns(),
         'model' => Member::class,
         'scopes' => ['nonExistentScope' => true],
-    ]))->toThrow(\Illuminate\View\ViewException::class);
+    ]))->toThrow(ViewException::class);
 });
 
 it('falls back to asc for invalid sort direction', function () {
@@ -576,4 +581,141 @@ it('resets page when updatedFilters is called', function () {
 
     // The page should reset — we just verify no error
     $component->assertStatus(200);
+});
+
+it('clears all filters and search without an active search query', function () {
+    Member::factory()->count(3)->create();
+    $total = Member::count();
+
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->call('applyFilter', 'membership_type', 'contact')
+        ->call('clearAllFilters')
+        ->assertSet('filters', [])
+        ->assertSet('search', '')
+        ->assertViewHas('items', fn ($items) => $items->count() === $total);
+});
+
+it('caps search length and resets page when search updates', function () {
+    Member::factory()->count(3)->create();
+
+    // No searchable columns, so buildQuery skips the PostgreSQL ilike block on SQLite.
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->set('search', str_repeat('a', 300))
+        ->assertSet('search', str_repeat('a', 200))
+        ->assertStatus(200);
+});
+
+it('skips empty filter values when building the query', function () {
+    Member::factory()->count(3)->create();
+    $total = Member::count();
+
+    // Setting filters directly triggers updatedFilters; the empty value is skipped.
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->set('filters', ['name' => ''])
+        ->assertViewHas('items', fn ($items) => $items->count() === $total);
+});
+
+it('initializes visibleColumnKeys on first toggle when no view is active', function () {
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->call('toggleColumn', 'name')
+        ->assertSet('visibleColumnKeys', fn (array $keys): bool => ! in_array('name', $keys, true)
+            && ! in_array('checkbox', $keys, true)
+            && ! in_array('actions', $keys, true)
+            && in_array('membership_type', $keys, true));
+});
+
+it('falls back to static columns for toggleable columns without a registry', function () {
+    /** @var DataTable $instance */
+    $instance = Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])->instance();
+
+    $keys = collect($instance->getToggleableColumnsProperty())->pluck('key')->all();
+
+    expect($keys)->toContain('name', 'membership_type', 'is_active')
+        ->and($keys)->not->toContain('checkbox')
+        ->and($keys)->not->toContain('actions');
+});
+
+it('returns early from applyActiveView when there is no entity type', function () {
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+    ])
+        ->call('switchView', 1)
+        ->assertSet('viewId', 1)
+        ->assertStatus(200);
+});
+
+it('resolves the product group column registry', function () {
+    /** @var DataTable $instance */
+    $instance = Livewire::test(DataTable::class, [
+        'columns' => [['key' => 'name', 'label' => 'Name']],
+        'model' => ProductGroup::class,
+        'entityType' => 'product_groups',
+    ])->instance();
+
+    $toggleable = $instance->getToggleableColumnsProperty();
+
+    expect($toggleable)->toBeArray();
+    expect($toggleable)->not->toBeEmpty();
+});
+
+it('exports current results as CSV across all value types', function () {
+    $taxClass = OrganisationTaxClass::factory()->create(['name' => 'Standard']);
+
+    $columns = [
+        ['key' => 'checkbox', 'type' => 'checkbox'],
+        ['key' => 'name', 'label' => 'Name'],
+        ['key' => 'membership_type', 'label' => 'Type'],
+        ['key' => 'is_active', 'label' => 'Active'],
+        ['key' => 'created_at', 'label' => 'Created'],
+        ['key' => 'tag_list', 'label' => 'Tags'],
+        ['key' => 'saleTaxClass', 'label' => 'Tax Class'],
+        ['key' => 'actions', 'type' => 'actions'],
+    ];
+
+    // Mount with no rows so the initial blade render does not try to display
+    // the array (tag_list) / model (saleTaxClass) cells. exportCsv re-queries
+    // and serialises values itself without rendering the blade.
+    /** @var DataTable $instance */
+    $instance = Livewire::test(DataTable::class, [
+        'columns' => $columns,
+        'model' => Member::class,
+    ])->instance();
+
+    Member::factory()->create([
+        'name' => 'Export Co',
+        'membership_type' => MembershipType::Organisation,
+        'is_active' => true,
+        'tag_list' => ['vip', 'wholesale'],
+        'sale_tax_class_id' => $taxClass->id,
+    ]);
+
+    $response = $instance->exportCsv();
+
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $response->sendContent();
+    $csv = ob_get_clean();
+
+    expect($csv)->toContain('ID,Name,Type,Active,Created,Tags,"Tax Class"')
+        ->and($csv)->toContain('Export Co')   // string
+        ->and($csv)->toContain('Yes')          // bool true
+        ->and($csv)->toContain('Standard')     // related model name
+        ->and($csv)->toContain('vip');         // json-encoded array
 });

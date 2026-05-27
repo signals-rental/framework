@@ -54,6 +54,26 @@ it('opens the modal for editing an existing view', function () {
         ->assertSee('Edit Custom View');
 });
 
+it('normalises existing filters when opening a view for editing', function () {
+    $view = CustomView::factory()->create([
+        'user_id' => $this->user->id,
+        'name' => 'Filtered View',
+        'columns' => ['name'],
+        'filters' => [
+            // Fully specified filter plus a partial one to exercise the ?? fallbacks.
+            ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'organisation', 'logic' => 'or'],
+            ['field' => 'name'],
+        ],
+    ]);
+
+    Livewire::test(ViewBuilder::class, ['entityType' => 'members'])
+        ->dispatch('open-view-builder', viewId: $view->id)
+        ->assertSet('filters', [
+            ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'organisation', 'logic' => 'or'],
+            ['field' => 'name', 'predicate' => 'eq', 'value' => '', 'logic' => 'and'],
+        ]);
+});
+
 it('saves a new view', function () {
     Livewire::test(ViewBuilder::class, ['entityType' => 'members'])
         ->dispatch('open-view-builder', viewId: null)

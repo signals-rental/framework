@@ -32,9 +32,9 @@ trait FiltersQueries
             return $query;
         }
 
-        $allowed = $allowedFields ?? $this->allowedFilters ?? [];
-        $allowedRelations = $this->allowedRelationFilters ?? [];
-        $customFieldModule = $this->customFieldModule ?? null;
+        $allowed = $allowedFields ?? $this->allowedFilters;
+        $allowedRelations = $this->allowedRelationFilters;
+        $customFieldModule = $this->customFieldModule;
 
         return app(RansackFilter::class)->apply($query, $filters, $allowed, $allowedRelations, $customFieldModule);
     }
@@ -59,7 +59,7 @@ trait FiltersQueries
             return $query;
         }
 
-        $allowed = $allowedFields ?? $this->allowedSorts ?? [];
+        $allowed = $allowedFields ?? $this->allowedSorts;
 
         return app(RansackFilter::class)->applySort($query, $sort, $allowed);
     }
@@ -121,8 +121,8 @@ trait FiltersQueries
     protected function applyIncludes(Builder $query, Request $request, ?Model $model = null): Builder
     {
         $requested = array_filter(explode(',', $request->input('include', '')));
-        $allowed = $this->allowedIncludes ?? [];
-        $defaults = $this->defaultIncludes ?? [];
+        $allowed = $this->allowedIncludes;
+        $defaults = $this->defaultIncludes;
 
         $eagerLoad = array_intersect(array_unique(array_merge($defaults, $requested)), $allowed);
 

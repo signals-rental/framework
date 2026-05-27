@@ -17,11 +17,36 @@ it('returns human-readable labels', function () {
         ->and(ActivityType::Meeting->label())->toBe('Meeting');
 });
 
+it('returns the correct label for every case', function (ActivityType $type, string $label) {
+    expect($type->label())->toBe($label);
+})->with([
+    'task' => [ActivityType::Task, 'Task'],
+    'call' => [ActivityType::Call, 'Call'],
+    'fax' => [ActivityType::Fax, 'Fax'],
+    'email' => [ActivityType::Email, 'Email'],
+    'meeting' => [ActivityType::Meeting, 'Meeting'],
+    'note' => [ActivityType::Note, 'Note'],
+    'letter' => [ActivityType::Letter, 'Letter'],
+]);
+
 it('resolves from CRMS name', function () {
     expect(ActivityType::fromCrmsName('Task'))->toBe(ActivityType::Task)
         ->and(ActivityType::fromCrmsName('meeting'))->toBe(ActivityType::Meeting);
 });
 
+it('resolves every CRMS name case-insensitively', function (string $name, ActivityType $expected) {
+    expect(ActivityType::fromCrmsName($name))->toBe($expected);
+})->with([
+    'task' => ['task', ActivityType::Task],
+    'call' => ['call', ActivityType::Call],
+    'fax' => ['fax', ActivityType::Fax],
+    'email' => ['email', ActivityType::Email],
+    'meeting' => ['meeting', ActivityType::Meeting],
+    'note' => ['note', ActivityType::Note],
+    'letter' => ['letter', ActivityType::Letter],
+    'mixed-case' => ['LeTTeR', ActivityType::Letter],
+]);
+
 it('throws on unknown CRMS name', function () {
     ActivityType::fromCrmsName('unknown');
-})->throws(\ValueError::class);
+})->throws(ValueError::class);

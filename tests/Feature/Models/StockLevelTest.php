@@ -2,10 +2,13 @@
 
 use App\Enums\AllowedStockType;
 use App\Enums\StockCategory;
+use App\Models\Activity;
 use App\Models\Member;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
+use App\Services\SchemaRegistry;
+use Carbon\CarbonImmutable;
 
 it('belongs to a product', function () {
     $stockLevel = StockLevel::factory()->create();
@@ -147,9 +150,9 @@ it('casts datetime fields', function () {
 
     $stockLevel->refresh();
 
-    expect($stockLevel->starts_at)->toBeInstanceOf(\Carbon\CarbonImmutable::class);
-    expect($stockLevel->ends_at)->toBeInstanceOf(\Carbon\CarbonImmutable::class);
-    expect($stockLevel->last_count_at)->toBeInstanceOf(\Carbon\CarbonImmutable::class);
+    expect($stockLevel->starts_at)->toBeInstanceOf(CarbonImmutable::class);
+    expect($stockLevel->ends_at)->toBeInstanceOf(CarbonImmutable::class);
+    expect($stockLevel->last_count_at)->toBeInstanceOf(CarbonImmutable::class);
 });
 
 it('creates a serialised stock level via factory', function () {
@@ -173,4 +176,25 @@ it('creates an allocated stock level via factory', function () {
     $stockLevel = StockLevel::factory()->allocated()->create();
 
     expect((float) $stockLevel->quantity_allocated)->toBeGreaterThanOrEqual(1);
+});
+
+it('has activities via morphMany', function () {
+    $stockLevel = StockLevel::factory()->create();
+    Activity::factory()->forStockLevel($stockLevel)->count(2)->create();
+
+    expect($stockLevel->activities)->toHaveCount(2)
+        ->and($stockLevel->activities->first())->toBeInstanceOf(Activity::class);
+});
+
+it('defines its schema with core field definitions', function () {
+    $schema = (new SchemaRegistry)->resolve(StockLevel::class);
+
+    expect($schema)->toHaveKeys([
+        'product_id', 'store_id', 'member_id', 'item_name', 'asset_number',
+        'serial_number', 'barcode', 'location', 'stock_type', 'stock_category',
+        'quantity_held', 'container_mode', 'starts_at', 'ends_at', 'last_count_at',
+    ]);
+    expect($schema['product_id']->relationType)->toBe('belongsTo')
+        ->and($schema['product_id']->required)->toBeTrue()
+        ->and($schema['item_name']->searchable)->toBeTrue();
 });

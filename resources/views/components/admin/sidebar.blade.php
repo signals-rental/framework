@@ -145,6 +145,18 @@
         </a>
     @endif
 
+    {{-- Pricing --}}
+    @if($group === 'pricing')
+        <div class="s-admin-sidebar-title">Pricing</div>
+        @can('rates.view')
+            <a href="{{ route('admin.settings.rate-definitions') }}" wire:navigate
+               class="s-admin-nav-item {{ request()->routeIs('admin.settings.rate-definitions*') ? 'active' : '' }}">
+                <flux:icon.calculator class="s-admin-nav-icon" />
+                Rate Definitions
+            </a>
+        @endcan
+    @endif
+
     {{-- System --}}
     @if($group === 'system')
         <div class="s-admin-sidebar-title">System</div>

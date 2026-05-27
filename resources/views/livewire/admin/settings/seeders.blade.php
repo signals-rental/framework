@@ -75,6 +75,8 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
 
         $taxRatesSeeded = Schema::hasTable('tax_rates') && TaxRate::query()->exists();
 
+        $rateDefinitionsSeeded = Schema::hasTable('rate_definitions') && \App\Models\RateDefinition::query()->where('is_preset', true)->exists();
+
         $storesSeeded = Schema::hasTable('stores') && \App\Models\Store::query()->exists();
 
         $demoNames = ['London Warehouse', 'Manchester Depot', 'Edinburgh Office'];
@@ -129,6 +131,18 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
                 'seeded' => $taxRatesSeeded,
                 'isDefault' => true,
             ],
+            'rate_definitions' => [
+                'name' => 'RateDefinitionPresetSeeder',
+                'class' => 'Database\\Seeders\\RateDefinitionPresetSeeder',
+                'description' => 'Creates the Current RMS-parity rate definition presets used to price products.',
+                'items' => [
+                    'Daily, Hourly, Half-Hourly, Weekly and Monthly Rate presets',
+                    'Fixed Rate, Fixed Rate and Subs Days presets',
+                    'Multiplier and Factor variants (daily, hourly, monthly)',
+                ],
+                'seeded' => $rateDefinitionsSeeded,
+                'isDefault' => true,
+            ],
             'permissions' => [
                 'name' => 'PermissionSeeder',
                 'class' => 'Database\\Seeders\\PermissionSeeder',
@@ -146,12 +160,13 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
             'roles' => [
                 'name' => 'RoleSeeder',
                 'class' => 'Database\\Seeders\\RoleSeeder',
-                'description' => 'Creates the four system roles with their default permission sets.',
+                'description' => 'Creates the five system roles with their default permission sets.',
                 'items' => [
                     'Admin — all permissions',
-                    'Manager — resource permissions (no settings/users/roles)',
-                    'Operator — core operational permissions (opportunities, invoicing, stock)',
-                    'Viewer — read-only access to all resources',
+                    'Operations Manager — all resource permissions (no settings/users/roles)',
+                    'Sales — opportunities, invoices, members, product/report viewing',
+                    'Warehouse — stock and product management',
+                    'Read Only — read-only access to all resources',
                 ],
                 'seeded' => $rolesSeeded,
                 'isDefault' => true,

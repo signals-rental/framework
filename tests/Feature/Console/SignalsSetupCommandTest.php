@@ -1,10 +1,12 @@
 <?php
 
 use App\Actions\Setup\CheckInfrastructure;
+use App\Data\Reference\CountryData;
 use App\Enums\FeatureProfile;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $envPath = base_path('.env');
@@ -278,6 +280,19 @@ it('fails when admin password is too short', function () {
     ])->assertFailed();
 });
 
+it('fails when admin password lacks required character classes', function () {
+    $this->artisan('signals:setup', [
+        '--no-interaction' => true,
+        '--company-name' => 'Acme',
+        '--country' => 'GB',
+        '--store-name' => 'HQ',
+        '--admin-name' => 'Admin',
+        '--admin-email' => 'admin@test.com',
+        // 19 lowercase chars: long enough, but missing upper/number/symbol.
+        '--admin-password' => 'alllowercaseletters',
+    ])->assertFailed();
+});
+
 it('fails in non-interactive mode without required company-name', function () {
     $this->artisan('signals:setup', [
         '--no-interaction' => true,
@@ -403,7 +418,7 @@ it('processes valid logo file and stores it', function () {
     imagepng($img, $tmpFile);
     imagedestroy($img);
 
-    \Illuminate\Support\Facades\Storage::fake('public');
+    Storage::fake('public');
 
     $this->artisan('signals:setup', [
         '--no-interaction' => true,
@@ -416,7 +431,7 @@ it('processes valid logo file and stores it', function () {
         '--admin-password' => 'SecurePass123!',
     ])->assertSuccessful();
 
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists('branding/logo.png');
+    Storage::disk('public')->assertExists('branding/logo.png');
 
     // Clean up temp file
     @unlink($tmpFile);
@@ -496,10 +511,10 @@ it('defaults country to GB in non-interactive mode when not specified', function
 });
 
 it('completes setup via interactive prompts', function () {
-    $countryOptions = \App\Data\Reference\CountryData::options();
+    $countryOptions = CountryData::options();
 
     $profileOptions = [];
-    foreach (\App\Enums\FeatureProfile::cases() as $profile) {
+    foreach (FeatureProfile::cases() as $profile) {
         $profileOptions[$profile->value] = $profile->label().' — '.$profile->description();
     }
 
@@ -532,11 +547,80 @@ it('completes setup via interactive prompts', function () {
     expect(Store::where('name', 'Interactive HQ')->exists())->toBeTrue();
 });
 
-it('cancels setup when user declines confirmation', function () {
-    $countryOptions = \App\Data\Reference\CountryData::options();
+it('adds additional stores via interactive prompts', function () {
+    $countryOptions = CountryData::options();
 
     $profileOptions = [];
-    foreach (\App\Enums\FeatureProfile::cases() as $profile) {
+    foreach (FeatureProfile::cases() as $profile) {
+        $profileOptions[$profile->value] = $profile->label().' — '.$profile->description();
+    }
+
+    $this->artisan('signals:setup')
+        ->expectsChoice('Country', 'GB', $countryOptions)
+        ->expectsQuestion('Company Name', 'Multi Store Co')
+        ->expectsQuestion('Timezone', 'Europe/London')
+        ->expectsQuestion('Currency Code', 'GBP')
+        ->expectsQuestion('Tax Rate (%)', '20.00')
+        ->expectsQuestion('Tax Label', 'VAT')
+        ->expectsQuestion('Date Format', 'd/m/Y')
+        ->expectsQuestion('Time Format', 'H:i')
+        ->expectsQuestion('Fiscal Year Start Month (1-12)', '1')
+        ->expectsQuestion('Store Name', 'Primary HQ')
+        ->expectsConfirmation('Add another store?', 'yes')
+        ->expectsQuestion('Store Name', 'Secondary Depot')
+        ->expectsConfirmation('Add another store?', 'no')
+        ->expectsChoice('Feature Profile', 'general', $profileOptions)
+        ->expectsQuestion('Primary Colour (hex)', '#1e3a5f')
+        ->expectsQuestion('Accent Colour (hex)', '#3b82f6')
+        ->expectsQuestion('Logo File Path (leave blank to skip)', '')
+        ->expectsQuestion('Full Name', 'Multi Admin')
+        ->expectsQuestion('Email Address', 'multi@test.com')
+        ->expectsQuestion('Password', 'SecurePass123!')
+        ->expectsConfirmation('Proceed with setup?', 'yes')
+        ->assertSuccessful();
+
+    expect(Store::where('name', 'Primary HQ')->exists())->toBeTrue()
+        ->and(Store::where('name', 'Secondary Depot')->exists())->toBeTrue();
+});
+
+it('skips the add-store loop and confirmation in interactive mode when forced', function () {
+    $countryOptions = CountryData::options();
+
+    $profileOptions = [];
+    foreach (FeatureProfile::cases() as $profile) {
+        $profileOptions[$profile->value] = $profile->label().' — '.$profile->description();
+    }
+
+    // Interactive (no --no-interaction) but forced: the "Add another store?" loop
+    // and the "Proceed with setup?" confirmation are both skipped.
+    $this->artisan('signals:setup', ['--force' => true])
+        ->expectsChoice('Country', 'GB', $countryOptions)
+        ->expectsQuestion('Company Name', 'Forced Co')
+        ->expectsQuestion('Timezone', 'Europe/London')
+        ->expectsQuestion('Currency Code', 'GBP')
+        ->expectsQuestion('Tax Rate (%)', '20.00')
+        ->expectsQuestion('Tax Label', 'VAT')
+        ->expectsQuestion('Date Format', 'd/m/Y')
+        ->expectsQuestion('Time Format', 'H:i')
+        ->expectsQuestion('Fiscal Year Start Month (1-12)', '1')
+        ->expectsQuestion('Store Name', 'Forced HQ')
+        ->expectsChoice('Feature Profile', 'general', $profileOptions)
+        ->expectsQuestion('Primary Colour (hex)', '#1e3a5f')
+        ->expectsQuestion('Accent Colour (hex)', '#3b82f6')
+        ->expectsQuestion('Logo File Path (leave blank to skip)', '')
+        ->expectsQuestion('Full Name', 'Forced Admin')
+        ->expectsQuestion('Email Address', 'forced@test.com')
+        ->expectsQuestion('Password', 'SecurePass123!')
+        ->assertSuccessful();
+
+    expect(User::where('email', 'forced@test.com')->exists())->toBeTrue();
+});
+
+it('cancels setup when user declines confirmation', function () {
+    $countryOptions = CountryData::options();
+
+    $profileOptions = [];
+    foreach (FeatureProfile::cases() as $profile) {
         $profileOptions[$profile->value] = $profile->label().' — '.$profile->description();
     }
 

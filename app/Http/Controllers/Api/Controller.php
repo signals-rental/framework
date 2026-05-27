@@ -11,6 +11,46 @@ use Symfony\Component\HttpFoundation\Response;
 abstract class Controller
 {
     /**
+     * Whitelisted fields for Ransack filtering. Controllers override as needed.
+     *
+     * @var list<string>
+     */
+    protected array $allowedFilters = [];
+
+    /**
+     * Whitelisted relations for Ransack relation filtering.
+     *
+     * @var list<string>
+     */
+    protected array $allowedRelationFilters = [];
+
+    /**
+     * Whitelisted fields for sorting.
+     *
+     * @var list<string>
+     */
+    protected array $allowedSorts = [];
+
+    /**
+     * Whitelisted relationships available via ?include=.
+     *
+     * @var list<string>
+     */
+    protected array $allowedIncludes = [];
+
+    /**
+     * Relationships always eager-loaded.
+     *
+     * @var list<string>
+     */
+    protected array $defaultIncludes = [];
+
+    /**
+     * Custom field module type for cf.* filters, or null when unsupported.
+     */
+    protected ?string $customFieldModule = null;
+
+    /**
      * Wrap a single resource in a keyed JSON response.
      *
      * @param  array<string, mixed>|object  $data

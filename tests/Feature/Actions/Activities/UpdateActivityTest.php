@@ -2,12 +2,16 @@
 
 use App\Actions\Activities\UpdateActivity;
 use App\Data\Activities\UpdateActivityData;
+use App\Enums\CustomFieldType;
 use App\Events\AuditableEvent;
 use App\Models\Activity;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Member;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
@@ -81,6 +85,55 @@ it('leaves field unchanged when null is passed via DTO', function () {
     expect($activity->refresh()->description)->toBe('Original');
 });
 
+it('resolves a CRMS short regarding_type to a class name on update', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $activity = Activity::factory()->create();
+    $member = Member::factory()->create();
+
+    $dto = UpdateActivityData::from([
+        'regarding_type' => 'Member',
+        'regarding_id' => $member->id,
+    ]);
+    (new UpdateActivity)($activity, $dto);
+
+    expect($activity->refresh()->regarding_type)->toBe(Member::class)
+        ->and($activity->regarding_id)->toBe($member->id);
+});
+
+it('syncs custom fields when provided', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $customField = CustomField::factory()->create([
+        'name' => 'activity_ref',
+        'module_type' => 'Activity',
+        'field_type' => CustomFieldType::String,
+    ]);
+
+    $activity = Activity::factory()->create();
+
+    $dto = UpdateActivityData::from([
+        'subject' => 'With Custom Field',
+        'custom_fields' => ['activity_ref' => 'ACT-123'],
+    ]);
+
+    (new UpdateActivity)($activity, $dto);
+
+    $cfv = CustomFieldValue::query()
+        ->where('custom_field_id', $customField->id)
+        ->where('entity_type', Activity::class)
+        ->where('entity_id', $activity->id)
+        ->first();
+
+    expect($cfv)->not->toBeNull()
+        ->and($cfv->value_string)->toBe('ACT-123');
+});
+
 it('throws authorization exception without permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -89,4 +142,4 @@ it('throws authorization exception without permission', function () {
     $dto = UpdateActivityData::from(['subject' => 'Nope']);
 
     (new UpdateActivity)($activity, $dto);
-})->throws(\Illuminate\Auth\Access\AuthorizationException::class);
+})->throws(AuthorizationException::class);

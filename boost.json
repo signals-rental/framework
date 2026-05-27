@@ -6,18 +6,19 @@
     "herd_mcp": true,
     "mcp": true,
     "nightwatch_mcp": true,
-    "packages": [
-        "laravel/ai"
-    ],
     "sail": false,
     "skills": [
+        "ai-sdk-development",
+        "laravel-best-practices",
         "configuring-horizon",
+        "configure-nightwatch",
         "pennant-development",
+        "scout-development",
+        "socialite-development",
         "fluxui-development",
         "livewire-development",
         "volt-development",
         "pest-testing",
-        "tailwindcss-development",
-        "ai-sdk-development"
+        "tailwindcss-development"
     ]
 }

@@ -8,6 +8,14 @@ use App\Models\Member;
 use App\Models\Membership;
 use App\Models\Store;
 use App\Models\User;
+use Database\Seeders\CountrySeeder;
+use Database\Seeders\EmailTemplateSeeder;
+use Database\Seeders\ListOfValuesSeeder;
+use Database\Seeders\NotificationTypeSeeder;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RateDefinitionPresetSeeder;
+use Database\Seeders\RoleSeeder;
+use Database\Seeders\TaxClassSeeder;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Artisan;
 
@@ -30,13 +38,14 @@ class CompleteSetup
     private function seedReferenceData(): void
     {
         $seeders = [
-            \Database\Seeders\CountrySeeder::class,
-            \Database\Seeders\ListOfValuesSeeder::class,
-            \Database\Seeders\TaxClassSeeder::class,
-            \Database\Seeders\PermissionSeeder::class,
-            \Database\Seeders\RoleSeeder::class,
-            \Database\Seeders\EmailTemplateSeeder::class,
-            \Database\Seeders\NotificationTypeSeeder::class,
+            CountrySeeder::class,
+            ListOfValuesSeeder::class,
+            TaxClassSeeder::class,
+            PermissionSeeder::class,
+            RoleSeeder::class,
+            EmailTemplateSeeder::class,
+            NotificationTypeSeeder::class,
+            RateDefinitionPresetSeeder::class,
         ];
 
         foreach ($seeders as $seederClass) {

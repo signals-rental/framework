@@ -482,7 +482,6 @@ class SignalsSetupCommand extends Command
         string $label,
         string $default = '',
         bool $required = true,
-        bool $secret = false,
     ): string {
         $value = $this->option($optionName);
 
@@ -500,10 +499,6 @@ class SignalsSetupCommand extends Command
             }
 
             return $default;
-        }
-
-        if ($secret) {
-            return password(label: $label, required: $required);
         }
 
         return text(label: $label, default: $default, required: $required);

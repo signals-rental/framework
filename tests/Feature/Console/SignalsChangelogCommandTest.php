@@ -1,10 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
 
 afterEach(function () {
     // Clean up only test-created changelog files, not pre-existing ones
-    $testVersions = ['0.3.0', '0.1.0-test', '1.0.0-beta.1'];
+    $testVersions = ['99.99.98', '0.1.0-test', '1.0.0-beta.1'];
     foreach ($testVersions as $version) {
         $file = base_path("docs/changelog/{$version}.md");
         if (file_exists($file)) {
@@ -26,10 +27,10 @@ it('rejects version without patch number', function () {
 });
 
 it('accepts valid semver version', function () {
-    $this->artisan('signals:changelog', ['version' => '0.3.0'])
+    $this->artisan('signals:changelog', ['version' => '99.99.98'])
         ->assertSuccessful();
 
-    expect(file_exists(base_path('docs/changelog/0.3.0.md')))->toBeTrue();
+    expect(file_exists(base_path('docs/changelog/99.99.98.md')))->toBeTrue();
 });
 
 it('accepts semver with pre-release suffix', function () {
@@ -40,12 +41,12 @@ it('accepts semver with pre-release suffix', function () {
 });
 
 it('creates changelog file with front matter', function () {
-    $this->artisan('signals:changelog', ['version' => '0.3.0'])
+    $this->artisan('signals:changelog', ['version' => '99.99.98'])
         ->assertSuccessful();
 
-    $content = File::get(base_path('docs/changelog/0.3.0.md'));
+    $content = File::get(base_path('docs/changelog/99.99.98.md'));
 
-    expect($content)->toContain('version: 0.3.0');
+    expect($content)->toContain('version: 99.99.98');
     expect($content)->toContain('date:');
 });
 
@@ -89,44 +90,44 @@ it('overwrites existing changelog when confirmed', function () {
 });
 
 it('handles empty git log output gracefully', function () {
-    \Illuminate\Support\Facades\Process::fake([
-        'git log*' => \Illuminate\Support\Facades\Process::result(output: ''),
+    Process::fake([
+        'git log*' => Process::result(output: ''),
     ]);
 
-    $this->artisan('signals:changelog', ['version' => '0.3.0'])
+    $this->artisan('signals:changelog', ['version' => '99.99.98'])
         ->assertSuccessful();
 
-    $content = File::get(base_path('docs/changelog/0.3.0.md'));
+    $content = File::get(base_path('docs/changelog/99.99.98.md'));
     // File should exist with front matter only — no categories since no commits
-    expect($content)->toContain('version: 0.3.0');
+    expect($content)->toContain('version: 99.99.98');
 });
 
 it('handles git log process failure gracefully', function () {
-    \Illuminate\Support\Facades\Process::fake([
-        'git log*' => \Illuminate\Support\Facades\Process::result(exitCode: 1, output: '', errorOutput: 'not a git repository'),
-        'git rev-parse*' => \Illuminate\Support\Facades\Process::result(exitCode: 1, output: ''),
+    Process::fake([
+        'git log*' => Process::result(exitCode: 1, output: '', errorOutput: 'not a git repository'),
+        'git rev-parse*' => Process::result(exitCode: 1, output: ''),
     ]);
 
-    $this->artisan('signals:changelog', ['version' => '0.3.0'])
+    $this->artisan('signals:changelog', ['version' => '99.99.98'])
         ->assertSuccessful();
 
-    $content = File::get(base_path('docs/changelog/0.3.0.md'));
-    expect($content)->toContain('version: 0.3.0');
+    $content = File::get(base_path('docs/changelog/99.99.98.md'));
+    expect($content)->toContain('version: 99.99.98');
 });
 
 it('categorises commits by prefix into changelog sections', function () {
-    \Illuminate\Support\Facades\Process::fake([
-        'git log *--pretty=format:%s' => \Illuminate\Support\Facades\Process::result(
+    Process::fake([
+        'git log *--pretty=format:%s' => Process::result(
             output: "Add user authentication\nFix login bug\nUpdate dashboard layout\nRemove legacy code\nSome random change"
         ),
-        'git rev-parse*' => \Illuminate\Support\Facades\Process::result(exitCode: 1, output: ''),
-        'git log --diff-filter*' => \Illuminate\Support\Facades\Process::result(exitCode: 1, output: ''),
+        'git rev-parse*' => Process::result(exitCode: 1, output: ''),
+        'git log --diff-filter*' => Process::result(exitCode: 1, output: ''),
     ]);
 
-    $this->artisan('signals:changelog', ['version' => '0.3.0'])
+    $this->artisan('signals:changelog', ['version' => '99.99.98'])
         ->assertSuccessful();
 
-    $content = File::get(base_path('docs/changelog/0.3.0.md'));
+    $content = File::get(base_path('docs/changelog/99.99.98.md'));
     expect($content)->toContain('### Added')
         ->and($content)->toContain('- Add user authentication')
         ->and($content)->toContain('### Fixed')

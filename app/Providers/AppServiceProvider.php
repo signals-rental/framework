@@ -6,6 +6,12 @@ use App\Models\User;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
+use App\Services\RateEngine\Modifiers\FactorModifier;
+use App\Services\RateEngine\Modifiers\MultiplierModifier;
+use App\Services\RateEngine\RateEngineRegistry;
+use App\Services\RateEngine\Strategies\FixedStrategy;
+use App\Services\RateEngine\Strategies\HybridStrategy;
+use App\Services\RateEngine\Strategies\PeriodStrategy;
 use App\Services\SchemaRegistry;
 use App\Services\TaxCalculator;
 use App\Support\Formatter;
@@ -43,6 +49,19 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
             $registry = new NotificationRegistry;
             $registry->registerMany(NotificationTypeSeeder::types());
+
+            return $registry;
+        });
+
+        $this->app->singleton(RateEngineRegistry::class, function (): RateEngineRegistry {
+            $registry = new RateEngineRegistry;
+
+            $registry->registerStrategy(new PeriodStrategy);
+            $registry->registerStrategy(new FixedStrategy);
+            $registry->registerStrategy(new HybridStrategy);
+
+            $registry->registerModifier(new MultiplierModifier);
+            $registry->registerModifier(new FactorModifier);
 
             return $registry;
         });
