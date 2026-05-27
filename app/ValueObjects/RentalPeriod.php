@@ -43,21 +43,29 @@ class RentalPeriod
         $effStart = $this->start->copy();
         $effEnd = $this->end->copy();
 
-        // Step 2: drop the final partial day when returned before the last-day cut-off.
-        $lastDayCutoff = $this->parseTime($timeOptions['last_day_cutoff'] ?? null);
-        if ($lastDayCutoff !== null && $this->minutesIntoDay($effEnd) < $lastDayCutoff) {
-            $effEnd = $effEnd->copy()->startOfDay();
+        // Steps 2-3: the cut-offs are day-based adjustments (drop/keep a whole
+        // calendar day) and only apply to day or longer periods — never to
+        // clock-based hourly/half-hourly rates, where flooring to a day boundary
+        // would discard real chargeable hours.
+        if (! $period->isClockBased()) {
+            // Drop the final partial day when returned before the last-day cut-off.
+            $lastDayCutoff = $this->parseTime($timeOptions['last_day_cutoff'] ?? null);
+            if ($lastDayCutoff !== null && $this->minutesIntoDay($effEnd) < $lastDayCutoff) {
+                $effEnd = $effEnd->copy()->startOfDay();
+            }
+
+            // When collection is after the first-day cut-off, charge the first day
+            // in full by flooring the effective start to the beginning of that day,
+            // so a late pickup never shrinks the first day's charge.
+            $firstDayCutoff = $this->parseTime($timeOptions['first_day_cutoff'] ?? null);
+            if ($firstDayCutoff !== null && $this->minutesIntoDay($effStart) > $firstDayCutoff) {
+                $effStart = $effStart->copy()->startOfDay();
+            }
         }
 
-        // Step 3: when collection is after the first-day cut-off, charge the first
-        // day in full by flooring the effective start to the beginning of that day,
-        // so a late pickup never shrinks the first day's charge.
-        $firstDayCutoff = $this->parseTime($timeOptions['first_day_cutoff'] ?? null);
-        if ($firstDayCutoff !== null && $this->minutesIntoDay($effStart) > $firstDayCutoff) {
-            $effStart = $effStart->copy()->startOfDay();
-        }
-
-        // Step 4: measure the chargeable duration in minutes.
+        // Step 4: measure the chargeable duration in minutes. Guard against an
+        // inverted window (e.g. a cut-off flooring effEnd below effStart) so it
+        // yields zero rather than a positive over-charge.
         $dayType = $timeOptions['day_type'] ?? DayType::Clock;
         if ($dayType === DayType::Business) {
             $durationMinutes = $this->businessHoursMinutes(
@@ -67,7 +75,9 @@ class RentalPeriod
                 $this->parseTime($timeOptions['business_hours_end'] ?? null) ?? 1440,
             );
         } else {
-            $durationMinutes = (int) abs($effEnd->diffInMinutes($effStart));
+            $durationMinutes = $effEnd->lessThanOrEqualTo($effStart)
+                ? 0
+                : (int) abs($effEnd->diffInMinutes($effStart));
         }
 
         // Step 5: resolve the length of one chargeable unit in minutes.

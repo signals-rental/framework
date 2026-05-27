@@ -86,10 +86,12 @@ class MultiplierModifier implements RateModifier
 
         return $breakdown
             ->withPerUnitSubtotal($perUnitSubtotalMinor, $lineItems)
+            // beforeMinor/afterMinor are per-unit subtotal figures (matching the
+            // breakdown's per_unit_subtotal), not the × quantity total.
             ->withModifierApplied([
                 'key' => $this->identifier(),
                 'label' => $this->label(),
-                'description' => sprintf('Per-period multipliers applied across %d %s', $breakdown->units, $breakdown->unitLabel),
+                'description' => sprintf('Per-period multipliers applied to the per-unit subtotal across %d %s', $breakdown->units, $breakdown->unitLabel),
                 'beforeMinor' => $breakdown->perUnitSubtotalMinor,
                 'afterMinor' => $perUnitSubtotalMinor,
             ]);

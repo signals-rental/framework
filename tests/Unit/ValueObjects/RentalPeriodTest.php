@@ -160,3 +160,20 @@ it('charges hourly units against the clock', function () {
     expect(period('2026-01-12 09:00', '2026-01-12 12:15')->chargeableUnits(BasePeriod::Hourly, []))
         ->toBe(4);
 });
+
+it('ignores the last-day cut-off for clock-based periods', function () {
+    // Cut-offs are day-based and must not apply to hourly rates. Mon 14:00 -> Tue
+    // 08:00 = 18h. A last-day cut-off of 09:00 would (wrongly) floor the end to
+    // Tue 00:00 and bill only 10h; the hourly rate must keep the full 18 units.
+    expect(period('2026-01-12 14:00', '2026-01-13 08:00')->chargeableUnits(BasePeriod::Hourly, [
+        'last_day_cutoff' => '09:00',
+    ]))->toBe(18);
+});
+
+it('ignores the first-day cut-off for clock-based periods', function () {
+    // Mon 14:00 -> Mon 18:00 = 4h. A first-day cut-off of 12:00 would (wrongly)
+    // floor the start to Mon 00:00 and bill 18h; the hourly rate must keep 4 units.
+    expect(period('2026-01-12 14:00', '2026-01-12 18:00')->chargeableUnits(BasePeriod::Hourly, [
+        'first_day_cutoff' => '12:00',
+    ]))->toBe(4);
+});

@@ -66,10 +66,12 @@ class FactorModifier implements RateModifier
 
         return $breakdown
             ->withPerUnitSubtotal($scaledMinor, $breakdown->lineItems)
+            // beforeMinor/afterMinor are per-unit subtotal figures (matching the
+            // breakdown's per_unit_subtotal), not the × quantity total.
             ->withModifierApplied([
                 'key' => $this->identifier(),
                 'label' => $this->label(),
-                'description' => sprintf('Quantity %d × factor %s', $context->quantity, $factor),
+                'description' => sprintf('Quantity %d × factor %s applied to the per-unit subtotal', $context->quantity, $factor),
                 'beforeMinor' => $breakdown->perUnitSubtotalMinor,
                 'afterMinor' => $scaledMinor,
             ]);
