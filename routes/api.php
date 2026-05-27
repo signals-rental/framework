@@ -21,7 +21,11 @@ use App\Http\Controllers\Api\V1\MemberRelationshipController;
 use App\Http\Controllers\Api\V1\OrganisationTaxClassController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductGroupController;
+use App\Http\Controllers\Api\V1\ProductRateController;
 use App\Http\Controllers\Api\V1\ProductTaxClassController;
+use App\Http\Controllers\Api\V1\RateCalculationController;
+use App\Http\Controllers\Api\V1\RateDefinitionController;
+use App\Http\Controllers\Api\V1\RateEngineMetaController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SchemaController;
 use App\Http\Controllers\Api\V1\SettingsController;
@@ -32,6 +36,7 @@ use App\Http\Controllers\Api\V1\TaxRateController;
 use App\Http\Controllers\Api\V1\TaxRuleController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -45,7 +50,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 'throttle:api', 'auth:sanctum', 'signals.active-user'])->group(function (): void {
+Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth:sanctum', 'signals.active-user'])->group(function (): void {
 
     // System
     Route::get('system/health', [SystemController::class, 'health'])->name('api.v1.system.health');
@@ -121,6 +126,8 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
     // Products
     Route::apiResource('products', ProductController::class)->names('api.v1.products');
     Route::apiResource('products.accessories', AccessoryController::class)->only(['index', 'store', 'update', 'destroy'])->names('api.v1.products.accessories');
+    Route::apiResource('products.rates', ProductRateController::class)->names('api.v1.products.rates');
+    Route::post('products/{product}/calculate_rate', [RateCalculationController::class, 'calculate'])->name('api.v1.products.calculate_rate');
 
     // Product Groups
     Route::apiResource('product_groups', ProductGroupController::class)->names('api.v1.product_groups');
@@ -136,4 +143,14 @@ Route::prefix('v1')->middleware([\App\Http\Middleware\ForceJsonResponse::class, 
     // Activities
     Route::apiResource('activities', ActivityController::class)->names('api.v1.activities');
     Route::post('activities/{activity}/complete', [ActivityController::class, 'complete'])->name('api.v1.activities.complete');
+
+    // Rate Definitions
+    Route::post('rate_definitions/{rate_definition}/duplicate', [RateDefinitionController::class, 'duplicate'])->name('api.v1.rate_definitions.duplicate');
+    Route::apiResource('rate_definitions', RateDefinitionController::class)->names('api.v1.rate_definitions');
+
+    // Rate Engine metadata (for external form builders)
+    Route::get('rate_engine/strategies', [RateEngineMetaController::class, 'strategies'])->name('api.v1.rate_engine.strategies');
+    Route::get('rate_engine/modifiers', [RateEngineMetaController::class, 'modifiers'])->name('api.v1.rate_engine.modifiers');
+    Route::get('rate_engine/presets', [RateEngineMetaController::class, 'presets'])->name('api.v1.rate_engine.presets');
+    Route::get('rate_engine/schema', [RateEngineMetaController::class, 'schema'])->name('api.v1.rate_engine.schema');
 });
