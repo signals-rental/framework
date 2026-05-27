@@ -79,27 +79,15 @@ class RepeaterField extends ContainerField
     }
 
     /**
-     * The repeater's default rows. A repeater with a minimum item count seeds
-     * that many rows from its child defaults so a fresh, untouched form already
-     * satisfies its own `min:` rule; otherwise it defaults to an empty list.
+     * Defaults to an empty list of rows. Note: a repeater with minItems() set
+     * therefore starts below its own minimum — the UI seeds the initial row(s),
+     * and the `min:` rule is only enforced on submit.
      *
      * @return array<string, mixed>
      */
     public function defaults(): array
     {
-        $minItems = $this->minItems ?? 0;
-
-        if ($minItems < 1) {
-            return [$this->key => []];
-        }
-
-        $rowDefaults = [];
-
-        foreach ($this->fields as $field) {
-            $rowDefaults += $field->defaults();
-        }
-
-        return [$this->key => array_fill(0, $minItems, $rowDefaults)];
+        return [$this->key => []];
     }
 
     /**

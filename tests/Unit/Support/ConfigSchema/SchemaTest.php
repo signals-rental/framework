@@ -26,19 +26,23 @@ it('exposes its ordered fields', function () {
 });
 
 it('aggregates validation rules across fields, excluding a hidden group', function () {
-    expect(optionsSchema()->validationRules(['day_type' => 'clock']))->toBe([
-        'day_type' => ['nullable', 'in:clock,business'],
-        'leeway_minutes' => ['nullable', 'integer', 'min:0'],
-    ]);
+    $rules = optionsSchema()->validationRules(['day_type' => 'clock']);
+
+    expect($rules)->toHaveKeys(['day_type', 'leeway_minutes'])
+        ->and($rules)->not->toHaveKey('business_hours_start')
+        ->and($rules['day_type'][0])->toBe('nullable')
+        ->and((string) $rules['day_type'][1])->toBe('in:"clock","business"')
+        ->and($rules['leeway_minutes'])->toBe(['nullable', 'integer', 'min:0']);
 });
 
 it('includes a visible group\'s children in the aggregated rules', function () {
-    expect(optionsSchema()->validationRules(['day_type' => 'business']))->toBe([
-        'day_type' => ['nullable', 'in:clock,business'],
-        'business_hours_start' => ['required', 'date_format:H:i'],
-        'business_hours_end' => ['required', 'date_format:H:i'],
-        'leeway_minutes' => ['nullable', 'integer', 'min:0'],
-    ]);
+    $rules = optionsSchema()->validationRules(['day_type' => 'business']);
+
+    expect($rules['day_type'][0])->toBe('nullable')
+        ->and((string) $rules['day_type'][1])->toBe('in:"clock","business"')
+        ->and($rules['business_hours_start'])->toBe(['required', 'date_format:H:i'])
+        ->and($rules['business_hours_end'])->toBe(['required', 'date_format:H:i'])
+        ->and($rules['leeway_minutes'])->toBe(['nullable', 'integer', 'min:0']);
 });
 
 it('aggregates defaults across fields and groups', function () {

@@ -70,7 +70,12 @@ it('validates toggles as boolean', function () {
 it('constrains select fields to their option keys', function () {
     $field = SelectField::make('day_type')->options(['clock' => 'Clock', 'business' => 'Business']);
 
-    expect($field->validationRules('', []))->toBe(['day_type' => ['nullable', 'in:clock,business']]);
+    $rules = $field->validationRules('', []);
+
+    // The rule is an Illuminate "in" rule object (Rule::in) rather than a raw
+    // string, so option keys containing commas or whitespace can't corrupt it.
+    expect($rules['day_type'][0])->toBe('nullable')
+        ->and((string) $rules['day_type'][1])->toBe('in:"clock","business"');
 });
 
 it('validates time fields against the HH:MM format', function () {

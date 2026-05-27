@@ -6,6 +6,7 @@ use App\Data\Rates\UpdateProductRateData;
 use App\Enums\RateTransactionType;
 use App\Models\ProductRate;
 use Illuminate\Validation\ValidationException;
+use Spatie\LaravelData\Optional;
 
 it('builds a create DTO from valid input', function () {
     $data = CreateProductRateData::from([
@@ -35,8 +36,9 @@ it('requires product, rate definition, transaction type, price and currency', fu
 it('treats all update fields as optional', function () {
     $data = UpdateProductRateData::from(['price' => 999]);
 
+    // Omitted fields are Optional (untouched), not null — null now means "clear".
     expect($data->price)->toBe(999)
-        ->and($data->transaction_type)->toBeNull();
+        ->and($data->transaction_type)->toBeInstanceOf(Optional::class);
 });
 
 it('validates update input against its rules', function () {
