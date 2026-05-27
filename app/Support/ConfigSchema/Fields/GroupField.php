@@ -2,6 +2,7 @@
 
 namespace App\Support\ConfigSchema\Fields;
 
+use App\Support\ConfigSchema\ContainerField;
 use App\Support\ConfigSchema\Field;
 
 /**
@@ -10,26 +11,8 @@ use App\Support\ConfigSchema\Field;
  * and to gate them collectively via {@see Field::visibleWhen()}. When the group
  * is hidden, none of its children are validated or persisted.
  */
-class GroupField extends Field
+class GroupField extends ContainerField
 {
-    /** @var array<int, Field> */
-    private array $fields = [];
-
-    public function fields(Field ...$fields): static
-    {
-        $this->fields = $fields;
-
-        return $this;
-    }
-
-    /**
-     * @return array<int, Field>
-     */
-    public function getFields(): array
-    {
-        return $this->fields;
-    }
-
     public function type(): string
     {
         return 'group';
@@ -85,19 +68,6 @@ class GroupField extends Field
         }
 
         return $sanitised;
-    }
-
-    /**
-     * @return array<int, mixed>
-     */
-    protected function typeRules(): array
-    {
-        return [];
-    }
-
-    protected function castValue(mixed $value): mixed
-    {
-        return $value;
     }
 
     /**

@@ -2,28 +2,39 @@
 
 namespace App\Support\ConfigSchema\Fields;
 
+use App\Support\ConfigSchema\ContainerField;
 use App\Support\ConfigSchema\Field;
+use InvalidArgumentException;
 
 /**
  * An ordered, addable/removable list of rows. Each row is a set of nested
  * {@see Field}s (the row schema), validated at wildcard paths such as
  * `tiers.*.multiplier`. Used for multiplier tiers and factor ranges.
  *
- * Per-row conditional visibility is not supported in v1 (the rate engine's row
- * fields are unconditional); row field rules are generated unconditionally.
+ * Per-row conditional visibility is not supported: wildcard rules apply to every
+ * row uniformly, so a row field cannot show/hide per row. {@see self::fields()}
+ * rejects row fields that declare {@see Field::visibleWhen()} rather than
+ * silently ignoring the condition.
  */
-class RepeaterField extends Field
+class RepeaterField extends ContainerField
 {
-    /** @var array<int, Field> */
-    private array $fields = [];
-
     private ?int $minItems = null;
 
+    /**
+     * Define the row schema. Row fields may not use visibleWhen() — per-row
+     * visibility cannot be expressed as uniform wildcard validation rules.
+     */
     public function fields(Field ...$fields): static
     {
-        $this->fields = $fields;
+        foreach ($fields as $field) {
+            if ($field->hasVisibleConditions()) {
+                throw new InvalidArgumentException(
+                    'Repeater row fields cannot use visibleWhen(); per-row conditional visibility is not supported.',
+                );
+            }
+        }
 
-        return $this;
+        return parent::fields(...$fields);
     }
 
     public function minItems(int $minItems): static
@@ -31,14 +42,6 @@ class RepeaterField extends Field
         $this->minItems = $minItems;
 
         return $this;
-    }
-
-    /**
-     * @return array<int, Field>
-     */
-    public function getFields(): array
-    {
-        return $this->fields;
     }
 
     public function type(): string
@@ -66,6 +69,8 @@ class RepeaterField extends Field
 
         $rules = [$path => $arrayRules];
 
+        // Row fields are validated uniformly at the wildcard path. visibleWhen is
+        // rejected in fields(), so an empty values array is safe here.
         foreach ($this->fields as $field) {
             $rules += $field->validationRules("{$path}.*", []);
         }
@@ -74,11 +79,27 @@ class RepeaterField extends Field
     }
 
     /**
+     * The repeater's default rows. A repeater with a minimum item count seeds
+     * that many rows from its child defaults so a fresh, untouched form already
+     * satisfies its own `min:` rule; otherwise it defaults to an empty list.
+     *
      * @return array<string, mixed>
      */
     public function defaults(): array
     {
-        return [$this->key => []];
+        $minItems = $this->minItems ?? 0;
+
+        if ($minItems < 1) {
+            return [$this->key => []];
+        }
+
+        $rowDefaults = [];
+
+        foreach ($this->fields as $field) {
+            $rowDefaults += $field->defaults();
+        }
+
+        return [$this->key => array_fill(0, $minItems, $rowDefaults)];
     }
 
     /**
@@ -87,7 +108,7 @@ class RepeaterField extends Field
      */
     public function sanitise(array $values): array
     {
-        if (! array_key_exists($this->key, $values)) {
+        if (! $this->isVisible($values) || ! array_key_exists($this->key, $values)) {
             return [];
         }
 
@@ -114,19 +135,6 @@ class RepeaterField extends Field
         }
 
         return [$this->key => $rows];
-    }
-
-    /**
-     * @return array<int, mixed>
-     */
-    protected function typeRules(): array
-    {
-        return [];
-    }
-
-    protected function castValue(mixed $value): mixed
-    {
-        return $value;
     }
 
     /**

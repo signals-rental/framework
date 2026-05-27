@@ -61,7 +61,7 @@ class NumberField extends Field
 
     protected function castValue(mixed $value): int
     {
-        return (int) $value;
+        return (int) (is_scalar($value) ? $value : 0);
     }
 
     /**

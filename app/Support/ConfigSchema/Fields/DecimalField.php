@@ -5,8 +5,8 @@ namespace App\Support\ConfigSchema\Fields;
 use App\Support\ConfigSchema\Field;
 
 /**
- * A decimal field. Values are kept as strings to preserve precision for the
- * rate engine's brick/money arithmetic (multiplier and factor values).
+ * A decimal field. Values are kept as strings to preserve precision for any
+ * downstream decimal arithmetic, rather than being coerced to a float.
  */
 class DecimalField extends Field
 {

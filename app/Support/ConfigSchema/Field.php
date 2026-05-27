@@ -120,6 +120,14 @@ abstract class Field
     }
 
     /**
+     * Whether this field carries any conditional-visibility conditions.
+     */
+    public function hasVisibleConditions(): bool
+    {
+        return $this->visibleConditions !== [];
+    }
+
+    /**
      * Whether this field is visible given the current sibling values.
      *
      * @param  array<string, mixed>  $values

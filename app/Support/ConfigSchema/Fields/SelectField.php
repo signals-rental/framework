@@ -3,6 +3,7 @@
 namespace App\Support\ConfigSchema\Fields;
 
 use App\Support\ConfigSchema\Field;
+use Illuminate\Validation\Rule;
 
 /**
  * A dropdown constrained to a fixed set of key => label options.
@@ -32,7 +33,7 @@ class SelectField extends Field
      */
     protected function typeRules(): array
     {
-        return ['in:'.implode(',', array_keys($this->options))];
+        return [Rule::in(array_keys($this->options))];
     }
 
     protected function castValue(mixed $value): string
