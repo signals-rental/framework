@@ -5,6 +5,7 @@ use App\Actions\Rates\UpdateProductRate;
 use App\Data\Rates\CreateProductRateData;
 use App\Data\Rates\UpdateProductRateData;
 use App\Enums\RateTransactionType;
+use App\Models\Currency;
 use App\Models\Product;
 use App\Models\ProductRate;
 use App\Models\RateDefinition;
@@ -129,6 +130,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             'rateDefinitions' => RateDefinition::query()->orderByDesc('is_preset')->orderBy('name')->get(['id', 'name']),
             'stores' => Store::query()->orderBy('name')->get(['id', 'name']),
             'transactionTypes' => RateTransactionType::cases(),
+            'currencies' => Currency::query()->enabled()->orderBy('code')->get(['code', 'name']),
         ];
     }
 }; ?>
@@ -159,7 +161,11 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                     <div class="grid grid-cols-2 gap-4">
                         <flux:input wire:model="price" type="text" inputmode="decimal" label="Unit Price" placeholder="0.00" required />
-                        <flux:input wire:model="currency" type="text" label="Currency" maxlength="3" />
+                        <flux:select wire:model="currency" label="Currency">
+                            @foreach($currencies as $c)
+                                <flux:select.option value="{{ $c->code }}">{{ $c->code }} — {{ $c->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
                     </div>
                 </div>
             </x-signals.form-section>

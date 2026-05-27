@@ -59,7 +59,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 Rates ({{ $product->rates_count ?? $rates->count() }})
             </h3>
             <a href="{{ route('products.rates.create', $product) }}" wire:navigate class="s-btn s-btn-sm s-btn-accent">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
+                <flux:icon.plus class="w-4 h-4" />
                 Assign Rate
             </a>
         </div>
@@ -110,7 +110,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                         {{ $rate->transaction_type->label() }}
                                     </span>
                                 </td>
-                                <td class="s-cell-mono">{{ $rate->formatMoneyCost('price') }} {{ $rate->currency }}</td>
+                                <td class="s-cell-amount">{{ $rate->formatMoneyCost('price') }} {{ $rate->currency }}</td>
                                 <td>{{ $rate->store?->name ?? 'All stores' }}</td>
                                 <td class="text-sm text-[var(--text-secondary)]">
                                     {{ $rate->valid_from?->toDateString() ?? '—' }} → {{ $rate->valid_to?->toDateString() ?? '—' }}
@@ -119,7 +119,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <td class="text-right">
                                     <div x-data="{ open: false }" class="relative inline-flex">
                                         <button type="button" x-on:click.stop="open = !open" class="s-btn-ghost s-btn-xs s-btn-icon">
-                                            <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                                            <flux:icon.ellipsis-vertical class="w-4 h-4" />
                                         </button>
                                         <div
                                             x-show="open"
@@ -146,12 +146,12 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             })"
                                         >
                                             <a href="{{ route('products.rates.edit', [$product, $rate]) }}" wire:navigate class="s-dropdown-item">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                                <flux:icon.pencil-square class="w-3.5 h-3.5" />
                                                 Edit
                                             </a>
                                             <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
                                             <button type="button" x-on:click="open = false; $dispatch('open-modal', 'remove-rate-{{ $rate->id }}')" class="s-dropdown-item" style="color: var(--red); width: 100%;">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="m21 8-2 13H5L3 8"/><path d="M7 8V6a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"/><path d="M1 8h22"/></svg>
+                                                <flux:icon.trash class="w-3.5 h-3.5" />
                                                 Remove
                                             </button>
                                         </div>

@@ -160,12 +160,13 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
             'roles' => [
                 'name' => 'RoleSeeder',
                 'class' => 'Database\\Seeders\\RoleSeeder',
-                'description' => 'Creates the four system roles with their default permission sets.',
+                'description' => 'Creates the five system roles with their default permission sets.',
                 'items' => [
                     'Admin — all permissions',
-                    'Manager — resource permissions (no settings/users/roles)',
-                    'Operator — core operational permissions (opportunities, invoicing, stock)',
-                    'Viewer — read-only access to all resources',
+                    'Operations Manager — all resource permissions (no settings/users/roles)',
+                    'Sales — opportunities, invoices, members, product/report viewing',
+                    'Warehouse — stock and product management',
+                    'Read Only — read-only access to all resources',
                 ],
                 'seeded' => $rolesSeeded,
                 'isDefault' => true,

@@ -88,7 +88,7 @@ new #[Layout('components.layouts.app')] #[Title('Rate Definitions')] class exten
                                             <flux:icon.pencil-square class="w-4 h-4" />
                                         </a>
                                         @unless($definition->is_preset)
-                                            <button type="button" class="s-btn s-btn-ghost s-btn-sm text-red-600" wire:click="$set('confirmingDeletion', {{ $definition->id }})" title="Delete">
+                                            <button type="button" class="s-btn s-btn-ghost s-btn-sm text-[var(--red)]" wire:click="$set('confirmingDeletion', {{ $definition->id }})" title="Delete">
                                                 <flux:icon.trash class="w-4 h-4" />
                                             </button>
                                         @endunless
