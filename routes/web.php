@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Web\DocsController;
+use App\Http\Controllers\Web\SearchController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -46,7 +47,7 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 
     // Search
-    Route::get('search', \App\Http\Controllers\Web\SearchController::class)->name('search');
+    Route::get('search', SearchController::class)->name('search');
 
     // Members
     Volt::route('members', 'members.index')->name('members.index');
@@ -84,6 +85,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('products/{product}/edit', 'products.form')->name('products.edit');
     Volt::route('products/{product}/stock', 'products.stock')->name('products.stock');
     Volt::route('products/{product}/accessories', 'products.accessories')->name('products.accessories');
+    Volt::route('products/{product}/rates', 'products.rates')->name('products.rates');
+    Volt::route('products/{product}/rates/create', 'products.rate-form')->name('products.rates.create');
+    Volt::route('products/{product}/rates/{rate}/edit', 'products.rate-form')->name('products.rates.edit');
     Volt::route('products/{product}/custom-fields', 'products.custom-fields')->name('products.custom-fields');
     Volt::route('products/{product}/activities', 'products.activities')->name('products.activities');
     Volt::route('products/{product}/files', 'products.files')->name('products.files');
@@ -200,6 +204,11 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'admin', 'signals.se
     Volt::route('admin/settings/tax/rules', 'admin.settings.tax.rules')->name('admin.settings.tax.rules');
     Volt::route('admin/settings/tax/rules/create', 'admin.settings.tax.rule-form')->name('admin.settings.tax.rules.create');
     Volt::route('admin/settings/tax/rules/{taxRule}/edit', 'admin.settings.tax.rule-form')->name('admin.settings.tax.rules.edit');
+
+    // Pricing
+    Volt::route('admin/settings/rate-definitions', 'admin.settings.rate-definitions')->name('admin.settings.rate-definitions');
+    Volt::route('admin/settings/rate-definitions/create', 'admin.settings.rate-definition-form')->name('admin.settings.rate-definitions.create');
+    Volt::route('admin/settings/rate-definitions/{rateDefinition}/edit', 'admin.settings.rate-definition-form')->name('admin.settings.rate-definitions.edit');
 });
 
 /*

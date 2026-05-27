@@ -75,6 +75,8 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
 
         $taxRatesSeeded = Schema::hasTable('tax_rates') && TaxRate::query()->exists();
 
+        $rateDefinitionsSeeded = Schema::hasTable('rate_definitions') && \App\Models\RateDefinition::query()->where('is_preset', true)->exists();
+
         $storesSeeded = Schema::hasTable('stores') && \App\Models\Store::query()->exists();
 
         $demoNames = ['London Warehouse', 'Manchester Depot', 'Edinburgh Office'];
@@ -127,6 +129,18 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
                     'Zero — 0%',
                 ],
                 'seeded' => $taxRatesSeeded,
+                'isDefault' => true,
+            ],
+            'rate_definitions' => [
+                'name' => 'RateDefinitionPresetSeeder',
+                'class' => 'Database\\Seeders\\RateDefinitionPresetSeeder',
+                'description' => 'Creates the Current RMS-parity rate definition presets used to price products.',
+                'items' => [
+                    'Daily, Hourly, Half-Hourly, Weekly and Monthly Rate presets',
+                    'Fixed Rate, Fixed Rate and Subs Days presets',
+                    'Multiplier and Factor variants (daily, hourly, monthly)',
+                ],
+                'seeded' => $rateDefinitionsSeeded,
                 'isDefault' => true,
             ],
             'permissions' => [

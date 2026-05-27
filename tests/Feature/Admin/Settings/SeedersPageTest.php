@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\RateDefinition;
 use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -87,6 +88,19 @@ it('shows error for invalid seeder key', function () {
     Volt::test('admin.settings.seeders')
         ->call('seed', 'nonexistent')
         ->assertHasErrors(['seeder']);
+});
+
+it('lists and runs the rate definitions preset seeder', function () {
+    $component = Volt::test('admin.settings.seeders');
+
+    $seeders = $component->get('seeders');
+    expect($seeders)->toHaveKey('rate_definitions');
+    expect($seeders['rate_definitions']['seeded'])->toBeFalse();
+
+    $component->call('seed', 'rate_definitions')
+        ->assertDispatched('seeder-completed');
+
+    expect(RateDefinition::where('is_preset', true)->count())->toBe(11);
 });
 
 it('returns 403 for non-admin users', function () {

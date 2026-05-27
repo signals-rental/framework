@@ -243,6 +243,11 @@
                 <a class="sidebar-item {{ request()->routeIs('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.receipt-percent class="!size-[15px]" /> Tax
                 </a>
+                @can('rates.view')
+                    <a class="sidebar-item {{ request()->routeIs('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.calculator class="!size-[15px]" /> Pricing
+                    </a>
+                @endcan
                 <a class="sidebar-item {{ request()->routeIs('admin.settings.action-log') || request()->routeIs('admin.settings.system-health') || request()->routeIs('admin.settings.infrastructure') || request()->routeIs('admin.settings.seeders') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.server-stack class="!size-[15px]" /> System
                 </a>
@@ -334,6 +339,13 @@
                         <flux:icon.receipt-percent class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Tax</span>
                     </a>
+
+                    @can('rates.view')
+                        <a class="sidebar-item {{ request()->routeIs('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate>
+                            <flux:icon.calculator class="!size-[15px]" />
+                            <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Pricing</span>
+                        </a>
+                    @endcan
 
                     <a class="sidebar-item {{ request()->routeIs('admin.settings.action-log') || request()->routeIs('admin.settings.system-health') || request()->routeIs('admin.settings.infrastructure') || request()->routeIs('admin.settings.seeders') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate>
                         <flux:icon.server-stack class="!size-[15px]" />

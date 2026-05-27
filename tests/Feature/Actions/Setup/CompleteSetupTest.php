@@ -11,6 +11,7 @@ use App\Models\Membership;
 use App\Models\OrganisationTaxClass;
 
 pest()->group('env-writing');
+use App\Models\RateDefinition;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Env;
@@ -218,7 +219,8 @@ it('seeds reference data on completion', function () {
         ->and(ListName::count())->toBeGreaterThan(0)
         ->and(OrganisationTaxClass::count())->toBeGreaterThan(0)
         ->and(Permission::count())->toBeGreaterThan(0)
-        ->and(Role::count())->toBeGreaterThan(0);
+        ->and(Role::count())->toBeGreaterThan(0)
+        ->and(RateDefinition::where('is_preset', true)->count())->toBe(11);
 });
 
 it('creates a member record linked to admin user', function () {
