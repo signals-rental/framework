@@ -50,8 +50,13 @@ class RateResolver
             $date->toDateString(),
         );
 
+        // Cap the TTL (max 1 hour) so an entry resolved for "today" cannot
+        // outlive the day it was computed for. The date is part of the key, so a
+        // new day already produces a fresh entry; this is belt-and-braces.
+        $ttl = max(60, min(3600, (int) Carbon::now()->diffInSeconds($date->copy()->endOfDay(), false)));
+
         return Cache::tags([self::RESOLUTION_TAG, self::productTag($product->id)])
-            ->remember($key, 3600, fn (): ?ProductRate => $this->query($product, $transactionType, $storeId, $date));
+            ->remember($key, $ttl, fn (): ?ProductRate => $this->query($product, $transactionType, $storeId, $date));
     }
 
     /**

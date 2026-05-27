@@ -28,12 +28,21 @@ class RateDefinition extends Model implements HasSchema
 
     protected static function booted(): void
     {
-        $flush = static function (): void {
-            RateResolver::flushAll();
-        };
+        // A cached resolution carries its loaded definition, so a definition edit
+        // must bust all resolution caches. Skip when nothing relevant changed: a
+        // brand-new definition has no product rates yet, and an unchanged save
+        // (e.g. idempotent preset re-seeding) needs no invalidation.
+        static::saved(static function (RateDefinition $definition): void {
+            if ($definition->wasRecentlyCreated || ! $definition->wasChanged()) {
+                return;
+            }
 
-        static::saved($flush);
-        static::deleted($flush);
+            RateResolver::flushAll();
+        });
+
+        static::deleted(static function (): void {
+            RateResolver::flushAll();
+        });
     }
 
     /** @var list<string> */

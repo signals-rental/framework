@@ -140,6 +140,15 @@ it('deletes a rate definition', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('refuses to delete a preset rate definition', function () {
+    $preset = RateDefinition::factory()->preset()->create();
+
+    expect(fn () => (new DeleteRateDefinition)($preset))
+        ->toThrow(ValidationException::class);
+
+    $this->assertDatabaseHas('rate_definitions', ['id' => $preset->id]);
+});
+
 it('duplicates a definition as a non-preset copy with lineage', function () {
     $original = RateDefinition::factory()->preset()->create([
         'name' => 'Daily Rate',

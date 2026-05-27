@@ -5,18 +5,25 @@ namespace App\Data\Rates;
 use App\Enums\RateTransactionType;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Optional;
 
+/**
+ * Partial update for a product rate. Each property is `Optional` so an omitted
+ * key leaves the field untouched, while an explicit `null` on a nullable field
+ * (store_id, valid_from, valid_to) clears it — a distinction the prior
+ * all-nullable shape could not express.
+ */
 class UpdateProductRateData extends Data
 {
     public function __construct(
-        public ?int $rate_definition_id = null,
-        public ?RateTransactionType $transaction_type = null,
-        public ?int $price = null,
-        public ?string $currency = null,
-        public ?int $store_id = null,
-        public ?string $valid_from = null,
-        public ?string $valid_to = null,
-        public ?int $priority = null,
+        public int|Optional $rate_definition_id = new Optional,
+        public RateTransactionType|Optional $transaction_type = new Optional,
+        public int|Optional $price = new Optional,
+        public string|Optional $currency = new Optional,
+        public int|null|Optional $store_id = new Optional,
+        public string|null|Optional $valid_from = new Optional,
+        public string|null|Optional $valid_to = new Optional,
+        public int|Optional $priority = new Optional,
     ) {}
 
     /**

@@ -28,31 +28,26 @@ class ProductRateOverlapChecker
         ?string $validTo,
         ?int $exceptId = null,
     ): Collection {
-        return ProductRate::query()
+        $query = ProductRate::query()
             ->where('product_id', $productId)
             ->where('transaction_type', $transactionType)
             ->where('priority', $priority)
             ->where(function ($query) use ($storeId): void {
                 $storeId === null ? $query->whereNull('store_id') : $query->where('store_id', $storeId);
             })
-            ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))
-            ->get()
-            ->filter(fn (ProductRate $rate): bool => $this->rangesOverlap(
-                $validFrom,
-                $validTo,
-                $rate->valid_from?->toDateString(),
-                $rate->valid_to?->toDateString(),
-            ))
-            ->values();
-    }
+            ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId));
 
-    /**
-     * Whether two date ranges overlap, treating a null bound as open-ended
-     * (null from = -infinity, null to = +infinity).
-     */
-    private function rangesOverlap(?string $aFrom, ?string $aTo, ?string $bFrom, ?string $bTo): bool
-    {
-        return ($aFrom === null || $bTo === null || $aFrom <= $bTo)
-            && ($bFrom === null || $aTo === null || $bFrom <= $aTo);
+        // Two windows overlap unless one ends before the other starts. A null
+        // bound is open-ended (null from = -infinity, null to = +infinity), so a
+        // null on either side of a comparison means that edge can't exclude a row.
+        if ($validFrom !== null) {
+            $query->where(fn ($q) => $q->whereNull('valid_to')->orWhere('valid_to', '>=', $validFrom));
+        }
+
+        if ($validTo !== null) {
+            $query->where(fn ($q) => $q->whereNull('valid_from')->orWhere('valid_from', '<=', $validTo));
+        }
+
+        return $query->get();
     }
 }

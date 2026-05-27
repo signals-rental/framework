@@ -11,6 +11,7 @@ use App\Events\AuditableEvent;
 use App\Models\Product;
 use App\Models\ProductRate;
 use App\Models\RateDefinition;
+use App\Models\Store;
 use App\Models\User;
 use App\Services\RateEngine\ProductRateOverlapChecker;
 use Database\Seeders\PermissionSeeder;
@@ -65,6 +66,23 @@ it('updates a product rate', function () {
 
     expect($result->price)->toBe('80.00')
         ->and($result->priority)->toBe(9);
+});
+
+it('clears nullable fields when explicitly set to null, leaving omitted fields untouched', function () {
+    $rate = ProductRate::factory()->create([
+        'store_id' => Store::factory()->create()->id,
+        'valid_from' => '2026-01-01',
+        'valid_to' => '2026-12-31',
+    ]);
+
+    $result = (new UpdateProductRate)($rate, UpdateProductRateData::from([
+        'store_id' => null,
+        'valid_to' => null,
+    ]));
+
+    expect($result->store_id)->toBeNull()
+        ->and($result->valid_to)->toBeNull()
+        ->and($result->valid_from)->toBe('2026-01-01'); // omitted -> unchanged
 });
 
 it('forbids updating a product rate without permission', function () {

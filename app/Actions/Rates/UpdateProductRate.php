@@ -17,11 +17,9 @@ class UpdateProductRate
         Gate::authorize('rates.edit');
 
         return DB::transaction(function () use ($rate, $data): ProductRateData {
-            $rate->update(
-                collect($data->toArray())
-                    ->reject(fn ($value) => $value === null)
-                    ->all()
-            );
+            // toArray() omits Optional (untouched) fields but keeps explicit nulls,
+            // so a client can clear a nullable field by sending it as null.
+            $rate->update($data->toArray());
 
             $rate->refresh();
 
