@@ -51,7 +51,7 @@ class RansackFilter
      * @param  Builder<TModel>  $query
      * @param  array<string, mixed>  $filters  Keyed by `field_predicate`
      * @param  list<string>  $allowedFields  Whitelist of filterable fields
-     * @param  list<string>  $allowedRelationFilters  Whitelist of filterable relations (e.g. `['addresses', 'phones']`)
+     * @param  array<string, list<string>>  $allowedRelationFilters  Map of relation => allowed columns (e.g. `['productGroup' => ['name']]`)
      * @return Builder<TModel>
      */
     public function apply(
@@ -82,11 +82,14 @@ class RansackFilter
 
             [$field, $predicate] = $parsed;
 
-            // Relationship filtering: field contains dot (e.g. addresses.city_eq)
+            // Relationship filtering: field contains a dot (e.g. productGroup.name_eq).
+            // Both the relation AND the column must be whitelisted via the
+            // relation=>[columns] map, preventing filtering on arbitrary related columns.
             if (str_contains($field, '.')) {
                 [$relation, $column] = explode('.', $field, 2);
 
-                if (in_array($relation, $allowedRelationFilters, true) && preg_match('/^[a-z_][a-z0-9_]*$/i', $column)) {
+                $allowedColumns = $allowedRelationFilters[$relation] ?? null;
+                if (is_array($allowedColumns) && in_array($column, $allowedColumns, true)) {
                     $query->whereHas($relation, fn (Builder $q) => $this->applyPredicate($q, $column, $predicate, $value));
                 }
 

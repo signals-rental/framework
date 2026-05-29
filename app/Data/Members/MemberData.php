@@ -6,6 +6,7 @@ use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\MembershipType;
 use App\Models\Member;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Spatie\LaravelData\Attributes\MapOutputName;
 use Spatie\LaravelData\Data;
 
@@ -15,7 +16,6 @@ class MemberData extends Data
 
     /**
      * @param  list<string>  $tag_list
-     * @param  array<string, mixed>  $custom_fields
      * @param  array<string, mixed>  $membership
      * @param  array<string, mixed>|null  $primary_address
      * @param  list<array<string, mixed>>  $addresses
@@ -50,7 +50,7 @@ class MemberData extends Data
         public ?int $purchase_tax_class_id,
         public ?string $purchase_tax_class_name,
         public array $tag_list,
-        public array $custom_fields,
+        public object $custom_fields,
         #[MapOutputName('icon_exists?')]
         public bool $icon_exists,
         public ?string $mapping_id,
@@ -97,7 +97,7 @@ class MemberData extends Data
         $memberType = $member->membership_type;
         $memberTypeName = $memberType->label();
         if ($member->relationLoaded('contacts')) {
-            /** @var \Illuminate\Support\Collection<int, Member> $contactsList */
+            /** @var Collection<int, Member> $contactsList */
             $contactsList = $member->contacts;
             $childMembers = $contactsList->map(function (Member $related) use ($member, $memberTypeName): array {
                 /** @var MembershipType $relatedType */
@@ -117,7 +117,7 @@ class MemberData extends Data
             })->all();
         }
         if ($member->relationLoaded('organisations')) {
-            /** @var \Illuminate\Support\Collection<int, Member> $orgsList */
+            /** @var Collection<int, Member> $orgsList */
             $orgsList = $member->organisations;
             $parentMembers = $orgsList->map(function (Member $related) use ($member, $memberTypeName): array {
                 /** @var MembershipType $relatedType */
@@ -164,7 +164,7 @@ class MemberData extends Data
                 ? $member->purchaseTaxClass?->name
                 : null,
             tag_list: $member->getAttribute('tag_list') ?? [],
-            custom_fields: $member->relationLoaded('customFieldValues') ? $member->custom_fields : [],
+            custom_fields: (object) ($member->relationLoaded('customFieldValues') ? $member->custom_fields : []),
             icon_exists: $member->icon_url !== null,
             mapping_id: $member->mapping_id,
             created_at: self::formatTimestamp($createdAt),

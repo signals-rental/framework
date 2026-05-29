@@ -2,9 +2,11 @@
 
 namespace App\Data\Rates;
 
+use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\BasePeriod;
 use App\Enums\CalculationStrategyType;
+use App\Models\ProductRate;
 use App\Models\RateDefinition;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Data;
@@ -17,6 +19,7 @@ class RateDefinitionData extends Data
      * @param  list<string>  $enabled_modifiers
      * @param  array<string, mixed>  $strategy_config
      * @param  array<string, array<string, mixed>>  $modifier_configs
+     * @param  list<ProductRateData>|null  $product_rates
      */
     public function __construct(
         public int $id,
@@ -34,6 +37,8 @@ class RateDefinitionData extends Data
         public ?int $cloned_from_id,
         public string $created_at,
         public string $updated_at,
+        public ?EntityReferenceData $cloned_from = null,
+        public ?array $product_rates = null,
     ) {}
 
     public static function fromModel(RateDefinition $definition): self
@@ -66,6 +71,12 @@ class RateDefinitionData extends Data
             cloned_from_id: $definition->cloned_from_id,
             created_at: self::formatTimestamp($createdAt),
             updated_at: self::formatTimestamp($updatedAt),
+            cloned_from: $definition->relationLoaded('clonedFrom') && $definition->clonedFrom
+                ? EntityReferenceData::from(['id' => $definition->clonedFrom->id, 'name' => $definition->clonedFrom->name])
+                : null,
+            product_rates: $definition->relationLoaded('productRates')
+                ? $definition->productRates->map(fn (ProductRate $rate): ProductRateData => ProductRateData::fromModel($rate))->all()
+                : null,
         );
     }
 }

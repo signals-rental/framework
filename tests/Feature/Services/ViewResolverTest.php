@@ -208,7 +208,7 @@ it('merges explicit params with view filters', function () {
 
     $query = Member::query();
     // Explicit param should override the view filter for membership_type
-    $this->resolver->applyFilters($query, $view, ['membership_type_eq' => 'contact']);
+    $this->resolver->applyFilters($query, $view, ['membership_type_eq' => 'contact'], ['membership_type']);
 
     expect($query->toSql())->toContain('where');
 });
@@ -307,6 +307,18 @@ it('skips filters with null field or value', function () {
     expect($query->toSql())->toBe($beforeSql);
 });
 
+it('ignores explicit params whose field is not whitelisted', function () {
+    $view = CustomView::factory()->create(['entity_type' => 'members', 'filters' => []]);
+
+    $query = Member::query();
+    $beforeSql = $query->toSql();
+    // membership_type is supplied but only `name` is whitelisted -> the param is dropped,
+    // so no where clause is added to the query.
+    $this->resolver->applyFilters($query, $view, ['membership_type_eq' => 'contact'], ['name']);
+
+    expect($query->toSql())->toBe($beforeSql);
+});
+
 it('explicit params override matching view filters', function () {
     Member::factory()->create(['name' => 'Org One', 'membership_type' => 'organisation']);
     Member::factory()->create(['name' => 'Contact One', 'membership_type' => 'contact']);
@@ -320,7 +332,7 @@ it('explicit params override matching view filters', function () {
 
     $query = Member::query();
     // Explicit param overrides the view filter
-    $this->resolver->applyFilters($query, $view, ['membership_type_eq' => 'contact']);
+    $this->resolver->applyFilters($query, $view, ['membership_type_eq' => 'contact'], ['membership_type']);
     $results = $query->get();
 
     expect($results->every(fn (Member $m): bool => $m->getRawOriginal('membership_type') === 'contact'))->toBeTrue();

@@ -5,8 +5,10 @@ namespace App\Data\Products;
 use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\AllowedStockType;
+use App\Enums\ProductType;
 use App\Enums\StockMethod;
 use App\Models\Product;
+use App\Models\StockLevel;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Attributes\MapOutputName;
 use Spatie\LaravelData\Data;
@@ -17,9 +19,9 @@ class ProductData extends Data
 
     /**
      * @param  list<string>  $tag_list
-     * @param  array<string, mixed>  $custom_fields
      * @param  array<string, mixed>|null  $icon
      * @param  list<array<string, mixed>>  $accessories
+     * @param  list<StockLevelData>|null  $stock_levels
      */
     public function __construct(
         public int $id,
@@ -52,7 +54,7 @@ class ProductData extends Data
         public string $purchase_price,
         public ?int $country_of_origin_id,
         public array $tag_list,
-        public array $custom_fields,
+        public object $custom_fields,
         public string $created_at,
         public string $updated_at,
         public ?EntityReferenceData $product_group = null,
@@ -62,8 +64,10 @@ class ProductData extends Data
         public ?EntityReferenceData $sale_revenue_group = null,
         public ?EntityReferenceData $sub_rental_cost_group = null,
         public ?EntityReferenceData $purchase_cost_group = null,
+        public ?EntityReferenceData $country_of_origin = null,
         public ?array $icon = null,
         public array $accessories = [],
+        public ?array $stock_levels = null,
     ) {}
 
     public static function fromModel(Product $product): self
@@ -91,10 +95,10 @@ class ProductData extends Data
         /** @var StockMethod $stockMethod */
         $stockMethod = $product->stock_method;
 
-        /** @var \App\Enums\ProductType $productType */
+        /** @var ProductType $productType */
         $productType = $product->product_type;
 
-        /** @var \App\Enums\AllowedStockType $allowedStockType */
+        /** @var AllowedStockType $allowedStockType */
         $allowedStockType = $product->allowed_stock_type ?? AllowedStockType::Rental;
 
         return new self(
@@ -127,7 +131,7 @@ class ProductData extends Data
             purchase_price: $product->formatMoneyCost('purchase_price'),
             country_of_origin_id: $product->country_of_origin_id,
             tag_list: $product->tag_list ?? [],
-            custom_fields: $product->relationLoaded('customFieldValues') ? $product->custom_fields : [],
+            custom_fields: (object) ($product->relationLoaded('customFieldValues') ? $product->custom_fields : []),
             created_at: self::formatTimestamp($createdAt),
             updated_at: self::formatTimestamp($updatedAt),
             product_group: $product->relationLoaded('productGroup') && $product->productGroup
@@ -151,11 +155,17 @@ class ProductData extends Data
             purchase_cost_group: $product->relationLoaded('purchaseCostGroup') && $product->purchaseCostGroup
                 ? EntityReferenceData::from(['id' => $product->purchaseCostGroup->id, 'name' => $product->purchaseCostGroup->name])
                 : null,
+            country_of_origin: $product->relationLoaded('countryOfOrigin') && $product->countryOfOrigin
+                ? EntityReferenceData::from(['id' => $product->countryOfOrigin->id, 'name' => $product->countryOfOrigin->name])
+                : null,
             icon: $product->icon_url ? [
                 'url' => $product->icon_url,
                 'thumb_url' => $product->icon_thumb_url,
             ] : null,
             accessories: $accessories,
+            stock_levels: $product->relationLoaded('stockLevels')
+                ? $product->stockLevels->map(fn (StockLevel $stockLevel): StockLevelData => StockLevelData::fromModel($stockLevel))->all()
+                : null,
         );
     }
 }

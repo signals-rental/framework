@@ -125,7 +125,8 @@ it('returns empty custom_fields when relation is not loaded', function () {
 
     $data = ProductData::fromModel($product);
 
-    expect($data->custom_fields)->toBe([]);
+    // custom_fields is an object so it serialises as JSON {} (CRMS compat), not [].
+    expect($data->custom_fields)->toEqual((object) []);
 });
 
 it('returns null product_group_id when unset', function () {

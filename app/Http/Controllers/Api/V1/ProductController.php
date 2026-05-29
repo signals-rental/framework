@@ -37,6 +37,12 @@ class ProductController extends Controller
         'updated_at',
     ];
 
+    /** @var array<string, string> */
+    protected array $filterAliases = [
+        'type' => 'product_type',
+        'active' => 'is_active',
+    ];
+
     protected ?string $customFieldModule = 'Product';
 
     /** @var list<string> */
@@ -46,6 +52,11 @@ class ProductController extends Controller
         'sku',
         'created_at',
         'updated_at',
+    ];
+
+    /** @var array<string, list<string>> */
+    protected array $allowedRelationFilters = [
+        'productGroup' => ['name'],
     ];
 
     /** @var list<string> */

@@ -2,8 +2,9 @@
 
 use App\Models\User;
 use App\Services\Api\RansackFilter;
+use Tests\TestCase;
 
-uses(Tests\TestCase::class);
+uses(TestCase::class);
 
 beforeEach(function () {
     $this->filter = new RansackFilter;
@@ -508,7 +509,7 @@ it('applies relationship filter when relation is allowed', function () {
         User::query(),
         ['roles.name_eq' => 'admin'],
         $this->allowedFields,
-        allowedRelationFilters: ['roles'],
+        allowedRelationFilters: ['roles' => ['name']],
     );
 
     $sql = $query->toRawSql();
@@ -536,7 +537,7 @@ it('applies predicate within relationship filter', function () {
         User::query(),
         ['roles.name_cont' => 'adm'],
         $this->allowedFields,
-        allowedRelationFilters: ['roles'],
+        allowedRelationFilters: ['roles' => ['name']],
     );
 
     $sql = $query->toRawSql();
@@ -544,6 +545,21 @@ it('applies predicate within relationship filter', function () {
     expect($sql)->toContain('exists')
         ->toContain('ilike')
         ->toContain('adm');
+});
+
+it('ignores relationship filter when the relation column is not allowed', function () {
+    $baseSql = User::query()->toRawSql();
+
+    // 'roles' relation is allowed but only its 'id' column — 'name' must be rejected
+    // (prevents filtering on arbitrary related columns / 500s on bad columns).
+    $query = $this->filter->apply(
+        User::query(),
+        ['roles.name_eq' => 'admin'],
+        $this->allowedFields,
+        allowedRelationFilters: ['roles' => ['id']],
+    );
+
+    expect($query->toRawSql())->toBe($baseSql);
 });
 
 // ─── Custom field filtering (no DB needed) ──────────────────────

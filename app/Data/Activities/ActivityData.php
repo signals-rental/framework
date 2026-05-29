@@ -10,6 +10,7 @@ use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
 use App\Models\ActivityParticipant;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Data;
 
@@ -18,7 +19,6 @@ class ActivityData extends Data
     use FormatsTimestamps;
 
     /**
-     * @param  array<string, mixed>  $custom_fields
      * @param  list<ActivityParticipantData>  $participants
      */
     public function __construct(
@@ -36,7 +36,7 @@ class ActivityData extends Data
         public int $status_id,
         public bool $completed,
         public int $time_status,
-        public array $custom_fields,
+        public object $custom_fields,
         public array $participants,
         public string $activity_type_name,
         public string $activity_status_name,
@@ -75,6 +75,9 @@ class ActivityData extends Data
 
         $participants = [];
         if ($activity->relationLoaded('participants')) {
+            // Eager-load members in a single query to avoid an N+1 when serialising
+            // each participant's member_name (whether or not participants.member was requested).
+            $activity->participants->loadMissing('member');
             $participants = $activity->participants
                 ->map(fn (ActivityParticipant $participant): ActivityParticipantData => ActivityParticipantData::fromModel($participant))
                 ->all();
@@ -82,7 +85,7 @@ class ActivityData extends Data
 
         $regarding = null;
         if ($activity->relationLoaded('regarding') && $activity->regarding) {
-            /** @var \Illuminate\Database\Eloquent\Model $regardingModel */
+            /** @var Model $regardingModel */
             $regardingModel = $activity->regarding;
             $regarding = EntityReferenceData::from([
                 'id' => $regardingModel->getKey(),
@@ -113,7 +116,7 @@ class ActivityData extends Data
             status_id: $status->value,
             completed: $activity->completed,
             time_status: $timeStatus->value,
-            custom_fields: $activity->relationLoaded('customFieldValues') ? $activity->custom_fields : [],
+            custom_fields: (object) ($activity->relationLoaded('customFieldValues') ? $activity->custom_fields : []),
             participants: $participants,
             activity_type_name: $type->label(),
             activity_status_name: $status->label(),
