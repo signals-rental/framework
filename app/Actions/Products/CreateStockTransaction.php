@@ -28,7 +28,7 @@ class CreateStockTransaction
                 'transaction_at' => $data->transaction_at ?? now(),
                 'quantity' => $data->quantity,
                 'description' => $data->description,
-                'manual' => true,
+                'manual' => in_array($data->transaction_type, TransactionType::manualCreationValues(), true),
             ]);
 
             // Update stock level quantity based on transaction type

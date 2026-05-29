@@ -18,6 +18,7 @@ describe('GET /api/v1/schema', function () {
                 'exchange_rates', 'emails', 'phones', 'links', 'attachments',
                 'users', 'action_logs', 'webhooks', 'custom_views', 'tax_rates', 'tax_rules',
                 'products', 'product_groups', 'stock_levels', 'activities',
+                'rate_definitions', 'product_rates',
             ])))]);
     });
 });
@@ -61,6 +62,30 @@ describe('GET /api/v1/schema/{model}', function () {
             ->assertOk()
             ->assertJsonPath('fields.email.type', 'string')
             ->assertJsonPath('fields.is_active.type', 'boolean');
+    });
+
+    it('returns schema for rate_definitions (D2)', function () {
+        $this->getJson('/api/v1/schema/rate_definitions')
+            ->assertOk()
+            ->assertJsonStructure(['model', 'model_class', 'fields'])
+            ->assertJsonFragment(['model' => 'rate_definitions', 'model_class' => 'RateDefinition']);
+    });
+
+    it('returns schema for product_rates (D2)', function () {
+        $this->getJson('/api/v1/schema/product_rates')
+            ->assertOk()
+            ->assertJsonStructure(['model', 'model_class', 'fields'])
+            ->assertJsonFragment(['model' => 'product_rates', 'model_class' => 'ProductRate']);
+    });
+
+    it('resolves a singular model name to its plural schema (D3)', function () {
+        $this->getJson('/api/v1/schema/product')
+            ->assertOk()
+            ->assertJsonFragment(['model' => 'products', 'model_class' => 'Product']);
+
+        $this->getJson('/api/v1/schema/activity')
+            ->assertOk()
+            ->assertJsonFragment(['model' => 'activities', 'model_class' => 'Activity']);
     });
 
     it('returns 404 for unknown model', function () {

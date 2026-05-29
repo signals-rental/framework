@@ -25,7 +25,10 @@ class CreateStockTransactionData extends Data
         return [
             'stock_level_id' => ['required', 'integer', 'exists:stock_levels,id'],
             'store_id' => ['sometimes', 'nullable', 'integer', 'exists:stores,id'],
-            'transaction_type' => ['required', 'integer', Rule::in(TransactionType::manualCreationValues())],
+            // The API accepts any valid transaction type (incl. system types like
+            // Opening/Transfer); the inline web form separately restricts its dropdown
+            // to manual types. Invalid values are still rejected.
+            'transaction_type' => ['required', 'integer', Rule::in(array_column(TransactionType::cases(), 'value'))],
             'transaction_at' => ['sometimes', 'nullable', 'date'],
             'quantity' => ['required', 'numeric', 'min:0.01'],
             'description' => ['sometimes', 'nullable', 'string'],
