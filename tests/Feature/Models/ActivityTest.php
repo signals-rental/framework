@@ -108,6 +108,21 @@ it('has participantMembers many-to-many', function () {
         ->and($activity->participantMembers->first()->id)->toBe($member->id);
 });
 
+it('cascade-deletes its participants when the activity is deleted', function () {
+    $activity = Activity::factory()->create();
+    $member = Member::factory()->create();
+    ActivityParticipant::factory()->create([
+        'activity_id' => $activity->id,
+        'member_id' => $member->id,
+    ]);
+
+    expect(ActivityParticipant::where('activity_id', $activity->id)->exists())->toBeTrue();
+
+    $activity->delete();
+
+    expect(ActivityParticipant::where('activity_id', $activity->id)->exists())->toBeFalse();
+});
+
 it('scopes to activities for a member', function () {
     $member = Member::factory()->create();
     Activity::factory()->forMember($member)->create();

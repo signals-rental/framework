@@ -134,6 +134,25 @@ describe('GET /api/v1/activities/{id}', function () {
         expect($response->json('activity.participants'))->toHaveCount(1);
         expect($response->json('activity.participants.0.member_name'))->toBe('Jane Doe');
     });
+
+    it('serialises the participant mute flag', function () {
+        $activity = Activity::factory()->create();
+        $muted = Member::factory()->create(['name' => 'Muted Member']);
+        $vocal = Member::factory()->create(['name' => 'Vocal Member']);
+        $activity->participants()->create(['member_id' => $muted->id, 'mute' => true]);
+        $activity->participants()->create(['member_id' => $vocal->id, 'mute' => false]);
+        $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/activities/{$activity->id}?include=participants.member")
+            ->assertOk();
+
+        /** @var list<array{member_name: string, mute: bool}> $participants */
+        $participants = $response->json('activity.participants');
+        $byName = collect($participants)->keyBy('member_name');
+        expect($byName['Muted Member']['mute'])->toBeTrue()
+            ->and($byName['Vocal Member']['mute'])->toBeFalse();
+    });
 });
 
 describe('POST /api/v1/activities', function () {
