@@ -123,3 +123,98 @@ it('requires admin access', function () {
     $this->get(route('admin.settings.api'))
         ->assertForbidden();
 });
+
+it('allows creating a token with phase-2, rate and currency abilities', function () {
+    $abilities = ['products:read', 'products:write', 'stock:read', 'stock:write', 'activities:read', 'rates:read', 'rates:write', 'schema:read', 'currencies:read', 'exchange_rates:read', 'exchange_rates:write'];
+
+    Volt::test('admin.settings.api')
+        ->set('tokenName', 'Phase 2 Token')
+        ->set('selectedAbilities', $abilities)
+        ->call('createToken')
+        ->assertHasNoErrors();
+
+    expect($this->owner->tokens()->first()->abilities)->toBe($abilities);
+});
+
+it('pre-fills abilities when opening the edit modal', function () {
+    $token = $this->owner->createToken('Editable', ['users:read', 'settings:read']);
+
+    Volt::test('admin.settings.api')
+        ->call('openEditModal', $token->accessToken->id)
+        ->assertSet('showEditModal', true)
+        ->assertSet('editingTokenId', $token->accessToken->id)
+        ->assertSet('editAbilities', ['users:read', 'settings:read']);
+});
+
+it('can update an existing token\'s abilities', function () {
+    $token = $this->owner->createToken('Editable', ['users:read']);
+
+    Volt::test('admin.settings.api')
+        ->call('openEditModal', $token->accessToken->id)
+        ->set('editAbilities', ['users:read', 'products:read', 'rates:write'])
+        ->call('updateToken')
+        ->assertHasNoErrors()
+        ->assertSet('showEditModal', false);
+
+    expect($token->accessToken->fresh()->abilities)->toBe(['users:read', 'products:read', 'rates:write']);
+});
+
+it('requires at least one ability when editing', function () {
+    $token = $this->owner->createToken('Editable', ['users:read']);
+
+    Volt::test('admin.settings.api')
+        ->call('openEditModal', $token->accessToken->id)
+        ->set('editAbilities', [])
+        ->call('updateToken')
+        ->assertHasErrors(['editAbilities']);
+});
+
+it('validates ability values when editing', function () {
+    $token = $this->owner->createToken('Editable', ['users:read']);
+
+    Volt::test('admin.settings.api')
+        ->call('openEditModal', $token->accessToken->id)
+        ->set('editAbilities', ['invalid:ability'])
+        ->call('updateToken')
+        ->assertHasErrors(['editAbilities.0']);
+});
+
+it('dispatches event on token update', function () {
+    $token = $this->owner->createToken('Editable', ['users:read']);
+
+    Volt::test('admin.settings.api')
+        ->call('openEditModal', $token->accessToken->id)
+        ->set('editAbilities', ['users:read', 'products:read'])
+        ->call('updateToken')
+        ->assertDispatched('token-updated');
+});
+
+it('only edits the authenticated user\'s own tokens', function () {
+    $otherUser = User::factory()->owner()->create();
+    $otherToken = $otherUser->createToken('Foreign', ['users:read']);
+
+    Volt::test('admin.settings.api')
+        ->call('openEditModal', $otherToken->accessToken->id)
+        ->assertSet('showEditModal', false)
+        ->assertSet('editingTokenId', null);
+
+    expect($otherToken->accessToken->fresh()->abilities)->toBe(['users:read']);
+});
+
+it('renders humanised group labels in the ability picker', function () {
+    // Exercises abilityGroups() via with(): labels derived from the scope prefix.
+    $this->get(route('admin.settings.api'))
+        ->assertSee('Products')
+        ->assertSee('Exchange Rates')
+        ->assertSee('Action Log');
+});
+
+it('shows a collapsible scope summary in the token table', function () {
+    // Exercises groupedAbilities() via the table loop, plus the scope-count summary.
+    $this->owner->createToken('Triple', ['users:read', 'products:read', 'rates:read']);
+    $this->owner->createToken('Single', ['users:read']);
+
+    $this->get(route('admin.settings.api'))
+        ->assertSee('3 scopes')
+        ->assertSee('1 scope');
+});
