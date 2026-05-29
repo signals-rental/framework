@@ -7,6 +7,7 @@ use App\Data\CustomFields\UpdateCustomFieldData;
 use App\Events\AuditableEvent;
 use App\Models\CustomField;
 use App\Services\CustomFieldDefinitionResolver;
+use App\Services\SchemaRegistry;
 use Illuminate\Support\Facades\Gate;
 
 class UpdateCustomField
@@ -18,6 +19,7 @@ class UpdateCustomField
         $field->update(array_filter($data->toArray(), fn ($v) => $v !== null));
 
         app(CustomFieldDefinitionResolver::class)->clearCache($field->module_type);
+        app(SchemaRegistry::class)->invalidateAll();
 
         event(new AuditableEvent($field, 'custom_field.updated'));
 

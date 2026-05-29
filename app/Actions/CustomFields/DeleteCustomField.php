@@ -5,6 +5,7 @@ namespace App\Actions\CustomFields;
 use App\Events\AuditableEvent;
 use App\Models\CustomField;
 use App\Services\CustomFieldDefinitionResolver;
+use App\Services\SchemaRegistry;
 use Illuminate\Support\Facades\Gate;
 
 class DeleteCustomField
@@ -18,5 +19,6 @@ class DeleteCustomField
         $field->delete();
 
         app(CustomFieldDefinitionResolver::class)->clearCache($field->module_type);
+        app(SchemaRegistry::class)->invalidateAll();
     }
 }

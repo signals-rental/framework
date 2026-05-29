@@ -8,7 +8,9 @@ use App\Data\CustomFields\UpdateCustomFieldData;
 use App\Enums\CustomFieldType;
 use App\Events\AuditableEvent;
 use App\Models\CustomField;
+use App\Models\Member;
 use App\Models\User;
+use App\Services\SchemaRegistry;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -66,6 +68,32 @@ it('deletes a custom field', function () {
     expect(CustomField::find($field->id))->toBeNull();
 
     Event::assertDispatched(AuditableEvent::class);
+});
+
+it('invalidates the cached model schema when a custom field is created', function () {
+    // Prime the Member schema cache while the field is absent.
+    expect(app(SchemaRegistry::class)->resolve(Member::class))->not->toHaveKey('loyalty_tier');
+
+    (new CreateCustomField)(CreateCustomFieldData::from([
+        'name' => 'loyalty_tier',
+        'module_type' => 'Member',
+        'field_type' => CustomFieldType::String->value,
+        'display_name' => 'Loyalty Tier',
+    ]));
+
+    // The new field is visible immediately — the L2 schema cache was invalidated.
+    expect(app(SchemaRegistry::class)->resolve(Member::class))->toHaveKey('loyalty_tier');
+});
+
+it('invalidates the cached model schema when a custom field is deleted', function () {
+    $field = CustomField::factory()->string()->forModule('Member')->create(['name' => 'temp_code']);
+
+    // Prime the cache with the field present.
+    expect(app(SchemaRegistry::class)->resolve(Member::class))->toHaveKey('temp_code');
+
+    (new DeleteCustomField)($field);
+
+    expect(app(SchemaRegistry::class)->resolve(Member::class))->not->toHaveKey('temp_code');
 });
 
 it('rejects unauthorized custom field creation', function () {
