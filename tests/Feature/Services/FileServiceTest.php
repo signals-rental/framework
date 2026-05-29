@@ -33,6 +33,16 @@ it('uploads a file and creates an attachment record', function () {
     Storage::disk($this->disk)->assertExists($attachment->file_path);
 });
 
+it('marks a newly uploaded attachment with a pending scan status', function () {
+    $member = Member::factory()->create();
+    $file = UploadedFile::fake()->create('scan-me.pdf', 128, 'application/pdf');
+
+    $attachment = $this->service->upload($file, $member);
+
+    // New uploads must default to 'pending' (awaiting virus scan), not 'clean'.
+    expect($attachment->fresh()->scan_status)->toBe('pending');
+});
+
 it('uploads a file with category and description', function () {
     $member = Member::factory()->create();
     $file = UploadedFile::fake()->create('contract.pdf', 2048, 'application/pdf');

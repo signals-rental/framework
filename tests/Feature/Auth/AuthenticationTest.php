@@ -61,4 +61,30 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
         $response->assertRedirect('/');
     }
+
+    public function test_login_locks_out_after_exceeding_max_attempts(): void
+    {
+        settings()->set('security.max_login_attempts', 2);
+        settings()->set('security.lockout_duration', 15);
+
+        $user = User::factory()->create();
+
+        // Two failed attempts consume the allowance (max_login_attempts = 2).
+        for ($i = 0; $i < 2; $i++) {
+            LivewireVolt::test('auth.login')
+                ->set('email', $user->email)
+                ->set('password', 'wrong-password')
+                ->call('login')
+                ->assertHasErrors('email');
+        }
+
+        // The next attempt is locked out — even with the *correct* password.
+        LivewireVolt::test('auth.login')
+            ->set('email', $user->email)
+            ->set('password', 'password')
+            ->call('login')
+            ->assertHasErrors('email');
+
+        $this->assertGuest();
+    }
 }
