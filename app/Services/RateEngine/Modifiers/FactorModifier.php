@@ -14,7 +14,7 @@ use Brick\Money\Money;
 
 /**
  * Scales the per-unit subtotal by a factor chosen from the rental quantity: the
- * larger the order, the lower the per-unit charge. Maps to CRMS's quantity
+ * larger the order, the lower the per-unit charge. Maps to RMS's quantity
  * "factor" tables. The factor applies to the post-multiplier per-unit subtotal,
  * and the breakdown total remains per-unit subtotal × quantity.
  *

@@ -165,7 +165,7 @@ describe('DELETE /api/v1/stock_levels/{id}', function () {
     });
 });
 
-describe('CRMS response shape', function () {
+describe('RMS response shape', function () {
     it('maps product_id to item_id in response', function () {
         $product = Product::factory()->create(['name' => 'LED Par Can']);
         $stockLevel = StockLevel::factory()->serialised()->create([
@@ -178,13 +178,13 @@ describe('CRMS response shape', function () {
             ->assertOk()
             ->json('stock_level');
 
-        // CRMS mapped: product_id → item_id
+        // RMS mapped: product_id → item_id
         expect($data)->toHaveKey('item_id');
         expect($data)->not->toHaveKey('product_id');
         expect($data['item_id'])->toBe($product->id);
     });
 
-    it('returns the complete CRMS-compatible field set', function () {
+    it('returns the complete RMS-compatible field set', function () {
         $product = Product::factory()->create(['name' => 'LED Par Can']);
         $store = Store::factory()->create(['name' => 'Main Warehouse']);
         $stockLevel = StockLevel::factory()->serialised()->create([
@@ -240,7 +240,7 @@ describe('CRMS response shape', function () {
         // Custom fields as flat object
         expect($data['custom_fields'])->toBeArray();
 
-        // CRMS date format
+        // RMS date format
         expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
         expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
     });
@@ -300,7 +300,7 @@ describe('CRMS response shape', function () {
         expect($data['ends_at'])->toBeNull();
     });
 
-    it('formats starts_at and ends_at in CRMS timestamp format', function () {
+    it('formats starts_at and ends_at in RMS timestamp format', function () {
         $stockLevel = StockLevel::factory()->create([
             'starts_at' => '2026-03-01 09:00:00',
             'ends_at' => '2026-03-15 17:00:00',

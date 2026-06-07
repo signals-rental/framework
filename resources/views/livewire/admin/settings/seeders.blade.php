@@ -134,7 +134,7 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
             'rate_definitions' => [
                 'name' => 'RateDefinitionPresetSeeder',
                 'class' => 'Database\\Seeders\\RateDefinitionPresetSeeder',
-                'description' => 'Creates the Current RMS-parity rate definition presets used to price products.',
+                'description' => 'Creates the industry-standard rate definition presets used to price products.',
                 'items' => [
                     'Daily, Hourly, Half-Hourly, Weekly and Monthly Rate presets',
                     'Fixed Rate, Fixed Rate and Subs Days presets',

@@ -7,7 +7,7 @@ use Illuminate\Support\Carbon;
 trait FormatsTimestamps
 {
     /**
-     * Format a Carbon timestamp in CRMS format (UTC with Z suffix and milliseconds).
+     * Format a Carbon timestamp in RMS format (UTC with Z suffix and milliseconds).
      */
     protected static function formatTimestamp(\DateTimeInterface $timestamp): string
     {

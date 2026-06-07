@@ -6,6 +6,7 @@ use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\MembershipType;
 use App\Models\Member;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Spatie\LaravelData\Attributes\MapOutputName;
 use Spatie\LaravelData\Data;
 
@@ -97,7 +98,7 @@ class MemberData extends Data
         $memberType = $member->membership_type;
         $memberTypeName = $memberType->label();
         if ($member->relationLoaded('contacts')) {
-            /** @var \Illuminate\Support\Collection<int, Member> $contactsList */
+            /** @var Collection<int, Member> $contactsList */
             $contactsList = $member->contacts;
             $childMembers = $contactsList->map(function (Member $related) use ($member, $memberTypeName): array {
                 /** @var MembershipType $relatedType */
@@ -117,7 +118,7 @@ class MemberData extends Data
             })->all();
         }
         if ($member->relationLoaded('organisations')) {
-            /** @var \Illuminate\Support\Collection<int, Member> $orgsList */
+            /** @var Collection<int, Member> $orgsList */
             $orgsList = $member->organisations;
             $parentMembers = $orgsList->map(function (Member $related) use ($member, $memberTypeName): array {
                 /** @var MembershipType $relatedType */
@@ -193,7 +194,7 @@ class MemberData extends Data
     }
 
     /**
-     * Build the type-specific membership data matching CRMS format.
+     * Build the type-specific membership data matching RMS format.
      *
      * @return array<string, mixed>
      */

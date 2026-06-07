@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\ProductType;
+use App\Enums\StockMethod;
 use App\Models\Accessory;
 use App\Models\Product;
 use App\Models\ProductGroup;
@@ -196,17 +198,17 @@ describe('DELETE /api/v1/products/{id}', function () {
     });
 });
 
-describe('CRMS response shape', function () {
-    it('returns the complete CRMS-compatible field set', function () {
+describe('RMS response shape', function () {
+    it('returns the complete RMS-compatible field set', function () {
         $group = ProductGroup::factory()->create(['name' => 'Lighting']);
         $product = Product::factory()->create([
             'name' => 'LED Par Can',
             'description' => 'A professional LED wash fixture',
-            'product_type' => \App\Enums\ProductType::Rental,
+            'product_type' => ProductType::Rental,
             'product_group_id' => $group->id,
             'is_active' => true,
             'allowed_stock_type' => 3,
-            'stock_method' => \App\Enums\StockMethod::Serialised,
+            'stock_method' => StockMethod::Serialised,
             'replacement_charge' => 10000,
             'sub_rental_price' => 5000,
             'purchase_price' => 25000,
@@ -235,7 +237,7 @@ describe('CRMS response shape', function () {
         expect($data['description'])->toBe('A professional LED wash fixture');
         expect($data['product_group_id'])->toBe($group->id);
 
-        // CRMS mapped: is_active → active
+        // RMS mapped: is_active → active
         expect($data)->toHaveKey('active');
         expect($data)->not->toHaveKey('is_active');
         expect($data['active'])->toBeTrue();
@@ -276,7 +278,7 @@ describe('CRMS response shape', function () {
         // Nested relationship objects
         expect($data['product_group'])->toBe(['id' => $group->id, 'name' => 'Lighting']);
 
-        // CRMS date format: 2026-03-21T14:30:45.123Z
+        // RMS date format: 2026-03-21T14:30:45.123Z
         expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
         expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
     });
@@ -309,7 +311,7 @@ describe('CRMS response shape', function () {
         expect($response->json('meta.page'))->toBe(1);
     });
 
-    it('returns accessories with CRMS field names', function () {
+    it('returns accessories with RMS field names', function () {
         $product = Product::factory()->create();
         $accessoryProduct = Product::factory()->create(['name' => 'XLR Cable']);
         Accessory::factory()->create([

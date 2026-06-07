@@ -378,7 +378,7 @@ describe('GET /api/v1/webhooks/{id}/logs', function () {
     });
 });
 
-describe('CRMS response shape', function () {
+describe('RMS response shape', function () {
     it('returns the complete webhook field set', function () {
         $webhook = Webhook::factory()->create([
             'user_id' => $this->owner->id,

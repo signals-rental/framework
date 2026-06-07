@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('members', function (Blueprint $table) {
-            // Core CRMS fields
+            // Core RMS fields
             $table->boolean('bookable')->default(false)->after('is_active');
             $table->smallInteger('location_type')->default(0)->after('bookable');
             $table->integer('day_cost')->default(0)->after('location_type');
@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('lawful_basis_type_id')->nullable()->after('flat_rate_cost');
             $table->foreign('lawful_basis_type_id')->references('id')->on('list_values')->nullOnDelete();
 
-            // Rename sale tax class for CRMS compatibility
+            // Rename sale tax class for RMS compatibility
             $table->renameColumn('organisation_tax_class_id', 'sale_tax_class_id');
         });
 

@@ -4,7 +4,7 @@
 
 **Goal:** Build complete API infrastructure (auth, query engine, rate limiting, webhooks) with concrete endpoints for settings, users, roles, system health, and action logs.
 
-**Architecture:** Sanctum bearer token auth with `resource:action` abilities. Trait-based API controller with CRMS-compatible response wrapping. Standalone RansackFilter service for `q[field_predicate]=value` query syntax. Webhook delivery via queued jobs with HMAC-SHA256 signing and exponential backoff.
+**Architecture:** Sanctum bearer token auth with `resource:action` abilities. Trait-based API controller with RMS-compatible response wrapping. Standalone RansackFilter service for `q[field_predicate]=value` query syntax. Webhook delivery via queued jobs with HMAC-SHA256 signing and exponential backoff.
 
 **Tech Stack:** Laravel 12, Sanctum 4, Spatie Laravel Data, Spatie Permission, Scramble (OpenAPI docs), Pest 4
 
@@ -3382,7 +3382,7 @@ In `config/scramble.php`, update the info section:
 ```php
 'info' => [
     'version' => env('API_VERSION', '1.0.0'),
-    'description' => 'The Signals API provides programmatic access to all platform features. Authenticate with Bearer tokens, filter with Ransack-compatible syntax, and receive CRMS-compatible response shapes.',
+    'description' => 'The Signals API provides programmatic access to all platform features. Authenticate with Bearer tokens, filter with Ransack-compatible syntax, and receive RMS-compatible response shapes.',
 ],
 ```
 

@@ -6,7 +6,7 @@ it('has correct cases', function () {
     expect(StockMethod::cases())->toHaveCount(2);
 });
 
-it('has CRMS-compatible integer values', function (StockMethod $method, int $expected) {
+it('has RMS-compatible integer values', function (StockMethod $method, int $expected) {
     expect($method->value)->toBe($expected);
 })->with([
     [StockMethod::Bulk, 1],

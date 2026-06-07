@@ -4,7 +4,7 @@ use App\Enums\BasePeriod;
 use App\Enums\CalculationStrategyType;
 use App\Services\RateEngine\Presets\RatePresets;
 
-it('defines eleven CRMS-parity presets', function () {
+it('defines eleven RMS-parity presets', function () {
     expect(RatePresets::all())->toHaveCount(11);
 });
 
@@ -18,7 +18,7 @@ it('omits the cut usage-based "Days Used Rate" preset', function () {
     $slugs = array_column(RatePresets::all(), 'slug');
 
     expect($slugs)->not->toContain('days-used-rate')
-        ->and($slugs)->toContain('daily-rate'); // the documented CRMS Days Used fallback
+        ->and($slugs)->toContain('daily-rate'); // the documented RMS Days Used fallback
 });
 
 it('shapes every preset with the required keys', function () {

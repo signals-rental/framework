@@ -2262,7 +2262,7 @@ function importExportEngine() {
   ];
 
   const mockMigrationPlan = {
-    name: 'CRMS Migration',
+    name: 'RMS Migration',
     template: 'signals/crms-migration',
     status: 'Running',
     progress: 45,
@@ -2279,7 +2279,7 @@ function importExportEngine() {
   const mockSavedProfiles = [
     { name: 'Standard Product Import', target: 'Products', format: 'CSV', shared: true },
     { name: 'Member Upload', target: 'Members', format: 'XLSX', shared: false },
-    { name: 'CRMS Product Mapping', target: 'Products', format: 'CSV', shared: true },
+    { name: 'RMS Product Mapping', target: 'Products', format: 'CSV', shared: true },
   ];
 
   const mockReportFailedRows = [

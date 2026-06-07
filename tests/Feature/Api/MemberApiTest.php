@@ -340,7 +340,7 @@ describe('member relationships', function () {
     it('deletes a relationship', function () {
         $contact = Member::factory()->contact()->create();
         $org = Member::factory()->organisation()->create();
-        $relationship = \App\Models\MemberRelationship::factory()->create([
+        $relationship = MemberRelationship::factory()->create([
             'member_id' => $contact->id,
             'related_member_id' => $org->id,
         ]);
@@ -464,8 +464,8 @@ describe('default custom_fields in API responses', function () {
     });
 });
 
-describe('CRMS schema compatibility — single member', function () {
-    it('matches CRMS Organisation member response shape', function () {
+describe('RMS schema compatibility — single member', function () {
+    it('matches RMS Organisation member response shape', function () {
         $saleTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Default']);
         $purchaseTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Default']);
         $owner = Member::factory()->user()->create(['name' => 'Ben Bowles']);
@@ -524,7 +524,7 @@ describe('CRMS schema compatibility — single member', function () {
 
         $data = $response->json('member');
 
-        // Core CRMS fields
+        // Core RMS fields
         expect($data)->toHaveKeys([
             'id', 'name', 'description', 'active', 'bookable', 'location_type',
             'locale', 'day_cost', 'hour_cost', 'distance_cost', 'flat_rate_cost',
@@ -539,10 +539,10 @@ describe('CRMS schema compatibility — single member', function () {
             'service_stock_levels', 'child_members', 'parent_members',
         ]);
 
-        // deleted_at should NOT be in response (CRMS doesn't expose it)
+        // deleted_at should NOT be in response (RMS doesn't expose it)
         expect($data)->not->toHaveKey('deleted_at');
 
-        // Field types match CRMS
+        // Field types match RMS
         expect($data['id'])->toBeInt()
             ->and($data['name'])->toBeString()
             ->and($data['description'])->toBeString()
@@ -552,7 +552,7 @@ describe('CRMS schema compatibility — single member', function () {
             ->and($data['locale'])->toBeString()
             ->and($data['membership_type'])->toBe('Organisation');
 
-        // Money fields are decimal strings (CRMS format)
+        // Money fields are decimal strings (RMS format)
         expect($data['day_cost'])->toBe('0.00')
             ->and($data['hour_cost'])->toBe('0.00')
             ->and($data['distance_cost'])->toBe('0.00')
@@ -583,11 +583,11 @@ describe('CRMS schema compatibility — single member', function () {
         // Mapping ID
         expect($data['mapping_id'])->toBe('ce1b9fde-b19f-4b9c-bd00-30a448c757b8');
 
-        // CRMS date format: Z suffix with milliseconds (e.g. 2018-07-11T11:54:17.541Z)
+        // RMS date format: Z suffix with milliseconds (e.g. 2018-07-11T11:54:17.541Z)
         expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
         expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
 
-        // Organisation membership object (CRMS shape)
+        // Organisation membership object (RMS shape)
         expect($data['membership'])->toHaveKeys([
             'id', 'number', 'tax_class_id', 'cash', 'on_stop', 'rating',
             'owned_by', 'price_category_id', 'discount_category_id',
@@ -611,7 +611,7 @@ describe('CRMS schema compatibility — single member', function () {
         expect($data['primary_address']['city'])->toBe('London')
             ->and($data['primary_address']['is_primary'])->toBeTrue();
 
-        // Nested arrays present (empty arrays, not null — CRMS compat)
+        // Nested arrays present (empty arrays, not null — RMS compat)
         expect($data['emails'])->toBeArray()
             ->and($data['phones'])->toBeArray()
             ->and($data['links'])->toBeArray()
@@ -634,7 +634,7 @@ describe('CRMS schema compatibility — single member', function () {
         expect($data['parent_members'])->toBeArray()->toBeEmpty();
     });
 
-    it('matches CRMS Contact member response shape with contact membership', function () {
+    it('matches RMS Contact member response shape with contact membership', function () {
         $member = Member::factory()->contact()->create([
             'name' => 'John Smith',
             'title' => 'Mr',
@@ -749,8 +749,8 @@ describe('CRMS schema compatibility — single member', function () {
     });
 });
 
-describe('CRMS schema compatibility — member collection', function () {
-    it('matches CRMS collection response shape with plural key and meta', function () {
+describe('RMS schema compatibility — member collection', function () {
+    it('matches RMS collection response shape with plural key and meta', function () {
         $saleTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Standard']);
         Member::factory()->organisation()->create([
             'name' => 'Org A',
@@ -805,11 +805,11 @@ describe('CRMS schema compatibility — member collection', function () {
         expect($org['location_type'])->toBe(1);
     });
 
-    it('returns meta with pagination matching CRMS format', function () {
+    it('returns meta with pagination matching RMS format', function () {
         Member::factory()->count(25)->create();
         $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
 
-        $totalMembers = \App\Models\Member::count();
+        $totalMembers = Member::count();
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/members?page=2&per_page=10')

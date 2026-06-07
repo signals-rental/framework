@@ -237,11 +237,11 @@ GET /api/v1/rate_engine/schema?strategy=period&modifiers[]=multiplier
 
 `strategies` reports each strategy's `allowed_base_periods` and whether it supports each modifier. `schema` requires a `strategy` and optional `modifiers[]`, validates them against the registered set (422 on unknown values), and returns ordered form `sections` of fields.
 
-## CRMS Rate Engine Mapping
+## RMS Rate Engine Mapping
 
-Signals presets mirror the Current RMS engine types, so an imported product rate maps onto a preset of the same shape. Match the CRMS rate engine name to the preset slug below.
+Signals presets mirror common industry-standard RMS engine types, so an imported product rate maps onto a preset of the same shape. Match the source RMS rate engine name to the preset slug below.
 
-| Current RMS Rate Engine | Signals Preset Slug |
+| Source RMS Rate Engine | Signals Preset Slug |
 |-------------------------|---------------------|
 | Daily Rate | `daily-rate` |
 | Daily Multiplier and Factor Rate | `daily-multiplier-factor` |
@@ -256,4 +256,4 @@ Signals presets mirror the Current RMS engine types, so an imported product rate
 | Fixed Rate and Subs Days | `fixed-rate-subs-days` |
 | Days Used Rate | `daily-rate` (fallback) |
 
-> **Note:** Current RMS's "Days Used Rate Engine" depends on per-asset usage tracking, which is not implemented in this version. Such rates map to the **Daily Rate** preset as a documented fallback and can be revisited once usage data is available.
+> **Note:** Some RMS platforms offer a "Days Used Rate Engine" that depends on per-asset usage tracking, which is not implemented in this version. Such rates map to the **Daily Rate** preset as a documented fallback and can be revisited once usage data is available.

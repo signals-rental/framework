@@ -9,6 +9,7 @@ use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
+use Database\Factories\ActivityFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Activity extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\ActivityFactory> */
+    /** @use HasFactory<ActivityFactory> */
     use HasCustomFields, HasFactory;
 
     /** @var array<string, class-string<Model>> */
@@ -30,7 +31,7 @@ class Activity extends Model implements HasSchema
     ];
 
     /**
-     * Resolve a CRMS short regarding_type to a fully-qualified class name.
+     * Resolve a RMS short regarding_type to a fully-qualified class name.
      */
     public static function resolveRegardingType(?string $type): ?string
     {
@@ -48,7 +49,7 @@ class Activity extends Model implements HasSchema
     }
 
     /**
-     * Convert a fully-qualified class name to a CRMS short regarding_type.
+     * Convert a fully-qualified class name to a RMS short regarding_type.
      */
     public static function shortRegardingType(?string $type): ?string
     {

@@ -15,7 +15,7 @@ Every rate definition is composed from three parts:
 | **Base period** | The granularity of a chargeable unit (half-hourly, hourly, daily, weekly, monthly) |
 | **Modifiers** | Optional adjustments applied after the base charge — duration multipliers and quantity factors |
 
-Signals ships **11 presets** that replicate the Current RMS engine types so migrating users see familiar names. Presets are just pre-filled, fully-editable configurations — there is no special preset behaviour beyond a starting point.
+Signals ships **11 presets** that replicate common industry-standard RMS engine types so migrating users see familiar names. Presets are just pre-filled, fully-editable configurations — there is no special preset behaviour beyond a starting point.
 
 > **Note:** Rate definitions are managed in the **admin settings area**, not the main catalogue. They are configuration intended for a small number of administrators, not a daily tool. Assigning rates to individual products happens on the product detail page.
 

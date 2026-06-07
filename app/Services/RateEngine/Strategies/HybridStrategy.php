@@ -15,7 +15,7 @@ use RuntimeException;
 
 /**
  * Charges a flat fee covering an initial block of base-period units, then the
- * context unit price for every unit beyond that block. Maps to Current RMS's
+ * context unit price for every unit beyond that block. Maps to a typical RMS's
  * "Fixed Rate and Subs Days Engine".
  *
  * Config (in {@see CalculationContext::$strategyConfig}):

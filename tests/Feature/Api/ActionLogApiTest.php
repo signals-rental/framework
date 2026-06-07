@@ -1,8 +1,11 @@
 <?php
 
+use App\Data\Api\ActionLogData;
 use App\Models\ActionLog;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -193,7 +196,7 @@ describe('POST /api/v1/actions/export', function () {
     it('dispatches export job and returns 202', function () {
         $token = $this->owner->createToken('test', ['action-log:read'])->plainTextToken;
 
-        \Illuminate\Support\Facades\Storage::fake();
+        Storage::fake();
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson('/api/v1/actions/export')
@@ -202,13 +205,13 @@ describe('POST /api/v1/actions/export', function () {
 
         // Verify the job ran (sync in test) and produced a cached export path
         $cacheKey = "action-log-export:{$this->owner->id}";
-        expect(\Illuminate\Support\Facades\Cache::has($cacheKey))->toBeTrue();
+        expect(Cache::has($cacheKey))->toBeTrue();
     });
 
     it('passes filters to export job', function () {
         $token = $this->owner->createToken('test', ['action-log:read'])->plainTextToken;
 
-        \Illuminate\Support\Facades\Storage::fake();
+        Storage::fake();
         ActionLog::factory()->forUser($this->owner)->create(['action' => 'user.created']);
         ActionLog::factory()->forUser($this->owner)->create(['action' => 'user.deleted']);
 
@@ -219,8 +222,8 @@ describe('POST /api/v1/actions/export', function () {
             ->assertStatus(202);
 
         $cacheKey = "action-log-export:{$this->owner->id}";
-        $filename = \Illuminate\Support\Facades\Cache::get($cacheKey);
-        $content = \Illuminate\Support\Facades\Storage::get($filename);
+        $filename = Cache::get($cacheKey);
+        $content = Storage::get($filename);
 
         expect($content)->toContain('user.created');
         expect($content)->not->toContain('user.deleted');
@@ -247,7 +250,7 @@ describe('ActionLogData::fromModel', function () {
             'auditable_id' => 1,
         ]);
 
-        $data = \App\Data\Api\ActionLogData::fromModel($log);
+        $data = ActionLogData::fromModel($log);
 
         expect($data->auditable_type)->toBe('member');
     });
@@ -263,7 +266,7 @@ describe('ActionLogData::fromModel', function () {
             'ip_address' => '192.168.1.1',
         ]);
 
-        $data = \App\Data\Api\ActionLogData::fromModel($log->load('user'));
+        $data = ActionLogData::fromModel($log->load('user'));
 
         expect($data->id)->toBe($log->id)
             ->and($data->user_id)->toBe($this->owner->id)
@@ -283,13 +286,13 @@ describe('ActionLogData::fromModel', function () {
             'auditable_id' => 99,
         ]);
 
-        $data = \App\Data\Api\ActionLogData::fromModel($log);
+        $data = ActionLogData::fromModel($log);
 
         expect($data->created_at)->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/');
     });
 });
 
-describe('CRMS response shape', function () {
+describe('RMS response shape', function () {
     it('returns the complete action log field set', function () {
         $log = ActionLog::factory()->forUser($this->owner)->withChanges(
             ['name' => 'Old'],

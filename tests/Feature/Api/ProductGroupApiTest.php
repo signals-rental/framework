@@ -200,8 +200,8 @@ describe('DELETE /api/v1/product_groups/{id}', function () {
     });
 });
 
-describe('CRMS response shape', function () {
-    it('returns the complete CRMS-compatible field set', function () {
+describe('RMS response shape', function () {
+    it('returns the complete RMS-compatible field set', function () {
         $parent = ProductGroup::factory()->create(['name' => 'Audio']);
         $group = ProductGroup::factory()->create([
             'name' => 'Speakers',
@@ -229,7 +229,7 @@ describe('CRMS response shape', function () {
         // Custom fields as flat object
         expect($data['custom_fields'])->toBeArray();
 
-        // CRMS date format
+        // RMS date format
         expect($data['created_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
         expect($data['updated_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
     });

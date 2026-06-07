@@ -102,7 +102,7 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::apiResource('list_names', ListNameController::class)->names('api.v1.list_names');
     Route::apiResource('list_names.list_values', ListValueController::class)->except(['show'])->names('api.v1.list_names.list_values');
 
-    // CRMS-compatible alias for Lists of Values
+    // RMS-compatible alias for Lists of Values
     Route::apiResource('list_of_values', ListNameController::class)->parameters(['list_of_values' => 'list_name'])->names('api.v1.list_of_values');
     Route::apiResource('list_of_values.list_values', ListValueController::class)->parameters(['list_of_values' => 'list_name', 'list_values' => 'list_value'])->except(['show'])->names('api.v1.list_of_values.list_values');
 
@@ -135,7 +135,7 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     // Stock Levels
     Route::apiResource('stock_levels', StockLevelController::class)->names('api.v1.stock_levels');
 
-    // Stock Transactions (nested under products/stock_levels, matching CRMS)
+    // Stock Transactions (nested under products/stock_levels, matching RMS)
     Route::get('products/{product}/stock_levels/{stock_level}/stock_transactions', [StockTransactionController::class, 'index'])->name('api.v1.stock_transactions.index');
     Route::get('products/{product}/stock_levels/{stock_level}/stock_transactions/{stock_transaction}', [StockTransactionController::class, 'show'])->name('api.v1.stock_transactions.show');
     Route::post('products/{product}/stock_levels/{stock_level}/stock_transactions', [StockTransactionController::class, 'store'])->name('api.v1.stock_transactions.store');

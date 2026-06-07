@@ -29,7 +29,7 @@ return [
         /*
          * Description rendered on the home page of the API documentation (`/docs/api`).
          */
-        'description' => 'The Signals API provides programmatic access to all platform features. Authenticate with Bearer tokens, filter with Ransack-compatible syntax, and receive CRMS-compatible response shapes.',
+        'description' => 'The Signals API provides programmatic access to all platform features. Authenticate with Bearer tokens, filter with Ransack-compatible syntax, and receive RMS-compatible response shapes.',
     ],
 
     /*

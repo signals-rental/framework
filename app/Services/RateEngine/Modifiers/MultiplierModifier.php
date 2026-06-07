@@ -15,8 +15,8 @@ use Brick\Money\Money;
 /**
  * Adjusts the per-period unit price using a positional table of multipliers:
  * the Nth configured tier applies to period N, and the final defined tier
- * inherits forward to every remaining period (Current RMS behaviour). Maps to
- * CRMS's "Daily Multiplier" style engines.
+ * inherits forward to every remaining period (typical RMS behaviour). Maps to
+ * RMS's "Daily Multiplier" style engines.
  *
  * Config (under the `multiplier` key of a rate definition):
  *  - tiers (list<array{multiplier: string}>): ordered per-period multipliers as

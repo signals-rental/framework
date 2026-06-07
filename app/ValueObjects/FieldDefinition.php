@@ -36,8 +36,8 @@ class FieldDefinition
      * @param  string|null  $relationType  Relationship type: belongsTo, hasMany, belongsToMany, morphMany
      * @param  string|null  $relatedModel  Fully-qualified related model class
      * @param  string|null  $relatedField  Display field on the related model
-     * @param  string|null  $crmsFieldName  Equivalent field name in Current RMS
-     * @param  string|null  $crmsTransform  Transformation identifier for CRMS compatibility
+     * @param  string|null  $crmsFieldName  Equivalent field name in the source RMS
+     * @param  string|null  $crmsTransform  Transformation identifier for RMS compatibility
      * @param  array<int, string>  $aggregateFunctions  Supported aggregate functions: sum, avg, min, max, count
      */
     public function __construct(

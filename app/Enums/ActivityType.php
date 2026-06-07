@@ -35,7 +35,7 @@ enum ActivityType: int
             'meeting' => self::Meeting,
             'note' => self::Note,
             'letter' => self::Letter,
-            default => throw new \ValueError("Unknown CRMS activity type: {$name}"),
+            default => throw new \ValueError("Unknown RMS activity type: {$name}"),
         };
     }
 }

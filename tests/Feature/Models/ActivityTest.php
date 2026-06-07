@@ -186,7 +186,7 @@ it('scopes to activities for a stock level', function () {
     expect(Activity::forStockLevel($stockLevel->id)->count())->toBe(1);
 });
 
-it('resolves a CRMS short regarding_type to a class name', function () {
+it('resolves a RMS short regarding_type to a class name', function () {
     expect(Activity::resolveRegardingType('Member'))->toBe(Member::class)
         ->and(Activity::resolveRegardingType('Product'))->toBe(Product::class)
         ->and(Activity::resolveRegardingType('StockLevel'))->toBe(StockLevel::class);
@@ -200,7 +200,7 @@ it('throws for an unknown regarding_type', function () {
     Activity::resolveRegardingType('Unknown');
 })->throws(InvalidArgumentException::class);
 
-it('converts a class name to a CRMS short regarding_type', function () {
+it('converts a class name to a RMS short regarding_type', function () {
     expect(Activity::shortRegardingType(Member::class))->toBe('Member')
         ->and(Activity::shortRegardingType(Product::class))->toBe('Product')
         ->and(Activity::shortRegardingType(StockLevel::class))->toBe('StockLevel');

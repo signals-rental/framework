@@ -44,7 +44,7 @@ it('updates a preset in place when its definition changes', function () {
         ->and(RateDefinition::query()->count())->toBe(11);
 });
 
-it('does not seed the cut Days Used Rate preset (maps to Daily Rate on CRMS import)', function () {
+it('does not seed the cut Days Used Rate preset (maps to Daily Rate on RMS import)', function () {
     $this->seed(RateDefinitionPresetSeeder::class);
 
     expect(RateDefinition::query()->where('preset_slug', 'days-used-rate')->exists())->toBeFalse()

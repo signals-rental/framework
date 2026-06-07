@@ -139,7 +139,7 @@ describe('POST stock_transactions', function () {
     });
 
     it('returns 404 when stock level does not belong to product', function () {
-        $otherProduct = \App\Models\Product::factory()->create();
+        $otherProduct = Product::factory()->create();
         $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -151,7 +151,7 @@ describe('POST stock_transactions', function () {
             ->assertNotFound();
     });
 
-    it('matches CRMS response shape', function () {
+    it('matches RMS response shape', function () {
         $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")

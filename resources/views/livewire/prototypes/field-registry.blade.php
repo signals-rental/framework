@@ -1046,9 +1046,9 @@ new #[Layout('components.layouts.app')] #[Title('Field Registry Schema Engine')]
                           <div class="fr-detail-code" x-text="field.sql_expression"></div>
                         </div>
 
-                        {{-- CRMS mapping --}}
+                        {{-- RMS field mapping --}}
                         <div class="fr-detail-section" x-show="field.crms">
-                          <div class="fr-detail-label">CRMS Mapping</div>
+                          <div class="fr-detail-label">RMS Field Mapping</div>
                           <div class="fr-detail-meta">
                             <div class="fr-detail-meta-item">
                               <span class="fr-detail-meta-key">Field</span>

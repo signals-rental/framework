@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Remap custom_fields.field_type integer codes from old enum values to new CRMS-aligned values.
+ * Remap custom_fields.field_type integer codes from old enum values to new RMS-aligned values.
  *
  * Old mapping:
  *   0=Text, 1=TextArea, 2=Integer, 3=Decimal, 4=Boolean, 5=Date, 6=DateTime,

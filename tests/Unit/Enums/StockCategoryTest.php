@@ -6,7 +6,7 @@ it('has correct cases', function () {
     expect(StockCategory::cases())->toHaveCount(2);
 });
 
-it('has CRMS-compatible integer values', function (StockCategory $category, int $expected) {
+it('has RMS-compatible integer values', function (StockCategory $category, int $expected) {
     expect($category->value)->toBe($expected);
 })->with([
     [StockCategory::BulkStock, 10],

@@ -109,7 +109,7 @@ it('excludes product_group when relation is not loaded', function () {
     expect($data->product_group)->toBeNull();
 });
 
-it('formats timestamps in CRMS ISO 8601 format', function () {
+it('formats timestamps in RMS ISO 8601 format', function () {
     $product = Product::factory()->create();
     $product->refresh();
 

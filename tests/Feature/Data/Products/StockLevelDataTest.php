@@ -120,7 +120,7 @@ it('includes store_name when store relation is loaded', function () {
     expect($data->store_name)->toBe('Main Warehouse');
 });
 
-it('formats timestamps in CRMS ISO 8601 format', function () {
+it('formats timestamps in RMS ISO 8601 format', function () {
     $product = Product::factory()->create();
     $store = Store::factory()->create();
     $stockLevel = StockLevel::factory()->create([

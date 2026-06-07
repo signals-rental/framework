@@ -305,7 +305,7 @@ new #[Layout('components.layouts.app')] #[Title('UI Prototypes')] class extends 
             <span class="pi-card-name">Rate Engine</span>
             <svg class="pi-card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </div>
-          <div class="pi-card-desc">Rate definitions, CRMS presets, multiplier/factor tables, live calculator</div>
+          <div class="pi-card-desc">Rate definitions, industry-standard presets, multiplier/factor tables, live calculator</div>
           <div class="pi-card-path">/prototypes/rate-engine</div>
         </a>
         <a href="/prototypes/availability" class="pi-card">
@@ -379,7 +379,7 @@ new #[Layout('components.layouts.app')] #[Title('UI Prototypes')] class extends 
             <span class="pi-card-name">Import / Export</span>
             <svg class="pi-card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
           </div>
-          <div class="pi-card-desc">5-stage import pipeline, field mapping, validation, CRMS migration</div>
+          <div class="pi-card-desc">5-stage import pipeline, field mapping, validation, RMS migration</div>
           <div class="pi-card-path">/prototypes/import-export</div>
         </a>
         <a href="/prototypes/grid" class="pi-card">

@@ -85,7 +85,7 @@ it('leaves field unchanged when null is passed via DTO', function () {
     expect($activity->refresh()->description)->toBe('Original');
 });
 
-it('resolves a CRMS short regarding_type to a class name on update', function () {
+it('resolves a RMS short regarding_type to a class name on update', function () {
     Event::fake([AuditableEvent::class]);
 
     $user = User::factory()->owner()->create();

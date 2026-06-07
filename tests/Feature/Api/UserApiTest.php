@@ -242,7 +242,7 @@ describe('DELETE /api/v1/users/{id}', function () {
     });
 });
 
-describe('CRMS response shape', function () {
+describe('RMS response shape', function () {
     it('returns the complete user field set', function () {
         $user = User::factory()->create([
             'name' => 'Jane Doe',

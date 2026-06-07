@@ -306,7 +306,7 @@ new #[Layout('components.layouts.app')] #[Title('Rate Definition')] class extend
         </x-slot:actions>
 
         @if(! $presetChosen)
-            <x-signals.form-section title="Choose a starting point" description="Start from a Current RMS-style preset, or build your own.">
+            <x-signals.form-section title="Choose a starting point" description="Start from an industry-standard preset, or build your own.">
                 <div class="s-admin-landing-grid">
                     @foreach($presets as $preset)
                         <button type="button" wire:key="preset-{{ $preset['slug'] }}" wire:click="choosePreset('{{ $preset['slug'] }}')" class="s-module-card enabled text-left">

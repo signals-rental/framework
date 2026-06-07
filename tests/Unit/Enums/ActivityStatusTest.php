@@ -2,7 +2,7 @@
 
 use App\Enums\ActivityStatus;
 
-it('has the correct CRMS status_id values', function () {
+it('has the correct RMS status_id values', function () {
     expect(ActivityStatus::Scheduled->value)->toBe(2001)
         ->and(ActivityStatus::Completed->value)->toBe(2002)
         ->and(ActivityStatus::Cancelled->value)->toBe(2003)

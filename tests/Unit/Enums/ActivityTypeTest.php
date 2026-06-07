@@ -2,7 +2,7 @@
 
 use App\Enums\ActivityType;
 
-it('has the correct CRMS type_id values', function () {
+it('has the correct RMS type_id values', function () {
     expect(ActivityType::Task->value)->toBe(1001)
         ->and(ActivityType::Call->value)->toBe(1002)
         ->and(ActivityType::Fax->value)->toBe(1003)
@@ -29,12 +29,12 @@ it('returns the correct label for every case', function (ActivityType $type, str
     'letter' => [ActivityType::Letter, 'Letter'],
 ]);
 
-it('resolves from CRMS name', function () {
+it('resolves from RMS name', function () {
     expect(ActivityType::fromCrmsName('Task'))->toBe(ActivityType::Task)
         ->and(ActivityType::fromCrmsName('meeting'))->toBe(ActivityType::Meeting);
 });
 
-it('resolves every CRMS name case-insensitively', function (string $name, ActivityType $expected) {
+it('resolves every RMS name case-insensitively', function (string $name, ActivityType $expected) {
     expect(ActivityType::fromCrmsName($name))->toBe($expected);
 })->with([
     'task' => ['task', ActivityType::Task],
@@ -47,6 +47,6 @@ it('resolves every CRMS name case-insensitively', function (string $name, Activi
     'mixed-case' => ['LeTTeR', ActivityType::Letter],
 ]);
 
-it('throws on unknown CRMS name', function () {
+it('throws on unknown RMS name', function () {
     ActivityType::fromCrmsName('unknown');
 })->throws(ValueError::class);

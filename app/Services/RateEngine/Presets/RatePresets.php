@@ -7,12 +7,12 @@ use App\Enums\CalculationStrategyType;
 
 /**
  * The framework-shipped rate definition presets. Each preset replicates one
- * Current RMS engine type so migrating users see familiar names, but presets are
+ * industry-standard RMS engine type so migrating users see familiar names, but presets are
  * just pre-filled, fully-editable configurations of the composable rate engine
  * (strategy + base period + modifiers).
  *
- * Current RMS's "Days Used Rate Engine" (usage strategy) is intentionally absent:
- * the usage strategy is cut from v1, so CRMS "Days Used Rate" imports map to the
+ * The "Days Used Rate Engine" (usage strategy) is intentionally absent:
+ * the usage strategy is cut from v1, so RMS "Days Used Rate" imports map to the
  * "Daily Rate" preset as a documented fallback.
  *
  * Modifier configs ship empty — a preset enables a modifier but leaves its tier

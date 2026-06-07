@@ -206,7 +206,7 @@ class FieldBuilder
     }
 
     /**
-     * Set CRMS compatibility mapping.
+     * Set RMS compatibility mapping.
      */
     public function crms(?string $fieldName, ?string $transform = null): static
     {

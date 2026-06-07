@@ -12,7 +12,7 @@ Build the complete API infrastructure for Signals Framework: Sanctum authenticat
 
 - No domain models exist yet (no Members, Opportunities, etc.)
 - Only build endpoints for models that already exist: User, Setting, Store, ActionLog, EmailTemplate, Role
-- Must match CRMS response shapes exactly
+- Must match industry-standard RMS response shapes exactly
 - PostgreSQL only
 - Shared service layer pattern (actions + DTOs)
 
@@ -47,7 +47,7 @@ Sanctum bearer tokens with scoped abilities following `resource:action` pattern.
 - `applySort()` — sort by field (prefix `-` for desc)
 - `paginate()` — offset-based pagination
 
-### Response Shapes (CRMS-compatible)
+### Response Shapes (RMS-compatible)
 
 ```json
 // Single resource
@@ -206,4 +206,4 @@ Each controller declares `$allowedFilters` to whitelist filterable fields.
 - RansackFilter: all 18 predicates with edge cases
 - Webhook delivery: signing verification, retry logic, auto-disable
 - Rate limiting: verify 429 responses
-- Response shape: verify CRMS-compatible wrapping
+- Response shape: verify RMS-compatible wrapping

@@ -198,7 +198,7 @@ class RansackFilter
     /**
      * Apply a custom field filter using EAV storage.
      *
-     * Supports filtering by field name or numeric field ID (CRMS compatibility).
+     * Supports filtering by field name or numeric field ID (RMS compatibility).
      *
      * @template TModel of Model
      *

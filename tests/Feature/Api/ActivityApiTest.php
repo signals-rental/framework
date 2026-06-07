@@ -252,8 +252,8 @@ describe('POST /api/v1/activities/{id}/complete', function () {
     });
 });
 
-describe('CRMS response shape', function () {
-    it('matches CRMS field names and types', function () {
+describe('RMS response shape', function () {
+    it('matches RMS field names and types', function () {
         $activity = Activity::factory()->create([
             'subject' => 'Enable dynamic e-tailers',
             'location' => 'Hereford',

@@ -402,7 +402,7 @@ describe('DELETE /api/v1/roles/{id}', function () {
     });
 });
 
-describe('CRMS response shape', function () {
+describe('RMS response shape', function () {
     it('returns the complete role field set', function () {
         $role = Role::query()->where('name', 'Admin')->first();
         $token = $this->owner->createToken('test', ['roles:read'])->plainTextToken;

@@ -4,14 +4,14 @@
 
 Signals is an open-source rental management framework — a CRM/ERP platform for equipment rental and event hire companies. It covers members/CRM, quoting/ordering (opportunities), product catalogue, stock/inventory, invoicing/payments, crew/services, projects, and inspections.
 
-The system is **API-first** with drop-in compatibility for **Current RMS (CRMS)** — identical field names, Ransack-compatible query syntax, and matching API response shapes. The web UI and API share business logic through action classes and Spatie Laravel Data DTOs.
+The system is **API-first** with drop-in compatibility with **industry-standard rental management systems** — identical field names, Ransack-compatible query syntax, and matching API response shapes. The web UI and API share business logic through action classes and Spatie Laravel Data DTOs.
 
 Key architectural traits:
 - **Members as universal entity** — contacts, organisations, venues, and users are all `members` differentiated by `membership_type`
 - **Plugin system** — Composer-based plugins with config-driven rendering, no plugin-owned migrations or views
 - **Open-source core + commercial SaaS** — the OSF is tenant-ignorant; multi-tenancy is a separate `signals/cloud` package using database-per-tenant isolation
 - **PostgreSQL only** — leverages JSONB, functional indexes, and vector search
-- **Custom fields via EAV** — stored relationally, presented as flat JSON in API responses for CRMS compatibility
+- **Custom fields via EAV** — stored relationally, presented as flat JSON in API responses for RMS compatibility
 - **65+ tables** implemented in phased domain slices (see `framework-plans/`)
 
 ## Stack & Versions
@@ -276,9 +276,9 @@ OSF ships single-tenant defaults (no-ops). Never add tenant awareness to core co
 
 - **PostgreSQL only.** Use JSONB (not JSON) for flexible columns. Use functional indexes.
 - **Money columns:** `INTEGER` — stored in minor units (pence, cents, fils). Use `brick/money` value objects with `finller/laravel-money` Eloquent casts. Never use floats or DECIMAL for money.
-- **Money in API responses:** decimal strings (`"125.50"`), not floats or raw integers. Match CRMS format. Conversion from minor units happens at the serialisation layer.
+- **Money in API responses:** decimal strings (`"125.50"`), not floats or raw integers. Match the industry-standard RMS format. Conversion from minor units happens at the serialisation layer.
 - **Timestamps:** always `created_at` + `updated_at`. All stored in UTC.
-- **Primary keys:** auto-incrementing integers (`id`). Not UUIDs. CRMS compatibility.
+- **Primary keys:** auto-incrementing integers (`id`). Not UUIDs. RMS compatibility.
 - **Foreign keys:** `{table_singular}_id` (e.g. `member_id`). Always constrained + indexed.
 - **Polymorphic columns:** `{relation}_type` + `{relation}_id` (e.g. `attachable_type`, `attachable_id`).
 - **Soft deletes:** only on `opportunities`, `invoices`, `members`. Not on reference data.
@@ -449,7 +449,7 @@ All architectural decisions are documented in `framework-plans/`. **Always consu
 | `navigation-and-ui-shell.md` | Sidebar, NavigationService, Blade components, Livewire page patterns |
 | `opportunity-lifecycle.md` | Two-axis state model, hybrid event sourcing via Verbs, quote versioning |
 | `availability-engine.md` | Demand-based availability, tstzrange snapshots, multi-store, plugin-extensible |
-| `rate-definitions-rate-engines.md` | Composable rate engine, calculation strategies, CRMS presets |
+| `rate-definitions-rate-engines.md` | Composable rate engine, calculation strategies, industry-standard presets |
 | `discount-pricing-rules-engine.md` | Four-stage pricing pipeline, price categories, discount rules, surcharges |
 | `multi-currency-tax-engine.md` | brick/money, integer minor-unit storage, tax resolution engine, exchange rates |
 | `localisation-timezone-formatting.md` | Timezone helper, Formatter service, countries table, i18n architecture |
@@ -461,7 +461,7 @@ All architectural decisions are documented in `framework-plans/`. **Always consu
 | `scanning-abstraction-layer.md` | Three-layer scanning: input adapters, resolution, context handlers |
 | `document-template-engine.md` | Blade templates per store, rendering pipeline, field browser, public sharing, numbering |
 | `notification-communication-engine.md` | Multi-channel notifications, customer comms, three-layer resolution |
-| `import-export-migration-engine.md` | SQLite-staged import, field mapping, CRMS migration, cross-references |
+| `import-export-migration-engine.md` | SQLite-staged import, field mapping, RMS migration, cross-references |
 | `reporting-framework.md` | Aggregated queries, field registry integration, dimensions, measures |
 | `workflows.md` | No-code automation, handler system, events, conditions, delays |
 | `plugin-system.md` | Plugin SDK, YAML manifest, hooks, mediated data access, lifecycle |

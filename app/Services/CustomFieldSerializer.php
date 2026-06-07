@@ -35,7 +35,7 @@ class CustomFieldSerializer
     {
         $moduleType = $entity->customFieldModuleType(); // @phpstan-ignore method.notFound
 
-        // Start with all active fields for this module defaulting to null (CRMS compatibility)
+        // Start with all active fields for this module defaulting to null (RMS compatibility)
         $definitions = $this->definitions->resolve($moduleType);
 
         /** @var array<string, null> $result */
