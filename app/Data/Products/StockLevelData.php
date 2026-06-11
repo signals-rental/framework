@@ -15,9 +15,6 @@ class StockLevelData extends Data
 {
     use FormatsTimestamps;
 
-    /**
-     * @param  array<string, mixed>  $custom_fields
-     */
     public function __construct(
         public int $id,
         #[MapOutputName('item_id')]
@@ -42,10 +39,11 @@ class StockLevelData extends Data
         public ?string $container_mode,
         public ?string $starts_at,
         public ?string $ends_at,
-        public array $custom_fields,
+        public object $custom_fields,
         public string $created_at,
         public string $updated_at,
         public ?EntityReferenceData $item = null,
+        public ?EntityReferenceData $member = null,
     ) {}
 
     public static function fromModel(StockLevel $stockLevel): self
@@ -95,11 +93,14 @@ class StockLevelData extends Data
             ends_at: $stockLevel->ends_at !== null
                 ? self::formatTimestamp(Carbon::parse($stockLevel->ends_at))
                 : null,
-            custom_fields: $stockLevel->relationLoaded('customFieldValues') ? $stockLevel->custom_fields : [],
+            custom_fields: (object) ($stockLevel->relationLoaded('customFieldValues') ? $stockLevel->custom_fields : []),
             created_at: self::formatTimestamp($createdAt),
             updated_at: self::formatTimestamp($updatedAt),
             item: $stockLevel->relationLoaded('product') && $stockLevel->product
                 ? EntityReferenceData::from(['id' => $stockLevel->product->id, 'name' => $stockLevel->product->name])
+                : null,
+            member: $stockLevel->relationLoaded('member') && $stockLevel->member
+                ? EntityReferenceData::from(['id' => $stockLevel->member->id, 'name' => $stockLevel->member->name])
                 : null,
         );
     }

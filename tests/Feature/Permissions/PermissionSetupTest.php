@@ -96,6 +96,33 @@ describe('Roles', function () {
         }
     });
 
+    it('grants Admin the full rates.* and activities.* permission groups', function () {
+        $allPermissions = array_keys(PermissionSeeder::permissions());
+        $ratePermissions = array_values(array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'rates.')));
+        $activityPermissions = array_values(array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'activities.')));
+        $admin = Role::findByName('Admin', 'web')->permissions->pluck('name')->all();
+
+        expect($ratePermissions)->not->toBeEmpty()
+            ->and($activityPermissions)->not->toBeEmpty()
+            ->and($admin)->toContain(...$ratePermissions)
+            ->and($admin)->toContain(...$activityPermissions);
+    });
+
+    // Guards UAT defect D1: a stale dev DB had no rates.*/activities.* groups, so
+    // non-owner roles were locked out of Rates & Activities. This fails fast in CI
+    // if the seeders ever stop granting those groups to Operations Manager.
+    it('grants Operations Manager the full rates.* and activities.* permission groups', function () {
+        $allPermissions = array_keys(PermissionSeeder::permissions());
+        $ratePermissions = array_values(array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'rates.')));
+        $activityPermissions = array_values(array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'activities.')));
+        $opsManager = Role::findByName('Operations Manager', 'web')->permissions->pluck('name')->all();
+
+        expect($ratePermissions)->not->toBeEmpty()
+            ->and($activityPermissions)->not->toBeEmpty()
+            ->and($opsManager)->toContain(...$ratePermissions)
+            ->and($opsManager)->toContain(...$activityPermissions);
+    });
+
     it('gives Sales role opportunity and invoice permissions', function () {
         $sales = Role::findByName('Sales', 'web');
         $salesPermissions = $sales->permissions->pluck('name')->all();

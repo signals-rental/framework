@@ -3,6 +3,28 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Api\Controller;
+use App\Models\ActionLog;
+use App\Models\Activity;
+use App\Models\Address;
+use App\Models\Attachment;
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\CustomView;
+use App\Models\Email;
+use App\Models\ExchangeRate;
+use App\Models\Link;
+use App\Models\Member;
+use App\Models\Phone;
+use App\Models\Product;
+use App\Models\ProductGroup;
+use App\Models\ProductRate;
+use App\Models\RateDefinition;
+use App\Models\StockLevel;
+use App\Models\Store;
+use App\Models\TaxRate;
+use App\Models\TaxRule;
+use App\Models\User;
+use App\Models\Webhook;
 use App\Services\SchemaRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -15,26 +37,28 @@ class SchemaController extends Controller
      * @var array<string, class-string>
      */
     private const MODEL_MAP = [
-        'members' => \App\Models\Member::class,
-        'stores' => \App\Models\Store::class,
-        'addresses' => \App\Models\Address::class,
-        'countries' => \App\Models\Country::class,
-        'currencies' => \App\Models\Currency::class,
-        'exchange_rates' => \App\Models\ExchangeRate::class,
-        'emails' => \App\Models\Email::class,
-        'phones' => \App\Models\Phone::class,
-        'links' => \App\Models\Link::class,
-        'attachments' => \App\Models\Attachment::class,
-        'users' => \App\Models\User::class,
-        'action_logs' => \App\Models\ActionLog::class,
-        'webhooks' => \App\Models\Webhook::class,
-        'custom_views' => \App\Models\CustomView::class,
-        'tax_rates' => \App\Models\TaxRate::class,
-        'tax_rules' => \App\Models\TaxRule::class,
-        'products' => \App\Models\Product::class,
-        'product_groups' => \App\Models\ProductGroup::class,
-        'stock_levels' => \App\Models\StockLevel::class,
-        'activities' => \App\Models\Activity::class,
+        'members' => Member::class,
+        'stores' => Store::class,
+        'addresses' => Address::class,
+        'countries' => Country::class,
+        'currencies' => Currency::class,
+        'exchange_rates' => ExchangeRate::class,
+        'emails' => Email::class,
+        'phones' => Phone::class,
+        'links' => Link::class,
+        'attachments' => Attachment::class,
+        'users' => User::class,
+        'action_logs' => ActionLog::class,
+        'webhooks' => Webhook::class,
+        'custom_views' => CustomView::class,
+        'tax_rates' => TaxRate::class,
+        'tax_rules' => TaxRule::class,
+        'products' => Product::class,
+        'product_groups' => ProductGroup::class,
+        'stock_levels' => StockLevel::class,
+        'activities' => Activity::class,
+        'rate_definitions' => RateDefinition::class,
+        'product_rates' => ProductRate::class,
     ];
 
     /**
@@ -58,7 +82,9 @@ class SchemaController extends Controller
     {
         $this->authorizeApi('schema.read', 'schema:read');
 
-        $modelClass = self::MODEL_MAP[$model] ?? null;
+        // Accept either the canonical plural key or its singular form.
+        $key = isset(self::MODEL_MAP[$model]) ? $model : Str::plural($model);
+        $modelClass = self::MODEL_MAP[$key] ?? null;
 
         if ($modelClass === null) {
             return response()->json([
@@ -75,7 +101,7 @@ class SchemaController extends Controller
         }
 
         return response()->json([
-            'model' => $model,
+            'model' => $key,
             'model_class' => Str::afterLast($modelClass, '\\'),
             'fields' => $schema,
         ]);

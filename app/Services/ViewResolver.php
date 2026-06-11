@@ -61,10 +61,19 @@ class ViewResolver
      *
      * @param  Builder<TModel>  $query
      * @param  array<string, mixed>  $explicitParams
+     * @param  list<string>  $allowedExplicitFields  Controller whitelist for explicit `q` params
+     * @param  array<string, list<string>>  $allowedRelationFilters  Map of relation => allowed columns
      * @return Builder<TModel>
      */
-    public function applyFilters(Builder $query, CustomView $view, array $explicitParams = []): Builder
+    public function applyFilters(Builder $query, CustomView $view, array $explicitParams = [], array $allowedExplicitFields = [], array $allowedRelationFilters = []): Builder
     {
+        // Only honour explicit `q` params whose field is in the controller's
+        // whitelist (scalar columns or whitelisted relation columns). Without this,
+        // the explicit-param path below would filter on any caller-supplied field
+        // name, bypassing $allowedFilters — causing 500s on non-existent columns
+        // and arbitrary filtering on unexposed columns.
+        $explicitParams = $this->whitelistParams($explicitParams, $allowedExplicitFields, $allowedRelationFilters);
+
         /** @var array<int, array<string, mixed>> $viewFilters */
         $viewFilters = $view->filters ?? [];
         $ransack = app(RansackFilter::class);
@@ -122,10 +131,9 @@ class ViewResolver
             });
         }
 
-        // Explicit params are always applied as AND conditions
+        // Explicit params (already whitelisted above) are applied as AND conditions.
         if (! empty($explicitParams)) {
-            $explicitFields = $this->extractFieldNames(array_keys($explicitParams));
-            $ransack->apply($query, $explicitParams, $explicitFields);
+            $ransack->apply($query, $explicitParams, $allowedExplicitFields, $allowedRelationFilters);
         }
 
         return $query;
@@ -157,17 +165,57 @@ class ViewResolver
     }
 
     /**
-     * Extract field names from Ransack-style keys by stripping predicate suffixes.
+     * Keep only the explicit `field_predicate` params whose field is whitelisted —
+     * either a scalar column in $allowedFields, or a `relation.column` whose
+     * relation+column appear in the $allowedRelationFilters map.
      *
-     * @param  list<string>  $keys
-     * @return list<string>
+     * @param  array<string, mixed>  $params
+     * @param  list<string>  $allowedFields
+     * @param  array<string, list<string>>  $allowedRelationFilters
+     * @return array<string, mixed>
      */
-    private function extractFieldNames(array $keys): array
+    private function whitelistParams(array $params, array $allowedFields, array $allowedRelationFilters = []): array
     {
-        $fields = array_map(function (string $key): string {
-            return preg_replace('/_(?:eq|not_eq|lt|lteq|gt|gteq|cont|not_cont|start|end|present|blank|null|not_null|in|not_in|true|false)$/', '', $key);
-        }, $keys);
+        if ($params === []) {
+            return [];
+        }
 
-        return array_values(array_unique($fields));
+        $allowed = [];
+
+        foreach ($params as $key => $value) {
+            $field = $this->stripPredicate((string) $key);
+
+            if (str_contains($field, '.')) {
+                [$relation, $column] = explode('.', $field, 2);
+                $columns = $allowedRelationFilters[$relation] ?? null;
+
+                if (is_array($columns) && in_array($column, $columns, true)) {
+                    $allowed[$key] = $value;
+                }
+
+                continue;
+            }
+
+            if (in_array($field, $allowedFields, true)) {
+                $allowed[$key] = $value;
+            }
+        }
+
+        return $allowed;
+    }
+
+    /**
+     * Strip a trailing Ransack predicate suffix from a filter key to get the field.
+     *
+     * Predicates are matched longest-first so `status_not_cont` yields `status`,
+     * not `status_not`.
+     */
+    private function stripPredicate(string $key): string
+    {
+        return preg_replace(
+            '/_(?:not_cont|not_null|not_eq|not_in|matches|present|blank|false|start|lteq|gteq|cont|null|true|end|lt|gt|eq|in)$/',
+            '',
+            $key
+        ) ?? $key;
     }
 }

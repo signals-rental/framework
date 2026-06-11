@@ -122,12 +122,33 @@ describe('POST stock_transactions', function () {
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions", [
-                'transaction_type' => 1,
+                'transaction_type' => 999, // not a valid TransactionType
                 'quantity' => '1.0',
                 'transaction_at' => now()->toISOString(),
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('transaction_type');
+    });
+
+    it('accepts system transaction types via the API (D4)', function () {
+        $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
+
+        // Opening (1) is a system type — API-postable (not offered in the UI form).
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions", [
+                'transaction_type' => 1,
+                'quantity' => '5.0',
+                'transaction_at' => now()->toISOString(),
+            ])
+            ->assertCreated();
+
+        expect($response->json('stock_transaction.transaction_type'))->toBe(1);
+        expect($response->json('stock_transaction.transaction_type_name'))->toBe('Opening Balance');
+        // System types are flagged manual=false (manual flag derived from the type).
+        expect($response->json('stock_transaction.manual'))->toBeFalse();
+
+        $this->stockLevel->refresh();
+        expect((float) $this->stockLevel->quantity_held)->toBe(5.0);
     });
 
     it('requires authentication', function () {

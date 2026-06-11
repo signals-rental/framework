@@ -71,6 +71,41 @@ describe('POST /api/v1/products/{product}/calculate_rate', function () {
             ->assertJsonPath('rate_breakdown.total', '4000.00');
     });
 
+    it('preserves money precision through the factor modifier (HALF_UP, not truncation)', function () {
+        // £24.69/day over 5 days = 12345 minor units; factor 0.9 gives 12345 * 0.9 = 11110.5,
+        // which must round HALF_UP to 11111 (£111.11). Naive integer truncation would yield
+        // 11110 (£111.10). This guards the lossless brick/money path end to end via the API.
+        $definition = RateDefinition::factory()->create([
+            'enabled_modifiers' => ['factor'],
+            'modifier_configs' => [
+                'factor' => ['ranges' => [
+                    ['from' => 1, 'to' => null, 'factor' => '0.9'],
+                ]],
+            ],
+        ]);
+        ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $definition->id,
+            'transaction_type' => 'rental',
+            'price' => 2469,
+            'currency' => 'GBP',
+        ]);
+        $token = $this->owner->createToken('test', ['rates:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$this->product->id}/calculate_rate", [
+                'quantity' => 1,
+                'start' => '2026-01-05T00:00:00Z',
+                'end' => '2026-01-10T00:00:00Z',
+                'transaction_type' => 'rental',
+            ])
+            ->assertOk()
+            ->assertJsonPath('rate_breakdown.unit_price', '24.69')
+            ->assertJsonPath('rate_breakdown.units', 5)
+            ->assertJsonPath('rate_breakdown.per_unit_subtotal', '111.11')
+            ->assertJsonPath('rate_breakdown.total', '111.11');
+    });
+
     it('resolves the store-specific rate when store_id is supplied', function () {
         $store = Store::factory()->create();
         $definition = RateDefinition::factory()->create();

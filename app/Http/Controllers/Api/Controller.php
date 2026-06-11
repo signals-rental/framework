@@ -18,9 +18,20 @@ abstract class Controller
     protected array $allowedFilters = [];
 
     /**
-     * Whitelisted relations for Ransack relation filtering.
+     * Maps response output keys to their underlying filterable/sortable column,
+     * so consumers can filter/sort by the field name they receive in responses
+     * (e.g. ['type' => 'product_type', 'active' => 'is_active']). The target
+     * column must still appear in $allowedFilters/$allowedSorts.
      *
-     * @var list<string>
+     * @var array<string, string>
+     */
+    protected array $filterAliases = [];
+
+    /**
+     * Whitelisted relations for Ransack relation filtering, as a map of
+     * relation => allowed columns (e.g. ['productGroup' => ['name']]).
+     *
+     * @var array<string, list<string>>
      */
     protected array $allowedRelationFilters = [];
 

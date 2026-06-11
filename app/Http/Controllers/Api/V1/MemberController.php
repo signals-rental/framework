@@ -28,6 +28,11 @@ class MemberController extends Controller
         'created_at',
     ];
 
+    /** @var array<string, string> */
+    protected array $filterAliases = [
+        'active' => 'is_active',
+    ];
+
     protected ?string $customFieldModule = 'Member';
 
     /** @var list<string> */
@@ -38,7 +43,15 @@ class MemberController extends Controller
         'updated_at',
     ];
 
-    /** @var list<string> */
+    /**
+     * Intentional CRMS-compatible output-key renames for these includes:
+     *   contacts      -> `child_members`
+     *   organisations -> `parent_members`
+     *   addresses     -> `addresses` (+ `primary_address`)
+     *   saleTaxClass/purchaseTaxClass/lawfulBasisType -> scalar `*_name` fields
+     *
+     * @var list<string>
+     */
     protected array $allowedIncludes = [
         'addresses',
         'emails',
@@ -220,8 +233,10 @@ class MemberController extends Controller
         $filtered = array_intersect_key($data, array_flip($allowedKeys));
 
         if (! empty($allowedCustomFieldKeys) && isset($data['custom_fields'])) {
-            $filtered['custom_fields'] = array_intersect_key(
-                $data['custom_fields'],
+            // custom_fields serialises as an object ({}), so cast to array for the
+            // intersect and back to an object to preserve the JSON object shape.
+            $filtered['custom_fields'] = (object) array_intersect_key(
+                (array) $data['custom_fields'],
                 array_flip($allowedCustomFieldKeys),
             );
         }

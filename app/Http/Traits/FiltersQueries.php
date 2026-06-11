@@ -32,6 +32,7 @@ trait FiltersQueries
             return $query;
         }
 
+        $filters = $this->translateFilterAliases($filters);
         $allowed = $allowedFields ?? $this->allowedFilters;
         $allowedRelations = $this->allowedRelationFilters;
         $customFieldModule = $this->customFieldModule;
@@ -59,6 +60,7 @@ trait FiltersQueries
             return $query;
         }
 
+        $sort = $this->translateSortAlias((string) $sort);
         $allowed = $allowedFields ?? $this->allowedSorts;
 
         return app(RansackFilter::class)->applySort($query, $sort, $allowed);
@@ -91,7 +93,8 @@ trait FiltersQueries
             if (! is_array($explicitFilters)) {
                 $explicitFilters = [];
             }
-            $query = $viewResolver->applyFilters($query, $view, $explicitFilters);
+            $explicitFilters = $this->translateFilterAliases($explicitFilters);
+            $query = $viewResolver->applyFilters($query, $view, $explicitFilters, $this->allowedFilters, $this->allowedRelationFilters);
 
             if (! $request->filled('sort')) {
                 $query = $viewResolver->applySort($query, $view);
@@ -151,5 +154,57 @@ trait FiltersQueries
         $page = max((int) $request->input('page', 1), 1);
 
         return $query->paginate(perPage: $perPage, page: $page);
+    }
+
+    /**
+     * Rewrite request filter keys from response-facing aliases to real columns.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    protected function translateFilterAliases(array $filters): array
+    {
+        if ($this->filterAliases === []) {
+            return $filters;
+        }
+
+        $translated = [];
+
+        foreach ($filters as $key => $value) {
+            $newKey = (string) $key;
+
+            // Leave custom-field filters (cf.*) untouched.
+            if (! str_starts_with($newKey, 'cf.')) {
+                foreach ($this->filterAliases as $alias => $column) {
+                    if ($newKey === $alias || str_starts_with($newKey, $alias.'_')) {
+                        $newKey = $column.substr($newKey, strlen($alias));
+                        break;
+                    }
+                }
+            }
+
+            $translated[$newKey] = $value;
+        }
+
+        return $translated;
+    }
+
+    /**
+     * Rewrite a sort field from a response-facing alias to its real column.
+     */
+    protected function translateSortAlias(string $sort): string
+    {
+        if ($this->filterAliases === []) {
+            return $sort;
+        }
+
+        $descending = str_starts_with($sort, '-');
+        $field = $descending ? substr($sort, 1) : $sort;
+
+        if (isset($this->filterAliases[$field])) {
+            $field = $this->filterAliases[$field];
+        }
+
+        return ($descending ? '-' : '').$field;
     }
 }

@@ -16,7 +16,6 @@ class MemberData extends Data
 
     /**
      * @param  list<string>  $tag_list
-     * @param  array<string, mixed>  $custom_fields
      * @param  array<string, mixed>  $membership
      * @param  array<string, mixed>|null  $primary_address
      * @param  list<array<string, mixed>>  $addresses
@@ -51,7 +50,7 @@ class MemberData extends Data
         public ?int $purchase_tax_class_id,
         public ?string $purchase_tax_class_name,
         public array $tag_list,
-        public array $custom_fields,
+        public object $custom_fields,
         #[MapOutputName('icon_exists?')]
         public bool $icon_exists,
         public ?string $mapping_id,
@@ -165,7 +164,7 @@ class MemberData extends Data
                 ? $member->purchaseTaxClass?->name
                 : null,
             tag_list: $member->getAttribute('tag_list') ?? [],
-            custom_fields: $member->relationLoaded('customFieldValues') ? $member->custom_fields : [],
+            custom_fields: (object) ($member->relationLoaded('customFieldValues') ? $member->custom_fields : []),
             icon_exists: $member->icon_url !== null,
             mapping_id: $member->mapping_id,
             created_at: self::formatTimestamp($createdAt),

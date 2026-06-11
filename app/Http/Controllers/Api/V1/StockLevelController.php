@@ -43,7 +43,14 @@ class StockLevelController extends Controller
         'created_at',
     ];
 
-    /** @var list<string> */
+    /**
+     * Intentional CRMS-compatible output-key renames for these includes:
+     *   product -> `item` (EntityReferenceData) + `item_name`/`item_id`
+     *   store   -> `store_name` (scalar; no nested store object)
+     *   member  -> `member` (EntityReferenceData)
+     *
+     * @var list<string>
+     */
     protected array $allowedIncludes = [
         'product',
         'store',
