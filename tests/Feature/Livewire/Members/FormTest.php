@@ -78,6 +78,69 @@ it('validates invalid membership type', function () {
         ->assertHasErrors(['membershipType']);
 });
 
+it('does not offer the User membership type in the create form', function () {
+    $this->get('/members/create')
+        ->assertOk()
+        ->assertDontSee('value="user"', escape: false);
+});
+
+it('rejects creating a user-type member via the form', function () {
+    Volt::test('members.form')
+        ->set('name', 'Sneaky User')
+        ->set('membershipType', MembershipType::User->value)
+        ->call('save')
+        ->assertHasErrors(['membershipType']);
+
+    expect(Member::where('name', 'Sneaky User')->exists())->toBeFalse();
+});
+
+it('ignores a query string requesting the user type', function () {
+    $this->get('/members/create?type=user')
+        ->assertOk();
+
+    // Defaults back to contact rather than honouring ?type=user.
+    Volt::test('members.form')->assertSet('membershipType', 'contact');
+});
+
+it('keeps the name read-only for a user-type member on edit', function () {
+    $member = Member::factory()->user()->create(['name' => 'Staff Member']);
+
+    Volt::test('members.form', ['member' => $member])
+        ->set('name', 'Hacked Name')
+        ->call('save')
+        ->assertRedirect();
+
+    // The submitted name change is ignored server-side.
+    expect($member->fresh()->name)->toBe('Staff Member');
+});
+
+it('shows the managed-from-profile hint and profile-settings link for a user-type member', function () {
+    $member = Member::factory()->user()->create();
+
+    Volt::test('members.form', ['member' => $member])
+        ->assertSee("Managed from the user's profile")
+        ->assertSee('Edit in profile settings')
+        ->assertSee(route('settings.profile'), false);
+});
+
+it('keeps active state and location type read-only for a user-type member on edit', function () {
+    $member = Member::factory()->user()->create([
+        'is_active' => true,
+        'location_type' => 3,
+    ]);
+
+    Volt::test('members.form', ['member' => $member])
+        ->set('isActive', false)
+        ->set('locationTypeId', 7)
+        ->call('save')
+        ->assertRedirect();
+
+    // Submitted changes are ignored server-side — both stay as they were.
+    $fresh = $member->fresh();
+    expect($fresh->is_active)->toBeTrue();
+    expect($fresh->location_type)->toBe(3);
+});
+
 it('can create an inactive member', function () {
     Volt::test('members.form')
         ->set('name', 'Inactive Member')

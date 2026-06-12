@@ -21,10 +21,40 @@ new #[Layout('components.layouts.app')] class extends Component {
         $view->title($this->member->name);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function with(): array
+    {
+        // Resolve related members across both relationship directions so a link
+        // appears on each member regardless of how it was created.
+        $relationships = $this->member->allRelationships();
+
+        $relatedMembers = $relationships
+            ->map(fn ($r) => tap($this->member->counterpartIn($r), function ($other) use ($r): void {
+                if ($other) {
+                    $other->setRelation('pivot', (object) [
+                        'relationship_type' => $r->relationship_type,
+                        'is_primary' => $r->is_primary,
+                    ]);
+                }
+            }))
+            ->filter()
+            ->values();
+
+        return [
+            'relatedMembers' => $relatedMembers,
+            'relatedCount' => $relatedMembers->count(),
+        ];
+    }
+
 }; ?>
 
 <section class="w-full">
     @include('livewire.members.partials.member-header', ['member' => $member])
+
+    {{-- Hosts the "Merge with..." flow from the header New menu. --}}
+    <livewire:members.merge-modal />
 
     @include('livewire.members.partials.member-tabs', ['member' => $member, 'activeTab' => 'overview'])
 
@@ -63,76 +93,55 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
             </x-signals.sidebar>
 
-            {{-- Key Contacts / Organisations --}}
-            @if($member->membership_type === \App\Enums\MembershipType::Organisation || $member->membership_type === \App\Enums\MembershipType::Venue)
-                <x-signals.panel title="Key Contacts">
-                    <x-slot:headerActions>
-                        <a href="{{ route('members.relationships.create', $member) }}" wire:navigate class="s-btn s-btn-xs s-btn-primary">Add</a>
-                    </x-slot:headerActions>
-                    @if($member->contacts->isNotEmpty())
-                        <div class="space-y-3">
-                            @foreach($member->contacts->take(5) as $contact)
-                                <a href="{{ route('members.show', $contact) }}" wire:navigate class="flex items-center gap-3 group">
-                                    @php
-                                        $cWords = preg_split('/\s+/', trim($contact->name));
-                                        $cInitials = mb_strtoupper(mb_substr($cWords[0] ?? '', 0, 1) . mb_substr($cWords[1] ?? '', 0, 1));
-                                    @endphp
-                                    <x-signals.avatar size="sm" :initials="$cInitials" color="blue" />
-                                    <div>
-                                        <div class="text-sm font-medium text-[var(--link)] group-hover:underline" style="font-family: var(--font-display);">{{ $contact->name }}</div>
-                                        @if($contact->pivot->relationship_type)
-                                            <div class="text-xs text-[var(--text-muted)]">{{ $contact->pivot->relationship_type }}</div>
-                                        @endif
-                                    </div>
-                                </a>
-                            @endforeach
+            {{-- Related members (contacts / organisations / venues), both directions --}}
+            @php
+                $isOrgOrVenue = $member->membership_type === \App\Enums\MembershipType::Organisation
+                    || $member->membership_type === \App\Enums\MembershipType::Venue;
+                $relatedPanelTitle = $isOrgOrVenue ? 'Key Contacts' : 'Organisations';
+                $relatedEmptyText = $isOrgOrVenue ? 'No contacts linked.' : 'No organisations linked.';
+            @endphp
+            <x-signals.panel :title="$relatedPanelTitle">
+                <x-slot:headerActions>
+                    <a href="{{ route('members.relationships.create', $member) }}" wire:navigate class="s-btn s-btn-xs s-btn-primary">Add</a>
+                </x-slot:headerActions>
+                @if($relatedMembers->isNotEmpty())
+                    <div class="space-y-3">
+                        @foreach($relatedMembers->take(5) as $related)
+                            <a href="{{ route('members.show', $related) }}" wire:navigate class="flex items-center gap-3 group" wire:key="related-{{ $related->id }}">
+                                @php
+                                    $rWords = preg_split('/\s+/', trim($related->name));
+                                    $rInitials = mb_strtoupper(mb_substr($rWords[0] ?? '', 0, 1) . mb_substr($rWords[1] ?? '', 0, 1));
+                                    $rColor = $related->membership_type === \App\Enums\MembershipType::Contact ? 'blue' : 'amber';
+                                    $rIconSrc = null;
+                                    if ($related->icon_thumb_url) {
+                                        try {
+                                            $rIconSrc = app(\App\Services\FileService::class)->signedUrl($related->icon_thumb_url);
+                                        } catch (\Throwable) {
+                                            // Fall back to initials
+                                        }
+                                    }
+                                @endphp
+                                <x-signals.avatar size="sm" :src="$rIconSrc" :initials="$rInitials" :color="$rColor" />
+                                <div>
+                                    <div class="text-sm font-medium text-[var(--link)] group-hover:underline" style="font-family: var(--font-display);">{{ $related->name }}</div>
+                                    @if($related->pivot->relationship_type)
+                                        <div class="text-xs text-[var(--text-muted)]">{{ $related->pivot->relationship_type }}</div>
+                                    @endif
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                    @if($relatedCount > 5)
+                        <div class="mt-3 pt-3 border-t border-[var(--card-border)]">
+                            <a href="{{ route('members.contacts', $member) }}" wire:navigate class="text-xs text-[var(--link)] hover:underline">
+                                View all {{ $relatedCount }} related members
+                            </a>
                         </div>
-                        @if($member->contacts_count > 5)
-                            <div class="mt-3 pt-3 border-t border-[var(--card-border)]">
-                                <a href="{{ route('members.contacts', $member) }}" wire:navigate class="text-xs text-[var(--link)] hover:underline">
-                                    View all {{ $member->contacts_count }} contacts
-                                </a>
-                            </div>
-                        @endif
-                    @else
-                        <p class="text-sm text-[var(--text-muted)]">No contacts linked.</p>
                     @endif
-                </x-signals.panel>
-            @else
-                <x-signals.panel title="Organisations">
-                    <x-slot:headerActions>
-                        <a href="{{ route('members.relationships.create', $member) }}" wire:navigate class="s-btn s-btn-xs s-btn-primary">Add</a>
-                    </x-slot:headerActions>
-                    @if($member->organisations->isNotEmpty())
-                        <div class="space-y-3">
-                            @foreach($member->organisations->take(5) as $org)
-                                <a href="{{ route('members.show', $org) }}" wire:navigate class="flex items-center gap-3 group">
-                                    @php
-                                        $oWords = preg_split('/\s+/', trim($org->name));
-                                        $oInitials = mb_strtoupper(mb_substr($oWords[0] ?? '', 0, 1) . mb_substr($oWords[1] ?? '', 0, 1));
-                                    @endphp
-                                    <x-signals.avatar size="sm" :initials="$oInitials" color="amber" />
-                                    <div>
-                                        <div class="text-sm font-medium text-[var(--link)] group-hover:underline" style="font-family: var(--font-display);">{{ $org->name }}</div>
-                                        @if($org->pivot->relationship_type)
-                                            <div class="text-xs text-[var(--text-muted)]">{{ $org->pivot->relationship_type }}</div>
-                                        @endif
-                                    </div>
-                                </a>
-                            @endforeach
-                        </div>
-                        @if($member->organisations_count > 5)
-                            <div class="mt-3 pt-3 border-t border-[var(--card-border)]">
-                                <a href="{{ route('members.contacts', $member) }}" wire:navigate class="text-xs text-[var(--link)] hover:underline">
-                                    View all {{ $member->organisations_count }} organisations
-                                </a>
-                            </div>
-                        @endif
-                    @else
-                        <p class="text-sm text-[var(--text-muted)]">No organisations linked.</p>
-                    @endif
-                </x-signals.panel>
-            @endif
+                @else
+                    <p class="text-sm text-[var(--text-muted)]">{{ $relatedEmptyText }}</p>
+                @endif
+            </x-signals.panel>
 
             {{-- Account Details --}}
             <x-signals.panel title="Account Details">

@@ -8,7 +8,9 @@ use App\Models\Traits\FormatsMoney;
 use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
+use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,9 +20,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property MembershipType $membership_type
+ */
 class Member extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\MemberFactory> */
+    /** @use HasFactory<MemberFactory> */
     use FormatsMoney, HasAttachments, HasCustomFields, HasFactory, SoftDeletes;
 
     /** @var list<string> */
@@ -241,6 +246,47 @@ class Member extends Model implements HasSchema
     }
 
     /**
+     * All relationship rows touching this member, in either direction.
+     *
+     * Relationships are stored once (member_id + related_member_id) but are
+     * conceptually bidirectional, so listings must union both columns.
+     *
+     * @return Collection<int, MemberRelationship>
+     */
+    public function allRelationships(): Collection
+    {
+        return MemberRelationship::query()
+            ->with(['member', 'relatedMember'])
+            ->where('member_id', $this->id)
+            ->orWhere('related_member_id', $this->id)
+            ->orderByDesc('is_primary')
+            ->get();
+    }
+
+    /**
+     * Resolve the "other" member in a relationship row relative to this member.
+     */
+    public function counterpartIn(MemberRelationship $relationship): ?Member
+    {
+        if ($relationship->member_id === $this->id) {
+            return $relationship->relatedMember;
+        }
+
+        return $relationship->member;
+    }
+
+    /**
+     * Count of related members across both directions.
+     */
+    public function relatedMembersCount(): int
+    {
+        return MemberRelationship::query()
+            ->where('member_id', $this->id)
+            ->orWhere('related_member_id', $this->id)
+            ->count();
+    }
+
+    /**
      * Scope to members of a given type.
      *
      * @param  Builder<Member>  $query
@@ -311,6 +357,27 @@ class Member extends Model implements HasSchema
             $sub->select('related_member_id')
                 ->from('member_relationships')
                 ->where('member_id', $memberId);
+        });
+    }
+
+    /**
+     * Scope to all members related to the given member, in either direction.
+     *
+     * @param  Builder<Member>  $query
+     * @return Builder<Member>
+     */
+    public function scopeRelatedTo(Builder $query, int $memberId): Builder
+    {
+        return $query->where('id', '!=', $memberId)->where(function ($outer) use ($memberId): void {
+            $outer->whereIn('id', function ($sub) use ($memberId): void {
+                $sub->select('related_member_id')
+                    ->from('member_relationships')
+                    ->where('member_id', $memberId);
+            })->orWhereIn('id', function ($sub) use ($memberId): void {
+                $sub->select('member_id')
+                    ->from('member_relationships')
+                    ->where('related_member_id', $memberId);
+            });
         });
     }
 }

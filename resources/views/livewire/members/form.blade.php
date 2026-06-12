@@ -68,9 +68,10 @@ new #[Layout('components.layouts.app')] class extends Component {
         $currentUser = auth()->user();
         $this->ownedBy = $currentUser?->member_id;
 
-        // Pre-populate membership type from ?type= query param
+        // Pre-populate membership type from ?type= query param. User-type
+        // members are created via invitation only, so 'user' is not accepted.
         $type = request()->query('type');
-        if (is_string($type) && in_array($type, ['organisation', 'contact', 'venue', 'user'])) {
+        if (is_string($type) && in_array($type, ['organisation', 'contact', 'venue'])) {
             $this->membershipType = $type;
         }
 
@@ -118,18 +119,40 @@ new #[Layout('components.layouts.app')] class extends Component {
             $nameUniqueRule->ignore($this->memberId);
         }
 
+        // Creatable types exclude User — users are created via invitation only.
+        $creatableTypes = array_values(array_filter(
+            array_column(MembershipType::cases(), 'value'),
+            fn (string $value): bool => $value !== MembershipType::User->value,
+        ));
+
+        $member = $this->memberId ? Member::find($this->memberId) : null;
+
+        // When editing, the existing (immutable) type is always allowed even if
+        // it is User — only the create surface forbids selecting User.
+        $allowedTypes = $member
+            ? array_values(array_unique([...$creatableTypes, $member->membership_type->value]))
+            : $creatableTypes;
+
         $rules = [
             'name' => ['required', 'string', 'max:255', $nameUniqueRule],
-            'membershipType' => ['required', 'string', Rule::in(array_column(MembershipType::cases(), 'value'))],
+            'membershipType' => ['required', 'string', Rule::in($allowedTypes)],
         ];
 
         // Membership type cannot be changed after creation
-        if ($this->memberId) {
-            $member = Member::find($this->memberId);
-            if ($member && $member->membership_type->value !== $this->membershipType) {
+        if ($member) {
+            if ($member->membership_type->value !== $this->membershipType) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'membershipType' => ['Membership type cannot be changed after creation.'],
                 ]);
+            }
+
+            // A user-type member's name, profile image, active state and location
+            // type are managed from the user's own profile — not from this internal
+            // edit screen. Ignore any submitted changes so they stay read-only here.
+            if ($member->membership_type === MembershipType::User) {
+                $this->name = $member->name;
+                $this->isActive = $member->is_active;
+                $this->locationTypeId = $member->location_type;
             }
         }
 
@@ -226,7 +249,13 @@ new #[Layout('components.layouts.app')] class extends Component {
         return [
             'isEditing' => $isEditing,
             'member' => $isEditing ? Member::find($this->memberId)?->loadCount(['addresses', 'emails', 'phones', 'links', 'organisations', 'contacts']) : null,
-            'membershipTypes' => MembershipType::cases(),
+            // User-type members are created via invitation, so 'User' is never
+            // offered as a selectable type in the create/edit form.
+            'membershipTypes' => array_values(array_filter(
+                MembershipType::cases(),
+                fn (MembershipType $t): bool => $t !== MembershipType::User,
+            )),
+            'isUserMember' => $this->membershipType === MembershipType::User->value,
             'taxClasses' => $ref['taxClasses'],
             'ownerOptions' => $ref['ownerOptions'],
             'lawfulBasisTypes' => $ref['lawfulBasisTypes'],
@@ -269,17 +298,38 @@ new #[Layout('components.layouts.app')] class extends Component {
                     {{-- Icon Upload (edit mode only) --}}
                     @if($isEditing && $member)
                         <x-signals.form-section title="Profile Image">
-                            <livewire:components.icon-upload :model="$member" :key="'icon-'.$member->id" />
+                            @if($isUserMember)
+                                <div class="flex items-center gap-4">
+                                    <x-signals.entity-icon :model="$member" :size="56" />
+                                    <div class="flex flex-col gap-1">
+                                        <p class="text-[12px] text-[var(--text-muted)]">Managed from the user's profile.</p>
+                                        <a href="{{ route('settings.profile') }}" wire:navigate class="text-[12px] text-[var(--link)] hover:underline">Edit in profile settings &rarr;</a>
+                                    </div>
+                                </div>
+                            @else
+                                <livewire:components.icon-upload :model="$member" :key="'icon-'.$member->id" />
+                            @endif
                         </x-signals.form-section>
                     @endif
 
                     {{-- Name & Type --}}
                     <x-signals.form-section title="Basic Info">
                         <div class="space-y-3">
-                            <flux:input wire:model="name" label="Name" required />
+                            @if($isUserMember)
+                                <div>
+                                    <flux:input wire:model="name" label="Name" readonly disabled
+                                        description="Managed from the user's profile" />
+                                    <a href="{{ route('settings.profile') }}" wire:navigate class="mt-1 inline-block text-[12px] text-[var(--link)] hover:underline">Edit in profile settings &rarr;</a>
+                                </div>
+                            @else
+                                <flux:input wire:model="name" label="Name" required />
+                            @endif
 
                             <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
                                 <flux:select wire:model.live="membershipType" label="Membership Type" required :disabled="$isEditing">
+                                    @if($isUserMember)
+                                        <option value="{{ \App\Enums\MembershipType::User->value }}">{{ \App\Enums\MembershipType::User->label() }}</option>
+                                    @endif
                                     @foreach($membershipTypes as $type)
                                         <option value="{{ $type->value }}">{{ $type->label() }}</option>
                                     @endforeach
@@ -361,7 +411,12 @@ new #[Layout('components.layouts.app')] class extends Component {
                         {{-- Non-org: Active + Legal basis --}}
                         <x-signals.form-section title="Status">
                             <div class="space-y-3">
-                                <flux:checkbox wire:model="isActive" label="Active" />
+                                <div>
+                                    <flux:checkbox wire:model="isActive" label="Active" :disabled="$isUserMember" />
+                                    @if($isUserMember)
+                                        <p class="mt-1 text-[12px] text-[var(--text-muted)]">A user's active state is managed from their user account.</p>
+                                    @endif
+                                </div>
                                 <flux:select wire:model="lawfulBasisTypeId" label="Legal Basis for Processing">
                                     <option value="">None</option>
                                     @foreach($lawfulBasisTypes as $basis)
@@ -379,7 +434,8 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <div class="flex items-center gap-6 pt-1">
                                     <flux:checkbox wire:model.live="bookable" label="Bookable" />
                                 </div>
-                                <flux:select wire:model="locationTypeId" label="Location Type">
+                                <flux:select wire:model="locationTypeId" label="Location Type" :disabled="$isUserMember"
+                                    :description="$isUserMember ? 'Managed from the user profile' : null">
                                     <option value="">None</option>
                                     @foreach($locationTypes as $lt)
                                         <option value="{{ $lt->sort_order }}">{{ $lt->name }}</option>

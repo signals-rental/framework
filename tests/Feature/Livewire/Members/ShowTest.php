@@ -3,6 +3,7 @@
 use App\Models\Member;
 use App\Models\MemberRelationship;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -65,6 +66,78 @@ it('shows contact links for organisations', function () {
 
     Volt::test('members.show', ['member' => $org])
         ->assertSee('Linked Contact');
+});
+
+it('shows related members on the reverse-direction member too', function () {
+    // Relationship created from the org side (member_id = org).
+    $org = Member::factory()->organisation()->create(['name' => 'Reverse Org']);
+    $contact = Member::factory()->contact()->create(['name' => 'Reverse Contact']);
+
+    MemberRelationship::factory()->create([
+        'member_id' => $org->id,
+        'related_member_id' => $contact->id,
+    ]);
+
+    // Contact's show page lists the org even though the row's member_id is the org.
+    Volt::test('members.show', ['member' => $contact])
+        ->assertSee('Reverse Org');
+
+    // And vice versa.
+    Volt::test('members.show', ['member' => $org])
+        ->assertSee('Reverse Contact');
+});
+
+it('displays the related organisation profile image when it has one', function () {
+    Storage::fake('public');
+
+    $contact = Member::factory()->contact()->create(['name' => 'Imaged Contact']);
+    $org = Member::factory()->organisation()->create([
+        'name' => 'Imaged Org',
+        'icon_thumb_url' => 'icons/org-thumb.jpg',
+    ]);
+
+    MemberRelationship::factory()->create([
+        'member_id' => $contact->id,
+        'related_member_id' => $org->id,
+    ]);
+
+    Volt::test('members.show', ['member' => $contact])
+        ->assertSee('s-avatar-img', false)
+        ->assertSee('icons/org-thumb.jpg', false);
+});
+
+it('displays the related contact profile image when it has one', function () {
+    Storage::fake('public');
+
+    $org = Member::factory()->organisation()->create(['name' => 'Plain Org']);
+    $contact = Member::factory()->contact()->create([
+        'name' => 'Imaged Contact',
+        'icon_thumb_url' => 'icons/contact-thumb.jpg',
+    ]);
+
+    MemberRelationship::factory()->create([
+        'member_id' => $contact->id,
+        'related_member_id' => $org->id,
+    ]);
+
+    Volt::test('members.show', ['member' => $org])
+        ->assertSee('s-avatar-img', false)
+        ->assertSee('icons/contact-thumb.jpg', false);
+});
+
+it('mounts the merge modal and offers Merge for a non-user member', function () {
+    $member = Member::factory()->organisation()->create();
+
+    Volt::test('members.show', ['member' => $member])
+        ->assertSeeLivewire('members.merge-modal')
+        ->assertSee('Merge with...');
+});
+
+it('hides the Merge action for a user-type member', function () {
+    $member = Member::factory()->user()->create();
+
+    Volt::test('members.show', ['member' => $member])
+        ->assertDontSee('Merge with...');
 });
 
 it('shows description when present', function () {

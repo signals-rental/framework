@@ -110,6 +110,20 @@ describe('POST /api/v1/members', function () {
             ->assertJsonValidationErrors(['name', 'membership_type']);
     });
 
+    it('rejects creating a user-type member', function () {
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/members', [
+                'name' => 'Sneaky User',
+                'membership_type' => 'user',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['membership_type']);
+
+        $this->assertDatabaseMissing('members', ['name' => 'Sneaky User']);
+    });
+
     it('accepts an active member as owned_by', function () {
         $owner = Member::factory()->organisation()->create();
         $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
@@ -190,6 +204,25 @@ describe('DELETE /api/v1/members/{id}', function () {
 
         $this->assertDatabaseHas('members', ['id' => $member->id]);
         expect(Member::withTrashed()->find($member->id)->trashed())->toBeTrue();
+    });
+});
+
+describe('POST /api/v1/members/{id}/merge', function () {
+    it('rejects merging user-type members', function () {
+        $primary = Member::factory()->user()->create();
+        $secondary = Member::factory()->user()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => $secondary->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['secondary_id']);
+
+        // Neither member was archived.
+        expect(Member::find($primary->id))->not->toBeNull()
+            ->and(Member::find($secondary->id))->not->toBeNull();
     });
 });
 
@@ -389,6 +422,32 @@ describe('member relationships', function () {
             ->getJson("/api/v1/members/{$contact->id}/relationships")
             ->assertOk()
             ->assertJsonCount(1, 'relationships');
+    });
+
+    it('rejects a forbidden organisation-to-venue relationship', function () {
+        $org = Member::factory()->organisation()->create();
+        $venue = Member::factory()->venue()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$org->id}/relationships", [
+                'related_member_id' => $venue->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['related_member_id']);
+    });
+
+    it('rejects a relationship involving a user-type member', function () {
+        $contact = Member::factory()->contact()->create();
+        $user = Member::factory()->user()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$contact->id}/relationships", [
+                'related_member_id' => $user->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['related_member_id']);
     });
 
     it('deletes a relationship', function () {
