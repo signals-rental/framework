@@ -3,6 +3,8 @@
 use App\Models\Address;
 use App\Models\Member;
 use App\Models\User;
+use Database\Seeders\ListOfValuesSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -69,6 +71,19 @@ it('renders the create address form', function () {
         ->assertSee('Add Address');
 });
 
+it('populates the type dropdown with the seeded Address Type list values', function () {
+    // Regression: the form queried 'AddressType' (no space) but the seeded list
+    // name is 'Address Type', so the Type select rendered blank.
+    $this->seed(ListOfValuesSeeder::class);
+
+    Volt::test('members.address-form', ['member' => $this->member])
+        ->assertViewHas('addressTypes', fn ($types) => $types->isNotEmpty())
+        ->assertSee('Billing')
+        ->assertSee('Shipping')
+        ->assertSee('Primary')
+        ->assertSee('Registered');
+});
+
 it('can create an address', function () {
     Volt::test('members.address-form', ['member' => $this->member])
         ->set('name', 'Head Office')
@@ -122,7 +137,7 @@ it('cannot delete another member\'s address', function () {
 
     expect(fn () => Volt::test('members.addresses', ['member' => $this->member])
         ->call('deleteAddress', $otherAddress->id)
-    )->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    )->toThrow(ModelNotFoundException::class);
 
     expect(Address::find($otherAddress->id))->not->toBeNull();
 });

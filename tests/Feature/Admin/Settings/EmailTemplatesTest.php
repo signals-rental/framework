@@ -102,6 +102,20 @@ it('can reset a system template to defaults', function () {
     expect($template->subject)->toBe('Test email from {{ company.name }}');
 });
 
+it('shows the send test affordance on the list page', function () {
+    $this->get(route('admin.settings.email-templates'))
+        ->assertOk()
+        ->assertSee('Send Test');
+});
+
+it('opens the test modal and resets fields', function () {
+    Volt::test('admin.settings.email-templates')
+        ->set('testRecipient', 'old@example.com')
+        ->call('openTestModal')
+        ->assertSet('showTestModal', true)
+        ->assertSet('testRecipient', '');
+});
+
 it('returns 403 for non-admin users', function () {
     $regularUser = User::factory()->create();
 

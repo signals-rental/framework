@@ -159,7 +159,7 @@ new #[Layout('components.layouts.app')] #[Title('Users')] class extends Componen
                             <td>{{ $user->email }}</td>
                             <td>
                                 @foreach($user->roles as $role)
-                                    <span class="s-badge">{{ $role->name }}</span>
+                                    <span class="s-badge s-badge-blue">{{ $role->name }}</span>
                                 @endforeach
                             </td>
                             <td>

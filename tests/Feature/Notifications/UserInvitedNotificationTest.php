@@ -1,7 +1,11 @@
 <?php
 
+use App\Mail\TemplatedEmail;
+use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Notifications\UserInvitedNotification;
+use Database\Seeders\EmailTemplateSeeder;
+use Illuminate\Notifications\Messages\MailMessage;
 
 it('sends via mail channel', function () {
     $notification = new UserInvitedNotification;
@@ -10,41 +14,52 @@ it('sends via mail channel', function () {
     expect($notification->via($user))->toBe(['mail']);
 });
 
-it('generates a mail message with signed URL', function () {
-    $user = User::factory()->invited()->create();
-    $notification = new UserInvitedNotification;
+it('renders the branded template with a signed invitation url', function () {
+    (new EmailTemplateSeeder)->run();
 
-    $mail = $notification->toMail($user);
-
-    expect($mail->actionUrl)->toContain('signature=');
-    expect($mail->actionUrl)->toContain('/invitation/');
-});
-
-it('includes the user name in the greeting', function () {
     $user = User::factory()->invited()->create(['name' => 'Jane Smith']);
     $notification = new UserInvitedNotification;
 
     $mail = $notification->toMail($user);
 
+    expect($mail)->toBeInstanceOf(TemplatedEmail::class);
+    expect($mail->bodyHtml)->toContain('Jane Smith');
+    expect($mail->bodyHtml)->toContain('sig-btn');
+    expect($mail->bodyHtml)->toContain('signature=');
+    expect($mail->bodyHtml)->toContain('/invitation/');
+});
+
+it('includes the company name in the subject', function () {
+    (new EmailTemplateSeeder)->run();
+
+    $user = User::factory()->invited()->create();
+    $notification = new UserInvitedNotification;
+
+    $mail = $notification->toMail($user);
+
+    expect($mail->subjectLine)->toContain(settings('company.name', config('app.name')));
+});
+
+it('falls back to a mail message when the template is inactive', function () {
+    (new EmailTemplateSeeder)->run();
+    EmailTemplate::where('key', 'user_invited')->update(['is_active' => false]);
+
+    $user = User::factory()->invited()->create(['name' => 'Jane Smith']);
+    $notification = new UserInvitedNotification;
+
+    $mail = $notification->toMail($user);
+
+    expect($mail)->toBeInstanceOf(MailMessage::class);
     expect($mail->greeting)->toBe('Hello Jane Smith!');
+    expect($mail->actionUrl)->toContain('signature=');
+    expect(implode(' ', $mail->outroLines))->toContain('7 days');
 });
 
-it('mentions the expiry period in the message body', function () {
+it('falls back to a mail message when the template is missing', function () {
     $user = User::factory()->invited()->create();
     $notification = new UserInvitedNotification;
 
     $mail = $notification->toMail($user);
 
-    $bodyText = implode(' ', $mail->introLines).' '.implode(' ', $mail->outroLines);
-    expect($bodyText)->toContain('7 days');
-});
-
-it('includes the app name in the subject', function () {
-    config(['app.name' => 'Signals']);
-    $user = User::factory()->invited()->create();
-    $notification = new UserInvitedNotification;
-
-    $mail = $notification->toMail($user);
-
-    expect($mail->subject)->toContain('Signals');
+    expect($mail)->toBeInstanceOf(MailMessage::class);
 });

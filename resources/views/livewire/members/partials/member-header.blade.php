@@ -67,16 +67,18 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
                 Invoice
             </div>
-            <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
-            <button
-                x-on:click="open = false; $dispatch('open-merge-modal', { memberA: {{ $member->id }}, memberB: 0 })"
-                class="s-dropdown-item"
-                style="width: 100%; opacity: 0.5; cursor: default;"
-                disabled
-            >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M16 16v6"/><path d="M19 19h-6"/><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4"/><circle cx="18" cy="7" r="3"/></svg>
-                Merge with...
-            </button>
+            @if($member->membership_type !== \App\Enums\MembershipType::User)
+                <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
+                <button
+                    type="button"
+                    x-on:click="open = false; Livewire.dispatch('open-merge-modal', { memberA: {{ $member->id }}, memberB: 0 })"
+                    class="s-dropdown-item"
+                    style="width: 100%;"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M16 16v6"/><path d="M19 19h-6"/><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4"/><circle cx="18" cy="7" r="3"/></svg>
+                    Merge with...
+                </button>
+            @endif
             <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
             <a href="{{ route('members.addresses.create', $member) }}" wire:navigate class="s-dropdown-item" style="text-decoration: none;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" style="flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>

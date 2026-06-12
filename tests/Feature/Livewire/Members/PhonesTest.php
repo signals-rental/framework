@@ -3,6 +3,8 @@
 use App\Models\Member;
 use App\Models\Phone;
 use App\Models\User;
+use Database\Seeders\ListOfValuesSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -68,6 +70,19 @@ it('renders the create phone form', function () {
         ->assertSee('Add Phone');
 });
 
+it('populates the type dropdown with the seeded Phone Type list values', function () {
+    // Regression: the form queried 'PhoneType' (no space) but the seeded list
+    // name is 'Phone Type', so the Type select rendered blank.
+    $this->seed(ListOfValuesSeeder::class);
+
+    Volt::test('members.phone-form', ['member' => $this->member])
+        ->assertViewHas('phoneTypes', fn ($types) => $types->isNotEmpty())
+        ->assertSee('Work')
+        ->assertSee('Mobile')
+        ->assertSee('Home')
+        ->assertSee('Fax');
+});
+
 it('can create a phone', function () {
     Volt::test('members.phone-form', ['member' => $this->member])
         ->set('number', '020 7946 1234')
@@ -126,7 +141,7 @@ it('cannot delete another member\'s phone', function () {
 
     expect(fn () => Volt::test('members.phones', ['member' => $this->member])
         ->call('deletePhone', $otherPhone->id)
-    )->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    )->toThrow(ModelNotFoundException::class);
 
     expect(Phone::find($otherPhone->id))->not->toBeNull();
 });

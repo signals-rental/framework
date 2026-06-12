@@ -3,6 +3,17 @@
     <head>
         @include('partials.head')
     </head>
+    @php
+        $userAvatarSrc = null;
+        $userThumbPath = auth()->user()?->member?->icon_thumb_url;
+        if ($userThumbPath) {
+            try {
+                $userAvatarSrc = app(\App\Services\FileService::class)->signedUrl($userThumbPath);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+    @endphp
     <body class="min-h-screen bg-white dark:bg-zinc-800">
         <flux:sidebar sticky stashable class="border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
@@ -34,6 +45,7 @@
                 <flux:profile
                     :name="auth()->user()->name"
                     :initials="auth()->user()->initials()"
+                    :avatar="$userAvatarSrc"
                     icon-trailing="chevrons-up-down"
                 />
 
@@ -84,6 +96,7 @@
             <flux:dropdown position="top" align="end">
                 <flux:profile
                     :initials="auth()->user()->initials()"
+                    :avatar="$userAvatarSrc"
                     icon-trailing="chevron-down"
                 />
 

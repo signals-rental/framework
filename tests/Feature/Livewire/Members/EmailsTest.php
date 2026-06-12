@@ -3,6 +3,8 @@
 use App\Models\Email;
 use App\Models\Member;
 use App\Models\User;
+use Database\Seeders\ListOfValuesSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -67,6 +69,19 @@ it('renders the create email form', function () {
     $this->get("/members/{$this->member->id}/emails/create")
         ->assertOk()
         ->assertSee('Add Email');
+});
+
+it('populates the type dropdown with the seeded Email Type list values', function () {
+    // Regression: the form queried the list name 'EmailType' (no space) but the
+    // seeded list name is 'Email Type', so the Type select rendered blank.
+    $this->seed(ListOfValuesSeeder::class);
+
+    Volt::test('members.email-form', ['member' => $this->member])
+        ->assertViewHas('emailTypes', fn ($types) => $types->isNotEmpty())
+        ->assertSee('Work')
+        ->assertSee('Personal')
+        ->assertSee('Billing')
+        ->assertSee('Support');
 });
 
 it('can create an email', function () {
@@ -134,7 +149,7 @@ it('cannot delete another member\'s email', function () {
 
     expect(fn () => Volt::test('members.emails', ['member' => $this->member])
         ->call('deleteEmail', $otherEmail->id)
-    )->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    )->toThrow(ModelNotFoundException::class);
 
     expect(Email::find($otherEmail->id))->not->toBeNull();
 });

@@ -94,7 +94,7 @@ new #[Layout('components.layouts.app')] #[Title('Email')] class extends Componen
     public function sendTestEmail(): void
     {
         $this->validate([
-            'testEmailAddress' => ['required', 'email'],
+            'testEmailAddress' => ['required', 'email:filter'],
         ]);
 
         try {

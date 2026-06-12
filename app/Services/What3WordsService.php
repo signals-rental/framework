@@ -9,6 +9,17 @@ use Illuminate\Support\Facades\Log;
 class What3WordsService
 {
     /**
+     * Determine whether the what3words integration is configured.
+     *
+     * This is the single source of truth for whether the what3words
+     * feature should present itself as enabled across every UI surface.
+     */
+    public function isConfigured(): bool
+    {
+        return filled(settings('integrations.what3words_api_key'));
+    }
+
+    /**
      * Geocode a free-text address to coordinates using Nominatim (OpenStreetMap).
      *
      * @return array{lat: float, lng: float}|null
@@ -60,13 +71,11 @@ class What3WordsService
      */
     public function convertToCoordinates(string $words): ?array
     {
-        $apiKey = settings('integrations.what3words_api_key');
-
-        if (! $apiKey) {
-            Log::debug('what3words API key is not configured');
-
+        if (! $this->isConfigured()) {
             return null;
         }
+
+        $apiKey = settings('integrations.what3words_api_key');
 
         $response = Http::timeout(10)->get('https://api.what3words.com/v3/convert-to-coordinates', [
             'words' => $words,

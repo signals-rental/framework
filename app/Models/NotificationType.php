@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\NotificationTypeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class NotificationType extends Model
 {
-    /** @use HasFactory<\Database\Factories\NotificationTypeFactory> */
+    /** @use HasFactory<NotificationTypeFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -20,6 +21,7 @@ class NotificationType extends Model
         'available_channels',
         'default_channels',
         'is_active',
+        'is_system',
         'source',
     ];
 
@@ -32,6 +34,7 @@ class NotificationType extends Model
             'available_channels' => 'array',
             'default_channels' => 'array',
             'is_active' => 'boolean',
+            'is_system' => 'boolean',
         ];
     }
 

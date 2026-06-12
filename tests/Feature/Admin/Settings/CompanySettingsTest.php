@@ -43,11 +43,12 @@ it('saves company settings', function () {
         ->set('fiscalYearStart', 1)
         ->call('save')
         ->assertHasNoErrors()
-        ->assertDispatched('company-settings-saved');
+        ->assertRedirect(route('admin.settings.company'));
 
     expect(settings('company.name'))->toBe('Updated Company');
     expect(settings('company.country_code'))->toBe('US');
     expect(settings('company.currency'))->toBe('USD');
+    expect(session('status'))->toBe('Company details saved.');
 });
 
 it('validates required fields', function () {

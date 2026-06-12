@@ -55,7 +55,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function with(): array
     {
-        $linkTypes = ListName::where('name', 'LinkType')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
+        $linkTypes = ListName::where('name', 'Link Type')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
 
         return [
             'isEditing' => $this->linkId !== null,

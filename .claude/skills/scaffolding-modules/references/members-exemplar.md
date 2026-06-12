@@ -134,8 +134,7 @@ Every new module MUST touch all of these. Forgetting them caused UAT defects D5 
 | `database/seeders/ListOfValuesSeeder.php` | Any LOV-backed type lists |
 | `database/seeders/DatabaseSeeder.php` | New system/reference seeder in the first-run `call([...])` list |
 | `database/seeders/DemoDataSeeder.php` | Demo records, tagged `'demo-data'` in `tag_list` (clear-demo compatible) |
-| `resources/views/livewire/admin/settings/modules.blade.php` | `$moduleDefinitions` entry if the module is user-toggleable (label, icon, `locked: false`) |
-| `app/Enums/FeatureProfile.php` | Module key in EVERY profile's `modules()` map (DryHire/FullService/Crew/General/Minimal) |
+| `app/Enums/FeatureProfile.php` | Module key in EVERY profile's `modules()` map (DryHire/FullService/Crew/General/Minimal) — the only place modules are registered now the admin Modules page is removed |
 | `routes/api.php` / `routes/web.php` | Resource + Volt routes |
 | `resources/views/components/layouts/app/header.blade.php` | Mega-menu + sidebar |
 | `resources/views/components/signals/command-palette.blade.php` | Navigation + Create + search results |
@@ -157,7 +156,6 @@ All under `resources/views/livewire/admin/settings/`:
 | `notifications.blade.php` | `NotificationType` model | Register types in `NotificationTypeSeeder::types()` (feeds `NotificationRegistry`) |
 | `scheduling.blade.php` | `settings()->group('scheduling')` | Add keys to the `scheduling` settings group + form fields if the module has scheduling-relevant config |
 | `list-names.blade.php` / `lists.blade.php` | `list_names`/`list_values` | Seed via `ListOfValuesSeeder` — surfaced automatically |
-| `modules.blade.php` | `$moduleDefinitions` + `settings('modules.*')` | Entry if user-toggleable (see list-sync table) |
 | `action-log.blade.php` | `action_logs` via `AuditableEvent` → `LogAction` | Nothing extra IF every action fires `AuditableEvent` — verify rows appear; assert `ActionLog` creation in action tests |
 | `tax/`, `countries.blade.php`, `rate-definitions.blade.php` | Global engines | Consume, never duplicate (see SKILL.md Global Engines table) |
 

@@ -58,7 +58,7 @@ Enforcement column: **[test]** = a meta-test fails if you forget it; **[grep]** 
 - [ ] `ListOfValuesSeeder` for LOV types — **[grep]** `grep -n "{type label}" database/seeders/ListOfValuesSeeder.php`
 - [ ] `DatabaseSeeder` + `DemoDataSeeder` registrations (see Phase 1) — **[grep]** `grep -n "Seeder::class" database/seeders/DatabaseSeeder.php`
 - [ ] Token-ability list — **[grep]** `grep -n "'members:read'" resources/views/livewire/admin/settings/api.blade.php` (add `{resource}:read`/`{resource}:write`)
-- [ ] `$moduleDefinitions` + `FeatureProfile::modules()` (if user-toggleable) — **[grep]** `grep -n "{key}" resources/views/livewire/admin/settings/modules.blade.php app/Enums/FeatureProfile.php`
+- [ ] `FeatureProfile::modules()` (if the module is selectable in a setup feature profile) — **[grep]** `grep -n "{key}" app/Enums/FeatureProfile.php` (the admin Modules page has been removed; `FeatureProfile::modules()` is the only module registration)
 
 ## 5. List page
 
@@ -88,7 +88,7 @@ Enforcement column: **[test]** = a meta-test fails if you forget it; **[grep]** 
 - [ ] Settings definition class + registry entry if the module has runtime config (`settings('group.key')`, never env/config)
 - [ ] Reference-data CRUD under `/settings` (permission-gated) for config tables
 - [ ] Module visible in admin custom-fields setup
-- [ ] If user-toggleable: entry in `$moduleDefinitions` (`resources/views/livewire/admin/settings/modules.blade.php`) + key in every `FeatureProfile::modules()` preset. NB: toggle *enforcement* (nav/route gating on `settings('modules.{key}')`) is not wired framework-wide yet — gate your own nav entry on it and flag any gap to the user
+- [ ] If the module is selectable in a setup feature profile: key in every `FeatureProfile::modules()` preset (the admin Modules page has been removed; `FeatureProfile::modules()` is the only place modules are registered). NB: toggle *enforcement* (nav/route gating on `settings('modules.{key}')`) is not wired framework-wide yet — gate your own nav entry on it and flag any gap to the user
 - [ ] Permissions registered in `PermissionRegistry` (`AppServiceProvider`) with group metadata → surfaced in `admin/settings/permissions` + `admin/settings/roles`
 - [ ] API abilities added to the `admin/settings/api` token-scope list (UI + any registry)
 - [ ] Email templates for any outbound comms seeded via `EmailTemplateSeeder` → surfaced in `admin/settings/email-templates`

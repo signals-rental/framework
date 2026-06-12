@@ -13,6 +13,13 @@ new #[Layout('components.layouts.app')] #[Title('Notifications')] class extends 
         Gate::authorize('notifications.manage');
 
         $type = NotificationType::findOrFail($typeId);
+
+        if ($type->is_system) {
+            $this->addError('system', 'System notifications cannot be disabled.');
+
+            return;
+        }
+
         $setting = NotificationSetting::firstOrCreate(
             ['notification_type_id' => $type->id],
             ['channels' => $type->default_channels, 'is_enabled' => true],
@@ -36,6 +43,13 @@ new #[Layout('components.layouts.app')] #[Title('Notifications')] class extends 
         Gate::authorize('notifications.manage');
 
         $type = NotificationType::findOrFail($typeId);
+
+        if ($type->is_system) {
+            $this->addError('system', 'System notifications cannot be disabled.');
+
+            return;
+        }
+
         $setting = NotificationSetting::firstOrCreate(
             ['notification_type_id' => $type->id],
             ['channels' => $type->default_channels, 'is_enabled' => true],
@@ -98,27 +112,37 @@ new #[Layout('components.layouts.app')] #[Title('Notifications')] class extends 
                                 @endphp
                                 <tr wire:key="type-{{ $type->id }}">
                                     <td>
-                                        <div class="font-medium text-sm">{{ $type->name }}</div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-medium text-sm">{{ $type->name }}</span>
+                                            @if ($type->is_system)
+                                                <span class="s-badge bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" title="System notifications cannot be disabled">Required</span>
+                                            @endif
+                                        </div>
                                         <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $type->description }}</div>
                                     </td>
                                     @foreach ($allChannels as $channel)
                                         <td class="text-center">
                                             @if (in_array($channel, $type->available_channels))
-                                                <flux:switch
-                                                    wire:click="toggleChannel({{ $type->id }}, '{{ $channel }}')"
-                                                    :checked="in_array($channel, $effectiveChannels)"
-                                                    :disabled="! $isEnabled"
-                                                />
+                                                <flux:tooltip :content="$type->is_system ? 'System notifications cannot be disabled.' : ''" :disabled="! $type->is_system">
+                                                    <flux:switch
+                                                        wire:click="toggleChannel({{ $type->id }}, '{{ $channel }}')"
+                                                        :checked="in_array($channel, $effectiveChannels)"
+                                                        :disabled="$type->is_system || ! $isEnabled"
+                                                    />
+                                                </flux:tooltip>
                                             @else
                                                 <span class="text-xs text-zinc-400">—</span>
                                             @endif
                                         </td>
                                     @endforeach
                                     <td class="text-center">
-                                        <flux:switch
-                                            wire:click="toggleEnabled({{ $type->id }})"
-                                            :checked="$isEnabled"
-                                        />
+                                        <flux:tooltip :content="$type->is_system ? 'System notifications cannot be disabled.' : ''" :disabled="! $type->is_system">
+                                            <flux:switch
+                                                wire:click="toggleEnabled({{ $type->id }})"
+                                                :checked="$isEnabled"
+                                                :disabled="$type->is_system"
+                                            />
+                                        </flux:tooltip>
                                     </td>
                                 </tr>
                             @endforeach

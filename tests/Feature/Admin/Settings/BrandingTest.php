@@ -34,7 +34,7 @@ it('saves branding colours', function () {
         ->set('accentColour', '#556677')
         ->call('save')
         ->assertHasNoErrors()
-        ->assertDispatched('branding-settings-saved');
+        ->assertRedirect(route('admin.settings.branding'));
 
     expect(settings('branding.primary_colour'))->toBe('#223344');
     expect(settings('branding.accent_colour'))->toBe('#556677');
@@ -62,6 +62,36 @@ it('uploads a logo', function () {
 
     expect(settings('branding.logo_path'))->not->toBeNull();
     Storage::disk('public')->assertExists(settings('branding.logo_path'));
+});
+
+it('records an opaque logo as not transparent', function () {
+    Storage::fake('public');
+
+    // UploadedFile::fake()->image() produces an opaque JPEG-style raster.
+    $file = UploadedFile::fake()->image('logo.png', 200, 200);
+
+    Volt::test('admin.settings.branding')
+        ->set('primaryColour', '#1e3a5f')
+        ->set('accentColour', '#3b82f6')
+        ->set('logo', $file)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(settings('branding.logo_has_transparency'))->toBeFalse();
+});
+
+it('clears the transparency flag when the logo is removed', function () {
+    Storage::fake('public');
+
+    settings()->setMany([
+        'branding.logo_path' => 'branding/logo.png',
+        'branding.logo_has_transparency' => ['value' => true, 'type' => 'boolean'],
+    ]);
+
+    Volt::test('admin.settings.branding')
+        ->call('removeLogo');
+
+    expect(settings('branding.logo_has_transparency'))->toBeFalse();
 });
 
 it('validates logo file type', function () {
@@ -106,7 +136,8 @@ it('can remove a logo', function () {
 
     Volt::test('admin.settings.branding')
         ->call('removeLogo')
-        ->assertSet('currentLogoPath', null);
+        ->assertSet('currentLogoPath', null)
+        ->assertRedirect(route('admin.settings.branding'));
 
     expect(settings('branding.logo_path'))->toBeNull();
     Storage::disk('public')->assertMissing($logoPath);

@@ -106,6 +106,50 @@ it('denies icon removal when user lacks update permission', function () {
         ->assertForbidden();
 });
 
+it('allows a user to upload their own member icon without members permissions', function () {
+    $member = Member::factory()->user()->create();
+    $unprivileged = User::factory()->create(['member_id' => $member->id]);
+    $this->actingAs($unprivileged);
+
+    $photo = UploadedFile::fake()->image('avatar.jpg', 300, 300);
+
+    Livewire::test(IconUpload::class, ['model' => $member])
+        ->set('photo', $photo)
+        ->assertDispatched('icon-updated');
+
+    $member->refresh();
+    expect($member->icon_url)->not->toBeNull();
+});
+
+it('allows a user to remove their own member icon without members permissions', function () {
+    $member = Member::factory()->user()->create([
+        'icon_url' => 'icons/test.jpg',
+        'icon_thumb_url' => 'icons/thumbs/test.jpg',
+    ]);
+    $unprivileged = User::factory()->create(['member_id' => $member->id]);
+    $this->actingAs($unprivileged);
+
+    Livewire::test(IconUpload::class, ['model' => $member])
+        ->call('removeIcon')
+        ->assertDispatched('icon-updated');
+
+    $member->refresh();
+    expect($member->icon_url)->toBeNull();
+});
+
+it('denies uploading another users member icon without members permissions', function () {
+    $ownMember = Member::factory()->user()->create();
+    $otherMember = Member::factory()->create();
+    $unprivileged = User::factory()->create(['member_id' => $ownMember->id]);
+    $this->actingAs($unprivileged);
+
+    $photo = UploadedFile::fake()->image('avatar.jpg', 300, 300);
+
+    Livewire::test(IconUpload::class, ['model' => $otherMember])
+        ->set('photo', $photo)
+        ->assertForbidden();
+});
+
 it('returns null thumb display url when no thumb path', function () {
     /** @var IconUpload $instance */
     $instance = Livewire::test(IconUpload::class, ['model' => $this->member])->instance();

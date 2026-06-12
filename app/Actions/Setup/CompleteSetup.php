@@ -84,6 +84,7 @@ class CompleteSetup
             'branding.primary_colour' => $data->primaryColour,
             'branding.accent_colour' => $data->accentColour,
             'branding.logo_path' => $data->logoPath ?? '',
+            'branding.logo_has_transparency' => ['value' => $data->logoHasTransparency, 'type' => 'boolean'],
         ]);
     }
 

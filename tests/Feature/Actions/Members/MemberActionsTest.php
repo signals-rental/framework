@@ -5,14 +5,18 @@ use App\Actions\Members\DeleteMember;
 use App\Actions\Members\UpdateMember;
 use App\Data\Members\CreateMemberData;
 use App\Data\Members\UpdateMemberData;
+use App\Enums\CustomFieldType;
 use App\Enums\MembershipType;
 use App\Events\AuditableEvent;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Member;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -41,7 +45,7 @@ it('creates a member', function () {
 it('creates a member with custom fields', function () {
     Event::fake([AuditableEvent::class]);
 
-    \App\Models\CustomField::factory()->string()->create([
+    CustomField::factory()->string()->create([
         'name' => 'po_reference',
         'module_type' => 'Member',
     ]);
@@ -56,7 +60,7 @@ it('creates a member with custom fields', function () {
 
     expect($result->name)->toBe('Custom Corp');
 
-    $cfv = \App\Models\CustomFieldValue::query()
+    $cfv = CustomFieldValue::query()
         ->where('entity_type', Member::class)
         ->where('entity_id', $result->id)
         ->first();
@@ -97,10 +101,10 @@ it('updates a member', function () {
 it('updates a member with custom fields', function () {
     Event::fake([AuditableEvent::class]);
 
-    $customField = \App\Models\CustomField::factory()->create([
+    $customField = CustomField::factory()->create([
         'name' => 'po_reference',
         'module_type' => 'Member',
-        'field_type' => \App\Enums\CustomFieldType::String,
+        'field_type' => CustomFieldType::String,
     ]);
 
     $member = Member::factory()->create(['name' => 'Test Corp']);
@@ -114,7 +118,7 @@ it('updates a member with custom fields', function () {
 
     expect($result->name)->toBe('Updated Corp');
 
-    $cfv = \App\Models\CustomFieldValue::query()
+    $cfv = CustomFieldValue::query()
         ->where('custom_field_id', $customField->id)
         ->where('entity_type', Member::class)
         ->where('entity_id', $member->id)
@@ -122,6 +126,49 @@ it('updates a member with custom fields', function () {
 
     expect($cfv)->not->toBeNull()
         ->and($cfv->value_string)->toBe('PO-999');
+});
+
+it('rejects creating a user-type member through the create data rules', function () {
+    $validator = validator(
+        ['name' => 'Sneaky User', 'membership_type' => MembershipType::User->value],
+        CreateMemberData::rules(),
+    );
+
+    expect($validator->fails())->toBeTrue()
+        ->and($validator->errors()->has('membership_type'))->toBeTrue();
+});
+
+it('allows creating non-user member types through the create data rules', function () {
+    foreach ([MembershipType::Contact, MembershipType::Organisation, MembershipType::Venue] as $type) {
+        $validator = validator(
+            ['name' => 'Valid', 'membership_type' => $type->value],
+            CreateMemberData::rules(),
+        );
+
+        expect($validator->fails())->toBeFalse();
+    }
+});
+
+it('rejects changing the name of a user-type member', function () {
+    $member = Member::factory()->user()->create(['name' => 'Staff Member']);
+
+    $data = UpdateMemberData::from(['name' => 'Changed Name']);
+
+    expect(fn () => (new UpdateMember)($member, $data))
+        ->toThrow(ValidationException::class);
+
+    expect($member->fresh()->name)->toBe('Staff Member');
+});
+
+it('allows non-name updates on a user-type member', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $member = Member::factory()->user()->create(['name' => 'Staff Member', 'is_active' => true]);
+
+    $result = (new UpdateMember)($member, UpdateMemberData::from(['is_active' => false]));
+
+    expect($result->is_active)->toBeFalse()
+        ->and($member->fresh()->name)->toBe('Staff Member');
 });
 
 it('rejects unauthorized member update', function () {
@@ -158,7 +205,7 @@ it('rejects unauthorized member deletion', function () {
 })->throws(AuthorizationException::class);
 
 it('rejects creation when required custom field is missing', function () {
-    \App\Models\CustomField::factory()->string()->required()->create([
+    CustomField::factory()->string()->required()->create([
         'name' => 'mandatory_ref',
         'module_type' => 'Member',
     ]);
@@ -170,10 +217,10 @@ it('rejects creation when required custom field is missing', function () {
     ]);
 
     (new CreateMember)($data);
-})->throws(\Illuminate\Validation\ValidationException::class);
+})->throws(ValidationException::class);
 
 it('does not persist member when required custom field validation fails', function () {
-    \App\Models\CustomField::factory()->string()->required()->create([
+    CustomField::factory()->string()->required()->create([
         'name' => 'mandatory_ref',
         'module_type' => 'Member',
     ]);
@@ -186,7 +233,7 @@ it('does not persist member when required custom field validation fails', functi
 
     try {
         (new CreateMember)($data);
-    } catch (\Illuminate\Validation\ValidationException) {
+    } catch (ValidationException) {
         // expected
     }
 
@@ -196,7 +243,7 @@ it('does not persist member when required custom field validation fails', functi
 it('applies default values when creating a member', function () {
     Event::fake([AuditableEvent::class]);
 
-    $field = \App\Models\CustomField::factory()->string()->create([
+    $field = CustomField::factory()->string()->create([
         'name' => 'region',
         'module_type' => 'Member',
         'default_value' => 'Default Region',
@@ -211,7 +258,7 @@ it('applies default values when creating a member', function () {
     $result = (new CreateMember)($data);
 
     $member = Member::find($result->id);
-    $cfv = \App\Models\CustomFieldValue::query()
+    $cfv = CustomFieldValue::query()
         ->where('custom_field_id', $field->id)
         ->where('entity_type', Member::class)
         ->where('entity_id', $member->id)
@@ -224,11 +271,11 @@ it('applies default values when creating a member', function () {
 it('allows partial custom field updates without enforcing required', function () {
     Event::fake([AuditableEvent::class]);
 
-    \App\Models\CustomField::factory()->string()->required()->create([
+    CustomField::factory()->string()->required()->create([
         'name' => 'mandatory_ref',
         'module_type' => 'Member',
     ]);
-    \App\Models\CustomField::factory()->string()->create([
+    CustomField::factory()->string()->create([
         'name' => 'optional_note',
         'module_type' => 'Member',
     ]);

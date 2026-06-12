@@ -25,7 +25,18 @@ class NotificationTypeFactory extends Factory
             'available_channels' => ['database', 'mail'],
             'default_channels' => ['database'],
             'is_active' => true,
+            'is_system' => false,
             'source' => 'core',
         ];
+    }
+
+    /**
+     * Indicate that the notification type is a system type that cannot be disabled.
+     */
+    public function system(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_system' => true,
+        ]);
     }
 }

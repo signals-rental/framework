@@ -129,6 +129,33 @@ it('rejects merging members of different types', function () {
     (new MergeMember)($data);
 })->throws(ValidationException::class, 'Cannot merge members of different types.');
 
+it('rejects merging when the primary is a user-type member', function () {
+    Event::fake([AuditableEvent::class]);
+    Queue::fake([DeliverWebhook::class]);
+
+    $primary = Member::factory()->user()->create();
+    $secondary = Member::factory()->user()->create();
+
+    (new MergeMember)(MergeMemberData::from([
+        'primary_id' => $primary->id,
+        'secondary_id' => $secondary->id,
+    ]));
+})->throws(ValidationException::class, 'User-type members cannot be merged.');
+
+it('rejects merging when the secondary is a user-type member', function () {
+    Event::fake([AuditableEvent::class]);
+    Queue::fake([DeliverWebhook::class]);
+
+    // Same membership_type so the type-mismatch guard does not fire first.
+    $primary = Member::factory()->user()->create();
+    $secondary = Member::factory()->user()->create();
+
+    (new MergeMember)(MergeMemberData::from([
+        'primary_id' => $secondary->id,
+        'secondary_id' => $primary->id,
+    ]));
+})->throws(ValidationException::class, 'User-type members cannot be merged.');
+
 it('rejects merging a member into itself', function () {
     Event::fake([AuditableEvent::class]);
     Queue::fake([DeliverWebhook::class]);

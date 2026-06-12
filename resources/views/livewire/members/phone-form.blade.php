@@ -67,7 +67,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function with(): array
     {
-        $phoneTypes = ListName::where('name', 'PhoneType')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
+        $phoneTypes = ListName::where('name', 'Phone Type')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
 
         $countries = Country::query()->active()->orderBy('name')->get(['id', 'name', 'code', 'phone_prefix'])
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'iso2' => $c->code, 'phone_prefix' => $c->phone_prefix])

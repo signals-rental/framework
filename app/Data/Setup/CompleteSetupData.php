@@ -37,6 +37,7 @@ class CompleteSetupData extends Data
         #[Max(7)]
         public string $accentColour = '#3b82f6',
         public ?string $logoPath = null,
+        public bool $logoHasTransparency = false,
         public string $adminName = '',
         public string $adminEmail = '',
         public string $adminPassword = '',

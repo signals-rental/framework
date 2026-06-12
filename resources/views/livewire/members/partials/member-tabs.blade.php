@@ -2,7 +2,7 @@
     :tabs="[
         ['name' => 'overview', 'label' => 'Overview', 'route' => route('members.show', $member)],
         ['name' => 'information', 'label' => 'Information', 'route' => route('members.information', $member)],
-        ['name' => 'contacts', 'label' => 'Contacts', 'route' => route('members.contacts', $member), 'count' => $member->contacts_count ?? $member->organisations_count ?? 0],
+        ['name' => 'contacts', 'label' => 'Contacts', 'route' => route('members.contacts', $member), 'count' => $member->relatedMembersCount()],
         ['name' => 'activities', 'label' => 'Activities', 'route' => route('members.activities', $member), 'count' => 0],
         ['name' => 'opportunities', 'label' => 'Opportunities', 'route' => route('members.opportunities', $member), 'count' => 0],
         ['name' => 'movements', 'label' => 'Movements', 'route' => route('members.movements', $member), 'count' => 0],

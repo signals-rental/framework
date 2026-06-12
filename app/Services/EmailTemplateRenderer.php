@@ -8,6 +8,21 @@ use Illuminate\Support\Str;
 class EmailTemplateRenderer
 {
     /**
+     * Sample merge data used for previewing and sending test emails.
+     *
+     * @return array<string, mixed>
+     */
+    public static function sampleData(): array
+    {
+        return [
+            'user' => ['name' => 'Jane Smith', 'email' => 'jane@example.com'],
+            'company' => ['name' => settings('company.name', 'Your Company')],
+            'invitation' => ['url' => 'https://example.com/invitation/abc123'],
+            'reset' => ['url' => 'https://example.com/reset/abc123'],
+        ];
+    }
+
+    /**
      * Render an email template by key with the given merge data.
      *
      * @param  array<string, mixed>  $data  Flat or nested data for merge field resolution

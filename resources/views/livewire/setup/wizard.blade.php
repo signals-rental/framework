@@ -142,7 +142,9 @@ new #[Layout('components.layouts.setup')] class extends Component {
         $this->validateStep(5);
 
         $logoPath = null;
+        $logoHasTransparency = false;
         if ($this->logo) {
+            $logoHasTransparency = \App\Support\LogoTransparency::detect($this->logo);
             $logoPath = $this->logo->store('branding', 'public');
         }
 
@@ -161,6 +163,7 @@ new #[Layout('components.layouts.setup')] class extends Component {
             primaryColour: $this->primaryColour,
             accentColour: $this->accentColour,
             logoPath: $logoPath,
+            logoHasTransparency: $logoHasTransparency,
             adminName: $this->adminName,
             adminEmail: $this->adminEmail,
             adminPassword: $this->adminPassword,

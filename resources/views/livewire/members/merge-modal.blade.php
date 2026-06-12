@@ -1,6 +1,26 @@
 <div>
     <x-signals.modal name="merge-members" title="Merge Members" size="lg">
-        @if($memberA && $memberB)
+        @if($memberA && $needsSecondary && ! $memberB)
+            {{-- Secondary not chosen yet: pick which member to merge into the primary. --}}
+            <p class="text-sm text-[var(--text-secondary)] mb-4">
+                Merging into <strong>{{ $memberA->name }}</strong>. Choose the member to merge in — its data will be migrated and it will be archived.
+            </p>
+            <x-signals.field label="Member to merge" required>
+                <x-signals.combobox
+                    name="mergeSecondary"
+                    :placeholder="'Search members...'"
+                    :options="$eligibleSecondaries"
+                    x-on:combobox-selected.window="if ($event.detail.name === 'mergeSecondary') $wire.set('memberBId', $event.detail.value)"
+                />
+            </x-signals.field>
+            @if(empty($eligibleSecondaries))
+                <p class="mt-3 text-sm text-[var(--text-muted)]">No other members of the same type are available to merge.</p>
+            @endif
+
+            <x-slot:footer>
+                <button class="s-btn s-btn-sm" type="button" x-on:click="$dispatch('close-modal', 'merge-members')">Cancel</button>
+            </x-slot:footer>
+        @elseif($memberA && $memberB)
             <p class="text-sm text-[var(--text-secondary)] mb-4">
                 Select which member to keep as the primary record. All data from the other member will be migrated, and the secondary member will be archived.
             </p>

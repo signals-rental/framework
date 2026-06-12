@@ -151,6 +151,52 @@ it('merge surfaces a validation error when the secondary is archived', function 
     expect(Member::find($memberA->id))->not->toBeNull();
 });
 
+it('opens in select-secondary mode when memberB is zero', function () {
+    $primary = Member::factory()->organisation()->create();
+    $other = Member::factory()->organisation()->create(['name' => 'Mergeable Org']);
+
+    $component = Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->assertSet('memberAId', $primary->id)
+        ->assertSet('memberBId', null)
+        ->assertSet('needsSecondary', true)
+        ->assertSet('primaryId', $primary->id);
+
+    // Eligible secondaries exclude the primary and offer the same-type member.
+    $eligible = collect($component->viewData('eligibleSecondaries'));
+    expect($eligible->pluck('value'))->toContain($other->id)
+        ->not->toContain($primary->id);
+});
+
+it('only offers same-type non-user members as secondaries', function () {
+    $primary = Member::factory()->organisation()->create();
+    $sameType = Member::factory()->organisation()->create();
+    $differentType = Member::factory()->contact()->create();
+    $userMember = Member::factory()->user()->create();
+
+    $component = Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0);
+
+    $values = collect($component->viewData('eligibleSecondaries'))->pluck('value');
+
+    expect($values)->toContain($sameType->id)
+        ->not->toContain($differentType->id)
+        ->not->toContain($userMember->id);
+});
+
+it('completes a merge after the secondary is selected in select-secondary mode', function () {
+    $primary = Member::factory()->organisation()->create();
+    $secondary = Member::factory()->organisation()->create();
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->set('memberBId', $secondary->id)
+        ->call('merge')
+        ->assertRedirect(route('members.show', $primary->id));
+
+    expect(Member::withTrashed()->find($secondary->id)->trashed())->toBeTrue();
+});
+
 it('with() provides member data to the view', function () {
     $memberA = Member::factory()->contact()->create(['name' => 'Alice']);
     $memberB = Member::factory()->contact()->create(['name' => 'Bob']);

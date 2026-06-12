@@ -59,21 +59,25 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $isContact = $this->member->membership_type === MembershipType::Contact;
 
+        // Allowed pairs (matrix): contact↔organisation, contact↔venue,
+        // contact↔contact. Organisations/venues can only link to contacts.
+        // User-type members never appear as eligible counterparts.
         if ($isContact) {
-            $eligibleMembers = Member::query()
-                ->where('membership_type', MembershipType::Organisation)
-                ->where('is_active', true)
-                ->where('id', '!=', $this->member->id)
-                ->orderBy('name')
-                ->get();
+            $eligibleTypes = [
+                MembershipType::Organisation,
+                MembershipType::Venue,
+                MembershipType::Contact,
+            ];
         } else {
-            $eligibleMembers = Member::query()
-                ->where('membership_type', MembershipType::Contact)
-                ->where('is_active', true)
-                ->where('id', '!=', $this->member->id)
-                ->orderBy('name')
-                ->get();
+            $eligibleTypes = [MembershipType::Contact];
         }
+
+        $eligibleMembers = Member::query()
+            ->whereIn('membership_type', $eligibleTypes)
+            ->where('is_active', true)
+            ->where('id', '!=', $this->member->id)
+            ->orderBy('name')
+            ->get();
 
         return [
             'isContact' => $isContact,
@@ -90,14 +94,19 @@ new #[Layout('components.layouts.app')] class extends Component {
         <form wire:submit="save" class="max-w-2xl space-y-8">
             <x-signals.form-section title="Relationship Details">
                 <div class="space-y-4">
-                    <x-signals.field :label="$isContact ? 'Organisation' : 'Contact'" required>
-                        <x-signals.combobox
-                            name="relatedMemberId"
-                            :value="$relatedMemberId"
-                            :placeholder="$isContact ? 'Search organisations...' : 'Search contacts...'"
-                            :options="$eligibleMembers->map(fn ($m) => ['value' => $m->id, 'label' => $m->name])->values()->all()"
-                            x-on:combobox-selected.window="if ($event.detail.name === 'relatedMemberId') $wire.set('relatedMemberId', $event.detail.value)"
-                        />
+                    <x-signals.field :label="$isContact ? 'Related Member' : 'Contact'" required>
+                        {{-- Brand-accent highlight: the shared .s-combobox CSS uses the
+                             hardcoded --green; re-point this instance to the themeable
+                             brand accent (--blue) used by other inputs. --}}
+                        <div class="s-relationship-combobox">
+                            <x-signals.combobox
+                                name="relatedMemberId"
+                                :value="$relatedMemberId"
+                                :placeholder="$isContact ? 'Search organisations, venues, contacts...' : 'Search contacts...'"
+                                :options="$eligibleMembers->map(fn ($m) => ['value' => $m->id, 'label' => $m->name])->values()->all()"
+                                x-on:combobox-selected.window="if ($event.detail.name === 'relatedMemberId') $wire.set('relatedMemberId', $event.detail.value)"
+                            />
+                        </div>
                     </x-signals.field>
                     <flux:input wire:model="relationshipType" label="Relationship Type" placeholder="e.g. Employee, Contractor, Director" />
                     @if($isContact)
@@ -112,4 +121,11 @@ new #[Layout('components.layouts.app')] class extends Component {
             </div>
         </form>
     </div>
+
+    {{-- Override the shared combobox's hardcoded green focus/selected colours
+         with the themeable brand accent, scoped to this form only. --}}
+    <style>
+        .s-relationship-combobox .s-combobox-input:focus { border-color: var(--blue); }
+        .s-relationship-combobox .s-combobox-option.selected { color: var(--blue-ink); }
+    </style>
 </section>

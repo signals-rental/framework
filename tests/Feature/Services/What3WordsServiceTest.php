@@ -4,6 +4,28 @@ use App\Services\What3WordsService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
+it('isConfigured returns false when no API key is set', function () {
+    settings()->set('integrations.what3words_api_key', '');
+
+    expect((new What3WordsService)->isConfigured())->toBeFalse();
+});
+
+it('isConfigured returns true when an API key is set', function () {
+    settings()->set('integrations.what3words_api_key', 'test-api-key');
+
+    expect((new What3WordsService)->isConfigured())->toBeTrue();
+});
+
+it('convertToCoordinates makes no HTTP request when not configured', function () {
+    settings()->set('integrations.what3words_api_key', '');
+    Http::fake();
+
+    $result = (new What3WordsService)->convertToCoordinates('filled.count.soap');
+
+    expect($result)->toBeNull();
+    Http::assertNothingSent();
+});
+
 it('convertToCoordinates returns null when no API key is configured', function () {
     settings()->set('integrations.what3words_api_key', '');
 

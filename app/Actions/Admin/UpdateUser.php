@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admin;
 
+use App\Data\Api\UserData;
 use App\Events\AuditableEvent;
 use App\Models\User;
 use App\Services\Api\WebhookService;
@@ -28,6 +29,9 @@ class UpdateUser
             $user->syncRoles($data['roles']);
         }
 
+        // Keep the linked member record's name in sync with the user's name.
+        $user->syncMemberName();
+
         /** @var User $user */
         $user = $user->fresh();
 
@@ -39,7 +43,7 @@ class UpdateUser
         }
 
         app(WebhookService::class)->dispatch('user.updated', [
-            'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
+            'user' => UserData::fromModel($user)->toArray(),
         ]);
 
         return $user;

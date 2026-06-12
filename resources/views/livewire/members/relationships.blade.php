@@ -34,19 +34,9 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         $isContact = $this->member->membership_type === MembershipType::Contact;
 
-        if ($isContact) {
-            $relationships = MemberRelationship::query()
-                ->where('member_id', $this->member->id)
-                ->with('relatedMember')
-                ->orderBy('is_primary', 'desc')
-                ->get();
-        } else {
-            $relationships = MemberRelationship::query()
-                ->where('related_member_id', $this->member->id)
-                ->with('member')
-                ->orderBy('is_primary', 'desc')
-                ->get();
-        }
+        // Relationships are bidirectional: union both directions so the same
+        // link appears on each member regardless of how it was created.
+        $relationships = $this->member->allRelationships();
 
         return [
             'relationships' => $relationships,
@@ -76,7 +66,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <table class="s-table">
                 <thead>
                     <tr>
-                        <th>{{ $isContact ? 'Organisation' : 'Contact' }}</th>
+                        <th>Related Member</th>
                         <th>Relationship Type</th>
                         <th>Primary</th>
                         <th class="w-[100px]"></th>
@@ -85,8 +75,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <tbody>
                     @forelse($relationships as $relationship)
                         @php
-                            $relatedMember = $isContact ? $relationship->relatedMember : $relationship->member;
+                            $relatedMember = $member->counterpartIn($relationship);
                         @endphp
+                        @continue(! $relatedMember)
                         <tr wire:key="relationship-{{ $relationship->id }}">
                             <td class="font-medium">
                                 <a href="{{ route('members.show', $relatedMember) }}" wire:navigate class="text-[var(--link)] hover:underline">

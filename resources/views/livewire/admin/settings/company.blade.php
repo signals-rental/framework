@@ -69,12 +69,21 @@ new #[Layout('components.layouts.app')] #[Title('Company Details')] class extend
             'company.fiscal_year_start' => ['value' => $validated['fiscalYearStart'], 'type' => 'integer'],
         ]);
 
-        $this->dispatch('company-settings-saved');
+        // Company name is rendered in the global header brand (outside this
+        // component), so a Livewire morph cannot update it. Force a full page
+        // reload; the flashed status survives the redirect to confirm the save.
+        session()->flash('status', 'Company details saved.');
+
+        $this->redirect(route('admin.settings.company'), navigate: false);
     }
 }; ?>
 
 <section class="w-full">
     <x-admin.layout title="Company Details" description="Manage your company information, locale, and tax settings.">
+        @if (session('status'))
+            <x-signals.alert type="success" dismissible>{{ session('status') }}</x-signals.alert>
+        @endif
+
         <x-signals.form-section title="Company Information">
             <form wire:submit="save" class="space-y-6">
                 <flux:input wire:model="name" label="Company Name" required />
@@ -129,10 +138,6 @@ new #[Layout('components.layouts.app')] #[Title('Company Details')] class extend
 
                 <div class="flex items-center gap-4">
                     <flux:button variant="primary" type="submit">Save Changes</flux:button>
-
-                    <x-action-message on="company-settings-saved">
-                        Saved.
-                    </x-action-message>
                 </div>
             </form>
         </x-signals.form-section>

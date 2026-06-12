@@ -3,6 +3,7 @@
 namespace App\Actions\Members;
 
 use App\Data\Members\MergeMemberData;
+use App\Enums\MembershipType;
 use App\Events\AuditableEvent;
 use App\Models\Member;
 use App\Services\Api\WebhookService;
@@ -28,6 +29,15 @@ class MergeMember
         if ($primary->membership_type !== $secondary->membership_type) {
             throw ValidationException::withMessages([
                 'secondary_id' => 'Cannot merge members of different types.',
+            ]);
+        }
+
+        // User-type members are staff records backed by user accounts and must
+        // never be merged.
+        if ($primary->membership_type === MembershipType::User
+            || $secondary->membership_type === MembershipType::User) {
+            throw ValidationException::withMessages([
+                'secondary_id' => 'User-type members cannot be merged.',
             ]);
         }
 

@@ -13,12 +13,11 @@ new #[Layout('components.layouts.app')] #[Title('System Administration')] class 
         return [
             'setup' => [
                 'title' => 'Setup',
-                'description' => 'Company details, stores, branding, and modules.',
+                'description' => 'Company details, stores, and branding.',
                 'items' => [
                     ['label' => 'Company Details', 'description' => 'Business name, address, and locale', 'icon' => 'building-office', 'route' => 'admin.settings.company'],
                     ['label' => 'Stores', 'description' => 'Manage store locations', 'icon' => 'building-storefront', 'route' => 'admin.settings.stores'],
                     ['label' => 'Branding', 'description' => 'Logo, colours, and appearance', 'icon' => 'paint-brush', 'route' => 'admin.settings.branding'],
-                    ['label' => 'Modules', 'description' => 'Enable or disable application modules', 'icon' => 'squares-2x2', 'route' => 'admin.settings.modules'],
                 ],
             ],
             'users' => [

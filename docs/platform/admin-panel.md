@@ -79,26 +79,6 @@ Customise your company's visual identity with brand colours and a logo.
 
 You can upload a new logo, preview it, or remove the existing one. Removing a logo deletes the file from storage.
 
-### Modules
-
-**Route:** `/admin/settings/modules`
-
-Enable or disable application modules to match your business needs. Modules are displayed as toggle cards in a grid layout. Changes take effect immediately.
-
-| Module | Description | Can be disabled? |
-|--------|-------------|-----------------|
-| CRM | Contacts, organisations, and venues | No (always on) |
-| Opportunities | Quotes, orders, and active jobs | Yes |
-| Products | Product catalogue and rate cards | Yes |
-| Stock | Inventory tracking and availability | Yes |
-| Invoicing | Billing, payments, and credit notes | Yes |
-| Crew | Staff scheduling and assignments | Yes |
-| Services | Labour and service items | Yes |
-| Projects | Multi-opportunity project management | Yes |
-| Inspections | Equipment testing and certifications | Yes |
-
-> **Tip:** You can also set modules via a feature profile during initial setup. See the [Configuration](/docs/getting-started/configuration) page for profile details.
-
 ## Users & Security
 
 ### Users

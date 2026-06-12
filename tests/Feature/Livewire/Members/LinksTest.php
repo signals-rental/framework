@@ -3,6 +3,8 @@
 use App\Models\Link;
 use App\Models\Member;
 use App\Models\User;
+use Database\Seeders\ListOfValuesSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -60,6 +62,18 @@ it('renders the create link form', function () {
         ->assertSee('Add Link');
 });
 
+it('populates the type dropdown with the seeded Link Type list values', function () {
+    // Regression: the form queried 'LinkType' (no space) but the seeded list
+    // name is 'Link Type', so the Type select rendered blank.
+    $this->seed(ListOfValuesSeeder::class);
+
+    Volt::test('members.link-form', ['member' => $this->member])
+        ->assertViewHas('linkTypes', fn ($types) => $types->isNotEmpty())
+        ->assertSee('Website')
+        ->assertSee('LinkedIn')
+        ->assertSee('YouTube');
+});
+
 it('can create a link', function () {
     Volt::test('members.link-form', ['member' => $this->member])
         ->set('url', 'https://newsite.com')
@@ -113,7 +127,7 @@ it('cannot delete another member\'s link', function () {
 
     expect(fn () => Volt::test('members.links', ['member' => $this->member])
         ->call('deleteLink', $otherLink->id)
-    )->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    )->toThrow(ModelNotFoundException::class);
 
     expect(Link::find($otherLink->id))->not->toBeNull();
 });

@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Contracts\HasSchema;
+use App\Notifications\PasswordResetNotification;
 use App\Services\SchemaBuilder;
+use Database\Factories\UserFactory;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +18,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /**
@@ -86,6 +88,14 @@ class User extends Authenticatable implements HasSchema
         $builder->datetime('deactivated_at')->label('Deactivated')->sortable();
         $builder->datetime('created_at')->label('Created')->sortable();
         $builder->datetime('updated_at')->label('Updated')->sortable();
+    }
+
+    /**
+     * Send the password reset notification using the branded Signals template.
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new PasswordResetNotification($token));
     }
 
     /**
@@ -189,6 +199,26 @@ class User extends Authenticatable implements HasSchema
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class);
+    }
+
+    /**
+     * Propagate this user's name to its linked member record.
+     *
+     * User-type members are managed entirely from the user's profile, so the
+     * user's name is the single source of truth. Sync is one-way (user →
+     * member); the member side is read-only for user-type members.
+     */
+    public function syncMemberName(): void
+    {
+        if (! $this->member_id) {
+            return;
+        }
+
+        $member = $this->member()->first();
+
+        if ($member && $member->name !== $this->name) {
+            $member->forceFill(['name' => $this->name])->save();
+        }
     }
 
     /**

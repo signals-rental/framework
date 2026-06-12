@@ -56,9 +56,52 @@ new #[Layout('components.layouts.app')] #[Title('Webhooks')] class extends Compo
                 ->with('user')
                 ->latest()
                 ->get(),
-            'availableEvents' => WebhookService::EVENTS,
+            'eventGroups' => $this->eventGroups(),
             'logs' => $logs,
         ];
+    }
+
+    /**
+     * Group the available webhook events by their resource prefix for the picker.
+     *
+     * @return array<string, array{label: string, events: list<string>}>
+     */
+    public function eventGroups(): array
+    {
+        $groups = [];
+
+        foreach (WebhookService::EVENTS as $event) {
+            $key = str($event)->before('.')->toString();
+            $groups[$key]['label'] = (string) str($key)->headline();
+            $groups[$key]['events'][] = $event;
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Group a webhook's subscribed events by resource for compact display.
+     *
+     * @param  list<string>  $events
+     * @return array<string, list<string>>
+     */
+    public function groupedEvents(array $events): array
+    {
+        $grouped = [];
+
+        foreach ($events as $event) {
+            if ($event === '*') {
+                $grouped['All'][] = 'all';
+
+                continue;
+            }
+
+            $key = str($event)->before('.')->toString();
+            $action = str($event)->contains('.') ? str($event)->after('.')->toString() : $event;
+            $grouped[(string) str($key)->headline()][] = $action;
+        }
+
+        return $grouped;
     }
 
     public function openCreateModal(): void
@@ -232,10 +275,20 @@ new #[Layout('components.layouts.app')] #[Title('Webhooks')] class extends Compo
                             <tr wire:key="webhook-{{ $webhook->id }}">
                                 <td class="font-medium max-w-xs truncate" title="{{ $webhook->url }}">{{ $webhook->url }}</td>
                                 <td>
-                                    <div class="flex flex-wrap gap-1">
-                                        @foreach ($webhook->events as $event)
-                                            <span class="s-badge">{{ $event }}</span>
-                                        @endforeach
+                                    @php $webhookEvents = $webhook->events ?? []; @endphp
+                                    <div x-data="{ open: false }" class="text-sm">
+                                        <button type="button" class="flex items-center gap-1 text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100" x-on:click="open = !open">
+                                            <flux:icon.chevron-right class="w-3.5 h-3.5 transition-transform" x-bind:class="open && 'rotate-90'" />
+                                            {{ count($webhookEvents) }} {{ \Illuminate\Support\Str::plural('event', count($webhookEvents)) }}
+                                        </button>
+                                        <div x-show="open" class="mt-1.5 space-y-0.5">
+                                            @foreach ($this->groupedEvents($webhookEvents) as $groupLabel => $actions)
+                                                <div class="text-xs text-zinc-500">
+                                                    <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ $groupLabel }}:</span>
+                                                    {{ implode(', ', $actions) }}
+                                                </div>
+                                            @endforeach
+                                        </div>
                                     </div>
                                 </td>
                                 <td>
@@ -309,12 +362,7 @@ new #[Layout('components.layouts.app')] #[Title('Webhooks')] class extends Compo
                     <flux:input wire:model="createUrl" label="Endpoint URL" placeholder="https://example.com/webhook" required />
 
                     <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Events</label>
-                        <div class="space-y-2">
-                            @foreach ($availableEvents as $event)
-                                <flux:checkbox wire:model="createEvents" value="{{ $event }}" label="{{ $event }}" wire:key="create-event-{{ $loop->index }}" />
-                            @endforeach
-                        </div>
+                        @include('livewire.admin.settings.partials.event-picker', ['model' => 'createEvents', 'groups' => $eventGroups])
                         @error('createEvents') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
                     </div>
 
@@ -335,12 +383,7 @@ new #[Layout('components.layouts.app')] #[Title('Webhooks')] class extends Compo
                     <flux:input wire:model="editUrl" label="Endpoint URL" placeholder="https://example.com/webhook" required />
 
                     <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Events</label>
-                        <div class="space-y-2">
-                            @foreach ($availableEvents as $event)
-                                <flux:checkbox wire:model="editEvents" value="{{ $event }}" label="{{ $event }}" wire:key="edit-event-{{ $loop->index }}" />
-                            @endforeach
-                        </div>
+                        @include('livewire.admin.settings.partials.event-picker', ['model' => 'editEvents', 'groups' => $eventGroups])
                         @error('editEvents') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
                     </div>
 

@@ -101,11 +101,18 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function lookupWhat3words(): void
     {
+        $service = app(\App\Services\What3WordsService::class);
+
+        if (! $service->isConfigured()) {
+            $this->addError('what3words', 'what3words is not configured. Set it up in Integrations settings.');
+
+            return;
+        }
+
         $this->validate([
             'what3words' => ['required', 'string', 'regex:/^[a-zA-Z]+\.[a-zA-Z]+\.[a-zA-Z]+$/'],
         ]);
 
-        $service = app(\App\Services\What3WordsService::class);
         $result = $service->convertToCoordinates($this->what3words);
 
         if ($result === null) {
@@ -157,12 +164,14 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function with(): array
     {
-        $addressTypes = ListName::where('name', 'AddressType')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
+        $addressTypes = ListName::where('name', 'Address Type')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
 
         return [
             'isEditing' => $this->addressId !== null,
             'countries' => Country::query()->active()->orderBy('name')->get(),
             'addressTypes' => $addressTypes,
+            'what3wordsConfigured' => app(\App\Services\What3WordsService::class)->isConfigured(),
+            'canManageIntegrations' => auth()->user()?->hasAdminAccess() ?? false,
         ];
     }
 }; ?>
@@ -222,16 +231,28 @@ new #[Layout('components.layouts.app')] class extends Component {
                     </div>
 
                     {{-- what3words manual lookup --}}
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">what3words</label>
-                        <div class="flex gap-2">
-                            <div class="flex-1">
-                                <flux:input wire:model.live="what3words" placeholder="e.g. filled.count.soap" />
+                    @if($what3wordsConfigured)
+                        <div>
+                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">what3words</label>
+                            <div class="flex gap-2">
+                                <div class="flex-1">
+                                    <flux:input wire:model.live="what3words" placeholder="e.g. filled.count.soap" />
+                                </div>
+                                <flux:button type="button" wire:click="lookupWhat3words" variant="filled">Lookup</flux:button>
                             </div>
-                            <flux:button type="button" wire:click="lookupWhat3words" variant="filled">Lookup</flux:button>
+                            @error('what3words') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
-                        @error('what3words') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
-                    </div>
+                    @else
+                        <div>
+                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">what3words</label>
+                            <p class="text-xs text-[var(--text-muted)]">
+                                what3words is not configured.
+                                @if($canManageIntegrations)
+                                    <a href="{{ route('admin.settings.integrations') }}" wire:navigate class="text-[var(--link)] hover:underline">Set it up in Integrations settings.</a>
+                                @endif
+                            </p>
+                        </div>
+                    @endif
 
                     {{-- Coordinates --}}
                     <div class="grid grid-cols-2 gap-4">

@@ -221,6 +221,96 @@ it('assigns webhook to current user on creation', function () {
     expect(Webhook::first()->user_id)->toBe($this->owner->id);
 });
 
+it('groups available events by resource prefix', function () {
+    $component = Volt::test('admin.settings.webhooks');
+
+    $groups = $component->instance()->eventGroups();
+
+    expect($groups)->toHaveKey('member');
+    expect($groups['member']['label'])->toBe('Member');
+    expect($groups['member']['events'])->toContain('member.created', 'member.updated', 'member.archived');
+    expect($groups['member']['events'])->not->toContain('user.created');
+});
+
+it('headline-cases multi-word event group labels', function () {
+    $component = Volt::test('admin.settings.webhooks');
+
+    $groups = $component->instance()->eventGroups();
+
+    expect($groups)->toHaveKey('stock_level');
+    expect($groups['stock_level']['label'])->toBe('Stock Level');
+    expect($groups)->toHaveKey('rate_definition');
+    expect($groups['rate_definition']['label'])->toBe('Rate Definition');
+});
+
+it('groups a webhook\'s subscribed events for display', function () {
+    $component = Volt::test('admin.settings.webhooks');
+
+    $grouped = $component->instance()->groupedEvents([
+        'member.created',
+        'member.updated',
+        'user.deleted',
+    ]);
+
+    expect($grouped)->toBe([
+        'Member' => ['created', 'updated'],
+        'User' => ['deleted'],
+    ]);
+});
+
+it('groups the wildcard event under All', function () {
+    $component = Volt::test('admin.settings.webhooks');
+
+    expect($component->instance()->groupedEvents(['*']))->toBe(['All' => ['all']]);
+});
+
+it('renders the grouped event count in the table', function () {
+    Webhook::factory()->create([
+        'user_id' => $this->owner->id,
+        'events' => ['member.created', 'member.updated', 'user.deleted'],
+    ]);
+
+    Volt::test('admin.settings.webhooks')
+        ->assertSee('3 events')
+        ->assertSee('Member:')
+        ->assertSee('User:');
+});
+
+it('renders singular event label for a single event', function () {
+    Webhook::factory()->create([
+        'user_id' => $this->owner->id,
+        'events' => ['member.created'],
+    ]);
+
+    Volt::test('admin.settings.webhooks')
+        ->assertSee('1 event');
+});
+
+it('can create a webhook selecting events through the grouped picker model', function () {
+    Volt::test('admin.settings.webhooks')
+        ->set('createUrl', 'https://example.com/webhook')
+        ->set('createEvents', ['member.created', 'member.archived'])
+        ->call('createWebhook')
+        ->assertHasNoErrors();
+
+    expect(Webhook::first()->events)->toBe(['member.created', 'member.archived']);
+});
+
+it('can edit a webhook selecting events through the grouped picker model', function () {
+    $webhook = Webhook::factory()->create([
+        'user_id' => $this->owner->id,
+        'events' => ['user.created'],
+    ]);
+
+    Volt::test('admin.settings.webhooks')
+        ->call('openEditModal', $webhook->id)
+        ->set('editEvents', ['stock_level.created', 'stock_level.updated'])
+        ->call('updateWebhook')
+        ->assertHasNoErrors();
+
+    expect($webhook->fresh()->events)->toBe(['stock_level.created', 'stock_level.updated']);
+});
+
 it('requires admin access', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

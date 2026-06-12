@@ -1,11 +1,53 @@
 <?php
 
+use App\Actions\Admin\SendTestTemplateEmail;
 use App\Models\EmailTemplate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')] #[Title('Email Templates')] class extends Component {
+    public bool $showTestModal = false;
+
+    public ?int $testTemplateId = null;
+
+    public string $testRecipient = '';
+
+    /** Bumped on each modal open so the form re-renders fresh — a morph alone leaves the native select displaying its previous choice after the bound property is reset. */
+    public int $testModalNonce = 0;
+
+    public function openTestModal(): void
+    {
+        $this->reset(['testTemplateId', 'testRecipient']);
+        $this->resetErrorBag();
+        $this->testModalNonce++;
+        $this->showTestModal = true;
+    }
+
+    public function sendTest(): void
+    {
+        $this->validate([
+            'testTemplateId' => ['required', 'integer', 'exists:email_templates,id'],
+            'testRecipient' => ['required', 'email:filter'],
+        ], [
+            'testTemplateId.required' => 'Choose a template to send.',
+        ]);
+
+        $template = EmailTemplate::findOrFail($this->testTemplateId);
+
+        try {
+            (new SendTestTemplateEmail)($template, $this->testRecipient);
+        } catch (\Throwable $e) {
+            $this->addError('testRecipient', 'Failed to send test email: '.$e->getMessage());
+
+            return;
+        }
+
+        $this->showTestModal = false;
+        $this->reset(['testTemplateId', 'testRecipient']);
+        $this->dispatch('test-template-sent');
+    }
+
     public function with(): array
     {
         return [
@@ -18,6 +60,10 @@ new #[Layout('components.layouts.app')] #[Title('Email Templates')] class extend
 
 <section class="w-full">
     <x-admin.layout group="preferences" title="Email Templates" description="Manage the content and layout of system emails.">
+        <x-slot:actions>
+            <flux:button variant="primary" wire:click="openTestModal" icon="paper-airplane">Send Test</flux:button>
+        </x-slot:actions>
+
         @if ($templates->isEmpty())
             <div class="s-card p-8 text-center text-zinc-500 dark:text-zinc-400">
                 <p>No email templates found. Run database seeders to create default templates.</p>
@@ -66,5 +112,30 @@ new #[Layout('components.layouts.app')] #[Title('Email Templates')] class extend
                 </table>
             </div>
         @endif
+
+        <x-action-message on="test-template-sent">Test email sent.</x-action-message>
+
+        <flux:modal wire:model.self="showTestModal" class="md:w-96">
+            <form wire:submit="sendTest" wire:key="send-test-form-{{ $testModalNonce }}" class="space-y-4">
+                <div>
+                    <flux:heading size="lg">Send Test Email</flux:heading>
+                    <flux:subheading>Render a template with sample data and send it to an address.</flux:subheading>
+                </div>
+
+                <flux:select wire:model.live="testTemplateId" label="Template">
+                    <flux:select.option value="">Choose a template...</flux:select.option>
+                    @foreach ($templates as $template)
+                        <flux:select.option value="{{ $template->id }}">{{ $template->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                <flux:input wire:model="testRecipient" label="Recipient Email" type="email" placeholder="you@example.com" />
+
+                <div class="flex justify-end gap-3">
+                    <flux:button variant="ghost" wire:click="$set('showTestModal', false)">Cancel</flux:button>
+                    <flux:button variant="primary" type="submit">Send Test</flux:button>
+                </div>
+            </form>
+        </flux:modal>
     </x-admin.layout>
 </section>

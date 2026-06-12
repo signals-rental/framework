@@ -42,19 +42,17 @@ new #[Layout('components.layouts.app')] #[Title('Email Template')] class extends
     {
         $renderer = app(EmailTemplateRenderer::class);
 
-        $sampleData = [
-            'user' => ['name' => 'Jane Smith', 'email' => 'jane@example.com'],
-            'company' => ['name' => settings('company.name', 'Your Company')],
-            'invitation' => ['url' => 'https://example.com/invitation/abc123'],
-            'reset' => ['url' => 'https://example.com/reset/abc123'],
-        ];
-
         $result = $renderer->renderTemplate($this->template->replicate()->fill([
             'subject' => $this->subject,
             'body_markdown' => $this->bodyMarkdown,
-        ]), $sampleData);
+        ]), EmailTemplateRenderer::sampleData());
 
-        $this->previewHtml = $result['html'];
+        $this->previewHtml = view('emails.layouts.signals', [
+            'bodyHtml' => $result['html'],
+            'eyebrow' => $this->template->name,
+            'footerContext' => null,
+            'preheader' => null,
+        ])->render();
     }
 
     public function resetToDefault(): void
@@ -116,9 +114,12 @@ new #[Layout('components.layouts.app')] #[Title('Email Template')] class extends
                 {{-- Preview --}}
                 @if ($previewHtml)
                     <x-signals.form-section title="Preview">
-                        <div class="prose prose-sm dark:prose-invert max-w-none p-4 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                            {!! $previewHtml !!}
-                        </div>
+                        <iframe
+                            class="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white"
+                            style="height: 600px;"
+                            srcdoc="{{ $previewHtml }}"
+                            title="Email preview"
+                        ></iframe>
                     </x-signals.form-section>
                 @endif
             </div>

@@ -140,3 +140,62 @@ test('non-owner admin cannot toggle enabled without permission', function () {
         ->call('toggleEnabled', $type->id)
         ->assertForbidden();
 });
+
+test('system notification types cannot be disabled', function () {
+    $type = NotificationType::factory()->system()->create([
+        'available_channels' => ['mail'],
+        'default_channels' => ['mail'],
+    ]);
+
+    Volt::actingAs($this->owner)
+        ->test('admin.settings.notifications')
+        ->call('toggleEnabled', $type->id)
+        ->assertHasErrors('system');
+
+    expect(NotificationSetting::where('notification_type_id', $type->id)->exists())->toBeFalse();
+});
+
+test('system notification channels cannot be toggled', function () {
+    $type = NotificationType::factory()->system()->create([
+        'available_channels' => ['mail'],
+        'default_channels' => ['mail'],
+    ]);
+
+    Volt::actingAs($this->owner)
+        ->test('admin.settings.notifications')
+        ->call('toggleChannel', $type->id, 'mail')
+        ->assertHasErrors('system');
+
+    expect(NotificationSetting::where('notification_type_id', $type->id)->exists())->toBeFalse();
+});
+
+test('non-system notification types can still be toggled', function () {
+    $type = NotificationType::factory()->create([
+        'available_channels' => ['database', 'mail'],
+        'default_channels' => ['database'],
+        'is_system' => false,
+    ]);
+
+    Volt::actingAs($this->owner)
+        ->test('admin.settings.notifications')
+        ->call('toggleEnabled', $type->id)
+        ->assertHasNoErrors();
+
+    $setting = NotificationSetting::where('notification_type_id', $type->id)->first();
+    expect($setting)->not->toBeNull();
+    expect($setting->is_enabled)->toBeFalse();
+});
+
+test('system notification switches are rendered as disabled with a required badge', function () {
+    NotificationType::factory()->system()->create([
+        'name' => 'Password Reset',
+        'available_channels' => ['mail'],
+        'default_channels' => ['mail'],
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.settings.notifications'))
+        ->assertOk()
+        ->assertSee('Required')
+        ->assertSee('System notifications cannot be disabled');
+});

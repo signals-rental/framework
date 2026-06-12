@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\NotificationType;
 use App\Services\NotificationRegistry;
 
 beforeEach(function () {
@@ -100,9 +101,9 @@ test('syncs types to database', function () {
 
     $this->registry->syncToDatabase();
 
-    expect(\App\Models\NotificationType::count())->toBe(2);
+    expect(NotificationType::count())->toBe(2);
 
-    $type = \App\Models\NotificationType::where('key', 'user.invited')->first();
+    $type = NotificationType::where('key', 'user.invited')->first();
     expect($type->category)->toBe('Users');
     expect($type->name)->toBe('User Invited');
 });
@@ -130,7 +131,30 @@ test('sync updates existing types without duplicating', function () {
 
     $updatedRegistry->syncToDatabase();
 
-    expect(\App\Models\NotificationType::count())->toBe(1);
-    expect(\App\Models\NotificationType::where('key', 'user.invited')->first())
+    expect(NotificationType::count())->toBe(1);
+    expect(NotificationType::where('key', 'user.invited')->first())
         ->description->toBe('Updated description.');
+});
+
+test('sync persists the is_system flag, defaulting to false when omitted', function () {
+    $this->registry->register('password.reset', [
+        'category' => 'System',
+        'name' => 'Password Reset',
+        'description' => 'Password reset notification.',
+        'available_channels' => ['mail'],
+        'default_channels' => ['mail'],
+        'is_system' => true,
+    ]);
+    $this->registry->register('user.invited', [
+        'category' => 'Users',
+        'name' => 'User Invited',
+        'description' => 'Invitation notification.',
+        'available_channels' => ['database', 'mail'],
+        'default_channels' => ['database', 'mail'],
+    ]);
+
+    $this->registry->syncToDatabase();
+
+    expect(NotificationType::where('key', 'password.reset')->first()->is_system)->toBeTrue();
+    expect(NotificationType::where('key', 'user.invited')->first()->is_system)->toBeFalse();
 });

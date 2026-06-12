@@ -28,6 +28,16 @@ it('updates user name and email', function () {
     expect($updated->email)->toBe('new@example.com');
 });
 
+it('syncs the linked member name when the user name changes', function () {
+    $user = User::factory()->create(['name' => 'Old Name']);
+
+    expect($user->member->name)->toBe('Old Name');
+
+    (new UpdateUser)($user, ['name' => 'New Name']);
+
+    expect($user->member->fresh()->name)->toBe('New Name');
+});
+
 it('syncs roles on update', function () {
     $user = User::factory()->create();
     $user->assignRole('Read Only');

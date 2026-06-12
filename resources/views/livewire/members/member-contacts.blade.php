@@ -42,9 +42,9 @@ new #[Layout('components.layouts.app')] class extends Component {
             ['key' => 'actions', 'type' => 'actions'],
         ];
 
-        $scopes = $isOrganisation
-            ? ['contactsOf' => $this->member->id]
-            : ['organisationsOf' => $this->member->id];
+        // Bidirectional: show every related member regardless of how the
+        // relationship was created (org→contact or contact→org).
+        $scopes = ['relatedTo' => $this->member->id];
 
         $label = $isOrganisation ? 'contacts' : 'organisations';
 

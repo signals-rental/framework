@@ -10,7 +10,7 @@ class NotificationTypeSeeder extends Seeder
     /**
      * Core notification type definitions.
      *
-     * @return array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>}>
+     * @return array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>, is_system?: bool}>
      */
     public static function types(): array
     {
@@ -42,6 +42,7 @@ class NotificationTypeSeeder extends Seeder
                 'description' => 'Sent when a password reset is requested.',
                 'available_channels' => ['mail'],
                 'default_channels' => ['mail'],
+                'is_system' => true,
             ],
             'system.test_email' => [
                 'category' => 'System',
@@ -49,6 +50,7 @@ class NotificationTypeSeeder extends Seeder
                 'description' => 'Test notification to verify email delivery.',
                 'available_channels' => ['mail'],
                 'default_channels' => ['mail'],
+                'is_system' => true,
             ],
         ];
     }

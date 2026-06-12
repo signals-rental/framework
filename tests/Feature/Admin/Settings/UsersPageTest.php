@@ -29,6 +29,14 @@ it('lists all users', function () {
         ->assertSee('Jane Doe');
 });
 
+it('renders role badges with the blue badge class', function () {
+    $user = User::factory()->create(['name' => 'Roled User']);
+    $user->assignRole('Read Only');
+
+    Volt::test('admin.settings.users')
+        ->assertSeeHtml('<span class="s-badge s-badge-blue">Read Only</span>');
+});
+
 it('shows user status badges', function () {
     User::factory()->deactivated()->create(['name' => 'Deactivated User']);
     User::factory()->invited()->create(['name' => 'Invited User']);

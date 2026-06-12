@@ -7,14 +7,14 @@ use App\Models\NotificationType;
 class NotificationRegistry
 {
     /**
-     * @var array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>}>
+     * @var array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>, is_system?: bool}>
      */
     private array $types = [];
 
     /**
      * Register a notification type.
      *
-     * @param  array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>}  $definition
+     * @param  array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>, is_system?: bool}  $definition
      */
     public function register(string $key, array $definition): void
     {
@@ -24,7 +24,7 @@ class NotificationRegistry
     /**
      * Register multiple notification types at once.
      *
-     * @param  array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>}>  $types
+     * @param  array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>, is_system?: bool}>  $types
      */
     public function registerMany(array $types): void
     {
@@ -36,7 +36,7 @@ class NotificationRegistry
     /**
      * Get a notification type definition by key.
      *
-     * @return array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>}|null
+     * @return array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>, is_system?: bool}|null
      */
     public function get(string $key): ?array
     {
@@ -46,7 +46,7 @@ class NotificationRegistry
     /**
      * Get all registered notification type definitions.
      *
-     * @return array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>}>
+     * @return array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>, is_system?: bool}>
      */
     public function all(): array
     {
@@ -56,7 +56,7 @@ class NotificationRegistry
     /**
      * Get notification types grouped by category.
      *
-     * @return array<string, array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>}>>
+     * @return array<string, array<string, array{category: string, name: string, description: string, available_channels: list<string>, default_channels: list<string>, is_system?: bool}>>
      */
     public function grouped(): array
     {
@@ -85,6 +85,7 @@ class NotificationRegistry
                     'description' => $definition['description'],
                     'available_channels' => $definition['available_channels'],
                     'default_channels' => $definition['default_channels'],
+                    'is_system' => $definition['is_system'] ?? false,
                     'source' => 'core',
                 ],
             );

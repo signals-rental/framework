@@ -115,3 +115,12 @@ it('skips inactive templates', function () {
     expect(fn () => $this->renderer->render('inactive_template'))
         ->toThrow(ModelNotFoundException::class);
 });
+
+it('exposes shared sample data for previews and test sends', function () {
+    $data = EmailTemplateRenderer::sampleData();
+
+    expect($data)->toHaveKeys(['user', 'company', 'invitation', 'reset']);
+    expect($data['user']['name'])->toBe('Jane Smith');
+    expect($data['reset']['url'])->toBeString();
+    expect($data['invitation']['url'])->toBeString();
+});

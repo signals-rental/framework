@@ -4,7 +4,6 @@ namespace App\Data\Members;
 
 use App\Enums\MembershipType;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
 
 class CreateMemberData extends Data
@@ -57,7 +56,9 @@ class CreateMemberData extends Data
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'membership_type' => ['required', new Enum(MembershipType::class)],
+            // User-type members are created via invitation only (InviteUser),
+            // never through the public member-creation surface.
+            'membership_type' => ['required', Rule::enum(MembershipType::class)->except(MembershipType::User)],
             'is_active' => ['sometimes', 'boolean'],
             'description' => ['sometimes', 'nullable', 'string'],
             'locale' => ['sometimes', 'nullable', 'string', 'max:10'],

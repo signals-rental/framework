@@ -3,6 +3,8 @@
 namespace App\Livewire\Components;
 
 use App\Models\Member;
+use App\Models\Product;
+use App\Models\User;
 use App\Services\FileService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +22,7 @@ class IconUpload extends Component
     /** @var list<class-string<Model>> */
     private array $allowedModels = [
         Member::class,
-        \App\Models\Product::class,
+        Product::class,
     ];
 
     public int $modelId;
@@ -54,7 +56,7 @@ class IconUpload extends Component
         }
 
         try {
-            return app(\App\Services\FileService::class)->signedUrl($this->thumbPath);
+            return app(FileService::class)->signedUrl($this->thumbPath);
         } catch (\Throwable $e) {
             report($e);
 
@@ -67,7 +69,7 @@ class IconUpload extends Component
         $this->validate();
 
         $model = $this->resolveModel();
-        Gate::authorize('update', $model);
+        $this->authorizeIconChange($model);
 
         try {
             $fileService = app(FileService::class);
@@ -92,7 +94,7 @@ class IconUpload extends Component
     public function removeIcon(): void
     {
         $model = $this->resolveModel();
-        Gate::authorize('update', $model);
+        $this->authorizeIconChange($model);
 
         $oldIconUrl = $model->getAttribute('icon_url');
         $oldThumbUrl = $model->getAttribute('icon_thumb_url');
@@ -136,6 +138,27 @@ class IconUpload extends Component
     public function render(): View
     {
         return view('livewire.components.icon-upload');
+    }
+
+    /**
+     * Authorize the current user to change the model's icon.
+     *
+     * A user may always manage the icon of their OWN member record (self-service
+     * profile photo), regardless of members.* permissions. All other changes
+     * fall back to the model's update policy.
+     */
+    private function authorizeIconChange(Model $model): void
+    {
+        $user = auth()->user();
+
+        if ($user instanceof User
+            && $model instanceof Member
+            && $user->member_id !== null
+            && $user->member_id === $model->getKey()) {
+            return;
+        }
+
+        Gate::authorize('update', $model);
     }
 
     /**

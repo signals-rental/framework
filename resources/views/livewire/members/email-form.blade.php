@@ -62,7 +62,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function with(): array
     {
-        $emailTypes = ListName::where('name', 'EmailType')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
+        $emailTypes = ListName::where('name', 'Email Type')->first()?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
 
         return [
             'isEditing' => $this->emailId !== null,

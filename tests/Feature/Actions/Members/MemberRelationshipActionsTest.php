@@ -11,6 +11,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -72,7 +73,7 @@ it('rejects duplicate relationship between same members', function () {
     ]);
 
     (new CreateMemberRelationship)($contact, $data);
-})->throws(\Illuminate\Validation\ValidationException::class, 'A relationship between these members already exists.');
+})->throws(ValidationException::class, 'A relationship between these members already exists.');
 
 it('rejects duplicate relationship in reverse direction', function () {
     $contact = Member::factory()->contact()->create();
@@ -91,7 +92,7 @@ it('rejects duplicate relationship in reverse direction', function () {
     ]);
 
     (new CreateMemberRelationship)($contact, $data);
-})->throws(\Illuminate\Validation\ValidationException::class, 'A relationship between these members already exists.');
+})->throws(ValidationException::class, 'A relationship between these members already exists.');
 
 it('rejects unauthorized relationship creation', function () {
     $regularUser = User::factory()->create();
@@ -106,3 +107,65 @@ it('rejects unauthorized relationship creation', function () {
 
     (new CreateMemberRelationship)($contact, $data);
 })->throws(AuthorizationException::class);
+
+it('allows contact to venue relationships', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $contact = Member::factory()->contact()->create();
+    $venue = Member::factory()->venue()->create();
+
+    $result = (new CreateMemberRelationship)($contact, CreateMemberRelationshipData::from([
+        'related_member_id' => $venue->id,
+    ]));
+
+    expect($result->related_member_id)->toBe($venue->id);
+});
+
+it('allows contact to contact relationships', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $a = Member::factory()->contact()->create();
+    $b = Member::factory()->contact()->create();
+
+    $result = (new CreateMemberRelationship)($a, CreateMemberRelationshipData::from([
+        'related_member_id' => $b->id,
+    ]));
+
+    expect($result->related_member_id)->toBe($b->id);
+});
+
+it('forbids organisation to venue relationships', function () {
+    $org = Member::factory()->organisation()->create();
+    $venue = Member::factory()->venue()->create();
+
+    (new CreateMemberRelationship)($org, CreateMemberRelationshipData::from([
+        'related_member_id' => $venue->id,
+    ]));
+})->throws(ValidationException::class);
+
+it('forbids organisation to organisation relationships', function () {
+    $a = Member::factory()->organisation()->create();
+    $b = Member::factory()->organisation()->create();
+
+    (new CreateMemberRelationship)($a, CreateMemberRelationshipData::from([
+        'related_member_id' => $b->id,
+    ]));
+})->throws(ValidationException::class);
+
+it('forbids venue to venue relationships', function () {
+    $a = Member::factory()->venue()->create();
+    $b = Member::factory()->venue()->create();
+
+    (new CreateMemberRelationship)($a, CreateMemberRelationshipData::from([
+        'related_member_id' => $b->id,
+    ]));
+})->throws(ValidationException::class);
+
+it('forbids relationships involving a user-type member', function () {
+    $contact = Member::factory()->contact()->create();
+    $user = Member::factory()->user()->create();
+
+    (new CreateMemberRelationship)($contact, CreateMemberRelationshipData::from([
+        'related_member_id' => $user->id,
+    ]));
+})->throws(ValidationException::class, 'User-type members cannot have relationships.');

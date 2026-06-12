@@ -57,6 +57,25 @@ it('lists related contacts for an organisation', function () {
         ->assertSee('Director');
 });
 
+it('displays a relationship on both members regardless of direction', function () {
+    $org = Member::factory()->organisation()->create(['name' => 'Acme Corp']);
+    $contact = Member::factory()->contact()->create(['name' => 'Jane Doe']);
+
+    // Stored with the organisation as member_id (the "wrong" direction for a
+    // contact-centric query) to prove the listing unions both columns.
+    MemberRelationship::factory()->create([
+        'member_id' => $org->id,
+        'related_member_id' => $contact->id,
+        'relationship_type' => 'Director',
+    ]);
+
+    Volt::test('members.relationships', ['member' => $contact])
+        ->assertSee('Acme Corp');
+
+    Volt::test('members.relationships', ['member' => $org])
+        ->assertSee('Jane Doe');
+});
+
 it('shows empty state when no relationships exist', function () {
     $member = Member::factory()->contact()->create();
 

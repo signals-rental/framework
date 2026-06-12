@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\TemplatedEmail;
+use App\Models\EmailTemplate;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\PasswordResetNotification;
+use Database\Seeders\EmailTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
@@ -36,7 +40,7 @@ class PasswordResetTest extends TestCase
             ->set('email', $user->email)
             ->call('sendPasswordResetLink');
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertSentTo($user, PasswordResetNotification::class);
     }
 
     public function test_reset_password_screen_can_be_rendered(): void
@@ -49,7 +53,7 @@ class PasswordResetTest extends TestCase
             ->set('email', $user->email)
             ->call('sendPasswordResetLink');
 
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
+        Notification::assertSentTo($user, PasswordResetNotification::class, function ($notification) {
             $response = $this->get('/reset-password/'.$notification->token);
 
             $response->assertStatus(200);
@@ -68,7 +72,7 @@ class PasswordResetTest extends TestCase
             ->set('email', $user->email)
             ->call('sendPasswordResetLink');
 
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
+        Notification::assertSentTo($user, PasswordResetNotification::class, function ($notification) use ($user) {
             $response = Volt::test('auth.reset-password', ['token' => $notification->token])
                 ->set('email', $user->email)
                 ->set('password', 'password')
@@ -81,5 +85,49 @@ class PasswordResetTest extends TestCase
 
             return true;
         });
+    }
+
+    public function test_reset_notification_renders_branded_template_with_reset_url(): void
+    {
+        (new EmailTemplateSeeder)->run();
+
+        $user = User::factory()->create(['name' => 'Jane Smith']);
+        $notification = new PasswordResetNotification('test-token-123');
+
+        $mail = $notification->toMail($user);
+
+        $this->assertInstanceOf(TemplatedEmail::class, $mail);
+        $this->assertStringContainsString('Reset your password', $mail->subjectLine);
+        $this->assertStringContainsString('Jane Smith', $mail->bodyHtml);
+        $this->assertStringContainsString('sig-btn', $mail->bodyHtml);
+        // The reset URL is built with the user's email as a query param.
+        $this->assertStringContainsString(rawurlencode($user->email), $mail->bodyHtml);
+    }
+
+    public function test_reset_notification_falls_back_when_template_inactive(): void
+    {
+        (new EmailTemplateSeeder)->run();
+        EmailTemplate::where('key', 'password_reset')->update(['is_active' => false]);
+
+        $user = User::factory()->create();
+        $notification = new PasswordResetNotification('test-token-123');
+
+        $mail = $notification->toMail($user);
+
+        // Falls back to Laravel default MailMessage rather than TemplatedEmail.
+        $this->assertInstanceOf(MailMessage::class, $mail);
+        $this->assertStringContainsString('password reset', strtolower(implode(' ', $mail->introLines)));
+        $this->assertNotEmpty($mail->actionUrl);
+    }
+
+    public function test_reset_notification_falls_back_when_template_missing(): void
+    {
+        // No EmailTemplateSeeder run: template does not exist.
+        $user = User::factory()->create();
+        $notification = new PasswordResetNotification('test-token-123');
+
+        $mail = $notification->toMail($user);
+
+        $this->assertInstanceOf(MailMessage::class, $mail);
     }
 }

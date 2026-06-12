@@ -25,10 +25,6 @@ describe('Admin routes are accessible', function () {
         $this->get(route('admin.settings.branding'))->assertOk();
     });
 
-    it('renders modules', function () {
-        $this->get(route('admin.settings.modules'))->assertOk();
-    });
-
     it('renders users', function () {
         $this->get(route('admin.settings.users'))->assertOk();
     });
@@ -85,7 +81,6 @@ describe('Non-admin access is denied', function () {
             'admin.settings.company',
             'admin.settings.stores',
             'admin.settings.branding',
-            'admin.settings.modules',
             'admin.settings.users',
             'admin.settings.roles',
             'admin.settings.permissions',
@@ -113,8 +108,7 @@ describe('Sidebar navigation', function () {
         $this->get(route('admin.settings.company'))
             ->assertSee('Company Details')
             ->assertSee('Stores')
-            ->assertSee('Branding')
-            ->assertSee('Modules');
+            ->assertSee('Branding');
     });
 
     it('shows users items on users pages', function () {

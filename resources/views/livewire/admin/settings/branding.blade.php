@@ -35,6 +35,8 @@ new #[Layout('components.layouts.app')] #[Title('Branding')] class extends Compo
         ];
 
         if ($this->logo) {
+            $hasTransparency = \App\Support\LogoTransparency::detect($this->logo);
+
             $path = $this->logo->store('branding', 'public');
 
             if ($path === false) {
@@ -44,13 +46,18 @@ new #[Layout('components.layouts.app')] #[Title('Branding')] class extends Compo
             }
 
             $settings['branding.logo_path'] = $path;
+            $settings['branding.logo_has_transparency'] = ['value' => $hasTransparency, 'type' => 'boolean'];
             $this->currentLogoPath = $path;
             $this->logo = null;
         }
 
         settings()->setMany($settings);
 
-        $this->dispatch('branding-settings-saved');
+        // Brand colours and logo render in the global header (outside this
+        // component); force a full reload so the chrome reflects the change.
+        session()->flash('status', 'Branding saved.');
+
+        $this->redirect(route('admin.settings.branding'), navigate: false);
     }
 
     public function removeLogo(): void
@@ -59,13 +66,25 @@ new #[Layout('components.layouts.app')] #[Title('Branding')] class extends Compo
             Storage::disk('public')->delete($this->currentLogoPath);
         }
 
-        settings()->set('branding.logo_path', null);
+        settings()->setMany([
+            'branding.logo_path' => null,
+            'branding.logo_has_transparency' => ['value' => false, 'type' => 'boolean'],
+        ]);
         $this->currentLogoPath = null;
+
+        // The logo is shown in the global header; reload to clear it there too.
+        session()->flash('status', 'Logo removed.');
+
+        $this->redirect(route('admin.settings.branding'), navigate: false);
     }
 }; ?>
 
 <section class="w-full">
     <x-admin.layout title="Branding" description="Customise your company's visual identity.">
+        @if (session('status'))
+            <x-signals.alert type="success" dismissible>{{ session('status') }}</x-signals.alert>
+        @endif
+
         <x-signals.form-section title="Brand Colours">
             <form wire:submit="save" class="space-y-6">
                 <div class="grid grid-cols-2 gap-4">
@@ -109,6 +128,7 @@ new #[Layout('components.layouts.app')] #[Title('Branding')] class extends Compo
                             Drop your logo here or click to upload
                         </p>
                         <p class="text-xs text-[var(--text-muted)]">PNG, JPG, SVG or WebP. Max 2MB.</p>
+                        <p class="text-xs text-[var(--text-muted)]">A transparent PNG or SVG is recommended for the best result on coloured headers.</p>
                     </label>
 
                     <div wire:loading wire:target="logo" class="mt-2 text-sm text-[var(--text-muted)]">
@@ -124,10 +144,6 @@ new #[Layout('components.layouts.app')] #[Title('Branding')] class extends Compo
 
                 <div class="flex items-center gap-4">
                     <flux:button variant="primary" type="submit">Save Changes</flux:button>
-
-                    <x-action-message on="branding-settings-saved">
-                        Saved.
-                    </x-action-message>
                 </div>
             </form>
         </x-signals.form-section>

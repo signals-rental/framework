@@ -1,4 +1,18 @@
-@if(count($selected) === 2)
+@php
+    // Merge is only valid between two non-user members of the same type.
+    // User-type members are staff records and must never be merged.
+    $mergeable = false;
+    if (count($selected) === 2) {
+        $types = \App\Models\Member::withTrashed()
+            ->whereIn('id', $selected)
+            ->pluck('membership_type');
+
+        $mergeable = $types->count() === 2
+            && ! $types->contains(\App\Enums\MembershipType::User)
+            && $types->unique()->count() === 1;
+    }
+@endphp
+@if($mergeable)
     <button
         x-on:click="Livewire.dispatch('open-merge-modal', { memberA: {{ $selected[0] ?? 0 }}, memberB: {{ $selected[1] ?? 0 }} })"
         class="s-bulk-btn"
