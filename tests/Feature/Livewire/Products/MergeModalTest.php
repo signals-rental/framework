@@ -94,6 +94,28 @@ it('does not merge products of different types', function () {
     expect(Product::find($sale->id))->not->toBeNull();
 });
 
+it('surfaces a validation error when the secondary product is archived', function () {
+    $productA = Product::factory()->rental()->create();
+    $productB = Product::factory()->rental()->create();
+
+    $component = Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id, productB: $productB->id);
+
+    // Soft-delete the secondary: the DTO's withoutTrashed() exists rule now rejects it
+    // on the Livewire path (validateAndCreate), surfacing a ValidationException that the
+    // modal flashes as an error — not a ModelNotFound "no longer exists" message.
+    $productB->delete();
+
+    $component->call('merge')
+        ->assertNotDispatched('product-merged')
+        ->assertNoRedirect();
+
+    expect(session('error'))->not->toBe('One of the selected products no longer exists.');
+
+    // The primary product is untouched.
+    expect(Product::find($productA->id))->not->toBeNull();
+});
+
 it('does not merge when a product does not exist', function () {
     $productA = Product::factory()->rental()->create();
     $fakeId = 999999;

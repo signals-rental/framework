@@ -13,6 +13,7 @@ CRUD endpoints for managing members (contacts, organisations, venues, and users)
 | DELETE | `/api/v1/members/{id}` | Delete (soft-delete) a member |
 | POST | `/api/v1/members/{id}/merge` | Merge a secondary member into this member |
 | POST | `/api/v1/members/{id}/anonymise` | Erase a member's personally identifiable information |
+| POST | `/api/v1/members/{id}/restore` | Restore a soft-deleted (archived) member |
 
 ### Nested Resources
 
@@ -80,6 +81,7 @@ Returns the updated primary member under the `member` key.
 
 | Status | Condition |
 |--------|-----------|
+| 422 | `secondary_id` is missing or does not reference an existing, non-archived member |
 | 422 | `secondary_id` is the same as the primary member (self-merge) |
 | 422 | The two members have different `membership_type` values |
 
@@ -102,6 +104,26 @@ Returns the anonymised member under the `member` key.
 | Status | Condition |
 |--------|-----------|
 | 422 | The authenticated user is attempting to anonymise their own member record |
+
+## Restore Member
+
+```
+POST /api/v1/members/{id}/restore
+```
+
+Restores a soft-deleted (archived) member, reversing a `DELETE`. The member is undeleted and its `is_active` flag is set back to `true`. The route resolves archived members, so `{id}` may reference a soft-deleted record. Restoring a member that is not archived is a no-op and still returns the member.
+
+Requires `members:write` ability and `members.delete` permission.
+
+### Response
+
+Returns the restored member under the `member` key.
+
+### Error Cases
+
+| Status | Condition |
+|--------|-----------|
+| 404 | No member (archived or active) exists for the given `{id}` |
 
 ## Membership Types
 

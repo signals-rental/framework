@@ -8,6 +8,7 @@ use App\Models\Member;
 use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class MergeMember
 {
@@ -18,8 +19,16 @@ class MergeMember
         $primary = Member::findOrFail($data->primary_id);
         $secondary = Member::findOrFail($data->secondary_id);
 
+        if ($primary->id === $secondary->id) {
+            throw ValidationException::withMessages([
+                'secondary_id' => 'A member cannot be merged into itself.',
+            ]);
+        }
+
         if ($primary->membership_type !== $secondary->membership_type) {
-            throw new \InvalidArgumentException('Cannot merge members of different types.');
+            throw ValidationException::withMessages([
+                'secondary_id' => 'Cannot merge members of different types.',
+            ]);
         }
 
         $merged = DB::transaction(function () use ($primary, $secondary): Member {

@@ -5,7 +5,10 @@ namespace App\Livewire\Products;
 use App\Actions\Products\MergeProduct;
 use App\Data\Products\MergeProductData;
 use App\Models\Product;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -90,15 +93,17 @@ class MergeModal extends Component
             : $this->productAId;
 
         try {
-            (new MergeProduct)(MergeProductData::from([
+            (new MergeProduct)(MergeProductData::validateAndCreate([
                 'primary_id' => $this->primaryId,
                 'secondary_id' => $secondaryId,
             ]));
-        } catch (\InvalidArgumentException $e) {
-            session()->flash('error', $e->getMessage());
+        } catch (ValidationException $e) {
+            // Business-rule failures (type mismatch, self-merge) surface as a
+            // validation error keyed on secondary_id. Show the first message.
+            session()->flash('error', $e->validator->errors()->first() ?: 'Unable to merge the selected products.');
 
             return;
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+        } catch (ModelNotFoundException) {
             session()->flash('error', 'One of the selected products no longer exists.');
 
             return;
@@ -131,7 +136,7 @@ class MergeModal extends Component
         ];
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    public function render(): View
     {
         return view('livewire.products.merge-modal');
     }

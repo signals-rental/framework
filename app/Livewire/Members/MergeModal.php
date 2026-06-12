@@ -5,7 +5,10 @@ namespace App\Livewire\Members;
 use App\Actions\Members\MergeMember;
 use App\Data\Members\MergeMemberData;
 use App\Models\Member;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -39,15 +42,17 @@ class MergeModal extends Component
             : $this->memberAId;
 
         try {
-            (new MergeMember)(MergeMemberData::from([
+            (new MergeMember)(MergeMemberData::validateAndCreate([
                 'primary_id' => $this->primaryId,
                 'secondary_id' => $secondaryId,
             ]));
-        } catch (\InvalidArgumentException $e) {
-            session()->flash('error', $e->getMessage());
+        } catch (ValidationException $e) {
+            // Business-rule failures (type mismatch, self-merge) surface as a
+            // validation error keyed on secondary_id. Show the first message.
+            session()->flash('error', $e->validator->errors()->first() ?: 'Unable to merge the selected members.');
 
             return;
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+        } catch (ModelNotFoundException) {
             session()->flash('error', 'One of the selected members no longer exists.');
 
             return;
@@ -80,7 +85,7 @@ class MergeModal extends Component
         ];
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    public function render(): View
     {
         return view('livewire.members.merge-modal');
     }

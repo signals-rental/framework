@@ -109,6 +109,34 @@ describe('POST /api/v1/members', function () {
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['name', 'membership_type']);
     });
+
+    it('accepts an active member as owned_by', function () {
+        $owner = Member::factory()->organisation()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/members', [
+                'name' => 'Owned Contact',
+                'membership_type' => 'contact',
+                'owned_by' => $owner->id,
+            ])
+            ->assertCreated();
+    });
+
+    it('rejects an archived (soft-deleted) member as owned_by', function () {
+        $owner = Member::factory()->organisation()->create();
+        $owner->delete();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/members', [
+                'name' => 'Owned Contact',
+                'membership_type' => 'contact',
+                'owned_by' => $owner->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('owned_by');
+    });
 });
 
 describe('PUT /api/v1/members/{id}', function () {
@@ -122,6 +150,32 @@ describe('PUT /api/v1/members/{id}', function () {
             ])
             ->assertOk()
             ->assertJsonPath('member.name', 'New Name');
+    });
+
+    it('accepts an active member as owned_by', function () {
+        $member = Member::factory()->create();
+        $owner = Member::factory()->organisation()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/members/{$member->id}", [
+                'owned_by' => $owner->id,
+            ])
+            ->assertOk();
+    });
+
+    it('rejects an archived (soft-deleted) member as owned_by', function () {
+        $member = Member::factory()->create();
+        $owner = Member::factory()->organisation()->create();
+        $owner->delete();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/members/{$member->id}", [
+                'owned_by' => $owner->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('owned_by');
     });
 });
 
@@ -1020,5 +1074,93 @@ describe('POST /api/v1/members/{member}/anonymise', function () {
             ->postJson("/api/v1/members/{$this->owner->member_id}/anonymise")
             ->assertUnprocessable()
             ->assertJsonValidationErrors('member');
+    });
+});
+
+describe('POST /api/v1/members/{member}/restore', function () {
+    it('restores an archived member and reactivates it', function () {
+        $member = Member::factory()->organisation()->create(['name' => 'Archived Org']);
+        $member->delete();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/restore")
+            ->assertOk()
+            ->assertJsonPath('member.id', $member->id)
+            ->assertJsonPath('member.name', 'Archived Org')
+            ->assertJsonPath('member.active', true);
+
+        $restored = Member::find($member->id);
+        expect($restored)->not->toBeNull()
+            ->and($restored->trashed())->toBeFalse()
+            ->and($restored->is_active)->toBeTrue();
+    });
+
+    it('returns the restored member with default includes like show', function () {
+        $saleTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Standard']);
+        $member = Member::factory()->organisation()->create(['sale_tax_class_id' => $saleTaxClass->id]);
+
+        $field = CustomField::factory()->create([
+            'name' => 'po_reference',
+            'module_type' => 'Member',
+            'field_type' => CustomFieldType::String,
+        ]);
+        CustomFieldValue::factory()->create([
+            'custom_field_id' => $field->id,
+            'entity_type' => Member::class,
+            'entity_id' => $member->id,
+            'value_string' => 'PO-999',
+        ]);
+        $member->delete();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/restore")
+            ->assertOk();
+
+        expect($response->json('member.custom_fields.po_reference'))->toBe('PO-999')
+            ->and($response->json('member.sale_tax_class_name'))->toBe('Standard');
+    });
+
+    it('is a no-op for a member that is not archived', function () {
+        $member = Member::factory()->organisation()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/restore")
+            ->assertOk()
+            ->assertJsonPath('member.id', $member->id);
+
+        expect(Member::find($member->id)->trashed())->toBeFalse();
+    });
+
+    it('requires the members:write ability', function () {
+        $member = Member::factory()->organisation()->create();
+        $member->delete();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/restore")
+            ->assertForbidden();
+    });
+
+    it('denies users without members.delete permission', function () {
+        $viewer = User::factory()->create();
+        $viewer->assignRole('Read Only');
+        $member = Member::factory()->organisation()->create();
+        $member->delete();
+        $token = $viewer->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/restore")
+            ->assertForbidden();
+    });
+
+    it('returns 404 for a member id that never existed', function () {
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/members/999999/restore')
+            ->assertNotFound();
     });
 });

@@ -5,6 +5,8 @@ use App\Data\Products\MergeProductData;
 use App\Events\AuditableEvent;
 use App\Models\Accessory;
 use App\Models\Attachment;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\User;
@@ -12,6 +14,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -145,7 +148,7 @@ it('soft-deletes the secondary product', function () {
     expect(Product::withTrashed()->find($secondary->id)->deleted_at)->not->toBeNull();
 });
 
-it('throws exception when merging products of different types', function () {
+it('throws a validation exception when merging products of different types', function () {
     $primary = Product::factory()->rental()->create();
     $secondary = Product::factory()->sale()->create();
 
@@ -153,7 +156,16 @@ it('throws exception when merging products of different types', function () {
         'primary_id' => $primary->id,
         'secondary_id' => $secondary->id,
     ]));
-})->throws(\InvalidArgumentException::class, 'Cannot merge products of different types.');
+})->throws(ValidationException::class, 'Cannot merge products of different types.');
+
+it('rejects merging a product into itself', function () {
+    $product = Product::factory()->rental()->create();
+
+    (new MergeProduct)(MergeProductData::from([
+        'primary_id' => $product->id,
+        'secondary_id' => $product->id,
+    ]));
+})->throws(ValidationException::class, 'A product cannot be merged into itself.');
 
 it('requires authorization', function () {
     $user = User::factory()->create();
@@ -175,17 +187,17 @@ it('transfers unique custom field values and retains primary values', function (
     $secondary = Product::factory()->rental()->create();
 
     // Create custom field definitions for Product entity type
-    $sharedField = \App\Models\CustomField::factory()->string()->create([
+    $sharedField = CustomField::factory()->string()->create([
         'name' => 'shared_ref',
         'module_type' => 'Product',
     ]);
-    $uniqueField = \App\Models\CustomField::factory()->string()->create([
+    $uniqueField = CustomField::factory()->string()->create([
         'name' => 'unique_note',
         'module_type' => 'Product',
     ]);
 
     // Primary has a value for the shared field
-    \App\Models\CustomFieldValue::factory()->create([
+    CustomFieldValue::factory()->create([
         'custom_field_id' => $sharedField->id,
         'entity_type' => Product::class,
         'entity_id' => $primary->id,
@@ -193,13 +205,13 @@ it('transfers unique custom field values and retains primary values', function (
     ]);
 
     // Secondary has a value for the shared field and the unique field
-    \App\Models\CustomFieldValue::factory()->create([
+    CustomFieldValue::factory()->create([
         'custom_field_id' => $sharedField->id,
         'entity_type' => Product::class,
         'entity_id' => $secondary->id,
         'value_string' => 'Secondary Ref',
     ]);
-    \App\Models\CustomFieldValue::factory()->create([
+    CustomFieldValue::factory()->create([
         'custom_field_id' => $uniqueField->id,
         'entity_type' => Product::class,
         'entity_id' => $secondary->id,
@@ -212,7 +224,7 @@ it('transfers unique custom field values and retains primary values', function (
     ]));
 
     // Primary retains its original shared field value
-    $primaryShared = \App\Models\CustomFieldValue::query()
+    $primaryShared = CustomFieldValue::query()
         ->where('custom_field_id', $sharedField->id)
         ->where('entity_type', Product::class)
         ->where('entity_id', $primary->id)
@@ -222,7 +234,7 @@ it('transfers unique custom field values and retains primary values', function (
         ->and($primaryShared->value_string)->toBe('Primary Ref');
 
     // Primary gains the secondary's unique field value
-    $primaryUnique = \App\Models\CustomFieldValue::query()
+    $primaryUnique = CustomFieldValue::query()
         ->where('custom_field_id', $uniqueField->id)
         ->where('entity_type', Product::class)
         ->where('entity_id', $primary->id)
@@ -232,7 +244,7 @@ it('transfers unique custom field values and retains primary values', function (
         ->and($primaryUnique->value_string)->toBe('Unique Note Value');
 
     // Secondary should have no remaining custom field values
-    $secondaryCfvCount = \App\Models\CustomFieldValue::query()
+    $secondaryCfvCount = CustomFieldValue::query()
         ->where('entity_type', Product::class)
         ->where('entity_id', $secondary->id)
         ->count();

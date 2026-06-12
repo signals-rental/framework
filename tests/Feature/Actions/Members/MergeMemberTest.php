@@ -21,6 +21,7 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -126,7 +127,21 @@ it('rejects merging members of different types', function () {
     ]);
 
     (new MergeMember)($data);
-})->throws(InvalidArgumentException::class, 'Cannot merge members of different types.');
+})->throws(ValidationException::class, 'Cannot merge members of different types.');
+
+it('rejects merging a member into itself', function () {
+    Event::fake([AuditableEvent::class]);
+    Queue::fake([DeliverWebhook::class]);
+
+    $member = Member::factory()->organisation()->create();
+
+    $data = MergeMemberData::from([
+        'primary_id' => $member->id,
+        'secondary_id' => $member->id,
+    ]);
+
+    (new MergeMember)($data);
+})->throws(ValidationException::class, 'A member cannot be merged into itself.');
 
 it('denies unauthorized users', function () {
     $regularUser = User::factory()->create();

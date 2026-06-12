@@ -123,7 +123,7 @@ it('merge uses memberA as secondary when primaryId is switched to memberB', func
     expect(Member::find($memberB->id))->not->toBeNull();
 });
 
-it('merge handles a vanished member via the ModelNotFound branch', function () {
+it('merge surfaces a validation error when the secondary is archived', function () {
     $logSpy = Log::spy();
 
     $memberA = Member::factory()->contact()->create();
@@ -132,16 +132,19 @@ it('merge handles a vanished member via the ModelNotFound branch', function () {
     $component = Livewire::test(MergeModal::class)
         ->dispatch('open-merge-modal', memberA: $memberA->id, memberB: $memberB->id);
 
-    // Soft-delete the secondary: the row still satisfies the DTO's exists:members,id
-    // rule, but MergeMember's findOrFail (which respects the soft-delete scope) throws
-    // ModelNotFoundException, exercising that dedicated catch branch (not the generic one).
+    // Soft-delete the secondary: the DTO's withoutTrashed() exists rule now rejects it
+    // on the Livewire path (validateAndCreate), surfacing a ValidationException that the
+    // modal flashes as an error — not a ModelNotFound "no longer exists" message.
     $memberB->delete();
 
     $component->call('merge')
         ->assertNoRedirect()
         ->assertNotDispatched('member-merged');
 
-    // The ModelNotFound branch does not log; only the generic Throwable branch logs.
+    // The flashed error is the validation message, not the ModelNotFound copy.
+    expect(session('error'))->not->toBe('One of the selected members no longer exists.');
+
+    // Validation failures do not hit the generic Throwable logging branch.
     $logSpy->shouldNotHaveReceived('error');
 
     // The primary member is untouched.

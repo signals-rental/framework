@@ -2,6 +2,7 @@
 
 namespace App\Data\Members;
 
+use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Attributes\Validation\Required;
 use Spatie\LaravelData\Data;
 
@@ -20,8 +21,18 @@ class MergeMemberData extends Data
     public static function rules(): array
     {
         return [
-            'primary_id' => ['required', 'integer', 'exists:members,id'],
-            'secondary_id' => ['required', 'integer', 'exists:members,id', 'different:primary_id'],
+            'primary_id' => ['required', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
+            'secondary_id' => ['required', 'integer', Rule::exists('members', 'id')->withoutTrashed(), 'different:primary_id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function messages(): array
+    {
+        return [
+            'secondary_id.different' => 'A member cannot be merged into itself.',
         ];
     }
 }
