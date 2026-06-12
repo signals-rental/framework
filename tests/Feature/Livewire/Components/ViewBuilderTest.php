@@ -169,6 +169,61 @@ it('does not add duplicate columns', function () {
         ->assertSet('selectedColumns', ['name', 'email']);
 });
 
+it('exposes the entity-specific registry for products, not member fields', function () {
+    $component = Livewire::test(ViewBuilder::class, ['entityType' => 'products'])
+        ->dispatch('open-view-builder', viewId: null);
+
+    $filterableKeys = array_column($component->instance()->getFilterableFieldsProperty(), 'key');
+    $availableKeys = array_keys($component->instance()->getAvailableColumnsProperty());
+    $allKeys = array_merge($availableKeys, $component->get('selectedColumns'));
+
+    // Product-specific fields are present.
+    expect($filterableKeys)->toContain('product_type', 'sku')
+        ->and($allKeys)->toContain('product_type', 'sku');
+
+    // Member-only fields are NOT present.
+    expect($allKeys)->not->toContain('membership_type')
+        ->and($filterableKeys)->not->toContain('membership_type');
+});
+
+it('exposes the entity-specific registry for product groups', function () {
+    $component = Livewire::test(ViewBuilder::class, ['entityType' => 'product_groups'])
+        ->dispatch('open-view-builder', viewId: null);
+
+    $allKeys = array_merge(
+        array_keys($component->instance()->getAvailableColumnsProperty()),
+        $component->get('selectedColumns'),
+    );
+
+    expect($allKeys)->not->toContain('membership_type', 'product_type');
+});
+
+it('exposes stock-level fields and a valid default sort column for stock levels', function () {
+    $component = Livewire::test(ViewBuilder::class, ['entityType' => 'stock_levels'])
+        ->dispatch('open-view-builder', viewId: null);
+
+    $filterableKeys = array_column($component->instance()->getFilterableFieldsProperty(), 'key');
+
+    expect($filterableKeys)->toContain('stock_category', 'item_name', 'store')
+        ->and($filterableKeys)->not->toContain('membership_type');
+
+    // resetForm must not hard-code 'name' (stock levels have no name column).
+    $sortColumn = $component->get('sortColumn');
+    $sortableKeys = array_column($component->instance()->getSortableFieldsProperty(), 'key');
+    expect($sortColumn)->not->toBe('name')
+        ->and($sortableKeys)->toContain($sortColumn);
+});
+
+it('exposes member fields for the members entity', function () {
+    $component = Livewire::test(ViewBuilder::class, ['entityType' => 'members'])
+        ->dispatch('open-view-builder', viewId: null);
+
+    $filterableKeys = array_column($component->instance()->getFilterableFieldsProperty(), 'key');
+
+    expect($filterableKeys)->toContain('membership_type')
+        ->and($filterableKeys)->not->toContain('product_type');
+});
+
 it('strips empty filters on save', function () {
     Livewire::test(ViewBuilder::class, ['entityType' => 'members'])
         ->dispatch('open-view-builder', viewId: null)

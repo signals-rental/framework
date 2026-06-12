@@ -32,6 +32,16 @@ new #[Layout('components.layouts.app')] class extends Component {
     public ?string $stockMethodLabel = null;
     public bool $isSerialisedStock = false;
 
+    /** Entry mode for serialised stock creation: 'single' | 'bulk' */
+    public string $entryMode = 'single';
+
+    /**
+     * Bulk-entry rows. status ∈ '' (empty/unchecked), 'valid', 'duplicate'.
+     *
+     * @var list<array{asset_number: string, serial_number: string, asset_status: string, serial_status: string}>
+     */
+    public array $bulkRows = [];
+
     /** Whether a product_id was passed via query param (for cancel redirect) */
     public ?int $sourceProductId = null;
 
@@ -134,10 +144,206 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->stockMethodLabel = null;
         $this->isSerialisedStock = false;
         $this->quantityHeld = 0;
+        $this->entryMode = 'single';
+        $this->bulkRows = [];
+    }
+
+    /**
+     * Switch between single and bulk serialised-entry modes.
+     */
+    public function setEntryMode(string $mode): void
+    {
+        if (! in_array($mode, ['single', 'bulk'], true)) {
+            return;
+        }
+
+        $this->entryMode = $mode;
+
+        if ($mode === 'bulk' && $this->bulkRows === []) {
+            $this->bulkRows = [$this->emptyBulkRow()];
+        }
+    }
+
+    /**
+     * @return array{asset_number: string, serial_number: string, asset_status: string, serial_status: string}
+     */
+    private function emptyBulkRow(): array
+    {
+        return [
+            'asset_number' => '',
+            'serial_number' => '',
+            'asset_status' => '',
+            'serial_status' => '',
+        ];
+    }
+
+    public function addBulkRow(): void
+    {
+        $this->bulkRows[] = $this->emptyBulkRow();
+        $this->dispatch('bulk-row-added');
+    }
+
+    public function removeBulkRow(int $index): void
+    {
+        if (count($this->bulkRows) <= 1) {
+            return;
+        }
+
+        unset($this->bulkRows[$index]);
+        $this->bulkRows = array_values($this->bulkRows);
+        $this->revalidateBulkRows();
+    }
+
+    /**
+     * Livewire hook — re-check every row whenever any bulk field changes
+     * (covers cross-row duplicate effects on blur).
+     */
+    public function updatedBulkRows(): void
+    {
+        $this->revalidateBulkRows();
+    }
+
+    /**
+     * Recompute asset_status + serial_status for every row.
+     *
+     * Empty value → ''. Value already in the DB column OR appearing more than
+     * once across the form rows → 'duplicate'. Otherwise → 'valid'.
+     */
+    public function revalidateBulkRows(): void
+    {
+        $assets = array_values(array_filter(array_map(
+            static fn (array $row): string => trim($row['asset_number']),
+            $this->bulkRows,
+        ), static fn (string $value): bool => $value !== ''));
+
+        $serials = array_values(array_filter(array_map(
+            static fn (array $row): string => trim($row['serial_number']),
+            $this->bulkRows,
+        ), static fn (string $value): bool => $value !== ''));
+
+        $existingAssets = $assets === []
+            ? []
+            : StockLevel::query()->whereIn('asset_number', $assets)->pluck('asset_number')->all();
+
+        $existingSerials = $serials === []
+            ? []
+            : StockLevel::query()->whereIn('serial_number', $serials)->pluck('serial_number')->all();
+
+        $assetCounts = array_count_values($assets);
+        $serialCounts = array_count_values($serials);
+
+        foreach ($this->bulkRows as $i => $row) {
+            $this->bulkRows[$i]['asset_status'] = $this->statusFor(
+                $row['asset_number'],
+                $existingAssets,
+                $assetCounts,
+            );
+            $this->bulkRows[$i]['serial_status'] = $this->statusFor(
+                $row['serial_number'],
+                $existingSerials,
+                $serialCounts,
+            );
+        }
+    }
+
+    /**
+     * @param  list<string>  $existing
+     * @param  array<string, int>  $counts
+     */
+    private function statusFor(string $value, array $existing, array $counts): string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        if (in_array($value, $existing, true) || ($counts[$value] ?? 0) > 1) {
+            return 'duplicate';
+        }
+
+        return 'valid';
+    }
+
+    /**
+     * Classify a bulk row by how many of its two fields are filled.
+     *
+     * @param  array{asset_number: string, serial_number: string, asset_status: string, serial_status: string}  $row
+     * @return 'empty'|'partial'|'complete'
+     */
+    private function rowState(array $row): string
+    {
+        $hasAsset = trim($row['asset_number']) !== '';
+        $hasSerial = trim($row['serial_number']) !== '';
+
+        if (! $hasAsset && ! $hasSerial) {
+            return 'empty';
+        }
+
+        if ($hasAsset && $hasSerial) {
+            return 'complete';
+        }
+
+        return 'partial';
+    }
+
+    /**
+     * Count of fully-completed rows (both fields filled). Drives the submit label.
+     */
+    public function completeRowCount(): int
+    {
+        return count(array_filter(
+            $this->bulkRows,
+            fn (array $row): bool => $this->rowState($row) === 'complete',
+        ));
+    }
+
+    /**
+     * Whether the bulk form is in a submittable state.
+     *
+     * Empty rows (e.g. the trailing row left after pressing Enter) are ignored.
+     * The form is submittable when there is at least one complete row, no
+     * partial rows remain, and every complete row is unique (valid/valid).
+     */
+    public function bulkCanSubmit(): bool
+    {
+        if ($this->entryMode !== 'bulk' || $this->bulkRows === []) {
+            return false;
+        }
+
+        $hasComplete = false;
+
+        foreach ($this->bulkRows as $row) {
+            $state = $this->rowState($row);
+
+            if ($state === 'empty') {
+                continue;
+            }
+
+            if ($state === 'partial') {
+                return false;
+            }
+
+            // Complete row — must be unique on both fields.
+            if ($row['asset_status'] !== 'valid' || $row['serial_status'] !== 'valid') {
+                return false;
+            }
+
+            $hasComplete = true;
+        }
+
+        return $hasComplete;
     }
 
     public function save(): void
     {
+        // Bulk serialised entry (create-only).
+        if ($this->isSerialisedStock && $this->entryMode === 'bulk' && ! $this->stockLevelId) {
+            $this->saveBulk();
+
+            return;
+        }
+
         $this->validate([
             'productId' => ['required', 'integer', 'exists:products,id'],
             'storeId' => ['required', 'integer', 'exists:stores,id'],
@@ -179,6 +385,53 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         $this->redirect(route('stock-levels.show', $result->id), navigate: true);
+    }
+
+    /**
+     * Create one serialised StockLevel per bulk row inside a single transaction.
+     */
+    private function saveBulk(): void
+    {
+        $this->validate([
+            'productId' => ['required', 'integer', 'exists:products,id'],
+            'storeId' => ['required', 'integer', 'exists:stores,id'],
+        ]);
+
+        // Defensive: never trust the client — re-run uniqueness server-side.
+        $this->revalidateBulkRows();
+
+        // Empty rows (e.g. the trailing Enter row) are ignored; create only
+        // the complete rows. bulkCanSubmit() guarantees no partial rows remain
+        // and every complete row is unique.
+        if (! $this->bulkCanSubmit()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'bulkRows' => 'Every row must have a unique asset number and serial number before you can create them.',
+            ]);
+        }
+
+        $completeRows = array_filter(
+            $this->bulkRows,
+            fn (array $row): bool => $this->rowState($row) === 'complete',
+        );
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($completeRows): void {
+            foreach ($completeRows as $row) {
+                $asset = trim($row['asset_number']);
+                $serial = trim($row['serial_number']);
+
+                (new CreateStockLevel)(CreateStockLevelData::from([
+                    'product_id' => $this->productId,
+                    'store_id' => $this->storeId,
+                    'item_name' => $this->itemName ?: null,
+                    'asset_number' => $asset,
+                    'serial_number' => $serial,
+                    'barcode' => $asset,
+                    'quantity_held' => 1,
+                ]));
+            }
+        });
+
+        $this->redirect(route('products.stock', $this->productId), navigate: true);
     }
 
     /**
@@ -235,14 +488,14 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                                     @if($productSelected)
                                         <div class="mt-1 flex items-center gap-2">
-                                            <div class="flex flex-1 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-2 text-sm">
+                                            <div class="flex min-h-10 flex-1 items-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
                                                 <span>{{ $selectedProductName }}</span>
                                                 @if($stockMethodLabel)
                                                     <x-signals.stock-method-badge :serialised="$isSerialisedStock" :label="$stockMethodLabel . ' Stock'" />
                                                 @endif
                                             </div>
                                             @unless($isEditing)
-                                                <button type="button" wire:click="clearProduct" class="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text)]">
+                                                <button type="button" wire:click="clearProduct" class="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--s-subtle)] hover:text-[var(--text-primary)]">
                                                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                                 </button>
                                             @endunless
@@ -255,13 +508,13 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                 autocomplete="off"
                                             />
                                             @if(count($productResults) > 0)
-                                                <div class="absolute z-50 mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] shadow-lg">
+                                                <div class="absolute z-50 mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] shadow-lg">
                                                     @foreach($productResults as $result)
                                                         <button
                                                             type="button"
                                                             wire:key="product-result-{{ $result['id'] }}"
                                                             wire:click="selectProduct({{ $result['id'] }})"
-                                                            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-[var(--bg-muted)]"
+                                                            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-[var(--s-subtle)]"
                                                         >
                                                             <span>{{ $result['name'] }}</span>
                                                             @if($result['stock_method'] !== null)
@@ -271,7 +524,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                     @endforeach
                                                 </div>
                                             @elseif(mb_strlen(trim($productSearch)) >= 1)
-                                                <div class="absolute z-50 mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] p-3 text-center text-sm text-[var(--text-muted)] shadow-lg">
+                                                <div class="absolute z-50 mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-3 text-center text-sm text-[var(--text-muted)] shadow-lg">
                                                     No products found
                                                 </div>
                                             @endif
@@ -292,17 +545,117 @@ new #[Layout('components.layouts.app')] class extends Component {
                             </div>
                         </x-signals.form-section>
 
-                        <x-signals.form-section title="Identification">
-                            <div class="space-y-3">
-                                <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                                    <flux:input wire:model="assetNumber" label="Asset Number / Barcode" />
-                                    <flux:input wire:model="serialNumber" label="Serial Number" />
-                                </div>
+                        {{-- Single / Bulk switcher (serialised create only) --}}
+                        @if($isSerialisedStock && ! $isEditing)
+                            <div class="flex flex-wrap items-center gap-1">
+                                <button type="button" wire:click="setEntryMode('single')"
+                                        class="s-chip {{ $entryMode === 'single' ? 'on' : '' }}">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                    Single
+                                </button>
+                                <button type="button" wire:click="setEntryMode('bulk')"
+                                        class="s-chip {{ $entryMode === 'bulk' ? 'on' : '' }}">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                                    Bulk
+                                </button>
                             </div>
-                        </x-signals.form-section>
+                        @endif
+
+                        @if($isSerialisedStock && $entryMode === 'bulk' && ! $isEditing)
+                            <x-signals.form-section title="Serialised Items">
+                                <div class="space-y-3"
+                                    x-data
+                                    x-on:bulk-row-added.window="$nextTick(() => { const inputs = $root.querySelectorAll('[data-bulk-asset]'); inputs[inputs.length - 1]?.focus(); })"
+                                >
+                                    @php($bulkGridCols = count($bulkRows) > 1 ? 'grid-cols-[1fr_1fr_2rem]' : 'grid-cols-2')
+                                    <div class="grid {{ $bulkGridCols }} gap-4 text-sm font-medium text-[var(--text-primary)] max-sm:hidden">
+                                        <span>Asset Number / Barcode</span>
+                                        <span>Serial Number</span>
+                                        @if(count($bulkRows) > 1)<span></span>@endif
+                                    </div>
+
+                                    @foreach($bulkRows as $i => $row)
+                                        <div wire:key="bulk-row-{{ $i }}" class="grid {{ $bulkGridCols }} items-center gap-4 max-sm:grid-cols-1">
+                                            {{-- Asset Number --}}
+                                            <flux:input
+                                                wire:model.live.debounce.400ms="bulkRows.{{ $i }}.asset_number"
+                                                data-bulk-asset
+                                                x-on:keydown.enter.prevent="$wire.addBulkRow()"
+                                                aria-label="Asset Number / Barcode"
+                                            >
+                                                @if($row['asset_status'] === 'valid')
+                                                    <x-slot name="iconTrailing">
+                                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                    </x-slot>
+                                                @elseif($row['asset_status'] === 'duplicate')
+                                                    <x-slot name="iconTrailing">
+                                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                    </x-slot>
+                                                @endif
+                                            </flux:input>
+
+                                            {{-- Serial Number --}}
+                                            <flux:input
+                                                wire:model.live.debounce.400ms="bulkRows.{{ $i }}.serial_number"
+                                                x-on:keydown.enter.prevent="$wire.addBulkRow()"
+                                                aria-label="Serial Number"
+                                            >
+                                                @if($row['serial_status'] === 'valid')
+                                                    <x-slot name="iconTrailing">
+                                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                    </x-slot>
+                                                @elseif($row['serial_status'] === 'duplicate')
+                                                    <x-slot name="iconTrailing">
+                                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                    </x-slot>
+                                                @endif
+                                            </flux:input>
+
+                                            {{-- Remove --}}
+                                            @if(count($bulkRows) > 1)
+                                                <div class="flex justify-center">
+                                                    <button type="button" wire:click="removeBulkRow({{ $i }})"
+                                                            class="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--s-subtle)] hover:text-[var(--red)]">
+                                                        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                    </button>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+
+                                    <div class="flex items-center gap-3 pt-1">
+                                        <button type="button" wire:click="addBulkRow" class="s-btn s-btn-sm">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
+                                            Add row
+                                        </button>
+                                        <span class="text-xs text-[var(--text-muted)]">Press Enter to add a row</span>
+                                    </div>
+
+                                    @error('bulkRows')
+                                        <p class="text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </x-signals.form-section>
+                        @else
+                            <x-signals.form-section title="Identification">
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+                                        <flux:input wire:model="assetNumber" label="Asset Number / Barcode" />
+                                        <flux:input wire:model="serialNumber" label="Serial Number" />
+                                    </div>
+                                </div>
+                            </x-signals.form-section>
+                        @endif
 
                         <div class="flex items-center gap-4 pt-2">
-                            <flux:button variant="primary" type="submit" :disabled="! $hasStores">{{ $isEditing ? 'Save Changes' : 'Create Stock Level' }}</flux:button>
+                            @if($isSerialisedStock && $entryMode === 'bulk' && ! $isEditing)
+                                @php($completeRows = $this->completeRowCount())
+                                <flux:button variant="primary" type="submit" :disabled="! $this->bulkCanSubmit() || ! $hasStores">
+                                    {{ $completeRows > 0 ? 'Create ' . $completeRows . ' Stock ' . \Illuminate\Support\Str::plural('Level', $completeRows) : 'Create Stock Levels' }}
+                                </flux:button>
+                            @else
+                                <flux:button variant="primary" type="submit" :disabled="! $hasStores">{{ $isEditing ? 'Save Changes' : 'Create Stock Level' }}</flux:button>
+                            @endif
                             <flux:button
                                 variant="ghost"
                                 :href="$isEditing
@@ -315,6 +668,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                     {{-- RIGHT COLUMN --}}
                     <div class="space-y-6" style="position: sticky; top: 24px;">
+                        @unless($isSerialisedStock && $entryMode === 'bulk' && ! $isEditing)
                         <x-signals.form-section title="Stock">
                             <div class="space-y-3">
                                 @if($isSerialisedStock)
@@ -327,6 +681,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 @endif
                             </div>
                         </x-signals.form-section>
+                        @endunless
                     </div>
                 </div>
             </form>

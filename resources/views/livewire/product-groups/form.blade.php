@@ -17,6 +17,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public ?int $groupId = null;
     public string $name = '';
     public string $description = '';
+    public ?int $parentId = null;
 
     #[Validate('nullable|image|max:2048|mimes:jpeg,jpg,png,webp,gif')]
     public mixed $photo = null;
@@ -27,6 +28,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->groupId = $productGroup->id;
             $this->name = $productGroup->name;
             $this->description = $productGroup->description ?? '';
+            $this->parentId = $productGroup->parent_id;
         }
     }
 
@@ -43,6 +45,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 UpdateProductGroupData::from([
                     'name' => $this->name,
                     'description' => $this->description ?: null,
+                    'parent_id' => $this->parentId,
                 ])
             );
         } else {
@@ -50,6 +53,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 CreateProductGroupData::from([
                     'name' => $this->name,
                     'description' => $this->description ?: null,
+                    'parent_id' => $this->parentId,
                 ])
             );
 
@@ -84,6 +88,10 @@ new #[Layout('components.layouts.app')] class extends Component {
         return [
             'isEditing' => $this->groupId !== null,
             'group' => $this->groupId ? ProductGroup::find($this->groupId) : null,
+            'parentOptions' => ProductGroup::query()
+                ->when($this->groupId, fn ($q) => $q->where('id', '!=', $this->groupId))
+                ->orderBy('name')
+                ->get(['id', 'name']),
         ];
     }
 }; ?>
@@ -141,6 +149,12 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <div class="space-y-3">
                         <flux:input wire:model="name" label="Name" required />
                         <flux:textarea wire:model="description" label="Description" rows="3" />
+                        <flux:select wire:model="parentId" label="Parent Group">
+                            <option value="">None</option>
+                            @foreach($parentOptions as $opt)
+                                <option value="{{ $opt->id }}">{{ $opt->name }}</option>
+                            @endforeach
+                        </flux:select>
                     </div>
                 </x-signals.form-section>
 

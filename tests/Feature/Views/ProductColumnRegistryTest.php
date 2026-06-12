@@ -26,7 +26,7 @@ describe('ProductColumnRegistry', function () {
         $registry = new ProductColumnRegistry;
         $defaults = $registry->defaultColumns();
 
-        expect($defaults)->toContain('name', 'product_type', 'product_group', 'sku', 'is_active', 'created_at');
+        expect($defaults)->toContain('name', 'product_type', 'product_group_id', 'sku', 'is_active', 'created_at');
     });
 
     it('returns default columns as subset of all columns', function () {

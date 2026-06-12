@@ -4,6 +4,7 @@ namespace App\Actions\Products;
 
 use App\Data\Products\CreateStockLevelData;
 use App\Data\Products\StockLevelData;
+use App\Enums\StockCategory;
 use App\Enums\StockMethod;
 use App\Enums\TransactionType;
 use App\Events\AuditableEvent;
@@ -36,7 +37,15 @@ class CreateStockLevel
 
         app(CustomFieldValidator::class)->validate('StockLevel', $data->custom_fields, enforceRequired: true);
 
-        return DB::transaction(function () use ($data): StockLevelData {
+        // The stock category is a function of the parent product's stock method:
+        // serialised products track serialised stock, everything else is bulk.
+        // Deriving it here keeps the discriminator correct for every caller
+        // (web form, bulk serialised entry, API, product creation).
+        $stockCategory = $product && $product->stock_method === StockMethod::Serialised
+            ? StockCategory::SerialisedStock->value
+            : StockCategory::BulkStock->value;
+
+        return DB::transaction(function () use ($data, $stockCategory): StockLevelData {
             $stockLevel = StockLevel::create([
                 'product_id' => $data->product_id,
                 'store_id' => $data->store_id,
@@ -47,7 +56,7 @@ class CreateStockLevel
                 'barcode' => $data->barcode,
                 'location' => $data->location,
                 'stock_type' => $data->stock_type,
-                'stock_category' => $data->stock_category,
+                'stock_category' => $stockCategory,
                 'quantity_held' => $data->quantity_held,
                 'quantity_allocated' => $data->quantity_allocated,
                 'quantity_unavailable' => $data->quantity_unavailable,

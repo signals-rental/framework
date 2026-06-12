@@ -18,18 +18,29 @@ class UpdateProductGroup
      * Field update convention (Spatie Data Optional behaviour):
      *   - Absent key / `null` in DTO → field is not updated (retains current value)
      *   - Empty string `""` → field is cleared (set to null in database)
+     *
+     * `parent_id` is an explicit exception: it uses Spatie `Optional`, so an
+     * absent value is omitted from `toArray()` (left untouched), while an
+     * explicit `null` is preserved and clears the existing parent.
      */
     public function __invoke(ProductGroup $group, UpdateProductGroupData $data): ProductGroupData
     {
         Gate::authorize('products.edit');
 
         return DB::transaction(function () use ($group, $data): ProductGroupData {
-            $group->update(
-                collect($data->toArray())
-                    ->reject(fn ($value) => $value === null)
-                    ->map(fn ($value) => $value === '' ? null : $value)
-                    ->all()
-            );
+            $attributes = $data->toArray();
+            $parentIdProvided = array_key_exists('parent_id', $attributes);
+
+            $updates = collect($attributes)
+                ->reject(fn ($value) => $value === null)
+                ->map(fn ($value) => $value === '' ? null : $value)
+                ->all();
+
+            if ($parentIdProvided) {
+                $updates['parent_id'] = $attributes['parent_id'];
+            }
+
+            $group->update($updates);
 
             $group->refresh();
 

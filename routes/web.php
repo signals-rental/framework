@@ -71,7 +71,6 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('members/{member}/relationships/create', 'members.relationship-form')->name('members.relationships.create');
     Volt::route('members/{member}/quotes', 'members.quotes')->name('members.quotes');
     Volt::route('members/{member}/opportunities', 'members.opportunities')->name('members.opportunities');
-    Volt::route('members/{member}/movements', 'members.movements')->name('members.movements');
     Volt::route('members/{member}/invoices', 'members.invoices')->name('members.invoices');
     Volt::route('members/{member}/information', 'members.information')->name('members.information');
     Volt::route('members/{member}/member-contacts', 'members.member-contacts')->name('members.contacts');

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ProductGroup;
 use App\Views\Column;
 use App\Views\ProductGroupColumnRegistry;
 
@@ -13,7 +14,7 @@ describe('ProductGroupColumnRegistry', function () {
     it('returns ProductGroup model class', function () {
         $registry = new ProductGroupColumnRegistry;
 
-        expect($registry->modelClass())->toBe(\App\Models\ProductGroup::class);
+        expect($registry->modelClass())->toBe(ProductGroup::class);
     });
 
     it('returns all product group columns', function () {
@@ -31,7 +32,13 @@ describe('ProductGroupColumnRegistry', function () {
         $registry = new ProductGroupColumnRegistry;
         $defaults = $registry->defaultColumns();
 
-        expect($defaults)->toContain('name', 'description', 'products_count', 'created_at');
+        expect($defaults)->toContain('name', 'description', 'parent_id', 'products_count', 'created_at');
+    });
+
+    it('includes the parent column in default columns', function () {
+        $registry = new ProductGroupColumnRegistry;
+
+        expect($registry->defaultColumns())->toContain('parent_id');
     });
 
     it('returns default columns as subset of all columns', function () {

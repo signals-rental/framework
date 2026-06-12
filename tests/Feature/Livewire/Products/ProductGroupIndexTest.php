@@ -78,6 +78,23 @@ it('renders the group icon thumbnail inline in the name column when an icon is s
         ->assertSeeHtml('object-cover');
 });
 
+it('renders the parent group name in the parent column for a child group', function () {
+    $parent = ProductGroup::factory()->create(['name' => 'Lighting']);
+    ProductGroup::factory()->create(['name' => 'Moving Heads', 'parent_id' => $parent->id]);
+
+    Volt::test('product-groups.index')
+        ->assertSee('Lighting')
+        ->assertSee('Moving Heads');
+});
+
+it('renders an em-dash in the parent column for a top-level group', function () {
+    ProductGroup::factory()->create(['name' => 'Top Level']);
+
+    Volt::test('product-groups.index')
+        ->assertSeeHtml('text-[var(--text-muted)]')
+        ->assertSee('—');
+});
+
 it('shows empty state when no product groups exist', function () {
     Volt::test('product-groups.index')
         ->assertSee('No product groups found.');

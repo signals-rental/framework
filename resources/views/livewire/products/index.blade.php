@@ -157,7 +157,7 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
             <button wire:click="setTypeFilter('')"
                     class="s-chip {{ $typeFilter === '' ? 'on' : '' }}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                All <span style="opacity: 0.6;">{{ $totalCount }}</span>
+                All <span class="s-chip-count">{{ $totalCount }}</span>
             </button>
             @foreach($productTypes as $type)
                 <button wire:click="setTypeFilter('{{ $type->value }}')"
@@ -169,7 +169,7 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
                     @elseif($type === \App\Enums\ProductType::Service)
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                     @endif
-                    {{ $type->label() }} <span style="opacity: 0.6;">{{ $typeCounts[$type->value] ?? 0 }}</span>
+                    {{ $type->label() }} <span class="s-chip-count">{{ $typeCounts[$type->value] ?? 0 }}</span>
                 </button>
             @endforeach
         </div>

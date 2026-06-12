@@ -18,10 +18,13 @@ new #[Layout('components.layouts.app')] #[Title('Product Groups')] class extends
      */
     public function with(): array
     {
+        $parentOptions = ProductGroup::query()->orderBy('name')->pluck('name', 'id')->all();
+
         return [
             'columns' => [
                 ['key' => 'name', 'label' => 'Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.product-groups.partials.column-name'],
                 ['key' => 'description', 'label' => 'Description'],
+                ['key' => 'parent_id', 'label' => 'Parent Group', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => $parentOptions, 'view' => 'livewire.product-groups.partials.column-parent'],
                 ['key' => 'products_count', 'label' => 'Products', 'sortable' => true, 'view' => 'livewire.product-groups.partials.column-products-count'],
                 ['key' => 'created_at', 'label' => 'Created', 'sortable' => true],
                 ['key' => 'actions', 'type' => 'actions'],
@@ -42,6 +45,7 @@ new #[Layout('components.layouts.app')] #[Title('Product Groups')] class extends
             :columns="$columns"
             :model="\App\Models\ProductGroup::class"
             :searchable="['name']"
+            :with="['parent']"
             :with-counts="['products']"
             :refresh-events="['group-deleted']"
             default-sort="name"

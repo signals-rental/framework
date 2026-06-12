@@ -2,6 +2,7 @@
 
 use App\Actions\Products\DeleteStockLevel;
 use App\Events\AuditableEvent;
+use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -18,7 +19,9 @@ beforeEach(function () {
 it('deletes a stock level', function () {
     Event::fake([AuditableEvent::class]);
 
-    $stockLevel = StockLevel::factory()->create();
+    // Use a serialised product so the "bulk products keep at least one stock level"
+    // guard doesn't block deleting this single stock level.
+    $stockLevel = StockLevel::factory()->for(Product::factory()->serialised())->create();
     $id = $stockLevel->id;
 
     (new DeleteStockLevel)($stockLevel);

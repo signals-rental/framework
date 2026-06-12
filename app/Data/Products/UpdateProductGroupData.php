@@ -3,13 +3,14 @@
 namespace App\Data\Products;
 
 use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Optional;
 
 class UpdateProductGroupData extends Data
 {
     public function __construct(
         public ?string $name = null,
         public ?string $description = null,
-        public ?int $parent_id = null,
+        public int|null|Optional $parent_id = new Optional,
         public ?int $sort_order = null,
     ) {}
 

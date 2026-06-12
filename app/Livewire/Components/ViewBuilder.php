@@ -7,6 +7,8 @@ use App\Actions\Views\UpdateCustomView;
 use App\Data\Views\CreateCustomViewData;
 use App\Data\Views\UpdateCustomViewData;
 use App\Models\CustomView;
+use App\Services\ColumnRegistryResolver;
+use App\Views\Column;
 use App\Views\ColumnRegistry;
 use App\Views\MemberColumnRegistry;
 use Illuminate\Contracts\View\View;
@@ -152,7 +154,7 @@ class ViewBuilder extends Component
     /**
      * Get available columns from the registry (minus already selected).
      *
-     * @return array<string, \App\Views\Column>
+     * @return array<string, Column>
      */
     public function getAvailableColumnsProperty(): array
     {
@@ -218,22 +220,56 @@ class ViewBuilder extends Component
         return $fields;
     }
 
+    /**
+     * Resolve the ColumnRegistry for the current entity type.
+     *
+     * Falls back to the member registry if the entity type has no registered
+     * registry so the builder still renders rather than fataling.
+     */
     private function getRegistry(): ColumnRegistry
     {
-        // For now, only members are supported. This will be extended with a registry lookup.
-        return new MemberColumnRegistry;
+        return app(ColumnRegistryResolver::class)->resolve($this->entityType)
+            ?? new MemberColumnRegistry;
     }
 
     private function resetForm(): void
     {
+        $registry = $this->getRegistry();
+
         $this->name = '';
         $this->visibility = 'personal';
-        $this->selectedColumns = $this->getRegistry()->defaultColumns();
+        $this->selectedColumns = $registry->defaultColumns();
         $this->filters = [];
-        $this->sortColumn = 'name';
+        $this->sortColumn = $this->defaultSortColumn($registry);
         $this->sortDirection = 'asc';
         $this->perPage = 20;
         $this->roleIds = [];
+    }
+
+    /**
+     * Pick a sensible default sort column for the entity: the first default
+     * column that is sortable, falling back to the first sortable column, then
+     * to the first default column. Avoids hard-coding 'name', which does not
+     * exist on every entity (e.g. stock levels).
+     */
+    private function defaultSortColumn(ColumnRegistry $registry): ?string
+    {
+        $defaults = $registry->defaultColumns();
+
+        foreach ($defaults as $key) {
+            $column = $registry->get($key);
+            if ($column !== null && $column->sortable) {
+                return $key;
+            }
+        }
+
+        foreach ($registry->allColumns() as $column) {
+            if ($column->sortable) {
+                return $column->key;
+            }
+        }
+
+        return $defaults[0] ?? null;
     }
 
     public function render(): View

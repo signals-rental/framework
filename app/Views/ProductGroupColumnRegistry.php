@@ -2,6 +2,8 @@
 
 namespace App\Views;
 
+use App\Models\ProductGroup;
+
 class ProductGroupColumnRegistry extends ColumnRegistry
 {
     public function entityType(): string
@@ -11,7 +13,7 @@ class ProductGroupColumnRegistry extends ColumnRegistry
 
     public function modelClass(): string
     {
-        return \App\Models\ProductGroup::class;
+        return ProductGroup::class;
     }
 
     /**
@@ -22,7 +24,7 @@ class ProductGroupColumnRegistry extends ColumnRegistry
         return [
             Column::make('name')->label('Name')->sortable()->filterable(),
             Column::make('description')->label('Description')->filterable(),
-            Column::make('parent')->label('Parent Group')->filterable(),
+            Column::make('parent_id')->label('Parent Group')->sortable()->filterable(),
             Column::make('products_count')->label('Products')->sortable(),
             Column::make('created_at')->label('Created')->sortable()->type('datetime'),
             Column::make('updated_at')->label('Updated')->sortable()->type('datetime'),
@@ -34,6 +36,6 @@ class ProductGroupColumnRegistry extends ColumnRegistry
      */
     public function defaultColumns(): array
     {
-        return ['name', 'description', 'products_count', 'created_at'];
+        return ['name', 'description', 'parent_id', 'products_count', 'created_at'];
     }
 }

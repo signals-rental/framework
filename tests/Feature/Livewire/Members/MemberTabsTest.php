@@ -32,14 +32,6 @@ describe('stub tab pages', function () {
             ->assertSee('Opportunities Coming Soon');
     });
 
-    it('renders the movements tab', function () {
-        $member = Member::factory()->create();
-
-        $this->get("/members/{$member->id}/movements")
-            ->assertOk()
-            ->assertSee('Movements Coming Soon');
-    });
-
     it('renders the invoices tab', function () {
         $member = Member::factory()->create();
 

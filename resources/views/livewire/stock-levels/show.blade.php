@@ -112,7 +112,11 @@ new #[Layout('components.layouts.app')] class extends Component {
         <x-slot:breadcrumbs>
             <a href="{{ route('stock-levels.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Stock Levels</a>
             <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <span>{{ $stockLevel->item_name ?? $stockLevel->product?->name ?? 'Stock Level' }}</span>
+            @if($stockLevel->product)
+                <a href="{{ route('products.show', $stockLevel->product) }}" wire:navigate class="text-[var(--link)] hover:underline">{{ $stockLevel->item_name ?? $stockLevel->product->name }}</a>
+            @else
+                <span>{{ $stockLevel->item_name ?? 'Stock Level' }}</span>
+            @endif
         </x-slot:breadcrumbs>
         <x-slot:meta>
             {{-- Stock tracking: serialised vs bulk (from the product's stock method) --}}

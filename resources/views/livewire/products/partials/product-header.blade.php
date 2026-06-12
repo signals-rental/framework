@@ -82,3 +82,6 @@
         </x-signals.split-button>
     </x-slot:actions>
 </x-signals.page-header>
+
+{{-- Rendered alongside the header so the "Merge with…" action works on every product tab, not just Overview --}}
+<livewire:products.merge-modal />
