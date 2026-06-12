@@ -824,3 +824,201 @@ describe('RMS schema compatibility — member collection', function () {
         expect($response->json('members'))->toHaveCount(10);
     });
 });
+
+describe('POST /api/v1/members/{member}/merge', function () {
+    it('merges a secondary member into the path member', function () {
+        $primary = Member::factory()->organisation()->create(['name' => 'Primary Org']);
+        $secondary = Member::factory()->organisation()->create(['name' => 'Secondary Org']);
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => $secondary->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('member.id', $primary->id)
+            ->assertJsonPath('member.name', 'Primary Org');
+
+        expect(Member::find($secondary->id))->toBeNull();
+        expect(Member::withTrashed()->find($secondary->id))->not->toBeNull();
+    });
+
+    it('requires the members:write ability', function () {
+        $primary = Member::factory()->organisation()->create();
+        $secondary = Member::factory()->organisation()->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => $secondary->id,
+            ])
+            ->assertForbidden();
+    });
+
+    it('denies users without members.delete permission', function () {
+        $viewer = User::factory()->create();
+        $viewer->assignRole('Read Only');
+        $primary = Member::factory()->organisation()->create();
+        $secondary = Member::factory()->organisation()->create();
+        $token = $viewer->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => $secondary->id,
+            ])
+            ->assertForbidden();
+    });
+
+    it('validates that secondary_id is present and exists', function () {
+        $primary = Member::factory()->organisation()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => 999999,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('secondary_id');
+    });
+
+    it('rejects an archived (soft-deleted) secondary with a 422', function () {
+        $primary = Member::factory()->organisation()->create();
+        $secondary = Member::factory()->organisation()->create();
+        $secondary->delete();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => $secondary->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('secondary_id');
+    });
+
+    it('returns the merged member with default includes like show', function () {
+        $saleTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Standard']);
+        $primary = Member::factory()->organisation()->create(['sale_tax_class_id' => $saleTaxClass->id]);
+        $secondary = Member::factory()->organisation()->create();
+
+        $field = CustomField::factory()->create([
+            'name' => 'po_reference',
+            'module_type' => 'Member',
+            'field_type' => CustomFieldType::String,
+        ]);
+        CustomFieldValue::factory()->create([
+            'custom_field_id' => $field->id,
+            'entity_type' => Member::class,
+            'entity_id' => $primary->id,
+            'value_string' => 'PO-555',
+        ]);
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => $secondary->id,
+            ])
+            ->assertOk();
+
+        expect($response->json('member.custom_fields.po_reference'))->toBe('PO-555')
+            ->and($response->json('member.sale_tax_class_name'))->toBe('Standard');
+    });
+
+    it('rejects merging a member into itself', function () {
+        $primary = Member::factory()->organisation()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$primary->id}/merge", [
+                'secondary_id' => $primary->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('secondary_id');
+    });
+
+    it('rejects merging members of different types with a 422', function () {
+        $organisation = Member::factory()->organisation()->create();
+        $contact = Member::factory()->contact()->create();
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$organisation->id}/merge", [
+                'secondary_id' => $contact->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('secondary_id');
+
+        // Neither member should be archived after a failed merge.
+        expect(Member::find($contact->id))->not->toBeNull();
+    });
+});
+
+describe('POST /api/v1/members/{member}/anonymise', function () {
+    it('anonymises the member and clears its PII', function () {
+        $member = Member::factory()->organisation()->create(['name' => 'Sensitive Org', 'description' => 'Private']);
+        $member->emails()->create(['address' => 'pii@example.com', 'is_primary' => true]);
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/anonymise")
+            ->assertOk()
+            ->assertJsonPath('member.id', $member->id)
+            ->assertJsonPath('member.name', 'Anonymised Member');
+
+        expect($member->fresh()->description)->toBeNull();
+        expect($member->emails()->count())->toBe(0);
+    });
+
+    it('returns the anonymised member with default includes like show', function () {
+        $saleTaxClass = OrganisationTaxClass::factory()->create(['name' => 'Standard']);
+        $member = Member::factory()->organisation()->create(['sale_tax_class_id' => $saleTaxClass->id]);
+
+        $field = CustomField::factory()->create([
+            'name' => 'po_reference',
+            'module_type' => 'Member',
+            'field_type' => CustomFieldType::String,
+        ]);
+        CustomFieldValue::factory()->create([
+            'custom_field_id' => $field->id,
+            'entity_type' => Member::class,
+            'entity_id' => $member->id,
+            'value_string' => 'PO-777',
+        ]);
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/anonymise")
+            ->assertOk();
+
+        expect($response->json('member.custom_fields.po_reference'))->toBe('PO-777')
+            ->and($response->json('member.sale_tax_class_name'))->toBe('Standard');
+    });
+
+    it('requires the members:write ability', function () {
+        $member = Member::factory()->organisation()->create();
+        $token = $this->owner->createToken('test', ['members:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/anonymise")
+            ->assertForbidden();
+    });
+
+    it('denies users without members.delete permission', function () {
+        $viewer = User::factory()->create();
+        $viewer->assignRole('Read Only');
+        $member = Member::factory()->organisation()->create();
+        $token = $viewer->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$member->id}/anonymise")
+            ->assertForbidden();
+    });
+
+    it('prevents a user from anonymising their own member record', function () {
+        $token = $this->owner->createToken('test', ['members:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/members/{$this->owner->member_id}/anonymise")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('member');
+    });
+});

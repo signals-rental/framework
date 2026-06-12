@@ -35,6 +35,7 @@
                 </a>
 
                 {{-- CRM mega dropdown --}}
+                @canany(['members.access', 'activities.access'])
                 <div class="nav-dropdown-wrapper">
                     <button class="header-nav-item {{ request()->routeIs('members.*') ? 'active' : '' }}" type="button">
                         CRM
@@ -43,6 +44,7 @@
                     <div class="mega-dropdown">
                         <div class="grid grid-cols-2 gap-x-8 gap-y-5">
                             {{-- Column 1: People & Places --}}
+                            @can('members.access')
                             <div>
                                 <div class="mega-group-label">People &amp; Places</div>
                                 <a href="{{ route('members.index') }}" class="mega-item" wire:navigate>
@@ -74,7 +76,9 @@
                                     </div>
                                 </a>
                             </div>
+                            @endcan
                             {{-- Column 2: Engagement --}}
+                            @can('activities.access')
                             <div>
                                 <div class="mega-group-label">Engagement</div>
                                 <a href="{{ route('activities.index') }}" class="mega-item" wire:navigate>
@@ -92,9 +96,11 @@
                                     </div>
                                 </a>
                             </div>
+                            @endcan
                         </div>
                     </div>
                 </div>
+                @endcanany
 
                 {{-- Resources mega dropdown --}}
                 <div class="nav-dropdown-wrapper">

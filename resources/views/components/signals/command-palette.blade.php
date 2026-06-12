@@ -19,13 +19,17 @@
         debounceTimer: null,
         commands: [
             { group: 'Navigation', label: 'Dashboard', icon: 'home', url: '{{ route('dashboard') }}', keywords: 'home main overview' },
+            @can('members.access')
             { group: 'Navigation', label: 'Members', icon: 'users', url: '{{ route('members.index') }}', keywords: 'contacts organisations venues people' },
+            @endcan
             { group: 'Navigation', label: 'Products', icon: 'cube', url: '{{ route('products.index') }}', keywords: 'catalogue equipment rental sale' },
             { group: 'Navigation', label: 'Stock Levels', icon: 'archive', url: '{{ route('stock-levels.index') }}', keywords: 'inventory stock items assets' },
             { group: 'Navigation', label: 'Product Groups', icon: 'folder', url: '{{ route('product-groups.index') }}', keywords: 'groups categories catalogue organize' },
             { group: 'Navigation', label: 'Activities', icon: 'calendar', url: '{{ route('activities.index') }}', keywords: 'tasks calls meetings emails notes follow-up crm' },
             { group: 'Navigation', label: 'Admin Settings', icon: 'cog', url: '{{ route('admin.settings.company') }}', keywords: 'setup configuration company' },
+            @can('members.create')
             { group: 'Create', label: 'New Member', icon: 'plus', url: '{{ route('members.create') }}', keywords: 'add create organisation contact venue' },
+            @endcan
             { group: 'Create', label: 'New Product', icon: 'plus', url: '{{ route('products.create') }}', keywords: 'add create product equipment' },
             { group: 'Create', label: 'New Product Group', icon: 'plus', url: '{{ route('product-groups.create') }}', keywords: 'add create product group category' },
             { group: 'Create', label: 'New Activity', icon: 'plus', url: '{{ route('activities.create') }}', keywords: 'add create activity task call meeting' },
@@ -59,7 +63,9 @@
         },
         get allResults() {
             const results = [];
+            @can('members.view')
             this.memberResults.forEach(m => results.push({ group: 'Members', label: m.name, hint: m.type, icon: 'users', url: m.url, member: m }));
+            @endcan
             this.productResults.forEach(p => results.push({ group: 'Products', label: p.name, hint: p.type, icon: 'cube', url: p.url }));
             this.stockLevelResults.forEach(s => results.push({ group: 'Stock Levels', label: s.name, hint: s.type, icon: 'archive', url: s.url }));
             this.productGroupResults.forEach(g => results.push({ group: 'Product Groups', label: g.name, hint: g.type, icon: 'folder', url: g.url }));

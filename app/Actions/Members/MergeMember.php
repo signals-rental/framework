@@ -5,6 +5,7 @@ namespace App\Actions\Members;
 use App\Data\Members\MergeMemberData;
 use App\Events\AuditableEvent;
 use App\Models\Member;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -21,7 +22,7 @@ class MergeMember
             throw new \InvalidArgumentException('Cannot merge members of different types.');
         }
 
-        return DB::transaction(function () use ($primary, $secondary): Member {
+        $merged = DB::transaction(function () use ($primary, $secondary): Member {
             // Migrate polymorphic relations from secondary to primary
             $secondary->addresses()->update([
                 'addressable_id' => $primary->id,
@@ -89,5 +90,15 @@ class MergeMember
 
             return $primary->fresh();
         });
+
+        // Dispatch the webhook only after the transaction has committed. All queue
+        // connections use after_commit: false, so dispatching inside the closure
+        // would queue a delivery even if the transaction later rolled back.
+        app(WebhookService::class)->dispatch('member.merged', [
+            'primary_id' => $primary->id,
+            'secondary_id' => $secondary->id,
+        ]);
+
+        return $merged;
     }
 }

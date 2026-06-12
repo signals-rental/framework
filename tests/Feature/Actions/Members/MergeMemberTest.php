@@ -15,6 +15,7 @@ use App\Models\Membership;
 use App\Models\Phone;
 use App\Models\Store;
 use App\Models\User;
+use App\Models\Webhook;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -125,7 +126,7 @@ it('rejects merging members of different types', function () {
     ]);
 
     (new MergeMember)($data);
-})->throws(\InvalidArgumentException::class, 'Cannot merge members of different types.');
+})->throws(InvalidArgumentException::class, 'Cannot merge members of different types.');
 
 it('denies unauthorized users', function () {
     $regularUser = User::factory()->create();
@@ -162,6 +163,31 @@ it('fires AuditableEvent with member.merged action and metadata', function () {
             && $event->metadata['secondary_id'] === $secondary->id
             && $event->metadata['secondary_name'] === 'Secondary';
     });
+});
+
+it('dispatches a member.merged webhook to subscribers', function () {
+    Event::fake([AuditableEvent::class]);
+    Queue::fake([DeliverWebhook::class]);
+
+    Webhook::factory()->create([
+        'events' => ['member.merged'],
+        'is_active' => true,
+    ]);
+
+    $primary = Member::factory()->organisation()->create();
+    $secondary = Member::factory()->organisation()->create();
+
+    (new MergeMember)(MergeMemberData::from([
+        'primary_id' => $primary->id,
+        'secondary_id' => $secondary->id,
+    ]));
+
+    Queue::assertPushed(
+        DeliverWebhook::class,
+        fn (DeliverWebhook $job): bool => $job->event === 'member.merged'
+            && $job->payload['primary_id'] === $primary->id
+            && $job->payload['secondary_id'] === $secondary->id,
+    );
 });
 
 it('skips duplicate member relationships during merge', function () {
