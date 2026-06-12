@@ -2,18 +2,30 @@
 
 namespace App\Services;
 
+use App\Views\ActivityColumnRegistry;
 use App\Views\ColumnRegistry;
 use App\Views\MemberColumnRegistry;
+use App\Views\ProductColumnRegistry;
+use App\Views\ProductGroupColumnRegistry;
+use App\Views\StockLevelColumnRegistry;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Maps entity type strings to their corresponding ColumnRegistry classes.
+ *
+ * This is the single source of truth for the entity-type → registry mapping.
+ * Consumers (e.g. DataTable, custom-view validation) resolve through here so a
+ * new module only needs to register its registry in one place.
  */
 class ColumnRegistryResolver
 {
     /** @var array<string, class-string<ColumnRegistry>> */
     private array $map = [
         'members' => MemberColumnRegistry::class,
+        'products' => ProductColumnRegistry::class,
+        'product_groups' => ProductGroupColumnRegistry::class,
+        'stock_levels' => StockLevelColumnRegistry::class,
+        'activities' => ActivityColumnRegistry::class,
     ];
 
     /** @var array<string, ColumnRegistry> */
@@ -45,6 +57,18 @@ class ColumnRegistryResolver
     public function register(string $entityType, string $registryClass): void
     {
         $this->map[$entityType] = $registryClass;
+
+        unset($this->instances[$entityType]);
+    }
+
+    /**
+     * Get all registered entity types.
+     *
+     * @return list<string>
+     */
+    public function entityTypes(): array
+    {
+        return array_keys($this->map);
     }
 
     /**

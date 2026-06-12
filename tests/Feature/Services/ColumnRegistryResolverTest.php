@@ -4,11 +4,45 @@ use App\Services\ColumnRegistryResolver;
 use App\Views\Column;
 use App\Views\ColumnRegistry;
 use App\Views\MemberColumnRegistry;
+use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->resolver = new ColumnRegistryResolver;
 });
+
+/**
+ * Discover every concrete ColumnRegistry subclass under app/Views, deriving the
+ * class name from its path relative to app/Views so registries in subdirectories
+ * (e.g. app/Views/Foo/BarColumnRegistry.php) are not silently skipped.
+ *
+ * @return list<class-string<ColumnRegistry>>
+ */
+function discoverColumnRegistries(): array
+{
+    $registries = [];
+
+    foreach (File::allFiles(app_path('Views')) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $relative = str_replace('.php', '', $file->getRelativePathname());
+        $class = 'App\\Views\\'.str_replace('/', '\\', $relative);
+
+        if (! class_exists($class) || ! is_subclass_of($class, ColumnRegistry::class)) {
+            continue;
+        }
+
+        if ((new ReflectionClass($class))->isAbstract()) {
+            continue;
+        }
+
+        $registries[] = $class;
+    }
+
+    return $registries;
+}
 
 it('resolves the members column registry', function () {
     $registry = $this->resolver->resolve('members');
@@ -102,4 +136,44 @@ it('validates sort column error message contains the column name', function () {
     }
 
     $this->fail('Expected ValidationException was not thrown.');
+});
+
+/**
+ * Guards against the class of defect where a module ships a ColumnRegistry but
+ * forgets to register it in ColumnRegistryResolver::$map — which silently makes
+ * custom-view column validation skip for that entity (invalid column keys could
+ * be saved). This is exactly how the Phase-2 product/activity/stock/group
+ * registries existed yet were missing from the resolver map.
+ *
+ * Resolving each registry's own entityType() back through the resolver also
+ * catches typo-key drift: it verifies the MAP KEY equals the registry's
+ * entityType(), not mere presence of some key.
+ */
+it('maps every concrete ColumnRegistry subclass under its own entityType key', function () {
+    $resolver = app(ColumnRegistryResolver::class);
+
+    $missing = [];
+
+    foreach (discoverColumnRegistries() as $class) {
+        /** @var ColumnRegistry $instance */
+        $instance = app($class);
+        $resolved = $resolver->resolve($instance->entityType());
+
+        if (! $resolved instanceof $class) {
+            $missing[] = "{$class} ({$instance->entityType()})";
+        }
+    }
+
+    expect($missing)->toBe([]);
+});
+
+it('resolves a registry whose entityType matches the registered key', function (string $entityType) {
+    $registry = app(ColumnRegistryResolver::class)->resolve($entityType);
+
+    expect($registry)->not->toBeNull()
+        ->and($registry->entityType())->toBe($entityType);
+})->with(app(ColumnRegistryResolver::class)->entityTypes());
+
+it('returns null for an unregistered entity type', function () {
+    expect(app(ColumnRegistryResolver::class)->resolve('nonexistent_entities'))->toBeNull();
 });

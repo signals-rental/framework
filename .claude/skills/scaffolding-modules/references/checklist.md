@@ -29,8 +29,11 @@ Tick every box or record an explicit, user-approved skip. Silence is not a decis
 - [ ] One invocable action per operation that takes place — every mutation goes through an action, no inline writes in Livewire/controllers
 - [ ] `Gate::authorize` inside every action (not controllers)
 - [ ] EVERY mutation fires `AuditableEvent` AND dispatches its webhook event (`{entity}.created/updated/archived/restored/deleted/merged/...`)
+- [ ] Webhook `dispatch()` called AFTER `DB::transaction` commits, never inside it (queues are `after_commit: false`; in-transaction dispatch delivers webhooks for rolled-back ops). Payloads: lifecycle events send `['id' => ...]`; create/update send full DTO under the entity key; merge sends `['primary_id', 'secondary_id']`
+- [ ] Business-rule failures throw `ValidationException::withMessages([...])` (auto-422 + clean Livewire handling), not `\InvalidArgumentException`
 - [ ] Each `AuditableEvent` produces an `action_logs` row surfaced in `/admin/settings/action-log` — asserted in action tests (`ActionLog` row with correct `auditable_type`/`action`)
 - [ ] DTOs: `Create{Entity}Data` (validation attributes), `Update{Entity}Data` (PATCH semantics), `{Entity}Data` response with `fromModel()` + `Lazy` relations + flat `custom_fields`
+- [ ] `exists:` rules pointing at a soft-deletable table use `Rule::exists(...)->withoutTrashed()` (plain `exists:` accepts archived rows that then 404)
 - [ ] No Form Requests, no API Resources, no `DB::` facade
 
 ## 3. API
@@ -44,17 +47,22 @@ Tick every box or record an explicit, user-approved skip. Silence is not a decis
 
 ## 4. List-sync registrations
 
-- [ ] `SchemaController::MODEL_MAP` entry (field discovery)
-- [ ] `WebhookService::EVENTS` — every dispatched event registered (UAT D5 class of bug)
-- [ ] Custom-field module list (definition resolver + admin dropdown)
-- [ ] `PermissionSeeder` chain + `RoleSeeder` grants for ALL seeded roles
-- [ ] `ViewSeeder`: 3–5 system views, one default
-- [ ] `ListOfValuesSeeder` for LOV types
-- [ ] `DatabaseSeeder` + `DemoDataSeeder` registrations (see Phase 1)
+Enforcement column: **[test]** = a meta-test fails if you forget it; **[grep]** = manual only, run the command to verify.
+
+- [ ] `SchemaController::MODEL_MAP` entry (field discovery) — **[grep]** `grep -n "MODEL_MAP" app/Http/Controllers/Api/V1/SchemaController.php`
+- [ ] `WebhookService::EVENTS` — every dispatched event registered (UAT D5 class of bug) — **[test]** `tests/Feature/Webhooks/WebhookEventRegistrationTest.php` auto-scans `app/Actions/` for `->dispatch('event')` calls and fails if any is absent from `EVENTS`. (Caveat: it only catches events that ARE dispatched — an action that *should* dispatch but doesn't is invisible to it; verify each mutation actually calls `dispatch()`.)
+- [ ] `ColumnRegistryResolver::$map` entry (`'{plural}' => {Entity}ColumnRegistry::class`) — feeds both custom-view validation and the shared `DataTable` — **[test]** `tests/Feature/Services/ColumnRegistryResolverTest.php` filesystem-scans `app/Views/` for concrete `ColumnRegistry` subclasses and fails if one isn't mapped under its own `entityType()` key; no per-module assertion to add.
+- [ ] Custom-field module list (definition resolver + admin dropdown) — **[grep]** `grep -n "moduleTypes" resources/views/livewire/admin/settings/custom-field-form.blade.php`
+- [ ] `PermissionSeeder` chain + `RoleSeeder` grants for ALL seeded roles — **[grep]** `grep -n "{resource}\." database/seeders/PermissionSeeder.php database/seeders/RoleSeeder.php` (permission-count meta-tests, if present, also guard this — update them)
+- [ ] `ViewSeeder`: 3–5 system views, one default — **[grep]** `grep -n "{plural}" database/seeders/ViewSeeder.php`
+- [ ] `ListOfValuesSeeder` for LOV types — **[grep]** `grep -n "{type label}" database/seeders/ListOfValuesSeeder.php`
+- [ ] `DatabaseSeeder` + `DemoDataSeeder` registrations (see Phase 1) — **[grep]** `grep -n "Seeder::class" database/seeders/DatabaseSeeder.php`
+- [ ] Token-ability list — **[grep]** `grep -n "'members:read'" resources/views/livewire/admin/settings/api.blade.php` (add `{resource}:read`/`{resource}:write`)
+- [ ] `$moduleDefinitions` + `FeatureProfile::modules()` (if user-toggleable) — **[grep]** `grep -n "{key}" resources/views/livewire/admin/settings/modules.blade.php app/Enums/FeatureProfile.php`
 
 ## 5. List page
 
-- [ ] Volt index page + `{Entity}ColumnRegistry` (sortable/filterable column metadata, `defaultColumns()`)
+- [ ] Volt index page + `{Entity}ColumnRegistry` (sortable/filterable column metadata, `defaultColumns()`), registered in `ColumnRegistryResolver::$map` (Phase 4)
 - [ ] Shared `<livewire:components.data-table>` — never a bespoke table
 - [ ] Toolbar: type-filter chips with counts, Active/Archived/All filter (`#[Url]`), model search, `<x-signals.column-toggle />`, `<x-signals.export-button />`
 - [ ] Multiselect + `<x-signals.bulk-bar>` bulk actions (archive; merge when exactly 2 selected, if merge applies)
@@ -97,7 +105,7 @@ Tick every box or record an explicit, user-approved skip. Silence is not a decis
 
 - [ ] `SearchController` Gate-gated block returning `{id, name, type, isActive, initials/icon, url}`
 - [ ] Command palette: Navigation entry + Create entry + live search results
-- [ ] Header mega-menu + sidebar entry gated on `{resource}.access` with `routeIs()` active state — placed per the Phase 0 nav answer
+- [ ] Header mega-menu + sidebar entry gated on `{resource}.access` with `routeIs()` active state — placed per the Phase 0 nav answer. A shared section dropdown holding multiple modules' links is wrapped in `@canany([...all contained permissions])`, with `@can` per link/column — never one module's `@can` on a wrapper that holds others' links
 - [ ] Web routes placed per the Phase 0 URL answer (root vs section prefix)
 - [ ] `NavigationTest` (or equivalent) updated
 - [ ] Dashboard widget built (`app/Livewire/Dashboard/`) and placed in `resources/views/dashboard.blade.php`, permission-gated — if requested in Phase 0
@@ -113,6 +121,7 @@ Tick every box or record an explicit, user-approved skip. Silence is not a decis
 - [ ] `docs/platform/admin-panel.md` — updated with any admin panel changes/additions
 - [ ] `docs/development/getting-started.md` — updated if developer-facing setup/conventions changed
 - [ ] `docs/changelog/{next-version}.md` — ALL finished changes recorded (mandatory, not just releases)
+- [ ] `tests/Feature/Docs/DocsServiceTest.php` expectations updated when adding any docs page or changelog file (it hardcodes `getSearchIndex` counts and newest changelog version/date/title — a hidden list-sync registration)
 
 ## 12. Tests & quality gate (90% line coverage target)
 
@@ -120,7 +129,7 @@ Tick every box or record an explicit, user-approved skip. Silence is not a decis
 - [ ] API tests (CRUD, abilities read vs write, validation 422, 401/403, Ransack `_eq`-family on SQLite, includes, custom-field shape, `view_id`)
 - [ ] Policy matrix per role; model tests (casts, scopes, schema contract, factory states)
 - [ ] Livewire page tests (index filters/bulk/archive, form create+edit, show tabs)
-- [ ] Webhook-registration + seeder meta-tests extended
+- [ ] Webhook-registration meta-test (`tests/Feature/Webhooks/WebhookEventRegistrationTest.php` — auto-discovers dispatched events; ensure the module's `WebhookService::EVENTS` entries match what its actions dispatch) + `ColumnRegistryResolver` filesystem-scan meta-test (`tests/Feature/Services/ColumnRegistryResolverTest.php` — auto-discovers every `app/Views/` registry, no per-module edit needed) + seeder meta-tests extended for the new module
 - [ ] Gate, in order: relevant tests → `vendor/bin/pint --dirty --format agent` → `vendor/bin/phpstan analyse` (zero errors) → pr-review agents → fix & repeat. Ask before committing/pushing.
 
 ## Cross-cutting (every layer)

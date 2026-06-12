@@ -396,6 +396,69 @@ describe('POST /api/v1/custom_views/{id}/clone', function () {
     });
 });
 
+describe('column validation for Phase-2 entity types', function () {
+    it('rejects invalid column keys for products on create', function () {
+        $this->postJson('/api/v1/custom_views', [
+            'name' => 'Bad Product View',
+            'entity_type' => 'products',
+            'columns' => ['name', 'sku', 'definitely_not_a_product_column'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['columns']);
+    });
+
+    it('accepts valid column keys for products on create', function () {
+        $this->postJson('/api/v1/custom_views', [
+            'name' => 'Good Product View',
+            'entity_type' => 'products',
+            'columns' => ['name', 'sku', 'product_type', 'is_active'],
+            'sort_column' => 'name',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('custom_view.entity_type', 'products')
+            ->assertJsonPath('custom_view.columns', ['name', 'sku', 'product_type', 'is_active']);
+    });
+
+    it('rejects an invalid sort_column for products on create', function () {
+        $this->postJson('/api/v1/custom_views', [
+            'name' => 'Bad Sort Product View',
+            'entity_type' => 'products',
+            'columns' => ['name', 'sku'],
+            'sort_column' => 'not_a_column',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['sort_column']);
+    });
+
+    it('rejects invalid column keys for products on update', function () {
+        $view = CustomView::factory()->create([
+            'user_id' => $this->user->id,
+            'entity_type' => 'products',
+            'columns' => ['name', 'sku'],
+        ]);
+
+        $this->putJson("/api/v1/custom_views/{$view->id}", [
+            'columns' => ['name', 'bogus_product_column'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['columns']);
+    });
+
+    it('accepts valid column keys for products on update', function () {
+        $view = CustomView::factory()->create([
+            'user_id' => $this->user->id,
+            'entity_type' => 'products',
+            'columns' => ['name', 'sku'],
+        ]);
+
+        $this->putJson("/api/v1/custom_views/{$view->id}", [
+            'columns' => ['name', 'sku', 'barcode'],
+        ])
+            ->assertOk()
+            ->assertJsonPath('custom_view.columns', ['name', 'sku', 'barcode']);
+    });
+});
+
 describe('authentication and authorization', function () {
     it('requires authentication for all endpoints', function () {
         // Reset to unauthenticated state
