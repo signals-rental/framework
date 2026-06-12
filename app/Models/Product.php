@@ -251,6 +251,17 @@ class Product extends Model implements HasSchema
     }
 
     /**
+     * Scope to products belonging to the given product group.
+     *
+     * @param  Builder<Product>  $query
+     * @return Builder<Product>
+     */
+    public function scopeInGroup(Builder $query, int $groupId): Builder
+    {
+        return $query->where('product_group_id', $groupId);
+    }
+
+    /**
      * Scope to rental products.
      *
      * @param  Builder<Product>  $query

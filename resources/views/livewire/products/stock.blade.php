@@ -25,7 +25,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return [
             'columns' => [
-                ['key' => 'item_name', 'label' => 'Item Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text'],
+                ['key' => 'item_name', 'label' => 'Item Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.products.partials.stock-item-name'],
                 ['key' => 'asset_number', 'label' => 'Asset / Barcode', 'sortable' => true, 'view' => 'livewire.stock-levels.partials.column-asset-number'],
                 ['key' => 'serial_number', 'label' => 'Serial #', 'sortable' => true, 'view' => 'livewire.stock-levels.partials.column-serial-number'],
                 ['key' => 'location', 'label' => 'Location', 'sortable' => true],

@@ -10,8 +10,6 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.app')] class extends Component {
     public Product $product;
 
-    public bool $showAddForm = false;
-
     public string $accessorySearch = '';
 
     public ?int $selectedAccessoryId = null;
@@ -58,10 +56,19 @@ new #[Layout('components.layouts.app')] class extends Component {
             'quantity' => $this->accessoryQuantity,
         ]);
 
-        $this->reset(['showAddForm', 'accessorySearch', 'selectedAccessoryId', 'accessoryQuantity']);
-        $this->accessoryQuantity = 1;
+        $this->resetForm();
         $this->product->load(['accessories.accessoryProduct']);
         $this->product->loadCount('accessories');
+        $this->dispatch('close-modal', 'add-accessory');
+    }
+
+    /**
+     * Reset the add-accessory form fields to their defaults.
+     */
+    public function resetForm(): void
+    {
+        $this->reset(['accessorySearch', 'selectedAccessoryId', 'accessoryQuantity']);
+        $this->accessoryQuantity = 1;
     }
 
     public function removeAccessory(int $accessoryId): void
@@ -77,7 +84,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function with(): array
     {
         $searchResults = [];
-        if ($this->showAddForm && strlen($this->accessorySearch) >= 2) {
+        if (strlen($this->accessorySearch) >= 2) {
             $searchResults = Product::query()
                 ->where('id', '!=', $this->product->id)
                 ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->accessorySearch) . '%')
@@ -103,7 +110,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 Accessories ({{ $product->accessories_count ?? 0 }})
             </h3>
             <button
-                wire:click="$toggle('showAddForm')"
+                x-on:click="$dispatch('open-modal', 'add-accessory')"
                 class="s-btn s-btn-sm s-btn-accent"
             >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
@@ -111,65 +118,66 @@ new #[Layout('components.layouts.app')] class extends Component {
             </button>
         </div>
 
-        {{-- Add Accessory Form --}}
-        @if($showAddForm)
-            <div class="mb-4 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-4">
-                <div class="flex items-end gap-3">
-                    <div class="flex-1">
-                        <label class="s-field-label mb-1 block" for="accessory-search">Search Product</label>
-                        <input
-                            type="text"
-                            id="accessory-search"
-                            wire:model.live.debounce.300ms="accessorySearch"
-                            placeholder="Type to search products..."
-                            class="s-input w-full"
-                        />
-                        @error('selectedAccessoryId') <div class="s-field-error mt-1">{{ $message }}</div> @enderror
+        {{-- Add Accessory Modal --}}
+        <x-signals.modal name="add-accessory" title="Add Accessory" size="md">
+            <div class="space-y-3">
+                <div>
+                    <label class="s-field-label mb-1 block" for="accessory-search">Search Product</label>
+                    <input
+                        type="text"
+                        id="accessory-search"
+                        wire:model.live.debounce.300ms="accessorySearch"
+                        placeholder="Type to search products..."
+                        class="s-input w-full"
+                    />
+                    @error('selectedAccessoryId') <div class="s-field-error mt-1">{{ $message }}</div> @enderror
 
-                        @if(is_countable($searchResults) && count($searchResults) > 0)
-                            <div class="mt-1 rounded border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
-                                @foreach($searchResults as $result)
-                                    <button
-                                        wire:key="search-{{ $result->id }}"
-                                        wire:click="$set('selectedAccessoryId', {{ $result->id }}); $set('accessorySearch', '{{ addslashes($result->name) }}')"
-                                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--s-subtle)] {{ $selectedAccessoryId === $result->id ? 'bg-[var(--s-subtle)] font-medium' : '' }}"
-                                        type="button"
-                                    >
-                                        <span>{{ $result->name }}</span>
-                                        @php
-                                            $searchBadge = match($result->product_type) {
-                                                \App\Enums\ProductType::Rental => 's-badge-blue',
-                                                \App\Enums\ProductType::Sale => 's-badge-green',
-                                                \App\Enums\ProductType::Service => 's-badge-amber',
-                                                \App\Enums\ProductType::LossAndDamage => 's-badge-red',
-                                                default => 's-badge-zinc',
-                                            };
-                                        @endphp
-                                        <span class="s-badge {{ $searchBadge }}" style="font-size: 10px;">{{ $result->product_type->label() }}</span>
-                                    </button>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-                    <div style="width: 100px;">
-                        <label class="s-field-label mb-1 block" for="accessory-qty">Quantity</label>
-                        <input
-                            type="number"
-                            id="accessory-qty"
-                            wire:model="accessoryQuantity"
-                            min="1"
-                            class="s-input w-full text-right"
-                        />
-                    </div>
-                    <button wire:click="addAccessory" class="s-btn s-btn-sm s-btn-primary" {{ $selectedAccessoryId ? '' : 'disabled' }}>
-                        Add
-                    </button>
-                    <button wire:click="$set('showAddForm', false)" class="s-btn s-btn-sm">
-                        Cancel
-                    </button>
+                    @if(is_countable($searchResults) && count($searchResults) > 0)
+                        <div class="mt-1 rounded border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
+                            @foreach($searchResults as $result)
+                                <button
+                                    wire:key="search-{{ $result->id }}"
+                                    wire:click="$set('selectedAccessoryId', {{ $result->id }}); $set('accessorySearch', '{{ addslashes($result->name) }}')"
+                                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--s-subtle)] {{ $selectedAccessoryId === $result->id ? 'bg-[var(--s-subtle)] font-medium' : '' }}"
+                                    type="button"
+                                >
+                                    <span>{{ $result->name }}</span>
+                                    @php
+                                        $searchBadge = match($result->product_type) {
+                                            \App\Enums\ProductType::Rental => 's-badge-blue',
+                                            \App\Enums\ProductType::Sale => 's-badge-green',
+                                            \App\Enums\ProductType::Service => 's-badge-amber',
+                                            \App\Enums\ProductType::LossAndDamage => 's-badge-red',
+                                            default => 's-badge-zinc',
+                                        };
+                                    @endphp
+                                    <span class="s-badge {{ $searchBadge }}" style="font-size: 10px;">{{ $result->product_type->label() }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+                <div style="width: 100px;">
+                    <label class="s-field-label mb-1 block" for="accessory-qty">Quantity</label>
+                    <input
+                        type="number"
+                        id="accessory-qty"
+                        wire:model="accessoryQuantity"
+                        min="1"
+                        class="s-input w-full text-right"
+                    />
                 </div>
             </div>
-        @endif
+
+            <x-slot:footer>
+                <button wire:click="resetForm" x-on:click="$dispatch('close-modal', 'add-accessory')" class="s-btn s-btn-sm" type="button">
+                    Cancel
+                </button>
+                <button wire:click="addAccessory" class="s-btn s-btn-sm s-btn-primary" type="button" {{ $selectedAccessoryId ? '' : 'disabled' }}>
+                    Add
+                </button>
+            </x-slot:footer>
+        </x-signals.modal>
 
         @if($product->accessories->isNotEmpty())
             <div class="s-table-wrap">

@@ -10,7 +10,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function mount(Member $member): void
     {
-        $this->member = $member->loadCount(['addresses', 'emails', 'phones', 'links']);
+        $this->member = $member->loadCount(['addresses', 'emails', 'phones', 'links', 'organisations', 'contacts']);
     }
 
     public function with(): array
@@ -37,19 +37,10 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    <x-signals.page-header :title="$member->name">
-        <x-slot:breadcrumbs>
-            <a href="{{ route('members.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Members</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <a href="{{ route('members.show', $member) }}" wire:navigate class="text-[var(--link)] hover:underline">{{ $member->name }}</a>
-            <span class="mx-1 text-[var(--text-muted)]">/</span>
-            <span>Custom Fields</span>
-        </x-slot:breadcrumbs>
-    </x-signals.page-header>
-
+    @include('livewire.members.partials.member-header', ['member' => $member, 'subpage' => 'Custom Fields'])
     @include('livewire.members.partials.member-tabs', ['member' => $member, 'activeTab' => 'custom-fields'])
 
-    <div class="flex-1 p-8 max-md:p-5 max-sm:p-3">
+    <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
         <div class="max-w-2xl space-y-8">
             <x-signals.custom-fields-display :grouped="$grouped" :values="$values" emptyMessage="No custom fields have been configured for members." />
         </div>

@@ -112,6 +112,40 @@ it('allows same name when editing the same product', function () {
         ->assertRedirect();
 });
 
+it('saves tags from the tag-input array on create', function () {
+    Volt::test('products.form')
+        ->set('name', 'Tagged Product')
+        ->set('tags', ['Lighting', 'Sound'])
+        ->call('save')
+        ->assertRedirect();
+
+    $product = Product::where('name', 'Tagged Product')->firstOrFail();
+
+    expect($product->tag_list)->toBe(['Lighting', 'Sound']);
+});
+
+it('hydrates existing tags into the tags property on mount', function () {
+    $product = Product::factory()->create([
+        'name' => 'Existing Tags Product',
+        'tag_list' => ['Rigging', 'Cables'],
+    ]);
+
+    Volt::test('products.form', ['product' => $product])
+        ->assertSet('tags', ['Rigging', 'Cables']);
+});
+
+it('exposes distinct existing tags as suggestions', function () {
+    Product::factory()->create(['tag_list' => ['Sound', 'Lighting']]);
+    Product::factory()->create(['tag_list' => ['Lighting', 'Rigging']]);
+
+    Volt::test('products.form')
+        ->assertSet('tags', [])
+        ->tap(function ($component) {
+            $suggestions = $component->instance()->tagSuggestions();
+            expect($suggestions)->toBe(['Lighting', 'Rigging', 'Sound']);
+        });
+});
+
 it('requires authentication', function () {
     auth()->logout();
     $this->get(route('products.create'))

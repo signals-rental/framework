@@ -1,11 +1,26 @@
-<div class="flex items-center gap-1">
-    <a href="{{ route('product-groups.show', $item->id) }}" wire:navigate class="s-btn s-btn-xs s-btn-ghost" title="View">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-    </a>
-    <a href="{{ route('product-groups.edit', $item->id) }}" wire:navigate class="s-btn s-btn-xs s-btn-ghost" title="Edit">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-    </a>
-    <button wire:click="$parent.deleteGroup({{ $item->id }})" wire:confirm="Delete this product group?" class="s-btn s-btn-xs s-btn-ghost s-btn-danger" title="Delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-    </button>
-</div>
+<a href="{{ route('products.index', ['filters' => ['product_group_id' => $item->id]]) }}" wire:navigate class="s-dropdown-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+    View products
+</a>
+<a href="{{ route('product-groups.edit', $item->id) }}" wire:navigate class="s-dropdown-item" style="text-decoration: none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+    Edit
+</a>
+<div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
+<button
+    x-on:click="open = false; $dispatch('open-modal', 'delete-group-{{ $item->id }}')"
+    class="s-dropdown-item"
+    style="color: var(--red); width: 100%;"
+>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="m21 8-2 13H5L3 8"/><path d="M7 8V6a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"/><path d="M1 8h22"/><path d="M10 12v6"/><path d="M14 12v6"/></svg>
+    Delete
+</button>
+
+<x-signals.modal name="delete-group-{{ $item->id }}" title="Delete Product Group" size="sm">
+    <p>Are you sure you want to delete <strong>{{ $item->name }}</strong>? This action cannot be undone.</p>
+
+    <x-slot:footer>
+        <button class="s-btn s-btn-sm" type="button" x-on:click="$dispatch('close-modal', 'delete-group-{{ $item->id }}')">Cancel</button>
+        <button class="s-btn s-btn-sm s-btn-danger" type="button" wire:click="$parent.deleteGroup({{ $item->id }})" x-on:click="$dispatch('close-modal', 'delete-group-{{ $item->id }}')">Delete</button>
+    </x-slot:footer>
+</x-signals.modal>

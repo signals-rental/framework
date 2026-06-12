@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use Illuminate\Http\Request;
-use Illuminate\Routing\Exceptions\UrlGenerationException;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -36,7 +35,7 @@ class ActiveRoute
 
         try {
             $route = Route::getRoutes()->match(Request::create($url));
-        } catch (HttpException|UrlGenerationException) {
+        } catch (HttpException) {
             return null;
         }
 

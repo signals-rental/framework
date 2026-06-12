@@ -64,8 +64,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->ownedBy = $activity->owned_by;
             $this->regardingType = Activity::shortRegardingType($activity->regarding_type);
             $this->regardingId = $activity->regarding_id;
-            $this->startsAt = $activity->starts_at?->format('Y-m-d\TH:i');
-            $this->endsAt = $activity->ends_at?->format('Y-m-d\TH:i');
+            $this->startsAt = $activity->starts_at?->format('Y-m-d H:i');
+            $this->endsAt = $activity->ends_at?->format('Y-m-d H:i');
         }
 
         // Resolve selected names for autocomplete display
@@ -276,6 +276,27 @@ new #[Layout('components.layouts.app')] class extends Component {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start;">
                 {{-- LEFT COLUMN --}}
                 <div class="space-y-6">
+                    <x-signals.form-section title="Schedule">
+                        <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+                            <div>
+                                <label class="s-field-label mb-1 block">Starts At</label>
+                                <x-signals.datetime-input
+                                    :value="$startsAt"
+                                    placeholder="Select date & time"
+                                    x-on:input="if (typeof $event.detail === 'string' || $event.detail === null) $wire.set('startsAt', $event.detail)"
+                                />
+                            </div>
+                            <div>
+                                <label class="s-field-label mb-1 block">Ends At</label>
+                                <x-signals.datetime-input
+                                    :value="$endsAt"
+                                    placeholder="Select date & time"
+                                    x-on:input="if (typeof $event.detail === 'string' || $event.detail === null) $wire.set('endsAt', $event.detail)"
+                                />
+                            </div>
+                        </div>
+                    </x-signals.form-section>
+
                     <x-signals.form-section title="Basic Info">
                         <div class="space-y-3">
                             <flux:input wire:model="subject" label="Subject" required />
@@ -313,13 +334,6 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     @endforeach
                                 </flux:select>
                             </div>
-                        </div>
-                    </x-signals.form-section>
-
-                    <x-signals.form-section title="Schedule">
-                        <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                            <flux:input wire:model="startsAt" label="Starts At" type="datetime-local" />
-                            <flux:input wire:model="endsAt" label="Ends At" type="datetime-local" />
                         </div>
                     </x-signals.form-section>
 

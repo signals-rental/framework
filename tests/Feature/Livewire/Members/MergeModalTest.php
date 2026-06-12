@@ -163,9 +163,11 @@ it('opens in select-secondary mode when memberB is zero', function () {
         ->assertSet('primaryId', $primary->id);
 
     // Eligible secondaries exclude the primary and offer the same-type member.
-    $eligible = collect($component->viewData('eligibleSecondaries'));
-    expect($eligible->pluck('value'))->toContain($other->id)
-        ->not->toContain($primary->id);
+    /** @var list<array{value: int, label: string}> $secondaries */
+    $secondaries = $component->viewData('eligibleSecondaries');
+    $values = collect($secondaries)->pluck('value');
+    expect($values)->toContain($other->id);
+    expect($values)->not->toContain($primary->id);
 });
 
 it('only offers same-type non-user members as secondaries', function () {
@@ -177,11 +179,13 @@ it('only offers same-type non-user members as secondaries', function () {
     $component = Livewire::test(MergeModal::class)
         ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0);
 
-    $values = collect($component->viewData('eligibleSecondaries'))->pluck('value');
+    /** @var list<array{value: int, label: string}> $secondaries */
+    $secondaries = $component->viewData('eligibleSecondaries');
+    $values = collect($secondaries)->pluck('value');
 
-    expect($values)->toContain($sameType->id)
-        ->not->toContain($differentType->id)
-        ->not->toContain($userMember->id);
+    expect($values)->toContain($sameType->id);
+    expect($values)->not->toContain($differentType->id);
+    expect($values)->not->toContain($userMember->id);
 });
 
 it('completes a merge after the secondary is selected in select-secondary mode', function () {

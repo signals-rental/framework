@@ -20,9 +20,9 @@ new #[Layout('components.layouts.app')] #[Title('Product Groups')] class extends
     {
         return [
             'columns' => [
-                ['key' => 'name', 'label' => 'Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text'],
+                ['key' => 'name', 'label' => 'Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.product-groups.partials.column-name'],
                 ['key' => 'description', 'label' => 'Description'],
-                ['key' => 'products_count', 'label' => 'Products', 'sortable' => true],
+                ['key' => 'products_count', 'label' => 'Products', 'sortable' => true, 'view' => 'livewire.product-groups.partials.column-products-count'],
                 ['key' => 'created_at', 'label' => 'Created', 'sortable' => true],
                 ['key' => 'actions', 'type' => 'actions'],
             ],

@@ -110,7 +110,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                         {{ $rate->transaction_type->label() }}
                                     </span>
                                 </td>
-                                <td class="s-cell-amount">{{ $rate->formatMoneyCost('price') }} {{ $rate->currency }}</td>
+                                <td class="text-left"><span class="s-badge s-badge-outline">{{ $rate->formatMoneyCost('price') }} {{ $rate->currency }}</span></td>
                                 <td>{{ $rate->store?->name ?? 'All stores' }}</td>
                                 <td class="text-sm text-[var(--text-secondary)]">
                                     {{ $rate->valid_from?->toDateString() ?? '—' }} → {{ $rate->valid_to?->toDateString() ?? '—' }}

@@ -147,6 +147,19 @@ it('belongs to a country of origin', function () {
         ->and($product->countryOfOrigin->id)->toBe($country->id);
 });
 
+it('scopes products to the given group via the inGroup scope', function () {
+    $group = ProductGroup::factory()->create();
+    $otherGroup = ProductGroup::factory()->create();
+
+    $inGroup = Product::factory()->create(['product_group_id' => $group->id]);
+    Product::factory()->create(['product_group_id' => $otherGroup->id]);
+
+    $results = Product::query()->inGroup($group->id)->get();
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->id)->toBe($inGroup->id);
+});
+
 it('scopes to active products', function () {
     Product::factory()->create();
     Product::factory()->inactive()->create();

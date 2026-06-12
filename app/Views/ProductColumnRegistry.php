@@ -2,6 +2,8 @@
 
 namespace App\Views;
 
+use App\Models\Product;
+
 class ProductColumnRegistry extends ColumnRegistry
 {
     public function entityType(): string
@@ -11,7 +13,7 @@ class ProductColumnRegistry extends ColumnRegistry
 
     public function modelClass(): string
     {
-        return \App\Models\Product::class;
+        return Product::class;
     }
 
     /**
@@ -22,7 +24,7 @@ class ProductColumnRegistry extends ColumnRegistry
         return [
             Column::make('name')->label('Name')->sortable()->filterable(),
             Column::make('product_type')->label('Type')->sortable()->filterable()->type('enum'),
-            Column::make('product_group')->label('Group')->filterable(),
+            Column::make('product_group_id')->label('Group')->sortable()->filterable(),
             Column::make('sku')->label('SKU')->sortable()->filterable(),
             Column::make('barcode')->label('Barcode')->filterable(),
             Column::make('is_active')->label('Active')->sortable()->filterable()->type('boolean'),
@@ -39,6 +41,6 @@ class ProductColumnRegistry extends ColumnRegistry
      */
     public function defaultColumns(): array
     {
-        return ['name', 'product_type', 'product_group', 'sku', 'is_active', 'created_at'];
+        return ['name', 'product_type', 'product_group_id', 'sku', 'is_active', 'created_at', 'updated_at'];
     }
 }

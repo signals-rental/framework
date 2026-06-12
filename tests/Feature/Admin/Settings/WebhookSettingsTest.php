@@ -222,46 +222,52 @@ it('assigns webhook to current user on creation', function () {
 });
 
 it('groups available events by resource prefix', function () {
-    $component = Volt::test('admin.settings.webhooks');
+    Volt::test('admin.settings.webhooks')->tap(function ($component) {
+        /** @var array<string, array{label: string, events: list<string>}> $groups */
+        $groups = $component->instance()->eventGroups();
 
-    $groups = $component->instance()->eventGroups();
-
-    expect($groups)->toHaveKey('member');
-    expect($groups['member']['label'])->toBe('Member');
-    expect($groups['member']['events'])->toContain('member.created', 'member.updated', 'member.archived');
-    expect($groups['member']['events'])->not->toContain('user.created');
+        expect($groups)->toHaveKey('member');
+        expect($groups['member']['label'])->toBe('Member');
+        expect($groups['member']['events'])->toContain('member.created', 'member.updated', 'member.archived');
+        expect($groups['member']['events'])->not->toContain('user.created');
+    });
 });
 
 it('headline-cases multi-word event group labels', function () {
-    $component = Volt::test('admin.settings.webhooks');
+    Volt::test('admin.settings.webhooks')->tap(function ($component) {
+        /** @var array<string, array{label: string, events: list<string>}> $groups */
+        $groups = $component->instance()->eventGroups();
 
-    $groups = $component->instance()->eventGroups();
-
-    expect($groups)->toHaveKey('stock_level');
-    expect($groups['stock_level']['label'])->toBe('Stock Level');
-    expect($groups)->toHaveKey('rate_definition');
-    expect($groups['rate_definition']['label'])->toBe('Rate Definition');
+        expect($groups)->toHaveKey('stock_level');
+        expect($groups['stock_level']['label'])->toBe('Stock Level');
+        expect($groups)->toHaveKey('rate_definition');
+        expect($groups['rate_definition']['label'])->toBe('Rate Definition');
+    });
 });
 
 it('groups a webhook\'s subscribed events for display', function () {
-    $component = Volt::test('admin.settings.webhooks');
+    Volt::test('admin.settings.webhooks')->tap(function ($component) {
+        /** @var array<string, list<string>> $grouped */
+        $grouped = $component->instance()->groupedEvents([
+            'member.created',
+            'member.updated',
+            'user.deleted',
+        ]);
 
-    $grouped = $component->instance()->groupedEvents([
-        'member.created',
-        'member.updated',
-        'user.deleted',
-    ]);
-
-    expect($grouped)->toBe([
-        'Member' => ['created', 'updated'],
-        'User' => ['deleted'],
-    ]);
+        expect($grouped)->toBe([
+            'Member' => ['created', 'updated'],
+            'User' => ['deleted'],
+        ]);
+    });
 });
 
 it('groups the wildcard event under All', function () {
-    $component = Volt::test('admin.settings.webhooks');
+    Volt::test('admin.settings.webhooks')->tap(function ($component) {
+        /** @var array<string, list<string>> $grouped */
+        $grouped = $component->instance()->groupedEvents(['*']);
 
-    expect($component->instance()->groupedEvents(['*']))->toBe(['All' => ['all']]);
+        expect($grouped)->toBe(['All' => ['all']]);
+    });
 });
 
 it('renders the grouped event count in the table', function () {

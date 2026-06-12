@@ -2,6 +2,7 @@
 
 use App\Livewire\Components\IconUpload;
 use App\Models\Member;
+use App\Models\ProductGroup;
 use App\Models\User;
 use App\Services\FileService;
 use Database\Seeders\PermissionSeeder;
@@ -208,6 +209,20 @@ it('aborts when the model class is not allowlisted', function () {
         ->set('modelClass', User::class)
         ->call('removeIcon')
         ->assertForbidden();
+});
+
+it('accepts a product group model and uploads an icon', function () {
+    $group = ProductGroup::factory()->create();
+
+    $photo = UploadedFile::fake()->image('group.jpg', 300, 300);
+
+    Livewire::test(IconUpload::class, ['model' => $group])
+        ->set('photo', $photo)
+        ->assertDispatched('icon-updated');
+
+    $group->refresh();
+    expect($group->icon_url)->not->toBeNull()
+        ->and($group->icon_thumb_url)->not->toBeNull();
 });
 
 it('mounts with existing icon paths from model', function () {

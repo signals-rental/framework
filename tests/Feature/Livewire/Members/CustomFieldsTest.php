@@ -19,6 +19,12 @@ it('renders the custom fields page', function () {
         ->assertSee('Custom Fields');
 });
 
+it('renders the shared member header with the member name and Custom Fields subpage', function () {
+    Volt::test('members.custom-fields', ['member' => $this->member])
+        ->assertSee('Test Member')
+        ->assertSee('Custom Fields');
+});
+
 it('shows message when no custom fields are configured', function () {
     Volt::test('members.custom-fields', ['member' => $this->member])
         ->assertSee('No custom fields have been configured for members.');

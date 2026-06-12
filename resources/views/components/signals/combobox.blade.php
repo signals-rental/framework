@@ -15,6 +15,15 @@
         value: @js($value),
         options: @js($options),
         activeIndex: -1,
+        positionDropdown() {
+            const rect = this.$refs.input.getBoundingClientRect();
+            [this.$refs.dropdown, this.$refs.empty].forEach(el => {
+                if (!el) return;
+                el.style.top = (rect.bottom + 4) + 'px';
+                el.style.left = rect.left + 'px';
+                el.style.width = rect.width + 'px';
+            });
+        },
         get filtered() {
             if (!this.search) return this.options;
             const q = this.search.toLowerCase();
@@ -50,7 +59,10 @@
             else if (e.key === 'Enter' && this.activeIndex >= 0 && items[this.activeIndex]) { e.preventDefault(); this.select(items[this.activeIndex]); }
             else if (e.key === 'Escape') { this.open = false; this.search = this.displayText; }
         },
-        init() { this.search = this.displayText; }
+        init() {
+            this.search = this.displayText;
+            this.$watch('open', value => { if (value) { this.$nextTick(() => this.positionDropdown()); } });
+        }
     }"
     x-on:click.outside="open = false; search = displayText"
 >
@@ -58,10 +70,13 @@
     <input
         type="text"
         class="s-combobox-input"
+        x-ref="input"
         x-model="search"
         x-on:focus="onFocus()"
-        x-on:input="open = true; activeIndex = -1"
+        x-on:input="open = true; activeIndex = -1; positionDropdown()"
         x-on:keydown="onKeydown($event)"
+        x-on:resize.window="if (open) positionDropdown()"
+        x-on:scroll.window="if (open) positionDropdown()"
         placeholder="{{ $placeholder }}"
         @if(!$searchable) readonly @endif
     >
@@ -70,7 +85,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
     @endif
-    <div class="s-combobox-dropdown" x-show="open && filtered.length > 0" x-cloak>
+    <div class="s-combobox-dropdown s-combobox-dropdown-floating" x-ref="dropdown" x-show="open && filtered.length > 0" x-cloak>
         <template x-if="hasGroups">
             <template x-for="(group, label) in grouped" :key="label">
                 <div class="s-combobox-group">
@@ -82,7 +97,7 @@
                             class="s-combobox-option"
                             type="button"
                             x-text="opt.label"
-                            x-on:click="select(opt)"
+                            x-on:mousedown.prevent="select(opt)"
                             x-bind:class="{ 'selected': opt.value == value }"
                         ></button>
                     </template>
@@ -95,11 +110,11 @@
                     class="s-combobox-option"
                     type="button"
                     x-text="opt.label"
-                    x-on:click="select(opt)"
+                    x-on:mousedown.prevent="select(opt)"
                     x-bind:class="{ 'selected': opt.value == value, 'active': i === activeIndex }"
                 ></button>
             </template>
         </template>
     </div>
-    <div class="s-combobox-empty" x-show="open && filtered.length === 0 && search" x-cloak>No results found</div>
+    <div class="s-combobox-empty s-combobox-empty-floating" x-ref="empty" x-show="open && filtered.length === 0 && search" x-cloak>No results found</div>
 </div>

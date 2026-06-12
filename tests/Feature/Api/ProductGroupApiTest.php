@@ -80,6 +80,46 @@ describe('GET /api/v1/product_groups/{id}', function () {
             ->assertJsonPath('product_group.name', 'Lighting');
     });
 
+    it('includes the icon urls when an icon is set', function () {
+        $group = ProductGroup::factory()->create([
+            'name' => 'Lighting',
+            'icon_url' => 'icons/productgroups/1/icon.jpg',
+            'icon_thumb_url' => 'icons/productgroups/1/thumbs/icon.jpg',
+        ]);
+        $token = $this->owner->createToken('test', ['products:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/product_groups/{$group->id}")
+            ->assertOk()
+            ->assertJsonPath('product_group.icon.url', 'icons/productgroups/1/icon.jpg')
+            ->assertJsonPath('product_group.icon.thumb_url', 'icons/productgroups/1/thumbs/icon.jpg');
+    });
+
+    it('returns a null icon when no icon is set', function () {
+        $group = ProductGroup::factory()->create(['name' => 'Lighting']);
+        $token = $this->owner->createToken('test', ['products:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/product_groups/{$group->id}")
+            ->assertOk()
+            ->assertJsonPath('product_group.icon', null);
+    });
+
+    it('includes the icon in list responses', function () {
+        ProductGroup::factory()->create([
+            'name' => 'Lighting',
+            'icon_url' => 'icons/productgroups/1/icon.jpg',
+            'icon_thumb_url' => 'icons/productgroups/1/thumbs/icon.jpg',
+        ]);
+        $token = $this->owner->createToken('test', ['products:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/product_groups')
+            ->assertOk()
+            ->assertJsonPath('product_groups.0.icon.url', 'icons/productgroups/1/icon.jpg')
+            ->assertJsonPath('product_groups.0.icon.thumb_url', 'icons/productgroups/1/thumbs/icon.jpg');
+    });
+
     it('includes parent when requested', function () {
         $parent = ProductGroup::factory()->create(['name' => 'Audio']);
         $child = ProductGroup::factory()->create(['name' => 'Speakers', 'parent_id' => $parent->id]);

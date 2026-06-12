@@ -23,6 +23,11 @@ it('renders the branded template with a signed invitation url', function () {
     $mail = $notification->toMail($user);
 
     expect($mail)->toBeInstanceOf(TemplatedEmail::class);
+
+    if (! $mail instanceof TemplatedEmail) {
+        $this->fail('Expected a TemplatedEmail mailable.');
+    }
+
     expect($mail->bodyHtml)->toContain('Jane Smith');
     expect($mail->bodyHtml)->toContain('sig-btn');
     expect($mail->bodyHtml)->toContain('signature=');
@@ -36,6 +41,12 @@ it('includes the company name in the subject', function () {
     $notification = new UserInvitedNotification;
 
     $mail = $notification->toMail($user);
+
+    expect($mail)->toBeInstanceOf(TemplatedEmail::class);
+
+    if (! $mail instanceof TemplatedEmail) {
+        $this->fail('Expected a TemplatedEmail mailable.');
+    }
 
     expect($mail->subjectLine)->toContain(settings('company.name', config('app.name')));
 });

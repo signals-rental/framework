@@ -37,6 +37,11 @@ it('shows empty state when no stock levels exist', function () {
         ->assertSee('No stock levels found.');
 });
 
+it('does not show a New Stock Level button', function () {
+    Volt::test('stock-levels.index')
+        ->assertDontSee('New Stock Level');
+});
+
 it('renders the product image in the product column when the product has one', function () {
     Storage::fake('public');
 
@@ -63,7 +68,8 @@ it('renders item name and codes as links, codes monospaced, and store as a badge
     ]);
 
     Volt::test('stock-levels.index')
-        ->assertSee('LED Panel #001')
+        // the item-name column now shows the related product's name
+        ->assertSee('LED Panel')
         ->assertSee('AST-12345')
         ->assertSee('SN-99887')
         // item name + asset/serial numbers all link to the stock-level entry
@@ -73,6 +79,18 @@ it('renders item name and codes as links, codes monospaced, and store as a badge
         // store renders as a badge
         ->assertSee('s-badge', false)
         ->assertSee('Main Warehouse');
+});
+
+it('shows the related product name in the item-name column when item_name is null', function () {
+    $product = Product::factory()->create(['name' => 'Fresnel 2K']);
+    $stockLevel = StockLevel::factory()->create([
+        'product_id' => $product->id,
+        'item_name' => null,
+    ]);
+
+    Volt::test('stock-levels.index')
+        ->assertSee('Fresnel 2K')
+        ->assertSee(route('stock-levels.show', $stockLevel), false);
 });
 
 it('ignores invalid status filter', function () {

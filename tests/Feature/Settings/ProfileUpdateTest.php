@@ -32,8 +32,10 @@ class ProfileUpdateTest extends TestCase
 
         $this->actingAs($user);
 
+        // Asserts the nested Livewire component is rendered: matches the escaped
+        // component-name marker that assertSeeLivewire() looks for in the snapshot.
         Volt::test('settings.profile')
-            ->assertSeeLivewire('components.icon-upload')
+            ->assertSeeHtml('&quot;name&quot;:&quot;components.icon-upload&quot;')
             ->assertSet('member.id', $user->member_id);
     }
 

@@ -2,6 +2,7 @@
 
 use App\Enums\ProductType;
 use App\Models\Product;
+use App\Models\ProductGroup;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -109,6 +110,8 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
             ->mapWithKeys(fn (ProductType $t): array => [$t->value => $t->label()])
             ->all();
 
+        $groupOptions = ProductGroup::query()->orderBy('name')->pluck('name', 'id')->all();
+
         return [
             'productTypes' => [
                 ProductType::Rental,
@@ -121,11 +124,12 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
                 ['key' => 'checkbox', 'type' => 'checkbox'],
                 ['key' => 'name', 'label' => 'Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.products.partials.column-name'],
                 ['key' => 'product_type', 'label' => 'Type', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => $typeOptions, 'view' => 'livewire.products.partials.column-type'],
-                ['key' => 'product_group', 'label' => 'Group', 'view' => 'livewire.products.partials.column-group'],
+                ['key' => 'product_group_id', 'label' => 'Group', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => $groupOptions, 'view' => 'livewire.products.partials.column-group'],
                 ['key' => 'sku', 'label' => 'SKU', 'sortable' => true, 'view' => 'livewire.products.partials.column-sku'],
                 ['key' => 'stock_levels_count', 'label' => 'Stock', 'sortable' => true],
                 ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.partials.column-active-status'],
                 ['key' => 'created_at', 'label' => 'Created', 'sortable' => true],
+                ['key' => 'updated_at', 'label' => 'Updated', 'sortable' => true],
                 ['key' => 'actions', 'type' => 'actions'],
             ],
             'scopes' => [
@@ -186,7 +190,7 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
             :with-counts="['stockLevels', 'accessories', 'attachments']"
             :scopes="$scopes"
             :refresh-events="['product-archived', 'product-restored']"
-            default-sort="name"
+            default-sort="product_group_id"
             empty-message="No products found."
             actions-view="livewire.products.partials.row-actions"
             bulk-actions-view="livewire.products.partials.bulk-actions"

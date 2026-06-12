@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
+use Intervention\Image\Colors\Rgb\Channels\Alpha;
 use Intervention\Image\Laravel\Facades\Image;
 use Throwable;
 
@@ -48,7 +49,7 @@ final class LogoTransparency
 
             for ($x = 0; $x < $width; $x++) {
                 for ($y = 0; $y < $height; $y++) {
-                    if ($image->pickColor($x, $y)->alpha()->value() < 255) {
+                    if ($image->pickColor($x, $y)->channel(Alpha::class)->value() < 255) {
                         return true;
                     }
                 }

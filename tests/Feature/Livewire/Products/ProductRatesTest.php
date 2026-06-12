@@ -35,6 +35,17 @@ it('lists the rates assigned to the product', function () {
         ->assertSee('Daily Rate');
 });
 
+it('renders the unit price as a left-aligned outline badge', function () {
+    ProductRate::factory()->create([
+        'product_id' => $this->product->id,
+        'rate_definition_id' => $this->definition->id,
+        'price' => 5000,
+    ]);
+
+    Volt::test('products.rates', ['product' => $this->product])
+        ->assertSeeHtml('s-badge s-badge-outline');
+});
+
 it('deletes a rate assignment', function () {
     $rate = ProductRate::factory()->create([
         'product_id' => $this->product->id,

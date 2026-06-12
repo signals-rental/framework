@@ -15,6 +15,7 @@ function uploadedFromImage(ImageInterface $image, string $format, string $name):
         'png' => $image->toPng(),
         'jpg' => $image->toJpeg(),
         'webp' => $image->toWebp(),
+        default => throw new InvalidArgumentException("Unsupported format: {$format}"),
     };
 
     $path = tempnam(sys_get_temp_dir(), 'logo_').'.'.$format;

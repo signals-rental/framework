@@ -5,13 +5,21 @@ use App\Actions\Products\UpdateProductGroup;
 use App\Data\Products\CreateProductGroupData;
 use App\Data\Products\UpdateProductGroupData;
 use App\Models\ProductGroup;
+use App\Services\FileService;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use WithFileUploads;
+
     public ?int $groupId = null;
     public string $name = '';
     public string $description = '';
+
+    #[Validate('nullable|image|max:2048|mimes:jpeg,jpg,png,webp,gif')]
+    public mixed $photo = null;
 
     public function mount(?ProductGroup $productGroup = null): void
     {
@@ -44,9 +52,28 @@ new #[Layout('components.layouts.app')] class extends Component {
                     'description' => $this->description ?: null,
                 ])
             );
+
+            if ($this->photo) {
+                $group = ProductGroup::findOrFail($result->id);
+
+                try {
+                    $upload = app(FileService::class)->uploadIcon($this->photo, $group);
+                    $group->update([
+                        'icon_url' => $upload['icon_url'],
+                        'icon_thumb_url' => $upload['icon_thumb_url'],
+                    ]);
+                } catch (\Throwable $e) {
+                    report($e);
+                    $this->addError('photo', 'Failed to upload image. You can add one from the edit screen.');
+
+                    $this->redirect(route('product-groups.index'), navigate: true);
+
+                    return;
+                }
+            }
         }
 
-        $this->redirect(route('product-groups.show', $result->id), navigate: true);
+        $this->redirect(route('product-groups.index'), navigate: true);
     }
 
     /**
@@ -56,6 +83,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return [
             'isEditing' => $this->groupId !== null,
+            'group' => $this->groupId ? ProductGroup::find($this->groupId) : null,
         ];
     }
 }; ?>
@@ -66,7 +94,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             <x-slot:breadcrumbs>
                 <a href="{{ route('product-groups.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Product Groups</a>
                 <span class="mx-1 text-[var(--text-muted)]">/</span>
-                <a href="{{ route('product-groups.show', $groupId) }}" wire:navigate class="text-[var(--link)] hover:underline">{{ $name }}</a>
+                <a href="{{ route('products.index', ['filters' => ['product_group_id' => $groupId]]) }}" wire:navigate class="text-[var(--link)] hover:underline">{{ $name }}</a>
                 <span class="mx-1 text-[var(--text-muted)]">/</span>
                 <span>Edit</span>
             </x-slot:breadcrumbs>
@@ -84,6 +112,31 @@ new #[Layout('components.layouts.app')] class extends Component {
     <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
         <form wire:submit="save" style="max-width: 480px;">
             <div class="space-y-6">
+                @if($isEditing && $group)
+                    <x-signals.form-section title="Group Image">
+                        <livewire:components.icon-upload :model="$group" :key="'icon-'.$group->id" />
+                    </x-signals.form-section>
+                @else
+                    <x-signals.form-section title="Group Image">
+                        <div class="flex items-center gap-4">
+                            <div class="flex shrink-0 items-center justify-center size-16 overflow-hidden rounded" style="background: var(--s-subtle);">
+                                @if($photo)
+                                    <img src="{{ $photo->temporaryUrl() }}" alt="" class="size-full object-cover" />
+                                @else
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" class="size-7"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                @endif
+                            </div>
+                            <div class="space-y-1">
+                                <input type="file" wire:model="photo" accept="image/*" class="s-input text-sm" />
+                                <p class="text-xs" style="color: var(--text-muted);">PNG, JPG, WEBP or GIF. Max 2MB.</p>
+                                @error('photo')
+                                    <p class="text-xs" style="color: var(--red);">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+                    </x-signals.form-section>
+                @endif
+
                 <x-signals.form-section title="Group Details">
                     <div class="space-y-3">
                         <flux:input wire:model="name" label="Name" required />
@@ -93,7 +146,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                 <div class="flex items-center gap-4">
                     <flux:button variant="primary" type="submit">{{ $isEditing ? 'Save Changes' : 'Create Group' }}</flux:button>
-                    <flux:button variant="ghost" href="{{ $isEditing ? route('product-groups.show', $groupId) : route('product-groups.index') }}" wire:navigate>Cancel</flux:button>
+                    <flux:button variant="ghost" href="{{ route('product-groups.index') }}" wire:navigate>Cancel</flux:button>
                 </div>
             </div>
         </form>

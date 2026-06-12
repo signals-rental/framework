@@ -238,9 +238,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                             <div class="flex flex-1 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-2 text-sm">
                                                 <span>{{ $selectedProductName }}</span>
                                                 @if($stockMethodLabel)
-                                                    <span class="s-badge {{ $isSerialisedStock ? 's-badge-violet' : 's-badge-blue' }}">
-                                                        {{ $stockMethodLabel }} Stock
-                                                    </span>
+                                                    <x-signals.stock-method-badge :serialised="$isSerialisedStock" :label="$stockMethodLabel . ' Stock'" />
                                                 @endif
                                             </div>
                                             @unless($isEditing)
@@ -267,9 +265,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                                                         >
                                                             <span>{{ $result['name'] }}</span>
                                                             @if($result['stock_method'] !== null)
-                                                                <span class="text-xs text-[var(--text-muted)]">
-                                                                    {{ $result['stock_method'] === 2 ? 'Serialised' : 'Bulk' }}
-                                                                </span>
+                                                                <x-signals.stock-method-badge :serialised="$result['stock_method'] === 2" />
                                                             @endif
                                                         </button>
                                                     @endforeach

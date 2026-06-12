@@ -128,8 +128,10 @@ it('displays the related contact profile image when it has one', function () {
 it('mounts the merge modal and offers Merge for a non-user member', function () {
     $member = Member::factory()->organisation()->create();
 
+    // Asserts the nested Livewire component is rendered: matches the escaped
+    // component-name marker that assertSeeLivewire() looks for in the snapshot.
     Volt::test('members.show', ['member' => $member])
-        ->assertSeeLivewire('members.merge-modal')
+        ->assertSeeHtml('&quot;name&quot;:&quot;members.merge-modal&quot;')
         ->assertSee('Merge with...');
 });
 

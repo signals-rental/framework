@@ -1920,16 +1920,16 @@
 /*  84. TAG INPUT                                                    */
 /* ================================================================ */
 
-.s-tag-input { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid var(--card-border); background: var(--card-bg); min-height: 36px; cursor: text; transition: border-color 0.15s; }
-.s-tag-input:focus-within { border-color: var(--green); }
+.s-tag-input { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid var(--card-border); background: var(--card-bg); min-height: 40px; cursor: text; transition: border-color 0.15s, box-shadow 0.15s; }
+.s-tag-input:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent); }
 .s-tag-input-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--s-subtle); border: 1px solid var(--s-border-sub); font-family: var(--font-sans); font-size: 12px; color: var(--text-primary); white-space: nowrap; }
 .s-tag-input-tag-remove { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0; transition: color 0.12s; }
 .s-tag-input-tag-remove:hover { color: var(--red); }
 .s-tag-input-tag-remove svg { width: 10px; height: 10px; }
-.s-tag-input-field { border: none; outline: none; background: transparent; font-family: var(--font-sans); font-size: 12px; color: var(--text-primary); flex: 1; min-width: 80px; padding: 2px 0; }
+.s-tag-input-field { border: none; outline: none; background: transparent; font-family: var(--font-sans); font-size: 14px; color: var(--text-primary); flex: 1; min-width: 80px; padding: 3px 0; }
 .s-tag-input-field::placeholder { color: var(--text-muted); }
 .s-tag-input-suggestions { position: absolute; top: 100%; left: 0; right: 0; z-index: 50; background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--s-shadow-lg); max-height: 180px; overflow-y: auto; }
-.s-tag-input-suggestions button { display: block; width: 100%; text-align: left; padding: 6px 12px; border: none; background: none; font-family: var(--font-sans); font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.s-tag-input-suggestions button { display: block; width: 100%; text-align: left; padding: 6px 12px; border: none; background: none; font-family: var(--font-sans); font-size: 13px; color: var(--text-secondary); cursor: pointer; }
 .s-tag-input-suggestions button:hover,
 .s-tag-input-suggestions button.active { background: var(--s-hover); color: var(--text-primary); }
 
@@ -1946,6 +1946,13 @@
 .s-combobox-clear:hover { color: var(--text-primary); }
 .s-combobox-clear svg { width: 12px; height: 12px; }
 .s-combobox-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; box-shadow: var(--s-shadow-lg); max-height: 220px; overflow-y: auto; padding: 4px; }
+/* Floats with JS-computed `position: fixed` coordinates (top/left/width set
+   imperatively on the element's style by positionDropdown()), so it escapes the
+   modal's `overflow: hidden` clipping. Mirrors the data-table actions menu
+   pattern: fixed (not absolute), no teleport. `position`/`z-index` live here so
+   x-show alone controls `display` (no x-bind:style fighting it). */
+.s-combobox-dropdown-floating,
+.s-combobox-empty-floating { position: fixed; z-index: 9999; top: auto; left: auto; right: auto; }
 .s-combobox-option { display: block; width: 100%; text-align: left; padding: 8px 12px; border: none; border-radius: 6px; background: none; font-family: var(--font-sans); font-size: 14px; color: var(--text-secondary); cursor: pointer; transition: background 0.08s; }
 .s-combobox-option:hover,
 .s-combobox-option.active { background: var(--s-hover); color: var(--text-primary); }

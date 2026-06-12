@@ -47,7 +47,10 @@ class ProductGroupData extends Data
             custom_fields: (object) ($group->relationLoaded('customFieldValues') ? $group->custom_fields : []),
             created_at: self::formatTimestamp($createdAt),
             updated_at: self::formatTimestamp($updatedAt),
-            icon: null,
+            icon: $group->icon_url ? [
+                'url' => $group->icon_url,
+                'thumb_url' => $group->icon_thumb_url,
+            ] : null,
             parent: $group->relationLoaded('parent') && $group->parent
                 ? ['id' => $group->parent->id, 'name' => $group->parent->name]
                 : null,

@@ -95,7 +95,6 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     // Product Groups
     Volt::route('product-groups', 'product-groups.index')->name('product-groups.index');
     Volt::route('product-groups/create', 'product-groups.form')->name('product-groups.create');
-    Volt::route('product-groups/{productGroup}', 'product-groups.show')->name('product-groups.show');
     Volt::route('product-groups/{productGroup}/edit', 'product-groups.form')->name('product-groups.edit');
 
     // Stock Levels

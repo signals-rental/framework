@@ -6,6 +6,7 @@ use App\Contracts\HasSchema;
 use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
+use Database\Factories\ProductGroupFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductGroup extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\ProductGroupFactory> */
+    /** @use HasFactory<ProductGroupFactory> */
     use HasAttachments, HasCustomFields, HasFactory;
 
     /** @var list<string> */
@@ -23,6 +24,8 @@ class ProductGroup extends Model implements HasSchema
         'description',
         'parent_id',
         'sort_order',
+        'icon_url',
+        'icon_thumb_url',
     ];
 
     /**
@@ -64,7 +67,7 @@ class ProductGroup extends Model implements HasSchema
     }
 
     /**
-     * @return HasMany<\App\Models\Product, $this>
+     * @return HasMany<Product, $this>
      */
     public function products(): HasMany
     {

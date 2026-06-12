@@ -53,7 +53,8 @@ new #[Layout('components.layouts.app')] class extends Component {
     public int $purchasePrice = 0;
     public ?int $countryOfOriginId = null;
     public string $countrySearch = '';
-    public ?string $tagList = null;
+    /** @var list<string> */
+    public array $tags = [];
     /** @var array<string, mixed> */
     public array $customFieldValues = [];
 
@@ -97,7 +98,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->purchaseCostGroupId = $product->purchase_cost_group_id;
             $this->purchasePrice = $product->purchase_price ?? 0;
             $this->countryOfOriginId = $product->country_of_origin_id;
-            $this->tagList = $product->tag_list ? implode(', ', $product->tag_list) : null;
+            $this->tags = $product->tag_list ?? [];
 
             // Force bulk stock method for Sale products
             if ($this->productType === 'sale') {
@@ -245,9 +246,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             'purchase_cost_group_id' => $this->purchaseCostGroupId,
             'purchase_price' => $this->purchasePrice,
             'country_of_origin_id' => $this->countryOfOriginId,
-            'tag_list' => $this->tagList
-                ? array_map('trim', explode(',', $this->tagList))
-                : null,
+            'tag_list' => $this->tags !== [] ? $this->tags : null,
             'custom_fields' => $this->customFieldValues,
         ];
 
@@ -282,6 +281,24 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 
     /**
+     * Distinct existing product tags, used as autocomplete suggestions.
+     *
+     * @return list<string>
+     */
+    public function tagSuggestions(): array
+    {
+        return Product::query()
+            ->whereNotNull('tag_list')
+            ->pluck('tag_list')
+            ->flatMap(fn ($tags): array => is_array($tags) ? $tags : [])
+            ->filter(fn ($tag): bool => is_string($tag) && $tag !== '')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function with(): array
@@ -291,6 +308,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         return [
             'isEditing' => $isEditing,
+            'tagSuggestions' => $this->tagSuggestions(),
             'product' => $isEditing ? Product::find($this->productId)?->loadCount(['stockLevels', 'accessories', 'attachments']) : null,
             'productTypes' => ProductType::cases(),
             'stockMethods' => StockMethod::cases(),
@@ -511,7 +529,12 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 </div>
                             </div>
 
-                            <flux:input wire:model="tagList" label="Tags" placeholder="Comma-separated tags" />
+                            <flux:field>
+                                <flux:label>Tags</flux:label>
+                                <div wire:ignore>
+                                    <x-signals.tag-input :value="$tags" :suggestions="$tagSuggestions" placeholder="Add tag..." x-on:tags-changed="$wire.set('tags', $event.detail)" />
+                                </div>
+                            </flux:field>
                         </div>
                     </x-signals.form-section>
 

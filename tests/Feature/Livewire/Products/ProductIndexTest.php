@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\ProductType;
+use App\Livewire\Components\DataTable;
 use App\Models\Product;
+use App\Models\ProductGroup;
 use App\Models\User;
+use Livewire\Livewire;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -73,6 +76,47 @@ it('ignores invalid archive filter', function () {
     Volt::test('products.index')
         ->call('setArchiveFilter', 'invalid_filter')
         ->assertSet('archiveFilter', 'active');
+});
+
+it('renders the group column with the product group name as a filter link', function () {
+    $group = ProductGroup::factory()->create(['name' => 'Lighting Group']);
+    Product::factory()->create(['name' => 'Grouped Product', 'product_group_id' => $group->id]);
+
+    Volt::test('products.index')
+        ->assertSee('Group')
+        ->assertSee('Lighting Group')
+        ->assertSeeHtml("applyFilter('product_group_id', '{$group->id}')");
+});
+
+it('filters the products data table by product group', function () {
+    $lighting = ProductGroup::factory()->create(['name' => 'Lighting']);
+    $sound = ProductGroup::factory()->create(['name' => 'Sound']);
+
+    Product::factory()->create(['name' => 'Moving Head', 'product_group_id' => $lighting->id]);
+    Product::factory()->create(['name' => 'PA Speaker', 'product_group_id' => $sound->id]);
+
+    $columns = [
+        ['key' => 'name', 'label' => 'Name', 'sortable' => true],
+        ['key' => 'product_group_id', 'label' => 'Group', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => [$lighting->id => 'Lighting', $sound->id => 'Sound'], 'view' => 'livewire.products.partials.column-group'],
+    ];
+
+    Livewire::test(DataTable::class, [
+        'columns' => $columns,
+        'model' => Product::class,
+        'with' => ['productGroup'],
+        'defaultSort' => 'product_group_id',
+    ])
+        ->call('applyFilter', 'product_group_id', (string) $lighting->id)
+        ->assertSee('Moving Head')
+        ->assertDontSee('PA Speaker');
+});
+
+it('renders the group and updated columns by default', function () {
+    Product::factory()->create(['name' => 'Defaults Product']);
+
+    Volt::test('products.index')
+        ->assertSee('Group')
+        ->assertSee('Updated');
 });
 
 it('requires authentication', function () {
