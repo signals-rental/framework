@@ -1,11 +1,16 @@
 <?php
 
 use App\Actions\Members\AnonymiseMember;
+use App\Events\AuditableEvent;
+use App\Jobs\DeliverWebhook;
 use App\Models\Member;
 use App\Models\User;
+use App\Models\Webhook;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
@@ -64,7 +69,27 @@ it('fires an auditable event', function () {
 
     (new AnonymiseMember)($member);
 
-    Event::assertDispatched(\App\Events\AuditableEvent::class, function ($event) {
+    Event::assertDispatched(AuditableEvent::class, function ($event) {
         return $event->action === 'member.anonymised';
     });
+});
+
+it('dispatches a member.anonymised webhook to subscribers', function () {
+    Event::fake([AuditableEvent::class]);
+    Queue::fake([DeliverWebhook::class]);
+
+    Webhook::factory()->create([
+        'events' => ['member.anonymised'],
+        'is_active' => true,
+    ]);
+
+    $member = Member::factory()->create();
+
+    (new AnonymiseMember)($member);
+
+    Queue::assertPushed(
+        DeliverWebhook::class,
+        fn (DeliverWebhook $job): bool => $job->event === 'member.anonymised'
+            && $job->payload['id'] === $member->id,
+    );
 });

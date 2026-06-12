@@ -104,7 +104,7 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
     $service = app(DocsService::class);
     $index = $service->getSearchIndex();
 
-    expect($index)->toBeArray()->toHaveCount(35)
+    expect($index)->toBeArray()->toHaveCount(36)
         ->and($index[0])->toHaveKeys(['title', 'section', 'url', 'content'])
         ->and($index[0]['title'])->toBe('Introduction')
         ->and($index[0]['section'])->toBe('Getting Started')
@@ -112,7 +112,7 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
 
     $changelogEntry = collect($index)->firstWhere('section', 'Changelog');
     expect($changelogEntry)->not->toBeNull()
-        ->and($changelogEntry['title'])->toContain('0.4.0');
+        ->and($changelogEntry['title'])->toContain('0.5.0');
 });
 
 test('last page has null next', function () {
@@ -130,16 +130,16 @@ test('getChangelog returns entries sorted newest first', function () {
     expect($entries)->toBeArray()
         ->and(count($entries))->toBeGreaterThan(0)
         ->and($entries[0])->toHaveKeys(['version', 'date', 'title', 'html'])
-        ->and($entries[0]['version'])->toBe('0.4.0');
+        ->and($entries[0]['version'])->toBe('0.5.0');
 });
 
 test('getChangelog extracts frontmatter correctly', function () {
     $service = app(DocsService::class);
     $entries = $service->getChangelog();
 
-    expect($entries[0]['version'])->toBe('0.4.0')
-        ->and($entries[0]['date'])->toBe('2026-05-27')
-        ->and($entries[0]['title'])->toBe('Rate Engine');
+    expect($entries[0]['version'])->toBe('0.5.0')
+        ->and($entries[0]['date'])->toBe('2026-06-12')
+        ->and($entries[0]['title'])->toBe('Member Merge, Anonymise & Docs Overhaul');
 });
 
 test('getChangelog renders markdown to html', function () {

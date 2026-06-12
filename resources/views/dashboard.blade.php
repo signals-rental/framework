@@ -150,10 +150,12 @@
                 <flux:icon.plus class="quick-action-icon" />
                 New Opportunity
             </a>
-            <a class="quick-action" href="#">
+            @can('members.create')
+            <a class="quick-action" href="{{ route('members.create') }}" wire:navigate>
                 <flux:icon.user-plus class="quick-action-icon" />
                 Add Member
             </a>
+            @endcan
             <a class="quick-action" href="#">
                 <flux:icon.document-plus class="quick-action-icon" />
                 Create Invoice

@@ -23,6 +23,8 @@ class WebhookService
         'member.archived',
         'member.restored',
         'member.deleted',
+        'member.merged',
+        'member.anonymised',
         'settings.updated',
         'role.created',
         'role.updated',

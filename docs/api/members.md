@@ -11,6 +11,8 @@ CRUD endpoints for managing members (contacts, organisations, venues, and users)
 | POST | `/api/v1/members` | Create a member |
 | PUT | `/api/v1/members/{id}` | Update a member |
 | DELETE | `/api/v1/members/{id}` | Delete (soft-delete) a member |
+| POST | `/api/v1/members/{id}/merge` | Merge a secondary member into this member |
+| POST | `/api/v1/members/{id}/anonymise` | Erase a member's personally identifiable information |
 
 ### Nested Resources
 
@@ -53,6 +55,53 @@ Apply a saved view with `?view_id=42`. See [Custom Views API](/docs/api/custom-v
 ### Sort
 
 `sort=name`, `sort=membership_type`, `sort=created_at`, `sort=updated_at`
+
+## Merge Members
+
+```
+POST /api/v1/members/{id}/merge
+```
+
+Merges a secondary member into the primary member (identified by `{id}`). The secondary member's relationships, contact details, custom field values, and memberships are transferred to the primary; the secondary is then archived. Both members must share the same `membership_type`.
+
+Requires `members:write` ability and `members.delete` permission.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `secondary_id` | integer | Yes | ID of the member to merge into the primary |
+
+### Response
+
+Returns the updated primary member under the `member` key.
+
+### Error Cases
+
+| Status | Condition |
+|--------|-----------|
+| 422 | `secondary_id` is the same as the primary member (self-merge) |
+| 422 | The two members have different `membership_type` values |
+
+## Anonymise Member
+
+```
+POST /api/v1/members/{id}/anonymise
+```
+
+Erases a member's personally identifiable information to fulfil data removal requests. Replaces the member's name and description with anonymised placeholders, removes the icon, and deletes all linked emails, phones, addresses, and links. This operation is **irreversible**.
+
+Requires `members:write` ability and `members.delete` permission. A user cannot anonymise their own member record.
+
+### Response
+
+Returns the anonymised member under the `member` key.
+
+### Error Cases
+
+| Status | Condition |
+|--------|-----------|
+| 422 | The authenticated user is attempting to anonymise their own member record |
 
 ## Membership Types
 

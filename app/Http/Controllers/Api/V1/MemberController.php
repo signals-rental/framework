@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Members\AnonymiseMember;
 use App\Actions\Members\CreateMember;
 use App\Actions\Members\DeleteMember;
+use App\Actions\Members\MergeMember;
 use App\Actions\Members\UpdateMember;
 use App\Data\Members\CreateMemberData;
 use App\Data\Members\MemberData;
+use App\Data\Members\MergeMemberData;
 use App\Data\Members\UpdateMemberData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
@@ -15,6 +18,8 @@ use App\Models\CustomView;
 use App\Models\Member;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 
 class MemberController extends Controller
 {
@@ -206,6 +211,71 @@ class MemberController extends Controller
     public function destroy(Member $member): JsonResponse
     {
         return $this->resourceDestroy($member);
+    }
+
+    /**
+     * Merge another member into this member.
+     *
+     * The path member is the primary (surviving) record; the request `secondary_id`
+     * identifies the member to merge in and archive. Both members must share the
+     * same `membership_type`. Relationships, contact details, custom fields and
+     * memberships transfer to the primary, then the secondary is archived.
+     */
+    public function merge(Request $request, Member $member): JsonResponse
+    {
+        $this->authorizeApi('members.delete', 'members:write');
+
+        $validated = $request->validate([
+            'secondary_id' => [
+                'required',
+                'integer',
+                Rule::exists('members', 'id')->withoutTrashed(),
+                'not_in:'.$member->id,
+            ],
+        ], [
+            'secondary_id.not_in' => 'A member cannot be merged into itself.',
+        ]);
+
+        $dto = MergeMemberData::from([
+            'primary_id' => $member->id,
+            'secondary_id' => $validated['secondary_id'],
+        ]);
+
+        try {
+            $primary = (new MergeMember)($dto);
+        } catch (\InvalidArgumentException $e) {
+            return $this->respondWithError($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY, [
+                'secondary_id' => [$e->getMessage()],
+            ]);
+        }
+
+        $this->applyIncludes(Member::query(), $request, $primary);
+
+        return $this->respondWith(
+            MemberData::fromModel($primary)->toArray(),
+            'member',
+        );
+    }
+
+    /**
+     * Anonymise a member's personally identifiable information.
+     *
+     * Replaces the member's name/description, clears icons, and deletes related
+     * emails, phones, addresses and links. Irreversible. A user cannot anonymise
+     * their own member record.
+     */
+    public function anonymise(Request $request, Member $member): JsonResponse
+    {
+        $this->authorizeApi('members.delete', 'members:write');
+
+        $anonymised = (new AnonymiseMember)($member);
+
+        $this->applyIncludes(Member::query(), $request, $anonymised);
+
+        return $this->respondWith(
+            MemberData::fromModel($anonymised)->toArray(),
+            'member',
+        );
     }
 
     /**
