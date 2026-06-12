@@ -29,7 +29,7 @@ Tick every box or record an explicit, user-approved skip. Silence is not a decis
 - [ ] One invocable action per operation that takes place — every mutation goes through an action, no inline writes in Livewire/controllers
 - [ ] `Gate::authorize` inside every action (not controllers)
 - [ ] EVERY mutation fires `AuditableEvent` AND dispatches its webhook event (`{entity}.created/updated/archived/restored/deleted/merged/...`)
-- [ ] Webhook `dispatch()` called AFTER `DB::transaction` commits, never inside it (queues are `after_commit: false`; in-transaction dispatch delivers webhooks for rolled-back ops). Payloads: lifecycle events send `['id' => ...]`; create/update send full DTO under the entity key; merge sends `['primary_id', 'secondary_id']`
+- [ ] Webhook `dispatch()` placed AFTER `DB::transaction` commits for readability — `DeliverWebhook::$afterCommit = true` already makes in-transaction dispatch safe (job held until commit, discarded on rollback), so this is no longer a correctness bug, just convention. Payloads: lifecycle events send `['id' => ...]`; create/update send full DTO under the entity key; merge sends `['primary_id', 'secondary_id']`
 - [ ] Business-rule failures throw `ValidationException::withMessages([...])` (auto-422 + clean Livewire handling), not `\InvalidArgumentException`
 - [ ] Each `AuditableEvent` produces an `action_logs` row surfaced in `/admin/settings/action-log` — asserted in action tests (`ActionLog` row with correct `auditable_type`/`action`)
 - [ ] DTOs: `Create{Entity}Data` (validation attributes), `Update{Entity}Data` (PATCH semantics), `{Entity}Data` response with `fromModel()` + `Lazy` relations + flat `custom_fields`

@@ -3,6 +3,7 @@
 namespace App\Data\Members;
 
 use App\Enums\MembershipType;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
 
@@ -78,7 +79,7 @@ class CreateMemberData extends Data
             'is_cash' => ['sometimes', 'boolean'],
             'is_on_stop' => ['sometimes', 'boolean'],
             'rating' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'owned_by' => ['sometimes', 'nullable', 'integer', 'exists:members,id'],
+            'owned_by' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
             'price_category_id' => ['sometimes', 'nullable', 'integer'],
             'discount_category_id' => ['sometimes', 'nullable', 'integer'],
             'invoice_term_id' => ['sometimes', 'nullable', 'integer', 'exists:list_values,id'],

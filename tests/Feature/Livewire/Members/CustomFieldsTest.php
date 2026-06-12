@@ -100,3 +100,19 @@ it('requires authentication', function () {
     $this->get("/members/{$this->member->id}/custom-fields")
         ->assertRedirect();
 });
+
+describe('member tabs custom fields tab', function () {
+    it('shows a custom fields tab on the member overview linking to the custom-fields route', function () {
+        $this->get("/members/{$this->member->id}")
+            ->assertOk()
+            ->assertSee('Custom Fields')
+            ->assertSee(route('members.custom-fields', $this->member), false);
+    });
+
+    it('marks the custom fields tab as active on the custom-fields page', function () {
+        $this->get("/members/{$this->member->id}/custom-fields")
+            ->assertOk()
+            ->assertSeeHtml('href="'.route('members.custom-fields', $this->member).'"')
+            ->assertSeeHtml('subnav-link active');
+    });
+});

@@ -11,6 +11,23 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
 
+/**
+ * Parse the event names from the Markdown event tables in docs/api/webhooks.md.
+ *
+ * Every documented event lives in a table row of the form `| `event.name` | … |`,
+ * so a single regex over the backtick-wrapped first cell is sufficient.
+ *
+ * @return list<string>
+ */
+function documentedWebhookEvents(): array
+{
+    $markdown = File::get(base_path('docs/api/webhooks.md'));
+
+    preg_match_all('/^\|\s*`([a-z_]+\.[a-z_]+)`\s*\|/m', $markdown, $matches);
+
+    return array_values(array_unique($matches[1]));
+}
+
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
     $this->seed(PermissionSeeder::class);
@@ -62,7 +79,40 @@ it('accepts API webhook subscriptions to Phase-2 entity events', function (strin
     'activity.created', 'activity.updated', 'activity.deleted',
     'rate_definition.created', 'rate_definition.updated', 'rate_definition.deleted',
     'product_rate.created', 'product_rate.updated', 'product_rate.deleted',
+    'member.merged', 'member.anonymised',
 ]);
+
+/**
+ * Keeps the public webhook docs and the canonical event allow-list in lock-step.
+ * Drift in either direction is a defect: an event in EVENTS but missing from the
+ * docs is undiscoverable to integrators, and an event documented but absent from
+ * EVENTS cannot actually be subscribed to (CreateWebhookData rejects it).
+ */
+it('parses a non-trivial set of events from the webhook docs table', function () {
+    // Guards both parity assertions below against a vacuous pass: if the markdown
+    // table format drifts, documentedWebhookEvents() returns [] and array_diff makes
+    // the parity checks pass silently. This anchors a sane lower bound instead.
+    expect(documentedWebhookEvents())
+        ->toBeArray()
+        ->and(count(documentedWebhookEvents()))
+        ->toBeGreaterThan(20, 'Webhook docs table parsing returned too few events — the markdown format likely drifted.');
+});
+
+it('documents every webhook event in WebhookService::EVENTS', function () {
+    $documented = documentedWebhookEvents();
+
+    $missingFromDocs = array_values(array_diff(WebhookService::EVENTS, $documented));
+
+    expect($missingFromDocs)->toBe([]);
+});
+
+it('backs every documented webhook event with a WebhookService::EVENTS entry', function () {
+    $documented = documentedWebhookEvents();
+
+    $undefined = array_values(array_diff($documented, WebhookService::EVENTS));
+
+    expect($undefined)->toBe([]);
+});
 
 it('fires activity.created to a subscribed webhook when an activity is created', function () {
     Queue::fake();

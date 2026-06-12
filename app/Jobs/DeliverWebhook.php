@@ -37,6 +37,17 @@ class DeliverWebhook implements ShouldQueue
         public array $payload,
     ) {
         $this->onQueue('webhooks');
+
+        /*
+         * Dispatch only after the surrounding database transaction commits.
+         * Webhook events are dispatched from inside action-class transactions
+         * (e.g. ArchiveMember, MergeProduct); without this, a rollback would
+         * still deliver a phantom webhook for a mutation that never persisted.
+         * Set here because the Queueable trait owns the $afterCommit property —
+         * redeclaring it on the class (typed or with a default) is a fatal
+         * trait-composition conflict.
+         */
+        $this->afterCommit = true;
     }
 
     /**

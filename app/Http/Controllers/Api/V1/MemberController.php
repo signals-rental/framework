@@ -6,6 +6,7 @@ use App\Actions\Members\AnonymiseMember;
 use App\Actions\Members\CreateMember;
 use App\Actions\Members\DeleteMember;
 use App\Actions\Members\MergeMember;
+use App\Actions\Members\RestoreMember;
 use App\Actions\Members\UpdateMember;
 use App\Data\Members\CreateMemberData;
 use App\Data\Members\MemberData;
@@ -18,8 +19,6 @@ use App\Models\CustomView;
 use App\Models\Member;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Symfony\Component\HttpFoundation\Response;
 
 class MemberController extends Controller
 {
@@ -225,34 +224,43 @@ class MemberController extends Controller
     {
         $this->authorizeApi('members.delete', 'members:write');
 
-        $validated = $request->validate([
-            'secondary_id' => [
-                'required',
-                'integer',
-                Rule::exists('members', 'id')->withoutTrashed(),
-                'not_in:'.$member->id,
-            ],
-        ], [
-            'secondary_id.not_in' => 'A member cannot be merged into itself.',
-        ]);
-
-        $dto = MergeMemberData::from([
+        // Validation lives entirely in MergeMemberData::rules(). The path member is
+        // the primary; secondary_id arrives in the request body. The DTO enforces
+        // existence (excluding soft-deleted) and the self-merge guard.
+        $dto = MergeMemberData::validateAndCreate([
             'primary_id' => $member->id,
-            'secondary_id' => $validated['secondary_id'],
+            'secondary_id' => $request->input('secondary_id'),
         ]);
 
-        try {
-            $primary = (new MergeMember)($dto);
-        } catch (\InvalidArgumentException $e) {
-            return $this->respondWithError($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY, [
-                'secondary_id' => [$e->getMessage()],
-            ]);
-        }
+        $primary = (new MergeMember)($dto);
 
         $this->applyIncludes(Member::query(), $request, $primary);
 
         return $this->respondWith(
             MemberData::fromModel($primary)->toArray(),
+            'member',
+        );
+    }
+
+    /**
+     * Restore a soft-deleted (archived) member.
+     *
+     * Reverses an archive: the member is undeleted and reactivated. The route
+     * binding resolves trashed members. Restoring a member that is not archived
+     * is a no-op and still returns the member.
+     */
+    public function restore(Request $request, Member $member): JsonResponse
+    {
+        $this->authorizeApi('members.delete', 'members:write');
+
+        // RestoreMember mutates the passed instance in place (restore + reactivate),
+        // so $member is current after the call — no nullable fresh() needed.
+        (new RestoreMember)($member);
+
+        $this->applyIncludes(Member::query(), $request, $member);
+
+        return $this->respondWith(
+            MemberData::fromModel($member)->toArray(),
             'member',
         );
     }
