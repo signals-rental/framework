@@ -155,37 +155,115 @@ it('opens in select-secondary mode when memberB is zero', function () {
     $primary = Member::factory()->organisation()->create();
     $other = Member::factory()->organisation()->create(['name' => 'Mergeable Org']);
 
-    $component = Livewire::test(MergeModal::class)
+    Livewire::test(MergeModal::class)
         ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
         ->assertSet('memberAId', $primary->id)
         ->assertSet('memberBId', null)
         ->assertSet('needsSecondary', true)
-        ->assertSet('primaryId', $primary->id);
-
-    // Eligible secondaries exclude the primary and offer the same-type member.
-    /** @var list<array{value: int, label: string}> $secondaries */
-    $secondaries = $component->viewData('eligibleSecondaries');
-    $values = collect($secondaries)->pluck('value');
-    expect($values)->toContain($other->id);
-    expect($values)->not->toContain($primary->id);
+        ->assertSet('primaryId', $primary->id)
+        ->assertSet('mergeSearch', '')
+        ->assertSet('mergeSearchResults', []);
 });
 
-it('only offers same-type non-user members as secondaries', function () {
+it('searches for an eligible same-type secondary member', function () {
+    $primary = Member::factory()->organisation()->create(['name' => 'Acme Holdings']);
+    $match = Member::factory()->organisation()->create(['name' => 'Acme Trading']);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->set('mergeSearch', 'Acme')
+        ->assertSet('mergeSearchResults', function (array $results) use ($match, $primary) {
+            $ids = collect($results)->pluck('id');
+
+            return $ids->contains($match->id) && ! $ids->contains($primary->id);
+        });
+});
+
+it('search filters out members that do not match the term', function () {
+    $primary = Member::factory()->organisation()->create(['name' => 'Acme Holdings']);
+    $unrelated = Member::factory()->organisation()->create(['name' => 'Globex Corp']);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->set('mergeSearch', 'Acme')
+        ->assertSet('mergeSearchResults', function (array $results) use ($unrelated) {
+            return ! collect($results)->pluck('id')->contains($unrelated->id);
+        });
+});
+
+it('search is case-insensitive', function () {
+    $primary = Member::factory()->organisation()->create(['name' => 'Acme Holdings']);
+    $match = Member::factory()->organisation()->create(['name' => 'Acme Trading']);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->set('mergeSearch', 'acme')
+        ->assertSet('mergeSearchResults', function (array $results) use ($match) {
+            return collect($results)->pluck('id')->contains($match->id);
+        });
+});
+
+it('search only offers same-type non-user members', function () {
+    $primary = Member::factory()->organisation()->create(['name' => 'Match Org']);
+    $sameType = Member::factory()->organisation()->create(['name' => 'Match Trading']);
+    $differentType = Member::factory()->contact()->create(['name' => 'Match Person']);
+    $userMember = Member::factory()->user()->create(['name' => 'Match User']);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->set('mergeSearch', 'Match')
+        ->assertSet('mergeSearchResults', function (array $results) use ($sameType, $differentType, $userMember) {
+            $ids = collect($results)->pluck('id');
+
+            return $ids->contains($sameType->id)
+                && ! $ids->contains($differentType->id)
+                && ! $ids->contains($userMember->id);
+        });
+});
+
+it('search returns nothing for a short term', function () {
+    $primary = Member::factory()->organisation()->create(['name' => 'Acme']);
+    Member::factory()->organisation()->create(['name' => 'Acme Trading']);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->set('mergeSearch', 'A')
+        ->assertSet('mergeSearchResults', []);
+});
+
+it('does not search when the primary is a user-type member', function () {
+    $primary = Member::factory()->user()->create(['name' => 'Staff One']);
+    Member::factory()->user()->create(['name' => 'Staff Two']);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->set('mergeSearch', 'Staff')
+        ->assertSet('mergeSearchResults', []);
+});
+
+it('selects a merge target from search results', function () {
     $primary = Member::factory()->organisation()->create();
-    $sameType = Member::factory()->organisation()->create();
-    $differentType = Member::factory()->contact()->create();
-    $userMember = Member::factory()->user()->create();
+    $secondary = Member::factory()->organisation()->create();
 
-    $component = Livewire::test(MergeModal::class)
-        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0);
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->call('selectMergeTarget', $secondary->id)
+        ->assertSet('memberBId', $secondary->id)
+        ->assertSet('mergeSearch', '')
+        ->assertSet('mergeSearchResults', []);
+});
 
-    /** @var list<array{value: int, label: string}> $secondaries */
-    $secondaries = $component->viewData('eligibleSecondaries');
-    $values = collect($secondaries)->pluck('value');
+it('clears a selected merge target', function () {
+    $primary = Member::factory()->organisation()->create();
+    $secondary = Member::factory()->organisation()->create();
 
-    expect($values)->toContain($sameType->id);
-    expect($values)->not->toContain($differentType->id);
-    expect($values)->not->toContain($userMember->id);
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
+        ->call('selectMergeTarget', $secondary->id)
+        ->call('clearMergeTarget')
+        ->assertSet('memberBId', null)
+        ->assertSet('mergeSearch', '')
+        ->assertSet('mergeSearchResults', []);
 });
 
 it('completes a merge after the secondary is selected in select-secondary mode', function () {
@@ -194,7 +272,7 @@ it('completes a merge after the secondary is selected in select-secondary mode',
 
     Livewire::test(MergeModal::class)
         ->dispatch('open-merge-modal', memberA: $primary->id, memberB: 0)
-        ->set('memberBId', $secondary->id)
+        ->call('selectMergeTarget', $secondary->id)
         ->call('merge')
         ->assertRedirect(route('members.show', $primary->id));
 

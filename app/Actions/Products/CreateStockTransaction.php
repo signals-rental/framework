@@ -45,11 +45,9 @@ class CreateStockTransaction
                 'manual' => in_array($data->transaction_type, TransactionType::manualCreationValues(), true),
             ]);
 
-            // Update stock level quantity based on transaction type
-            /** @var TransactionType $type */
-            $type = $transaction->transaction_type;
-            $signedQty = (float) bcmul((string) $data->quantity, (string) $type->quantitySign(), 2);
-            $stockLevel->increment('quantity_held', $signedQty);
+            // Update stock level quantity based on transaction type, using the
+            // same signed-quantity helper that deletion reverses.
+            $stockLevel->increment('quantity_held', (float) $transaction->signedQuantity());
 
             event(new AuditableEvent($transaction, 'stock_transaction.created'));
 

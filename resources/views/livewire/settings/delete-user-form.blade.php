@@ -64,7 +64,7 @@ new class extends Component {
         @php($selfDeleteBlockReason = $this->selfDeleteBlockReason())
 
         @if($selfDeleteBlockReason)
-            <p class="mt-4 text-sm text-[var(--text-danger)]">
+            <p class="mt-4 text-sm text-[var(--red)]">
                 {{ $selfDeleteBlockReason }}
             </p>
         @else

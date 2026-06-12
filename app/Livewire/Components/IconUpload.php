@@ -53,17 +53,7 @@ class IconUpload extends Component
      */
     public function getThumbDisplayUrlProperty(): ?string
     {
-        if ($this->thumbPath === null) {
-            return null;
-        }
-
-        try {
-            return app(FileService::class)->signedUrl($this->thumbPath);
-        } catch (\Throwable $e) {
-            report($e);
-
-            return null;
-        }
+        return app(FileService::class)->signedUrlOrNull($this->thumbPath);
     }
 
     public function updatedPhoto(): void

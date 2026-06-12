@@ -18,14 +18,7 @@
         @php
             $isSerialised = $product->stock_method === \App\Enums\StockMethod::Serialised;
         @endphp
-        <span class="s-badge {{ $isSerialised ? 's-badge-violet' : 's-badge-cyan' }}" style="display: inline-flex; align-items: center; gap: 4px;">
-            @if($isSerialised)
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
-            @else
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-            @endif
-            {{ $isSerialised ? 'Serialised' : 'Bulk' }}
-        </span>
+        <x-signals.stock-method-badge :serialised="$isSerialised" />
         @php
             $typeBadgeClass = match($product->product_type) {
                 \App\Enums\ProductType::Rental => 's-badge-blue',
@@ -35,7 +28,7 @@
                 default => 's-badge-zinc',
             };
         @endphp
-        <span class="s-badge {{ $typeBadgeClass }}" style="display: inline-flex; align-items: center; gap: 4px;">
+        <span class="s-badge {{ $typeBadgeClass }}">
             @if($product->product_type === \App\Enums\ProductType::Rental)
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
             @elseif($product->product_type === \App\Enums\ProductType::Sale)

@@ -132,11 +132,35 @@ class ViewResolver
         }
 
         // Explicit params (already whitelisted above) are applied as AND conditions.
+        // Pass the custom-field module (derived from the query's model) so that
+        // explicit `cf.*` filters are evaluated, mirroring FiltersQueries::applyFilters.
         if (! empty($explicitParams)) {
-            $ransack->apply($query, $explicitParams, $allowedExplicitFields, $allowedRelationFilters);
+            $ransack->apply($query, $explicitParams, $allowedExplicitFields, $allowedRelationFilters, $this->resolveCustomFieldModule($query));
         }
 
         return $query;
+    }
+
+    /**
+     * Derive the custom-field module type from the query's underlying model.
+     *
+     * Mirrors how the rest of the application resolves the module via
+     * HasCustomFields::customFieldModuleType(). Returns null when the model
+     * does not support custom fields.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     */
+    private function resolveCustomFieldModule(Builder $query): ?string
+    {
+        $model = $query->getModel();
+
+        if (method_exists($model, 'customFieldModuleType')) {
+            return $model->customFieldModuleType();
+        }
+
+        return null;
     }
 
     /**
@@ -183,6 +207,14 @@ class ViewResolver
         $allowed = [];
 
         foreach ($params as $key => $value) {
+            // Custom-field filters (cf.*) pass through unchanged; they are validated
+            // and applied by RansackFilter against the resolved custom-field module.
+            if (str_starts_with((string) $key, 'cf.')) {
+                $allowed[$key] = $value;
+
+                continue;
+            }
+
             $field = $this->stripPredicate((string) $key);
 
             if (str_contains($field, '.')) {

@@ -153,8 +153,9 @@ describe('PUT /api/v1/stock_levels/{id}', function () {
 });
 
 describe('DELETE /api/v1/stock_levels/{id}', function () {
-    it('deletes a stock level', function () {
-        $stockLevel = StockLevel::factory()->create();
+    it('deletes a serialised stock level', function () {
+        $product = Product::factory()->serialised()->create();
+        $stockLevel = StockLevel::factory()->serialised()->create(['product_id' => $product->id]);
         $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -162,6 +163,33 @@ describe('DELETE /api/v1/stock_levels/{id}', function () {
             ->assertNoContent();
 
         $this->assertDatabaseMissing('stock_levels', ['id' => $stockLevel->id]);
+    });
+
+    it('deletes a bulk stock level when the product has another stock level', function () {
+        $product = Product::factory()->bulk()->create();
+        $keep = StockLevel::factory()->bulk()->create(['product_id' => $product->id]);
+        $remove = StockLevel::factory()->bulk()->create(['product_id' => $product->id]);
+        $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/stock_levels/{$remove->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('stock_levels', ['id' => $remove->id]);
+        $this->assertDatabaseHas('stock_levels', ['id' => $keep->id]);
+    });
+
+    it('rejects deleting the only stock level of a bulk product', function () {
+        $product = Product::factory()->bulk()->create();
+        $stockLevel = StockLevel::factory()->bulk()->create(['product_id' => $product->id]);
+        $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/stock_levels/{$stockLevel->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['stock_level']);
+
+        $this->assertDatabaseHas('stock_levels', ['id' => $stockLevel->id]);
     });
 });
 

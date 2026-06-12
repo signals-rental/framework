@@ -119,6 +119,31 @@ it('generates signed url for public disk', function () {
     expect($url)->toBeString()->toContain('test-file.pdf');
 });
 
+it('returns a signed url via signedUrlOrNull for a stored path', function () {
+    $path = 'attachments/test-file.pdf';
+    Storage::disk($this->disk)->put($path, 'content');
+
+    $url = $this->service->signedUrlOrNull($path);
+
+    expect($url)->toBeString()->toContain('test-file.pdf');
+});
+
+it('returns null from signedUrlOrNull for null or empty paths', function (?string $path) {
+    expect($this->service->signedUrlOrNull($path))->toBeNull();
+})->with([
+    'null path' => [null],
+    'empty path' => [''],
+]);
+
+it('returns null from signedUrlOrNull when the underlying signed url throws', function () {
+    Storage::shouldReceive('disk')->andReturnSelf();
+    Storage::shouldReceive('url')->andThrow(new RuntimeException('S3 unavailable'));
+
+    config(['filesystems.default' => 'public']);
+
+    expect((new FileService)->signedUrlOrNull('attachments/x.pdf'))->toBeNull();
+});
+
 it('throws when storage put fails on upload', function () {
     Storage::shouldReceive('disk')->andReturnSelf();
     Storage::shouldReceive('put')->andReturn(false);

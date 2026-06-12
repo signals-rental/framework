@@ -529,12 +529,11 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 </div>
                             </div>
 
-                            <flux:field>
-                                <flux:label>Tags</flux:label>
+                            <x-signals.field label="Tags" :error="$errors->first('tags')">
                                 <div wire:ignore>
                                     <x-signals.tag-input :value="$tags" :suggestions="$tagSuggestions" placeholder="Add tag..." x-on:tags-changed="$wire.set('tags', $event.detail)" />
                                 </div>
-                            </flux:field>
+                            </x-signals.field>
                         </div>
                     </x-signals.form-section>
 

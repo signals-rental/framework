@@ -26,6 +26,7 @@ use App\Models\TaxRule;
 use App\Models\User;
 use App\Models\Webhook;
 use App\Services\SchemaRegistry;
+use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 
@@ -78,6 +79,8 @@ class SchemaController extends Controller
      *
      * @param  string  $model  URL-friendly model name (e.g. 'members', 'stores')
      */
+    #[ApiResponse(200, 'Model field schema', type: 'array{model: string, model_class: string, fields: array<string, array{name: string, label: string, type: string, required: bool, searchable: bool, filterable: bool, sortable: bool}>}')]
+    #[ApiResponse(404, 'Unknown model', type: 'array{message: string, available: list<string>}')]
     public function show(string $model, SchemaRegistry $registry): JsonResponse
     {
         $this->authorizeApi('schema.read', 'schema:read');

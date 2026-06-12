@@ -276,14 +276,14 @@ class Member extends Model implements HasSchema
     }
 
     /**
-     * Count of related members across both directions.
+     * Count of distinct related members across both directions.
+     *
+     * Reuses the relatedTo scope so the count matches the member list the
+     * Contacts tab renders (distinct members, excluding self).
      */
     public function relatedMembersCount(): int
     {
-        return MemberRelationship::query()
-            ->where('member_id', $this->id)
-            ->orWhere('related_member_id', $this->id)
-            ->count();
+        return self::relatedTo($this->id)->count();
     }
 
     /**

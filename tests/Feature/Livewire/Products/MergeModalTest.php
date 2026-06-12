@@ -152,6 +152,35 @@ it('clears search results when no product is selected', function () {
         ->assertSet('mergeSearchResults', []);
 });
 
+it('searches and filters products by name case-insensitively', function () {
+    $productA = Product::factory()->rental()->create(['name' => 'Alpha Speaker', 'is_active' => true]);
+    $match = Product::factory()->rental()->create(['name' => 'Alpha Mixer', 'is_active' => true]);
+    $other = Product::factory()->rental()->create(['name' => 'Beta Light', 'is_active' => true]);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id)
+        ->set('mergeSearch', 'alpha')
+        ->assertSet('mergeSearchResults', function (array $results) use ($match, $productA, $other) {
+            $ids = collect($results)->pluck('id');
+
+            return $ids->contains($match->id)
+                && ! $ids->contains($productA->id)
+                && ! $ids->contains($other->id);
+        });
+});
+
+it('excludes inactive products from search results', function () {
+    $productA = Product::factory()->rental()->create(['name' => 'Gamma Console', 'is_active' => true]);
+    $inactive = Product::factory()->rental()->create(['name' => 'Gamma Spare', 'is_active' => false]);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id)
+        ->set('mergeSearch', 'Gamma')
+        ->assertSet('mergeSearchResults', function (array $results) use ($inactive) {
+            return ! collect($results)->pluck('id')->contains($inactive->id);
+        });
+});
+
 it('selects a merge target', function () {
     $productA = Product::factory()->rental()->create();
     $productB = Product::factory()->rental()->create();

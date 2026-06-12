@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CustomField;
 use App\Models\CustomView;
 use App\Models\Member;
 use App\Models\User;
@@ -317,6 +318,58 @@ it('ignores explicit params whose field is not whitelisted', function () {
     $this->resolver->applyFilters($query, $view, ['membership_type_eq' => 'contact'], ['name']);
 
     expect($query->toSql())->toBe($beforeSql);
+});
+
+it('applies an explicit cf. custom-field filter alongside an active view', function () {
+    // Regression: with a view active, an explicit ?q[cf.<field>_eq] filter was
+    // silently dropped — both by whitelistParams() discarding the cf. key and by
+    // the explicit-params apply() call not receiving the custom-field module.
+    $field = CustomField::factory()->forModule('Member')->string()->create([
+        'name' => 'po_reference',
+        'is_searchable' => true,
+        'is_active' => true,
+    ]);
+
+    $match = Member::factory()->create(['name' => 'Acme Ltd']);
+    $other = Member::factory()->create(['name' => 'Globex Inc']);
+    $match->customFieldValues()->create(['custom_field_id' => $field->id, 'value_string' => 'PO-123']);
+    $other->customFieldValues()->create(['custom_field_id' => $field->id, 'value_string' => 'PO-999']);
+
+    $view = CustomView::factory()->create([
+        'entity_type' => 'members',
+        'filters' => [],
+    ]);
+
+    $query = Member::query();
+    $this->resolver->applyFilters($query, $view, ['cf.po_reference_eq' => 'PO-123']);
+    $results = $query->get();
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->id)->toBe($match->id);
+});
+
+it('keeps a cf. param through whitelisting even when not in the allowed fields list', function () {
+    // The cf. key must survive whitelistParams() without being listed in
+    // $allowedExplicitFields, since custom fields are validated downstream.
+    $field = CustomField::factory()->forModule('Member')->string()->create([
+        'name' => 'po_reference',
+        'is_searchable' => true,
+        'is_active' => true,
+    ]);
+
+    $match = Member::factory()->create();
+    Member::factory()->create();
+    $match->customFieldValues()->create(['custom_field_id' => $field->id, 'value_string' => 'PO-123']);
+
+    $view = CustomView::factory()->create(['entity_type' => 'members', 'filters' => []]);
+
+    $query = Member::query();
+    // Only `name` is whitelisted; the cf. key must still pass through.
+    $this->resolver->applyFilters($query, $view, ['cf.po_reference_eq' => 'PO-123'], ['name']);
+    $results = $query->get();
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->id)->toBe($match->id);
 });
 
 it('explicit params override matching view filters', function () {

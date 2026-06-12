@@ -162,7 +162,10 @@ it('rejects merging a member into itself', function () {
 
     $member = Member::factory()->organisation()->create();
 
-    $data = MergeMemberData::from([
+    // Self-merge is enforced by the DTO's different: rule; validateAndCreate is the
+    // path every caller (Livewire/API) uses, so assert it there rather than re-checking
+    // the same condition inside the action.
+    $data = MergeMemberData::validateAndCreate([
         'primary_id' => $member->id,
         'secondary_id' => $member->id,
     ]);

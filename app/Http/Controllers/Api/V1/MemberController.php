@@ -17,6 +17,7 @@ use App\Http\Traits\FiltersQueries;
 use App\Http\Traits\ResourceActions;
 use App\Models\CustomView;
 use App\Models\Member;
+use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -220,6 +221,7 @@ class MemberController extends Controller
      * same `membership_type`. Relationships, contact details, custom fields and
      * memberships transfer to the primary, then the secondary is archived.
      */
+    #[ApiResponse(200, 'Primary member after merge', type: 'array{member: array{id: int, name: string, membership_type: string, active: bool, description: string, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
     public function merge(Request $request, Member $member): JsonResponse
     {
         $this->authorizeApi('members.delete', 'members:write');
@@ -249,6 +251,7 @@ class MemberController extends Controller
      * binding resolves trashed members. Restoring a member that is not archived
      * is a no-op and still returns the member.
      */
+    #[ApiResponse(200, 'Restored member', type: 'array{member: array{id: int, name: string, membership_type: string, active: bool, description: string, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
     public function restore(Request $request, Member $member): JsonResponse
     {
         $this->authorizeApi('members.delete', 'members:write');
@@ -272,6 +275,7 @@ class MemberController extends Controller
      * emails, phones, addresses and links. Irreversible. A user cannot anonymise
      * their own member record.
      */
+    #[ApiResponse(200, 'Anonymised member', type: 'array{member: array{id: int, name: string, membership_type: string, active: bool, description: string, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
     public function anonymise(Request $request, Member $member): JsonResponse
     {
         $this->authorizeApi('members.delete', 'members:write');

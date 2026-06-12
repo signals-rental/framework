@@ -1,19 +1,35 @@
 <div>
     <x-signals.modal name="merge-members" title="Merge Members" size="lg">
+        @if(session('error'))
+            <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 mb-4">
+                {{ session('error') }}
+            </div>
+        @endif
+
         @if($memberA && $needsSecondary && ! $memberB)
-            {{-- Secondary not chosen yet: pick which member to merge into the primary. --}}
+            {{-- Secondary not chosen yet: search for the member to merge into the primary. --}}
             <p class="text-sm text-[var(--text-secondary)] mb-4">
-                Merging into <strong>{{ $memberA->name }}</strong>. Choose the member to merge in — its data will be migrated and it will be archived.
+                Merging into <strong>{{ $memberA->name }}</strong>. Search for the member to merge in — its data will be migrated and it will be archived.
             </p>
-            <x-signals.field label="Member to merge" required>
-                <x-signals.combobox
-                    name="mergeSecondary"
-                    :placeholder="'Search members...'"
-                    :options="$eligibleSecondaries"
-                    x-on:combobox-selected.window="if ($event.detail.name === 'mergeSecondary') $wire.set('memberBId', $event.detail.value)"
-                />
-            </x-signals.field>
-            @if(empty($eligibleSecondaries))
+
+            @if($canPickSecondary)
+                <x-signals.field label="Member to merge" required>
+                    <div class="relative">
+                        <flux:input wire:model.live.debounce.300ms="mergeSearch" placeholder="Search members..." />
+                        @if(count($mergeSearchResults) > 0)
+                            <div class="s-dropdown" style="position: relative; margin-top: 4px;">
+                                @foreach($mergeSearchResults as $result)
+                                    <button wire:key="merge-result-{{ $result['id'] }}" wire:click="selectMergeTarget({{ $result['id'] }})" class="s-dropdown-item w-full text-left">
+                                        {{ $result['name'] }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @elseif(mb_strlen($mergeSearch) >= 2)
+                            <p class="mt-3 text-sm text-[var(--text-muted)]">No matching members of the same type were found.</p>
+                        @endif
+                    </div>
+                </x-signals.field>
+            @else
                 <p class="mt-3 text-sm text-[var(--text-muted)]">No other members of the same type are available to merge.</p>
             @endif
 
@@ -76,6 +92,9 @@
             @endif
 
             <x-slot:footer>
+                @if($needsSecondary)
+                    <button class="s-btn s-btn-sm" type="button" wire:click="clearMergeTarget">Change Target</button>
+                @endif
                 <button class="s-btn s-btn-sm" type="button" x-on:click="$dispatch('close-modal', 'merge-members')">Cancel</button>
                 @if($memberA->membership_type === $memberB->membership_type)
                     <button class="s-btn s-btn-sm s-btn-accent" type="button" wire:click="merge" wire:loading.attr="disabled">

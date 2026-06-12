@@ -165,7 +165,7 @@ it('returns null thumb display url when file service throws', function () {
     ]);
 
     $mockService = Mockery::mock(FileService::class);
-    $mockService->shouldReceive('signedUrl')->andThrow(new RuntimeException('S3 unavailable'));
+    $mockService->shouldReceive('signedUrlOrNull')->andReturnNull();
     app()->instance(FileService::class, $mockService);
 
     /** @var IconUpload $instance */
@@ -177,6 +177,7 @@ it('returns null thumb display url when file service throws', function () {
 it('handles upload failure gracefully', function () {
     $mockService = Mockery::mock(FileService::class);
     $mockService->shouldReceive('uploadIcon')->andThrow(new RuntimeException('Upload failed'));
+    $mockService->shouldReceive('signedUrlOrNull')->andReturnNull();
     app()->instance(FileService::class, $mockService);
 
     $photo = UploadedFile::fake()->image('avatar.jpg', 300, 300);

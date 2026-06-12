@@ -59,4 +59,16 @@ enum TransactionType: int
             default => 1,
         };
     }
+
+    /**
+     * Apply this type's sign to a quantity, returning the exact bc-computed
+     * signed quantity string (negative for reductions, positive for additions).
+     *
+     * Centralises the held-stock movement math so creation and deletion of
+     * transactions stay perfectly symmetrical with no float drift.
+     */
+    public function signedQuantity(string $quantity): string
+    {
+        return bcmul($quantity, (string) $this->quantitySign(), 2);
+    }
 }

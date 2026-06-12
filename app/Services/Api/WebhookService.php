@@ -46,6 +46,7 @@ class WebhookService
         'stock_level.updated',
         'stock_level.deleted',
         'stock_transaction.created',
+        'stock_transaction.deleted',
         'activity.created',
         'activity.updated',
         'activity.deleted',

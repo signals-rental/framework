@@ -5,16 +5,16 @@ namespace App\Livewire\Members;
 use App\Actions\Members\MergeMember;
 use App\Data\Members\MergeMemberData;
 use App\Enums\MembershipType;
+use App\Livewire\Concerns\HandlesMergeErrors;
 use App\Models\Member;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
 class MergeModal extends Component
 {
+    use HandlesMergeErrors;
+
     public ?int $memberAId = null;
 
     public ?int $memberBId = null;
@@ -27,6 +27,11 @@ class MergeModal extends Component
      */
     public bool $needsSecondary = false;
 
+    public string $mergeSearch = '';
+
+    /** @var list<array{id: int, name: string}> */
+    public array $mergeSearchResults = [];
+
     #[On('open-merge-modal')]
     public function openModal(int $memberA, int $memberB): void
     {
@@ -36,12 +41,59 @@ class MergeModal extends Component
         $this->memberBId = $memberB > 0 ? $memberB : null;
         $this->needsSecondary = $this->memberBId === null;
         $this->primaryId = $memberA;
+        $this->mergeSearch = '';
+        $this->mergeSearchResults = [];
         $this->js("setTimeout(() => \$dispatch('open-modal', 'merge-members'), 50)");
     }
 
     public function updatedMemberBId(mixed $value): void
     {
         $this->memberBId = $value !== null && $value !== '' ? (int) $value : null;
+    }
+
+    /**
+     * Server-side search for an eligible secondary member.
+     *
+     * Bounded by a result cap so the modal never ships the full same-type
+     * member set to the client. User-type members are never offered.
+     */
+    public function updatedMergeSearch(string $value): void
+    {
+        $this->mergeSearchResults = [];
+
+        if ($this->memberAId === null || mb_strlen($value) < 2) {
+            return;
+        }
+
+        $memberA = Member::find($this->memberAId);
+
+        if (! $memberA || $memberA->membership_type === MembershipType::User) {
+            return;
+        }
+
+        $this->mergeSearchResults = Member::query()
+            ->where('membership_type', $memberA->membership_type)
+            ->where('id', '!=', $memberA->id)
+            ->whereLike('name', '%'.addcslashes($value, '%_').'%', caseSensitive: false)
+            ->orderBy('name')
+            ->limit(50)
+            ->get(['id', 'name'])
+            ->map(fn (Member $m): array => ['id' => $m->id, 'name' => $m->name])
+            ->all();
+    }
+
+    public function selectMergeTarget(int $id): void
+    {
+        $this->memberBId = $id;
+        $this->mergeSearch = '';
+        $this->mergeSearchResults = [];
+    }
+
+    public function clearMergeTarget(): void
+    {
+        $this->memberBId = null;
+        $this->mergeSearch = '';
+        $this->mergeSearchResults = [];
     }
 
     public function merge(): void
@@ -56,29 +108,16 @@ class MergeModal extends Component
             ? $this->memberBId
             : $this->memberAId;
 
-        try {
-            (new MergeMember)(MergeMemberData::validateAndCreate([
+        $succeeded = $this->runGuardedMerge(
+            fn () => (new MergeMember)(MergeMemberData::validateAndCreate([
                 'primary_id' => $this->primaryId,
                 'secondary_id' => $secondaryId,
-            ]));
-        } catch (ValidationException $e) {
-            // Business-rule failures (type mismatch, self-merge) surface as a
-            // validation error keyed on secondary_id. Show the first message.
-            session()->flash('error', $e->validator->errors()->first() ?: 'Unable to merge the selected members.');
+            ])),
+            entityLabel: 'member',
+            logContext: ['primary_id' => $this->primaryId, 'secondary_id' => $secondaryId],
+        );
 
-            return;
-        } catch (ModelNotFoundException) {
-            session()->flash('error', 'One of the selected members no longer exists.');
-
-            return;
-        } catch (\Throwable $e) {
-            Log::error('Member merge failed', [
-                'primary_id' => $this->primaryId,
-                'secondary_id' => $secondaryId,
-                'error' => $e->getMessage(),
-            ]);
-            session()->flash('error', 'An unexpected error occurred while merging. Please try again.');
-
+        if (! $succeeded) {
             return;
         }
 
@@ -94,23 +133,15 @@ class MergeModal extends Component
         $memberA = $this->memberAId ? Member::withCount(['addresses', 'emails', 'phones', 'links', 'attachments'])->find($this->memberAId) : null;
         $memberB = $this->memberBId ? Member::withCount(['addresses', 'emails', 'phones', 'links', 'attachments'])->find($this->memberBId) : null;
 
-        // Eligible secondaries: same type, not user-type, excluding the primary.
-        $eligibleSecondaries = [];
-        if ($this->needsSecondary && $memberA && $memberA->membership_type !== MembershipType::User) {
-            $eligibleSecondaries = Member::query()
-                ->where('membership_type', $memberA->membership_type)
-                ->where('id', '!=', $memberA->id)
-                ->orderBy('name')
-                ->get()
-                ->map(fn (Member $m): array => ['value' => $m->id, 'label' => $m->name])
-                ->values()
-                ->all();
-        }
+        // Whether the primary supports a secondary picker (same type, not user-type).
+        $canPickSecondary = $this->needsSecondary
+            && $memberA !== null
+            && $memberA->membership_type !== MembershipType::User;
 
         return [
             'memberA' => $memberA,
             'memberB' => $memberB,
-            'eligibleSecondaries' => $eligibleSecondaries,
+            'canPickSecondary' => $canPickSecondary,
         ];
     }
 

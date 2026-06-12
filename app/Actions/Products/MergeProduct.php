@@ -21,12 +21,6 @@ class MergeProduct
         $primary = Product::findOrFail($data->primary_id);
         $secondary = Product::findOrFail($data->secondary_id);
 
-        if ($primary->id === $secondary->id) {
-            throw ValidationException::withMessages([
-                'secondary_id' => 'A product cannot be merged into itself.',
-            ]);
-        }
-
         if ($primary->product_type !== $secondary->product_type) {
             throw ValidationException::withMessages([
                 'secondary_id' => 'Cannot merge products of different types.',

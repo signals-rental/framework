@@ -20,12 +20,6 @@ class MergeMember
         $primary = Member::findOrFail($data->primary_id);
         $secondary = Member::findOrFail($data->secondary_id);
 
-        if ($primary->id === $secondary->id) {
-            throw ValidationException::withMessages([
-                'secondary_id' => 'A member cannot be merged into itself.',
-            ]);
-        }
-
         if ($primary->membership_type !== $secondary->membership_type) {
             throw ValidationException::withMessages([
                 'secondary_id' => 'Cannot merge members of different types.',

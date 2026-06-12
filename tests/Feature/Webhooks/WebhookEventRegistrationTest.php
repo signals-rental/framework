@@ -43,6 +43,11 @@ beforeEach(function () {
  * allow-list. (This is exactly how the Phase-2 product/activity/rate events were
  * dispatched but unreachable.)
  */
+it('registers stock_transaction.deleted in the EVENTS allow-list', function () {
+    expect(WebhookService::EVENTS)->toContain('stock_transaction.deleted')
+        ->and((new WebhookService)->availableEvents())->toContain('stock_transaction.deleted');
+});
+
 it('registers every action-dispatched webhook event in the EVENTS allow-list', function () {
     $dispatched = [];
 

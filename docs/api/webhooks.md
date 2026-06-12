@@ -45,6 +45,7 @@ Webhooks can be managed via the API (`/api/v1/webhooks`) or from the admin panel
 | `stock_level.updated` | A stock level is updated |
 | `stock_level.deleted` | A stock level is deleted |
 | `stock_transaction.created` | A stock transaction is recorded |
+| `stock_transaction.deleted` | A stock transaction is deleted |
 
 ### Activities
 

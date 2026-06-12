@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\TemplatedEmail;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Mail;
@@ -91,7 +92,7 @@ it('sends a test email', function () {
         ->assertHasNoErrors()
         ->assertDispatched('test-email-sent');
 
-    Mail::assertSent(\App\Mail\TestEmail::class, function ($mail) {
+    Mail::assertSent(TemplatedEmail::class, function ($mail) {
         return $mail->hasTo('test@example.com');
     });
 });

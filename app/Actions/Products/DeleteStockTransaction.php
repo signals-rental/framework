@@ -3,7 +3,6 @@
 namespace App\Actions\Products;
 
 use App\Data\Products\StockTransactionData;
-use App\Enums\TransactionType;
 use App\Events\AuditableEvent;
 use App\Models\StockTransaction;
 use App\Services\Api\WebhookService;
@@ -21,10 +20,7 @@ class DeleteStockTransaction
 
             // Reverse this transaction's effect on held stock by decrementing
             // the same signed quantity that creation incremented.
-            /** @var TransactionType $type */
-            $type = $transaction->transaction_type;
-            $signedQty = (float) bcmul((string) $transaction->quantity, (string) $type->quantitySign(), 2);
-            $stockLevel->decrement('quantity_held', $signedQty);
+            $stockLevel->decrement('quantity_held', (float) $transaction->signedQuantity());
 
             $payload = StockTransactionData::fromModel($transaction)->toArray();
 

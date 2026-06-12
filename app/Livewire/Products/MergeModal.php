@@ -4,16 +4,16 @@ namespace App\Livewire\Products;
 
 use App\Actions\Products\MergeProduct;
 use App\Data\Products\MergeProductData;
+use App\Livewire\Concerns\HandlesMergeErrors;
 use App\Models\Product;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
 class MergeModal extends Component
 {
+    use HandlesMergeErrors;
+
     public ?int $productAId = null;
 
     public ?int $productBId = null;
@@ -51,7 +51,7 @@ class MergeModal extends Component
         }
 
         $this->mergeSearchResults = Product::query()
-            ->where('name', 'ilike', '%'.addcslashes($value, '%_').'%')
+            ->whereLike('name', '%'.addcslashes($value, '%_').'%', caseSensitive: false)
             ->where('id', '!=', $this->productAId)
             ->where('is_active', true)
             ->limit(10)
@@ -92,29 +92,16 @@ class MergeModal extends Component
             ? $this->productBId
             : $this->productAId;
 
-        try {
-            (new MergeProduct)(MergeProductData::validateAndCreate([
+        $succeeded = $this->runGuardedMerge(
+            fn () => (new MergeProduct)(MergeProductData::validateAndCreate([
                 'primary_id' => $this->primaryId,
                 'secondary_id' => $secondaryId,
-            ]));
-        } catch (ValidationException $e) {
-            // Business-rule failures (type mismatch, self-merge) surface as a
-            // validation error keyed on secondary_id. Show the first message.
-            session()->flash('error', $e->validator->errors()->first() ?: 'Unable to merge the selected products.');
+            ])),
+            entityLabel: 'product',
+            logContext: ['primary_id' => $this->primaryId, 'secondary_id' => $secondaryId],
+        );
 
-            return;
-        } catch (ModelNotFoundException) {
-            session()->flash('error', 'One of the selected products no longer exists.');
-
-            return;
-        } catch (\Throwable $e) {
-            Log::error('Product merge failed', [
-                'primary_id' => $this->primaryId,
-                'secondary_id' => $secondaryId,
-                'error' => $e->getMessage(),
-            ]);
-            session()->flash('error', 'An unexpected error occurred while merging. Please try again.');
-
+        if (! $succeeded) {
             return;
         }
 

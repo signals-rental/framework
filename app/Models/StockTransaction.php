@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TransactionType;
+use Database\Factories\StockTransactionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class StockTransaction extends Model
 {
-    /** @use HasFactory<\Database\Factories\StockTransactionFactory> */
+    /** @use HasFactory<StockTransactionFactory> */
     use HasFactory;
 
     /** @var list<string> */
@@ -64,14 +65,26 @@ class StockTransaction extends Model
     }
 
     /**
-     * Signed quantity: negative for reductions, positive for additions.
+     * Exact signed quantity for this transaction's held-stock movement:
+     * negative for reductions, positive for additions.
+     *
+     * This is the single source of truth used by both creation (increment)
+     * and deletion (decrement) so the two operations are perfectly symmetrical.
      */
-    public function getQuantityMoveAttribute(): string
+    public function signedQuantity(): string
     {
         /** @var TransactionType $type */
         $type = $this->transaction_type;
-        $signed = bcmul((string) $this->quantity, (string) $type->quantitySign(), 2);
 
-        return number_format((float) $signed, 1, '.', '');
+        return $type->signedQuantity((string) $this->quantity);
+    }
+
+    /**
+     * Signed quantity formatted for display: negative for reductions,
+     * positive for additions.
+     */
+    public function getQuantityMoveAttribute(): string
+    {
+        return number_format((float) $this->signedQuantity(), 1, '.', '');
     }
 }

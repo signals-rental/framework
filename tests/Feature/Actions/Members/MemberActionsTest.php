@@ -160,15 +160,51 @@ it('rejects changing the name of a user-type member', function () {
     expect($member->fresh()->name)->toBe('Staff Member');
 });
 
-it('allows non-name updates on a user-type member', function () {
+it('allows non-protected updates on a user-type member', function () {
     Event::fake([AuditableEvent::class]);
+
+    $customField = CustomField::factory()->create([
+        'name' => 'po_reference',
+        'module_type' => 'Member',
+        'field_type' => CustomFieldType::String,
+    ]);
 
     $member = Member::factory()->user()->create(['name' => 'Staff Member', 'is_active' => true]);
 
-    $result = (new UpdateMember)($member, UpdateMemberData::from(['is_active' => false]));
+    $result = (new UpdateMember)($member, UpdateMemberData::from([
+        'custom_fields' => ['po_reference' => 'PO-777'],
+    ]));
 
-    expect($result->is_active)->toBeFalse()
-        ->and($member->fresh()->name)->toBe('Staff Member');
+    expect($result)->not->toBeNull()
+        ->and($member->fresh()->name)->toBe('Staff Member')
+        ->and($member->fresh()->is_active)->toBeTrue();
+
+    $cfv = CustomFieldValue::query()
+        ->where('custom_field_id', $customField->id)
+        ->where('entity_type', Member::class)
+        ->where('entity_id', $member->id)
+        ->first();
+
+    expect($cfv)->not->toBeNull()
+        ->and($cfv->value_string)->toBe('PO-777');
+});
+
+it('rejects changing the active state of a user-type member', function () {
+    $member = Member::factory()->user()->create(['is_active' => true]);
+
+    expect(fn () => (new UpdateMember)($member, UpdateMemberData::from(['is_active' => false])))
+        ->toThrow(ValidationException::class);
+
+    expect($member->fresh()->is_active)->toBeTrue();
+});
+
+it('rejects changing the location type of a user-type member', function () {
+    $member = Member::factory()->user()->create(['location_type' => 0]);
+
+    expect(fn () => (new UpdateMember)($member, UpdateMemberData::from(['location_type' => 1])))
+        ->toThrow(ValidationException::class);
+
+    expect($member->fresh()->location_type)->toBe(0);
 });
 
 it('rejects unauthorized member update', function () {

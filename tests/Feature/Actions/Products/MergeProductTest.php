@@ -161,7 +161,10 @@ it('throws a validation exception when merging products of different types', fun
 it('rejects merging a product into itself', function () {
     $product = Product::factory()->rental()->create();
 
-    (new MergeProduct)(MergeProductData::from([
+    // Self-merge is enforced by the DTO's different: rule; validateAndCreate is the
+    // path every caller (Livewire/API) uses, so assert it there rather than re-checking
+    // the same condition inside the action.
+    (new MergeProduct)(MergeProductData::validateAndCreate([
         'primary_id' => $product->id,
         'secondary_id' => $product->id,
     ]));

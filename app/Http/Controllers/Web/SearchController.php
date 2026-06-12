@@ -160,14 +160,6 @@ class SearchController
      */
     private function iconUrl(?string $path): ?string
     {
-        if (! $path) {
-            return null;
-        }
-
-        try {
-            return app(FileService::class)->signedUrl($path);
-        } catch (\Throwable) {
-            return null;
-        }
+        return app(FileService::class)->signedUrlOrNull($path);
     }
 }

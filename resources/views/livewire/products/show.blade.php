@@ -76,7 +76,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             {{-- Product Group --}}
             <x-signals.panel title="Product Group">
                 @if($product->productGroup)
-                    <a href="{{ route('products.index', ['filters' => ['product_group_id' => $product->productGroup->id]]) }}" wire:navigate class="flex items-center gap-2 hover:underline" style="color: var(--blue);">
+                    <a href="{{ route('products.index', ['filters' => ['product_group_id' => $product->productGroup->id]]) }}" wire:navigate class="flex items-center gap-2 hover:underline" style="color: var(--blue-ink);">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4"><path d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
                         <span class="text-sm font-medium" style="font-family: var(--font-display);">{{ $product->productGroup->name }}</span>
                     </a>
@@ -163,26 +163,23 @@ new #[Layout('components.layouts.app')] class extends Component {
 
                 {{-- Pricing --}}
                 <x-signals.panel title="Pricing">
-                    <div class="grid grid-cols-3 gap-3">
-                        <div>
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Sub-Rental Price</div>
-                            <div class="mt-1 text-base font-bold" style="font-family: var(--font-display);">
-                                {{ $product->sub_rental_price ? $formatter->money($product->sub_rental_price) : '—' }}
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Purchase Price</div>
-                            <div class="mt-1 text-base font-bold" style="font-family: var(--font-display);">
-                                {{ $product->purchase_price ? $formatter->money($product->purchase_price) : '—' }}
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Replacement Charge</div>
-                            <div class="mt-1 text-base font-bold" style="font-family: var(--font-display);">
-                                {{ $product->replacement_charge ? $formatter->money($product->replacement_charge) : '—' }}
-                            </div>
-                        </div>
-                    </div>
+                    <x-signals.stat-grid style="grid-template-columns: repeat(3, 1fr);">
+                        <x-signals.stat-card
+                            color="green"
+                            label="Sub-Rental Price"
+                            :value="$product->sub_rental_price ? $formatter->money($product->sub_rental_price) : '—'"
+                        />
+                        <x-signals.stat-card
+                            color="blue"
+                            label="Purchase Price"
+                            :value="$product->purchase_price ? $formatter->money($product->purchase_price) : '—'"
+                        />
+                        <x-signals.stat-card
+                            color="amber"
+                            label="Replacement Charge"
+                            :value="$product->replacement_charge ? $formatter->money($product->replacement_charge) : '—'"
+                        />
+                    </x-signals.stat-grid>
                 </x-signals.panel>
             </div>
 

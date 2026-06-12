@@ -131,6 +131,26 @@ class FileService
     }
 
     /**
+     * Generate a signed temporary URL for a file path, returning null when the
+     * path is empty or the underlying URL generation fails.
+     *
+     * Lets callers render a stored file's URL without duplicating the
+     * null-path guard and try/catch fallback at each call site.
+     */
+    public function signedUrlOrNull(?string $path, int $expiry = 60): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        try {
+            return $this->signedUrl($path, $expiry);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * Generate a thumbnail image using Intervention Image.
      */
     private function generateThumbnail(UploadedFile $file, int $width, int $height): string
