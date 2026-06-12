@@ -8,6 +8,7 @@ use App\Models\StockLevel;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -82,11 +83,31 @@ describe('GET /search', function () {
             ->assertOk()
             ->assertJsonStructure([
                 'members' => [
-                    '*' => ['id', 'name', 'type', 'typeValue', 'isActive', 'initials', 'url'],
+                    '*' => ['id', 'name', 'type', 'typeValue', 'isActive', 'initials', 'icon', 'url'],
                 ],
             ])
             ->assertJsonPath('members.0.initials', 'AC')
-            ->assertJsonPath('members.0.typeValue', 'organisation');
+            ->assertJsonPath('members.0.typeValue', 'organisation')
+            ->assertJsonPath('members.0.icon', null);
+    })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');
+
+    it('includes a signed icon url for members and products with a profile image', function () {
+        Storage::fake('public');
+
+        Member::factory()->organisation()->create([
+            'name' => 'Imaged Org',
+            'icon_thumb_url' => 'icons/org-thumb.jpg',
+        ]);
+        Product::factory()->create([
+            'name' => 'Imaged Org Product',
+            'icon_thumb_url' => 'icons/product-thumb.jpg',
+        ]);
+
+        $this->actingAs($this->owner)
+            ->getJson(route('search', ['q' => 'Imaged Org']))
+            ->assertOk()
+            ->assertJsonPath('members.0.icon', fn ($icon) => is_string($icon) && str_contains($icon, 'icons/org-thumb.jpg'))
+            ->assertJsonPath('products.0.icon', fn ($icon) => is_string($icon) && str_contains($icon, 'icons/product-thumb.jpg'));
     })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');
 
     it('limits results to 8', function () {
@@ -188,7 +209,7 @@ describe('GET /search', function () {
             ->assertOk()
             ->assertJsonStructure([
                 'products' => [
-                    '*' => ['id', 'name', 'type', 'typeValue', 'url'],
+                    '*' => ['id', 'name', 'type', 'typeValue', 'icon', 'url'],
                 ],
             ]);
     })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');

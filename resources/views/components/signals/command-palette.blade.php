@@ -66,7 +66,7 @@
             @can('members.view')
             this.memberResults.forEach(m => results.push({ group: 'Members', label: m.name, hint: m.type, icon: 'users', url: m.url, member: m }));
             @endcan
-            this.productResults.forEach(p => results.push({ group: 'Products', label: p.name, hint: p.type, icon: 'cube', url: p.url }));
+            this.productResults.forEach(p => results.push({ group: 'Products', label: p.name, hint: p.type, icon: 'cube', url: p.url, image: p.icon }));
             this.stockLevelResults.forEach(s => results.push({ group: 'Stock Levels', label: s.name, hint: s.type, icon: 'archive', url: s.url }));
             this.productGroupResults.forEach(g => results.push({ group: 'Product Groups', label: g.name, hint: g.type, icon: 'folder', url: g.url }));
             this.activityResults.forEach(a => results.push({ group: 'Activities', label: a.name, hint: a.type, icon: 'calendar', url: a.url }));
@@ -186,16 +186,26 @@
                                             x-on:mouseenter="activeIndex = allResults.findIndex(r => r.label === cmd.label && r.url === cmd.url)"
                                             type="button"
                                         >
-                                            {{-- Member avatar (icon-based, same as /members datatable) --}}
+                                            {{-- Member avatar: profile image when set, otherwise the type glyph --}}
                                             <template x-if="cmd.member">
-                                                <span style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--s-subtle); flex-shrink: 0;">
-                                                    <template x-if="cmd.member.typeValue === 'organisation'"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" style="width: 14px; height: 14px;"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M14 8h1"/><path d="M14 12h1"/></svg></template>
-                                                    <template x-if="cmd.member.typeValue === 'venue'"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" style="width: 14px; height: 14px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></template>
-                                                    <template x-if="cmd.member.typeValue === 'contact'"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" style="width: 14px; height: 14px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></template>
+                                                <span style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--s-subtle); flex-shrink: 0; overflow: hidden;">
+                                                    <template x-if="cmd.member.icon">
+                                                        <img :src="cmd.member.icon" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                                                    </template>
+                                                    <template x-if="!cmd.member.icon && cmd.member.typeValue === 'organisation'"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" style="width: 14px; height: 14px;"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M14 8h1"/><path d="M14 12h1"/></svg></template>
+                                                    <template x-if="!cmd.member.icon && cmd.member.typeValue === 'venue'"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" style="width: 14px; height: 14px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></template>
+                                                    <template x-if="!cmd.member.icon && cmd.member.typeValue === 'contact'"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" style="width: 14px; height: 14px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></template>
+                                                    <template x-if="!cmd.member.icon && cmd.member.typeValue === 'user'"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" style="width: 14px; height: 14px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></template>
+                                                </span>
+                                            </template>
+                                            {{-- Product (or other) thumbnail when a profile image is set --}}
+                                            <template x-if="!cmd.member && cmd.image">
+                                                <span style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: var(--s-subtle); flex-shrink: 0; overflow: hidden;">
+                                                    <img :src="cmd.image" alt="" style="width: 100%; height: 100%; object-fit: cover;">
                                                 </span>
                                             </template>
                                             {{-- Command icon --}}
-                                            <template x-if="!cmd.member">
+                                            <template x-if="!cmd.member && !cmd.image">
                                             <span class="s-command-item-icon">
                                                 <template x-if="cmd.icon === 'home'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></template>
                                                 <template x-if="cmd.icon === 'users'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></template>

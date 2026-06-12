@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Enums\ActivityType;
 use App\Enums\MembershipType;
 use App\Enums\ProductType;
 use App\Models\Activity;
@@ -9,6 +10,7 @@ use App\Models\Member;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\StockLevel;
+use App\Services\FileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -61,6 +63,7 @@ class SearchController
                     'typeValue' => $type->value,
                     'isActive' => $member->is_active,
                     'initials' => $initials,
+                    'icon' => $this->iconUrl($member->icon_thumb_url),
                     'url' => route('members.show', $member->id),
                 ];
             }
@@ -82,6 +85,7 @@ class SearchController
                     'name' => $product->name,
                     'type' => $productType->label(),
                     'typeValue' => $productType->value,
+                    'icon' => $this->iconUrl($product->icon_thumb_url),
                     'url' => route('products.show', $product->id),
                 ];
             }
@@ -135,7 +139,7 @@ class SearchController
                 ->get();
 
             foreach ($activities as $activity) {
-                /** @var \App\Enums\ActivityType $activityType */
+                /** @var ActivityType $activityType */
                 $activityType = $activity->type_id;
                 $results['activities'][] = [
                     'id' => $activity->id,
@@ -148,5 +152,22 @@ class SearchController
         }
 
         return response()->json($results);
+    }
+
+    /**
+     * Resolve a signed URL for a stored icon thumbnail, or null when absent
+     * or unreadable (so the palette falls back to its type glyph).
+     */
+    private function iconUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        try {
+            return app(FileService::class)->signedUrl($path);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
