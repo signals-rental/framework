@@ -27,11 +27,13 @@ new #[Layout('components.layouts.app')] #[Title('Stock Levels')] class extends C
         return [
             'columns' => [
                 ['key' => 'checkbox', 'type' => 'checkbox'],
+                ['key' => 'avatar', 'label' => '', 'view' => 'livewire.stock-levels.partials.column-avatar', 'pairWith' => 'item_name'],
                 ['key' => 'product', 'label' => 'Product', 'view' => 'livewire.stock-levels.partials.column-product'],
-                ['key' => 'item_name', 'label' => 'Item Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text'],
+                ['key' => 'item_name', 'label' => 'Item Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.stock-levels.partials.column-item-name'],
                 ['key' => 'store', 'label' => 'Store', 'view' => 'livewire.stock-levels.partials.column-store'],
-                ['key' => 'asset_number', 'label' => 'Asset #', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text'],
-                ['key' => 'serial_number', 'label' => 'Serial #', 'sortable' => true],
+                ['key' => 'asset_number', 'label' => 'Asset / Barcode', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.stock-levels.partials.column-asset-number'],
+                ['key' => 'serial_number', 'label' => 'Serial #', 'sortable' => true, 'view' => 'livewire.stock-levels.partials.column-serial-number'],
+                ['key' => 'stock_method', 'label' => 'Method', 'view' => 'livewire.stock-levels.partials.column-stock-method'],
                 ['key' => 'quantity_held', 'label' => 'Held', 'sortable' => true],
                 ['key' => 'quantity_allocated', 'label' => 'Allocated', 'sortable' => true],
                 ['key' => 'quantity_unavailable', 'label' => 'Unavailable', 'sortable' => true],
@@ -52,7 +54,7 @@ new #[Layout('components.layouts.app')] #[Title('Stock Levels')] class extends C
 <section class="w-full">
     <x-signals.page-header title="Stock Levels">
         <x-slot:meta>
-            <span style="font-family: var(--font-display); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue);">Inventory</span>
+            <span style="font-family: var(--font-display); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue);">Catalogue</span>
         </x-slot:meta>
     </x-signals.page-header>
 

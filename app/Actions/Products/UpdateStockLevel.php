@@ -24,14 +24,22 @@ class UpdateStockLevel
     {
         Gate::authorize('stock.adjust');
 
-        return DB::transaction(function () use ($stockLevel, $data): StockLevelData {
-            $stockLevel->update(
-                collect($data->toArray())
-                    ->except(['custom_fields'])
-                    ->reject(fn ($value) => $value === null)
-                    ->map(fn ($value) => $value === '' ? null : $value)
-                    ->all()
-            );
+        $attributes = collect($data->toArray())
+            ->except(['custom_fields'])
+            ->reject(fn ($value) => $value === null)
+            ->map(fn ($value) => $value === '' ? null : $value);
+
+        // Asset/barcode and serial numbers are globally unique (ignoring self).
+        $assetNumber = $attributes->get('asset_number');
+        $serialNumber = $attributes->get('serial_number');
+        StockLevel::assertUniqueIdentifiers(
+            is_string($assetNumber) ? $assetNumber : null,
+            is_string($serialNumber) ? $serialNumber : null,
+            $stockLevel->id,
+        );
+
+        return DB::transaction(function () use ($stockLevel, $attributes, $data): StockLevelData {
+            $stockLevel->update($attributes->all());
 
             if ($data->custom_fields !== null) {
                 app(CustomFieldValidator::class)->validate('StockLevel', $data->custom_fields);

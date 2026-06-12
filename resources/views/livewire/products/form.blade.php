@@ -78,7 +78,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->description = $product->description ?? '';
             $this->productGroupId = $product->product_group_id;
             $this->allowedStockType = $product->allowed_stock_type?->value ?? 1;
-            $this->stockMethod = $product->stock_method->value;
+            $this->stockMethod = $product->stock_method?->value ?? StockMethod::Bulk->value;
             $this->weight = $product->weight;
             $this->barcode = $product->barcode;
             $this->sku = $product->sku;

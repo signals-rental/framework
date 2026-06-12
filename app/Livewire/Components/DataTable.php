@@ -643,8 +643,11 @@ class DataTable extends Component
             $result[] = $structural['checkbox'];
         }
 
-        // Avatar if name is in view
-        if (isset($structural['avatar']) && in_array('name', $this->visibleColumnKeys, true)) {
+        // Avatar shown when its paired column (default: 'name') is in the view.
+        // Tables without a 'name' column can pair the avatar with another key
+        // via the column's 'pairWith' setting (e.g. stock levels use 'item_name').
+        $avatarPairKey = $structural['avatar']['pairWith'] ?? 'name';
+        if (isset($structural['avatar']) && in_array($avatarPairKey, $this->visibleColumnKeys, true)) {
             $result[] = $structural['avatar'];
         }
 

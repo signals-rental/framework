@@ -5,18 +5,21 @@ namespace App\Models;
 use App\Contracts\HasSchema;
 use App\Enums\AllowedStockType;
 use App\Enums\StockCategory;
+use App\Enums\StockMethod;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
+use Database\Factories\StockLevelFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Validation\ValidationException;
 
 class StockLevel extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\StockLevelFactory> */
+    /** @use HasFactory<StockLevelFactory> */
     use HasCustomFields, HasFactory;
 
     /** @var list<string> */
@@ -203,5 +206,46 @@ class StockLevel extends Model implements HasSchema
     public function scopeBulk(Builder $query): Builder
     {
         return $query->where('stock_category', StockCategory::BulkStock);
+    }
+
+    /**
+     * Whether this stock level is tracked as serialised (one physical unit per
+     * entry). Derives from the parent product's stock method, where the
+     * serialised/bulk choice is configured.
+     */
+    public function isSerialised(): bool
+    {
+        return $this->product?->stock_method === StockMethod::Serialised;
+    }
+
+    /**
+     * Assert that the given asset/barcode and serial numbers are globally unique
+     * across all stock levels. Pass $ignoreId when updating to exclude self.
+     *
+     * @throws ValidationException
+     */
+    public static function assertUniqueIdentifiers(?string $assetNumber, ?string $serialNumber, ?int $ignoreId = null): void
+    {
+        $checks = [
+            'asset_number' => ['value' => $assetNumber, 'label' => 'asset / barcode number'],
+            'serial_number' => ['value' => $serialNumber, 'label' => 'serial number'],
+        ];
+
+        foreach ($checks as $column => $check) {
+            if ($check['value'] === null || $check['value'] === '') {
+                continue;
+            }
+
+            $query = static::query()->where($column, $check['value']);
+            if ($ignoreId !== null) {
+                $query->where('id', '!=', $ignoreId);
+            }
+
+            if ($query->exists()) {
+                throw ValidationException::withMessages([
+                    $column => ["This {$check['label']} is already in use."],
+                ]);
+            }
+        }
     }
 }

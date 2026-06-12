@@ -11,6 +11,7 @@ use App\Models\StockTransaction;
 use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class CreateStockTransaction
 {
@@ -20,6 +21,19 @@ class CreateStockTransaction
 
         return DB::transaction(function () use ($data): StockTransactionData {
             $stockLevel = StockLevel::findOrFail($data->stock_level_id);
+
+            // Transactions move whole units only; serialised stock moves exactly one.
+            $quantity = (float) $data->quantity;
+            if ($quantity <= 0.0 || floor($quantity) !== $quantity) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Transaction quantity must be a whole number.',
+                ]);
+            }
+            if ($stockLevel->isSerialised() && $quantity !== 1.0) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Serialised stock can only move one unit per transaction.',
+                ]);
+            }
 
             $transaction = StockTransaction::create([
                 'stock_level_id' => $data->stock_level_id,

@@ -2,6 +2,8 @@
 
 namespace App\Views;
 
+use App\Models\StockLevel;
+
 class StockLevelColumnRegistry extends ColumnRegistry
 {
     public function entityType(): string
@@ -11,7 +13,7 @@ class StockLevelColumnRegistry extends ColumnRegistry
 
     public function modelClass(): string
     {
-        return \App\Models\StockLevel::class;
+        return StockLevel::class;
     }
 
     /**
@@ -42,6 +44,6 @@ class StockLevelColumnRegistry extends ColumnRegistry
      */
     public function defaultColumns(): array
     {
-        return ['item_name', 'asset_number', 'serial_number', 'store', 'quantity_held', 'quantity_allocated', 'created_at'];
+        return ['item_name', 'asset_number', 'serial_number', 'stock_method', 'store', 'quantity_held', 'quantity_allocated', 'created_at'];
     }
 }

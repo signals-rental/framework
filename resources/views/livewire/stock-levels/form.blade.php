@@ -141,10 +141,25 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->validate([
             'productId' => ['required', 'integer', 'exists:products,id'],
             'storeId' => ['required', 'integer', 'exists:stores,id'],
-            'assetNumber' => ['nullable', 'string', 'max:255'],
-            'serialNumber' => ['nullable', 'string', 'max:255'],
+            'assetNumber' => ['nullable', 'string', 'max:255', \Illuminate\Validation\Rule::unique('stock_levels', 'asset_number')->ignore($this->stockLevelId)],
+            'serialNumber' => ['nullable', 'string', 'max:255', \Illuminate\Validation\Rule::unique('stock_levels', 'serial_number')->ignore($this->stockLevelId)],
             'quantityHeld' => ['required', 'integer', 'min:0'],
+        ], [
+            'assetNumber.unique' => 'This asset / barcode number is already in use.',
+            'serialNumber.unique' => 'This serial number is already in use.',
         ]);
+
+        // Bulk products may only ever have a single stock level.
+        if (! $this->stockLevelId) {
+            $product = \App\Models\Product::find($this->productId);
+            $isBulk = $product && $product->stock_method !== \App\Enums\StockMethod::Serialised;
+
+            if ($isBulk && StockLevel::where('product_id', $this->productId)->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'productId' => 'Bulk products can only have a single stock level.',
+                ]);
+            }
+        }
 
         $payload = [
             'product_id' => $this->productId,

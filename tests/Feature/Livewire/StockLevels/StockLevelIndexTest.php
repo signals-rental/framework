@@ -4,6 +4,7 @@ use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -34,6 +35,44 @@ it('lists stock levels', function () {
 it('shows empty state when no stock levels exist', function () {
     Volt::test('stock-levels.index')
         ->assertSee('No stock levels found.');
+});
+
+it('renders the product image in the product column when the product has one', function () {
+    Storage::fake('public');
+
+    $product = Product::factory()->create([
+        'name' => 'Imaged Product',
+        'icon_thumb_url' => 'icons/product-thumb.jpg',
+    ]);
+    StockLevel::factory()->create(['product_id' => $product->id]);
+
+    Volt::test('stock-levels.index')
+        ->assertSee('icons/product-thumb.jpg', false)
+        ->assertSee('<img', false);
+});
+
+it('renders item name and codes as links, codes monospaced, and store as a badge', function () {
+    $product = Product::factory()->create(['name' => 'LED Panel']);
+    $store = Store::factory()->create(['name' => 'Main Warehouse']);
+    $stockLevel = StockLevel::factory()->create([
+        'product_id' => $product->id,
+        'store_id' => $store->id,
+        'item_name' => 'LED Panel #001',
+        'asset_number' => 'AST-12345',
+        'serial_number' => 'SN-99887',
+    ]);
+
+    Volt::test('stock-levels.index')
+        ->assertSee('LED Panel #001')
+        ->assertSee('AST-12345')
+        ->assertSee('SN-99887')
+        // item name + asset/serial numbers all link to the stock-level entry
+        ->assertSee(route('stock-levels.show', $stockLevel), false)
+        // asset/serial numbers use the monospace (SKU-style) treatment
+        ->assertSee('var(--font-mono)', false)
+        // store renders as a badge
+        ->assertSee('s-badge', false)
+        ->assertSee('Main Warehouse');
 });
 
 it('ignores invalid status filter', function () {
