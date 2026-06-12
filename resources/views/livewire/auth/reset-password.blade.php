@@ -69,7 +69,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header title="Reset password" description="Please enter your new password below" />
+    <x-auth-header title="Reset password" description="Choose a new password for your account." />
 
     @if (session('status'))
         <x-signals.alert type="success">{{ session('status') }}</x-signals.alert>

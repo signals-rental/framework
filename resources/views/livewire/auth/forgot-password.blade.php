@@ -23,7 +23,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header title="Forgot password" description="Enter your email to receive a password reset link" />
+    <x-auth-header title="Forgot password" description="We'll email you a reset link." />
 
     @if (session('status'))
         <x-signals.alert type="success">{{ session('status') }}</x-signals.alert>

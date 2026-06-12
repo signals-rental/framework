@@ -37,7 +37,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 <div class="flex flex-col gap-6">
     <x-auth-header
         title="Verify your email"
-        description="Please verify your email address by clicking on the link we just emailed to you."
+        description="Click the verification link we've just emailed you."
     />
 
     @if (session('status') == 'verification-link-sent')

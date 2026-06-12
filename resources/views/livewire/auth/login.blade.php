@@ -90,7 +90,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header title="Log in to your account" :description="config('signals.tenant') ? 'Signing in to ' . config('signals.tenant') : 'Enter your email and password below to log in'" />
+    <x-auth-header title="Log in" :description="config('signals.tenant') ? 'Signing in to ' . config('signals.tenant') : 'Welcome back.'" />
 
     @if (session('status'))
         <x-signals.alert type="success">{{ session('status') }}</x-signals.alert>
@@ -104,7 +104,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
         </div>
 
         <div class="s-field !mb-0 {{ $errors->has('password') ? 'has-error' : '' }}">
-            <div class="flex items-center justify-between">
+            <div class="s-auth-field-row">
                 <label class="s-field-label">{{ __('Password') }}</label>
                 @if (Route::has('password.request'))
                     <a href="{{ route('password.request') }}" wire:navigate class="s-auth-description underline hover:opacity-80 transition-opacity">{{ __('Forgot your password?') }}</a>
