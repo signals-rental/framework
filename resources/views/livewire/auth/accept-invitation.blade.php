@@ -36,22 +36,25 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 }; ?>
 
-<section class="w-full max-w-md mx-auto mt-16">
-    <div class="s-card">
-        <div class="s-card-body space-y-6">
-            <div class="text-center">
-                <h1 class="text-xl font-bold text-zinc-900 dark:text-white">Welcome, {{ $user->name }}!</h1>
-                <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
-                    Set your password to complete your account setup.
-                </p>
-            </div>
+<div class="flex flex-col gap-6">
+    <x-auth-header
+        title="Accept invitation"
+        :description="'Welcome, ' . $user->name . ' — set a password to finish creating your account.'"
+    />
 
-            <form wire:submit="accept" class="space-y-4">
-                <flux:input wire:model="password" label="Password" type="password" required />
-                <flux:input wire:model="password_confirmation" label="Confirm Password" type="password" required />
-
-                <flux:button variant="primary" type="submit" class="w-full">Set Password & Continue</flux:button>
-            </form>
+    <form wire:submit="accept" class="flex flex-col gap-5">
+        <div class="s-field !mb-0 {{ $errors->has('password') ? 'has-error' : '' }}">
+            <label class="s-field-label">{{ __('Password') }}</label>
+            <input wire:model="password" type="password" name="password" class="s-input" required autocomplete="new-password" placeholder="Password">
+            @error('password') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
-    </div>
-</section>
+
+        <div class="s-field !mb-0 {{ $errors->has('password_confirmation') ? 'has-error' : '' }}">
+            <label class="s-field-label">{{ __('Confirm password') }}</label>
+            <input wire:model="password_confirmation" type="password" name="password_confirmation" class="s-input" required autocomplete="new-password" placeholder="Confirm password">
+            @error('password_confirmation') <div class="s-field-error">{{ $message }}</div> @enderror
+        </div>
+
+        <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Set password & continue') }}</button>
+    </form>
+</div>
