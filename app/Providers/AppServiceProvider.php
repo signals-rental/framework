@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\ColumnRegistryResolver;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
@@ -38,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(DocsService::class);
         $this->app->singleton(SchemaRegistry::class);
         $this->app->singleton(TaxCalculator::class);
+        $this->app->singleton(ColumnRegistryResolver::class);
 
         $this->app->singleton(PermissionRegistry::class, function (): PermissionRegistry {
             $registry = new PermissionRegistry;

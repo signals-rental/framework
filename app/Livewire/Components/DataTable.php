@@ -6,13 +6,9 @@ use App\Models\CustomView;
 use App\Models\User;
 use App\Models\UserViewPreference;
 use App\Services\Api\RansackFilter;
+use App\Services\ColumnRegistryResolver;
 use App\Services\ViewResolver;
-use App\Views\ActivityColumnRegistry;
 use App\Views\ColumnRegistry;
-use App\Views\MemberColumnRegistry;
-use App\Views\ProductColumnRegistry;
-use App\Views\ProductGroupColumnRegistry;
-use App\Views\StockLevelColumnRegistry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -686,14 +682,11 @@ class DataTable extends Component
      */
     private function getColumnRegistry(): ?ColumnRegistry
     {
-        return match ($this->entityType) {
-            'members' => new MemberColumnRegistry,
-            'products' => new ProductColumnRegistry,
-            'stock_levels' => new StockLevelColumnRegistry,
-            'activities' => new ActivityColumnRegistry,
-            'product_groups' => new ProductGroupColumnRegistry,
-            default => null,
-        };
+        if ($this->entityType === null) {
+            return null;
+        }
+
+        return app(ColumnRegistryResolver::class)->resolve($this->entityType);
     }
 
     /**

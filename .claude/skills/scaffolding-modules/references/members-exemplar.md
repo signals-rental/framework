@@ -42,7 +42,7 @@ Verified against the codebase 2026-06-09.
 
 | File | Shows |
 |------|-------|
-| `resources/views/livewire/members/index.blade.php` | Volt page: `#[Url] $typeFilter` / `#[Url] $archiveFilter='active'`, type-chip counts, `archiveMember/restoreMember/archiveSelected`, datatable invocation (~line 186), `<livewire:members.merge-modal />` |
+| `resources/views/livewire/members/index.blade.php` | Volt page: `#[Url] $typeFilter` / `#[Url] $archiveFilter='active'`, type-chip counts, `archiveMember/restoreMember/archiveSelected`, datatable invocation (grep `<livewire:components.data-table`), `<livewire:members.merge-modal />` |
 | `app/Views/MemberColumnRegistry.php` (+ base `ColumnRegistry.php`, `Column.php`) | Column metadata (label, sortable, filterable, type), `defaultColumns()` |
 | `app/Livewire/Components/DataTable.php` + `resources/views/livewire/components/data-table.blade.php` | The shared datatable — multiselect, sortable columns, pagination (12/24/48), `#[Url]` search/sort/filters |
 | `resources/views/livewire/members/partials/toolbar.blade.php` | `<x-signals.column-toggle />` + `<x-signals.export-button />` |
@@ -52,7 +52,7 @@ Verified against the codebase 2026-06-09.
 | `app/Livewire/Members/MergeModal.php` + `merge-modal.blade.php` | Merge comparison modal |
 | `database/seeders/ViewSeeder.php` | 3–5 system views per entity built from `ColumnRegistry->defaultColumns()` + Ransack filter arrays, one `isDefault: true` |
 
-The invocation to mirror (members/index.blade.php:186):
+The invocation to mirror (in `members/index.blade.php`, grep `<livewire:components.data-table`):
 
 ```blade
 <livewire:components.data-table
@@ -99,7 +99,7 @@ The invocation to mirror (members/index.blade.php:186):
 | File | Shows |
 |------|-------|
 | `app/Http/Controllers/Web/SearchController.php` | Per-entity block: `Gate::allows('members.view')` → query → max 8 results with `{id, name, type, isActive, initials, url}` |
-| `resources/views/components/signals/command-palette.blade.php` | Navigation entry (line ~22), Create entry (~28), live search wiring (`searchMembers()` ~78, results merge ~62) |
+| `resources/views/components/signals/command-palette.blade.php` | Navigation entry (grep `group: 'Navigation', label: 'Members'`), Create entry (grep `group: 'Create', label: 'New Member'`), live search wiring (grep `searchMembers`) |
 | `resources/views/components/layouts/app/header.blade.php` | Mega-menu + sidebar entries, `routeIs('members.*')` active state, gated on `members.access` |
 
 > **Reality check:** there is NO `NavigationService` class and NO `Searchable` trait/`search_index` table yet, whatever the plans say. Nav = header blade + palette; global search = SearchController blocks.
@@ -126,8 +126,9 @@ Every new module MUST touch all of these. Forgetting them caused UAT defects D5 
 
 | File | Add |
 |------|-----|
-| `app/Http/Controllers/Api/V1/SchemaController.php` | `'{plural}' => Model::class` in `MODEL_MAP` (~line 40) |
-| `app/Services/Api/WebhookService.php` | EVERY event the actions dispatch, in `EVENTS` (~line 21) |
+| `app/Http/Controllers/Api/V1/SchemaController.php` | `'{plural}' => Model::class` in the `MODEL_MAP` const (grep `MODEL_MAP =`) |
+| `app/Services/Api/WebhookService.php` | EVERY event the actions dispatch, in the `EVENTS` const (grep `const EVENTS`) |
+| `app/Services/ColumnRegistryResolver.php` | `'{plural}' => {Entity}ColumnRegistry::class` in `$map` (grep `private array $map`) — `resolve()` is the single source of truth feeding both `DataTable::getColumnRegistry()` and `CreateCustomView`/`UpdateCustomView` column validation. One registration wires up the shared datatable too — there is no separate `DataTable.php` match to edit. Missing here = custom-view create/update silently skips validation AND the datatable can't resolve columns. Guarded by the filesystem-scan meta-test `tests/Feature/Services/ColumnRegistryResolverTest.php` (auto-discovers every concrete `app/Views/` registry and fails if one isn't mapped under its own `entityType()` key — no per-module assertion to add) |
 | `database/seeders/PermissionSeeder.php` + `RoleSeeder.php` | Permission chain + role grants |
 | `database/seeders/ViewSeeder.php` | System views |
 | `database/seeders/ListOfValuesSeeder.php` | Any LOV-backed type lists |
@@ -139,9 +140,8 @@ Every new module MUST touch all of these. Forgetting them caused UAT defects D5 
 | `resources/views/components/layouts/app/header.blade.php` | Mega-menu + sidebar |
 | `resources/views/components/signals/command-palette.blade.php` | Navigation + Create + search results |
 | `app/Http/Controllers/Web/SearchController.php` | Gate-gated search block |
-| `resources/views/livewire/admin/settings/custom-field-form.blade.php` | Module name in the hardcoded `moduleTypes` array (~line 103) — the resolver is generic, but without this users can't create the module's custom fields in the UI |
-| `app/Livewire/Components/DataTable.php` | Entity-type → registry entry in the `getColumnRegistry()` match (~line 687) + import — without it the shared datatable can't resolve the module's columns |
-| `resources/views/livewire/admin/settings/api.blade.php` | `{resource}:read` / `{resource}:write` in the hardcoded ability list (~line 28) |
+| `resources/views/livewire/admin/settings/custom-field-form.blade.php` | Module name in the hardcoded `moduleTypes` array (grep `'moduleTypes' =>`) — the resolver is generic, but without this users can't create the module's custom fields in the UI |
+| `resources/views/livewire/admin/settings/api.blade.php` | `{resource}:read` / `{resource}:write` in the hardcoded ability list (grep `'members:read'`) |
 | `docs/api/webhooks.md` | New webhook events added to the `## Events` list |
 | `docs/documentation.json` | Platform + API page entries |
 
@@ -151,8 +151,8 @@ All under `resources/views/livewire/admin/settings/`:
 
 | Page | Data source | What a new module does |
 |------|------------|------------------------|
-| `permissions.blade.php` + `roles.blade.php`/`role-form.blade.php` | `PermissionRegistry->grouped()` (singleton built in `AppServiceProvider` ~line 42); roles from DB | Register permission keys + group metadata in `AppServiceProvider`; seed via `PermissionSeeder` (it validates against the registry) — then both pages surface them automatically |
-| `api.blade.php` | Hardcoded ability list (~line 28) | Add `{resource}:read`/`{resource}:write` entries |
+| `permissions.blade.php` + `roles.blade.php`/`role-form.blade.php` | `PermissionRegistry->grouped()` (singleton built in `AppServiceProvider`, grep `singleton(PermissionRegistry`); roles from DB | Register permission keys + group metadata in `AppServiceProvider`; seed via `PermissionSeeder` (it validates against the registry) — then both pages surface them automatically |
+| `api.blade.php` | Hardcoded ability list (grep `'members:read'`) | Add `{resource}:read`/`{resource}:write` entries |
 | `email-templates.blade.php` | `EmailTemplate` model (DB) | Seed templates via `EmailTemplateSeeder` for any outbound comms the module sends |
 | `notifications.blade.php` | `NotificationType` model | Register types in `NotificationTypeSeeder::types()` (feeds `NotificationRegistry`) |
 | `scheduling.blade.php` | `settings()->group('scheduling')` | Add keys to the `scheduling` settings group + form fields if the module has scheduling-relevant config |
@@ -163,7 +163,7 @@ All under `resources/views/livewire/admin/settings/`:
 
 ## Dashboard
 
-`resources/views/dashboard.blade.php` — Quick Actions block at ~line 146 (`.quick-action` anchors); widget components live in `app/Livewire/Dashboard/` + `resources/views/livewire/dashboard/`. There is NO WidgetRegistry yet (plans describe one; not built) — widgets are placed directly in the dashboard blade, permission-gated.
+`resources/views/dashboard.blade.php` — Quick Actions block (grep `Quick Actions` / `.quick-action` anchors); widget components live in `app/Livewire/Dashboard/` + `resources/views/livewire/dashboard/`. There is NO WidgetRegistry yet (plans describe one; not built) — widgets are placed directly in the dashboard blade, permission-gated. NB: some existing quick-action anchors use `href="#"` placeholders — a real module's quick action must link to its `route('{plural}.create')` and be permission-gated.
 
 ## Newer-pattern deltas (follow these over Members)
 
