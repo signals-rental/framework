@@ -353,10 +353,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                                     <div x-data="{ open: false }" class="relative">
                                         <div class="flex items-center gap-1">
                                             @if($this->productGroupId)
-                                                <div class="s-chip flex items-center gap-1.5 px-2 py-1.5 w-full">
-                                                    <span class="flex-1 text-[13px]">{{ $this->selectedProductGroupName }}</span>
-                                                    <button type="button" wire:click="$set('productGroupId', null)" class="opacity-50 hover:opacity-100">&times;</button>
-                                                </div>
+                                                <x-signals.autocomplete-selected :label="$this->selectedProductGroupName">
+                                                    <button type="button" wire:click="$set('productGroupId', null)" class="shrink-0 text-zinc-400 hover:text-zinc-700 dark:hover:text-white">&times;</button>
+                                                </x-signals.autocomplete-selected>
                                             @else
                                                 <flux:input wire:model.live.debounce.300ms="productGroupSearch" placeholder="Search product groups..." x-on:focus="open = true" x-on:input="open = true" />
                                             @endif
@@ -495,10 +494,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                                 <div x-data="{ open: false }" class="relative">
                                     <div class="flex items-center gap-1">
                                         @if($this->countryOfOriginId)
-                                            <div class="s-chip flex items-center gap-1.5 px-2 py-1.5 w-full">
-                                                <span class="flex-1 text-[13px]">{{ $this->selectedCountryName }}</span>
-                                                <button type="button" wire:click="$set('countryOfOriginId', null)" class="opacity-50 hover:opacity-100">&times;</button>
-                                            </div>
+                                            <x-signals.autocomplete-selected :label="$this->selectedCountryName">
+                                                <button type="button" wire:click="$set('countryOfOriginId', null)" class="shrink-0 text-zinc-400 hover:text-zinc-700 dark:hover:text-white">&times;</button>
+                                            </x-signals.autocomplete-selected>
                                         @else
                                             <flux:input wire:model.live.debounce.300ms="countrySearch" placeholder="Search countries..." x-on:focus="open = true" x-on:input="open = true" />
                                         @endif

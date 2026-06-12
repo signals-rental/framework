@@ -4,8 +4,12 @@ namespace App\Actions\Products;
 
 use App\Data\Products\CreateProductData;
 use App\Data\Products\ProductData;
+use App\Enums\StockCategory;
+use App\Enums\StockMethod;
 use App\Events\AuditableEvent;
 use App\Models\Product;
+use App\Models\StockLevel;
+use App\Models\Store;
 use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +54,24 @@ class CreateProduct
             ]);
 
             $product->syncCustomFields($data->custom_fields, applyDefaults: true);
+
+            // Bulk products track stock in a single stock level — create it up
+            // front at zero quantity so it's ready to receive transactions.
+            if ($product->stock_method !== StockMethod::Serialised) {
+                $store = Store::where('is_default', true)->first() ?? Store::query()->first();
+
+                if ($store !== null) {
+                    StockLevel::create([
+                        'product_id' => $product->id,
+                        'store_id' => $store->id,
+                        'stock_category' => StockCategory::BulkStock,
+                        'quantity_held' => 0,
+                        'quantity_allocated' => 0,
+                        'quantity_unavailable' => 0,
+                        'quantity_on_order' => 0,
+                    ]);
+                }
+            }
 
             event(new AuditableEvent($product, 'product.created'));
 
