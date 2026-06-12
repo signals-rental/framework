@@ -121,7 +121,7 @@ Tick every box or record an explicit, user-approved skip. Silence is not a decis
 - [ ] Policy matrix per role; model tests (casts, scopes, schema contract, factory states)
 - [ ] Livewire page tests (index filters/bulk/archive, form create+edit, show tabs)
 - [ ] Webhook-registration + seeder meta-tests extended
-- [ ] Gate, in order: relevant tests → `vendor/bin/pint --dirty --format agent` → `vendor/bin/phpstan analyse` (zero errors) → pr-review agents + `/codex:adversarial-review` (cross-model, skip gracefully if the Codex plugin isn't installed) → fix & repeat. Ask before committing/pushing.
+- [ ] Gate, in order: relevant tests → `vendor/bin/pint --dirty --format agent` → `vendor/bin/phpstan analyse` (zero errors) → pr-review agents → fix & repeat. Ask before committing/pushing.
 
 ## Cross-cutting (every layer)
 

@@ -199,7 +199,6 @@ Based on what changed, dispatch existing review agents in parallel using the `Ta
 
 **Always run:**
 - `pr-review-toolkit:code-reviewer` — general code quality against CLAUDE.md standards
-- `/codex:review` (OpenAI Codex plugin) — cross-model second opinion on the same diff. Use `/codex:adversarial-review` instead when the change contains significant design decisions worth challenging. If the Codex plugin or CLI is not installed, note the skip in the report and continue — it must not block the review.
 
 **Conditional dispatch:**
 - If Blade/CSS files changed → `pr-review-toolkit:code-simplifier`
