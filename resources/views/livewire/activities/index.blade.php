@@ -134,11 +134,7 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
 }; ?>
 
 <section class="w-full">
-    <x-signals.page-header title="Activities">
-        <x-slot:meta>
-            <span style="font-family: var(--font-display); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue);">CRM</span>
-        </x-slot:meta>
-    </x-signals.page-header>
+    <x-signals.page-header title="Activities" />
 
     <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
         {{-- Type filter chips --}}

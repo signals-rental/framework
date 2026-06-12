@@ -1,5 +1,16 @@
 @props(['title' => null])
 
+@php
+    use App\Support\ActiveRoute;
+
+    // Stable, request-independent flags for which sidebar to render. Derived from
+    // the page's real route (via Livewire's persisted original URL) so they remain
+    // correct during Livewire updates, not just on full page loads.
+    $isAdminArea = ActiveRoute::is('admin.*');
+    $isSettingsArea = ActiveRoute::is('settings.*');
+    $hasSidebarContent = $isAdminArea || $isSettingsArea;
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -20,31 +31,25 @@
                 <flux:icon.bars-2 class="!size-5" />
             </button>
 
-            {{-- Brand: customer company name --}}
-            <a href="{{ route('dashboard') }}" class="header-brand" wire:navigate>
-                <span class="flex h-6 w-6 shrink-0 items-center justify-center bg-[var(--blue)] text-[9px] font-bold text-white">{{ strtoupper(mb_substr(settings('company.name', 'Signals'), 0, 1)) }}</span>
-                {{ settings('company.name', 'Signals') }}
-            </a>
-
             {{-- Primary module navigation (desktop) --}}
             <nav class="mr-auto hidden h-full items-center gap-0 lg:flex">
                 <a href="{{ route('dashboard') }}"
-                   class="header-nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}"
+                   class="header-nav-item header-nav-item-icon {{ ActiveRoute::is('dashboard') ? 'active' : '' }}"
+                   aria-label="{{ __('Dashboard') }}"
                    wire:navigate>
-                    Dashboard
+                    <flux:icon.home class="header-nav-icon-glyph" />
                 </a>
 
-                {{-- CRM mega dropdown --}}
-                @canany(['members.access', 'activities.access'])
+                {{-- CRM mega dropdown (members only) --}}
+                @can('members.access')
                 <div class="nav-dropdown-wrapper">
-                    <button class="header-nav-item {{ request()->routeIs('members.*') ? 'active' : '' }}" type="button">
+                    <button class="header-nav-item {{ ActiveRoute::is('members.*') ? 'active' : '' }}" type="button">
                         CRM
                         <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
                     </button>
-                    <div class="mega-dropdown">
-                        <div class="grid grid-cols-2 gap-x-8 gap-y-5">
-                            {{-- Column 1: People & Places --}}
-                            @can('members.access')
+                    <div class="mega-dropdown mega-dropdown-cols-1">
+                        <div class="mega-grid grid gap-x-8 gap-y-5">
+                            {{-- People & Places --}}
                             <div>
                                 <div class="mega-group-label">People &amp; Places</div>
                                 <a href="{{ route('members.index') }}" class="mega-item" wire:navigate>
@@ -76,18 +81,47 @@
                                     </div>
                                 </a>
                             </div>
-                            @endcan
-                            {{-- Column 2: Engagement --}}
-                            @can('activities.access')
+                        </div>
+                    </div>
+                </div>
+                @endcan
+
+                {{-- Job Planning mega dropdown.
+                     Placeholder links are ungated for now; they gain
+                     opportunities.* / projects.* gates when those modules ship. --}}
+                <div class="nav-dropdown-wrapper">
+                    <button class="header-nav-item" type="button">
+                        Job Planning
+                        <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+                    </button>
+                    <div class="mega-dropdown mega-dropdown-cols-2">
+                        <div class="mega-grid grid gap-x-8 gap-y-5">
                             <div>
-                                <div class="mega-group-label">Engagement</div>
-                                <a href="{{ route('activities.index') }}" class="mega-item" wire:navigate>
-                                    <flux:icon.calendar-days class="mega-item-icon" />
+                                <div class="mega-group-label">Opportunities</div>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.briefcase class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
-                                        <span class="mega-item-label">Activities</span>
-                                        <span class="mega-item-desc">Tasks, calls &amp; follow-ups</span>
+                                        <span class="mega-item-label">Opportunities</span>
+                                        <span class="mega-item-desc">Quotes, orders &amp; hires</span>
                                     </div>
                                 </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.calendar-days class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Planner</span>
+                                        <span class="mega-item-desc">Schedule &amp; resource timeline</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.chart-bar class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Equipment Availability</span>
+                                        <span class="mega-item-desc">Stock availability &amp; conflicts</span>
+                                    </div>
+                                </a>
+                            </div>
+                            <div>
+                                <div class="mega-group-label">Projects</div>
                                 <a href="#" class="mega-item">
                                     <flux:icon.folder class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
@@ -96,20 +130,18 @@
                                     </div>
                                 </a>
                             </div>
-                            @endcan
                         </div>
                     </div>
                 </div>
-                @endcanany
 
                 {{-- Resources mega dropdown --}}
                 <div class="nav-dropdown-wrapper">
-                    <button class="header-nav-item {{ request()->routeIs('products.*') || request()->routeIs('product-groups.*') || request()->routeIs('stock-levels.*') ? 'active' : '' }}" type="button">
+                    <button class="header-nav-item {{ ActiveRoute::is('products.*', 'product-groups.*', 'stock-levels.*') ? 'active' : '' }}" type="button">
                         Resources
                         <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
                     </button>
-                    <div class="mega-dropdown">
-                        <div class="grid grid-cols-2 gap-x-8 gap-y-5">
+                    <div class="mega-dropdown mega-dropdown-cols-2">
+                        <div class="mega-grid grid gap-x-8 gap-y-5">
                             <div>
                                 <div class="mega-group-label">Catalogue</div>
                                 <a href="{{ route('products.index') }}" class="mega-item" wire:navigate>
@@ -117,6 +149,13 @@
                                     <div class="flex flex-col gap-px">
                                         <span class="mega-item-label">Products</span>
                                         <span class="mega-item-desc">Equipment, services &amp; consumables</span>
+                                    </div>
+                                </a>
+                                <a href="{{ route('product-groups.index') }}" class="mega-item" wire:navigate>
+                                    <flux:icon.folder class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Product Groups</span>
+                                        <span class="mega-item-desc">Categories &amp; hierarchy</span>
                                     </div>
                                 </a>
                                 <a href="{{ route('stock-levels.index') }}" class="mega-item" wire:navigate>
@@ -128,32 +167,200 @@
                                 </a>
                             </div>
                             <div>
-                                <div class="mega-group-label">Reference</div>
-                                <a href="{{ route('product-groups.index') }}" class="mega-item" wire:navigate>
-                                    <flux:icon.folder class="mega-item-icon" />
+                                <div class="mega-group-label">Services</div>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.users class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
-                                        <span class="mega-item-label">Product Groups</span>
-                                        <span class="mega-item-desc">Categories &amp; hierarchy</span>
+                                        <span class="mega-item-label">Crew</span>
+                                        <span class="mega-item-desc">People &amp; team scheduling</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.wrench-screwdriver class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Labour</span>
+                                        <span class="mega-item-desc">Time &amp; labour charges</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.truck class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Vehicles</span>
+                                        <span class="mega-item-desc">Fleet &amp; transport scheduling</span>
                                     </div>
                                 </a>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                {{-- Finance mega dropdown.
+                     Placeholder links are ungated for now; they gain
+                     invoices.* / payments.* gates when those modules ship. --}}
+                <div class="nav-dropdown-wrapper">
+                    <button class="header-nav-item" type="button">
+                        Finance
+                        <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+                    </button>
+                    <div class="mega-dropdown mega-dropdown-cols-2">
+                        <div class="mega-grid grid gap-x-8 gap-y-5">
+                            <div>
+                                <div class="mega-group-label">Billing</div>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.document-currency-pound class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Invoices</span>
+                                        <span class="mega-item-desc">Issue &amp; track invoices</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.receipt-refund class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Credit Notes</span>
+                                        <span class="mega-item-desc">Refunds &amp; adjustments</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.banknotes class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Payments</span>
+                                        <span class="mega-item-desc">Receipts &amp; reconciliation</span>
+                                    </div>
+                                </a>
+                            </div>
+                            <div>
+                                <div class="mega-group-label">Purchasing</div>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.shopping-cart class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Purchase Orders</span>
+                                        <span class="mega-item-desc">Supplier orders &amp; procurement</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Operations mega dropdown.
+                     Placeholder links are ungated for now; they gain
+                     inspections.* gates when that module ships. --}}
+                <div class="nav-dropdown-wrapper">
+                    <button class="header-nav-item" type="button">
+                        Operations
+                        <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+                    </button>
+                    <div class="mega-dropdown mega-dropdown-cols-2">
+                        <div class="mega-grid grid gap-x-8 gap-y-5">
+                            <div>
+                                <div class="mega-group-label">Warehouse</div>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.arrow-path class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Processing</span>
+                                        <span class="mega-item-desc">Pick, pack &amp; dispatch</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.squares-2x2 class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Prep Bays</span>
+                                        <span class="mega-item-desc">Staging &amp; preparation areas</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.rectangle-stack class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Shelf</span>
+                                        <span class="mega-item-desc">Storage locations &amp; bins</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.qr-code class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Global Check-in</span>
+                                        <span class="mega-item-desc">Scan &amp; receive returns</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.cube-transparent class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Containers</span>
+                                        <span class="mega-item-desc">Cases, flightcases &amp; kits</span>
+                                    </div>
+                                </a>
+                            </div>
+                            <div>
+                                <div class="mega-group-label">Inspections</div>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.clipboard-document-check class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Testing</span>
+                                        <span class="mega-item-desc">Inspections &amp; safety checks</span>
+                                    </div>
+                                </a>
+                                <a href="#" class="mega-item">
+                                    <flux:icon.shield-check class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Certificates</span>
+                                        <span class="mega-item-desc">Certifications &amp; compliance</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Reports (top-level placeholder; gains reports.* gate when the module ships). --}}
+                <a href="#" class="header-nav-item">
+                    Reports
+                </a>
             </nav>
 
             {{-- Header actions (right side) --}}
             <div class="header-actions">
-                {{-- Search --}}
-                <div class="docs-search" style="width: 260px; margin-left: 0;" x-on:click="$dispatch('open-command-palette')">
-                    <div class="docs-search-input-wrap" style="cursor: pointer;">
-                        <svg class="docs-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text" class="docs-search-input" placeholder="Search orders, members..." readonly style="cursor: pointer;">
-                        <span class="docs-search-kbd">/</span>
+                {{-- Search: compact icon button. Dispatches the same
+                     `open-command-palette` event the old search input did;
+                     the '/' shortcut is handled globally inside the palette. --}}
+                <button class="header-icon-btn" type="button" title="{{ __('Search') }}" aria-label="{{ __('Search') }}" x-on:click="$dispatch('open-command-palette')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
+
+                @auth
+                {{-- Extensions / expandability menu.
+                     Placeholder links are ungated for now. --}}
+                <div class="nav-dropdown-wrapper">
+                    <button class="header-icon-btn" type="button" title="{{ __('Extensions') }}" aria-label="{{ __('Extensions') }}">
+                        <flux:icon.puzzle-piece />
+                    </button>
+                    <div class="mega-dropdown mega-dropdown-end">
+                        <div class="grid grid-cols-1 gap-y-1">
+                            <a href="#" class="mega-item">
+                                <flux:icon.bolt class="mega-item-icon" />
+                                <span class="mega-item-label">Workflows</span>
+                            </a>
+                            <a href="#" class="mega-item">
+                                <flux:icon.puzzle-piece class="mega-item-icon" />
+                                <span class="mega-item-label">Plugin</span>
+                            </a>
+                            <a href="#" class="mega-item">
+                                <flux:icon.code-bracket class="mega-item-icon" />
+                                <span class="mega-item-label">API</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
-                @auth
+                {{-- Activities (moved out of CRM) --}}
+                @can('activities.access')
+                <a href="{{ route('activities.index') }}"
+                   class="header-icon-btn {{ ActiveRoute::is('activities.*') ? 'active' : '' }}"
+                   title="{{ __('Activities') }}" aria-label="{{ __('Activities') }}"
+                   wire:navigate>
+                    <flux:icon.calendar-days />
+                </a>
+                @endcan
+
                 {{-- Notifications --}}
                 <button class="header-icon-btn" title="Notifications" aria-label="Notifications" x-on:click="notificationsOpen = !notificationsOpen" :class="{ 'active': notificationsOpen }">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6a4 4 0 0 1 8 0c0 3 1.5 4.5 2 5H2c.5-.5 2-2 2-5z"/><path d="M6 11v.5a2 2 0 0 0 4 0V11"/></svg>
@@ -161,15 +368,25 @@
                 </button>
 
                 {{-- User dropdown --}}
+                @php
+                    $userAvatarSrc = null;
+                    $userThumbPath = auth()->user()?->member?->icon_thumb_url;
+                    if ($userThumbPath) {
+                        try {
+                            $userAvatarSrc = app(\App\Services\FileService::class)->signedUrl($userThumbPath);
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
+                    }
+                    $userAvatarInitialsClass = $userAvatarSrc ? '' : 'bg-[var(--blue)] text-[var(--brand-on-accent,#ffffff)]';
+                @endphp
                 <div class="nav-dropdown-wrapper">
-                    <button class="ml-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center bg-[var(--blue)] text-[10px] font-semibold tracking-wide text-white" type="button">
-                        {{ auth()->user()->initials() }}
+                    <button class="header-avatar-btn" type="button" aria-label="{{ __('User menu') }}">
+                        <x-signals.avatar :src="$userAvatarSrc" :initials="auth()->user()->initials()" size="sm" :class="'h-7 w-7 '.$userAvatarInitialsClass" />
                     </button>
                     <div class="mega-dropdown mega-dropdown-end">
                         <div class="flex items-center gap-3 pb-4">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center bg-[var(--blue)] text-[11px] font-semibold tracking-wide text-white">
-                                {{ auth()->user()->initials() }}
-                            </span>
+                            <x-signals.avatar :src="$userAvatarSrc" :initials="auth()->user()->initials()" size="md" :class="$userAvatarInitialsClass" />
                             <div class="grid flex-1 text-left leading-tight">
                                 <span class="truncate text-[12px] font-semibold text-[var(--text-primary)]">{{ auth()->user()->name }}</span>
                                 <span class="truncate text-[11px] text-[var(--text-muted)]">{{ auth()->user()->email }}</span>
@@ -226,7 +443,7 @@
                 <flux:icon.x-mark class="!size-5" />
             </button>
 
-            @if(request()->is('admin*'))
+            @if($isAdminArea)
                 {{-- Admin mobile sidebar --}}
                 <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.arrow-left class="!size-[15px]" /> Back to app
@@ -234,30 +451,30 @@
 
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
                 <div class="sidebar-group-label">Admin</div>
-                <a class="sidebar-item {{ request()->routeIs('admin.settings.company') || request()->routeIs('admin.settings.stores*') || request()->routeIs('admin.settings.branding') || request()->routeIs('admin.settings.modules') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('admin.settings.company', 'admin.settings.stores*', 'admin.settings.branding') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.cog-6-tooth class="!size-[15px]" /> Setup
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('admin.settings.users*') || request()->routeIs('admin.settings.roles*') || request()->routeIs('admin.settings.permissions') || request()->routeIs('admin.settings.security') ? 'active' : '' }}" href="{{ route('admin.settings.users') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('admin.settings.users*', 'admin.settings.roles*', 'admin.settings.permissions', 'admin.settings.security', 'admin.settings.api') ? 'active' : '' }}" href="{{ route('admin.settings.users') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.users class="!size-[15px]" /> Users & Security
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('admin.settings.preferences') || request()->routeIs('admin.settings.email') || request()->routeIs('admin.settings.email-templates*') || request()->routeIs('admin.settings.notifications') || request()->routeIs('admin.settings.scheduling') ? 'active' : '' }}" href="{{ route('admin.settings.preferences') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('admin.settings.preferences', 'admin.settings.email', 'admin.settings.email-templates*', 'admin.settings.notifications', 'admin.settings.scheduling', 'admin.settings.integrations') ? 'active' : '' }}" href="{{ route('admin.settings.preferences') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.adjustments-horizontal class="!size-[15px]" /> Preferences
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('admin.settings.custom-field-groups*') || request()->routeIs('admin.settings.custom-fields*') || request()->routeIs('admin.settings.list-names*') || request()->routeIs('admin.settings.lists*') || request()->routeIs('admin.settings.list-values*') || request()->routeIs('admin.settings.countries') ? 'active' : '' }}" href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('admin.settings.custom-field-groups*', 'admin.settings.custom-fields*', 'admin.settings.list-names*', 'admin.settings.lists*', 'admin.settings.list-values*', 'admin.settings.countries') ? 'active' : '' }}" href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.rectangle-group class="!size-[15px]" /> Data
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.receipt-percent class="!size-[15px]" /> Tax
                 </a>
                 @can('rates.view')
-                    <a class="sidebar-item {{ request()->routeIs('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate x-on:click="mobileNav = false">
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate x-on:click="mobileNav = false">
                         <flux:icon.calculator class="!size-[15px]" /> Pricing
                     </a>
                 @endcan
-                <a class="sidebar-item {{ request()->routeIs('admin.settings.action-log') || request()->routeIs('admin.settings.system-health') || request()->routeIs('admin.settings.infrastructure') || request()->routeIs('admin.settings.seeders') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('admin.settings.action-log', 'admin.settings.system-health', 'admin.settings.infrastructure', 'admin.settings.seeders', 'admin.settings.webhooks') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.server-stack class="!size-[15px]" /> System
                 </a>
-            @elseif(request()->routeIs('settings.*'))
+            @elseif($isSettingsArea)
                 {{-- Settings mobile sidebar --}}
                 <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.arrow-left class="!size-[15px]" /> Back to app
@@ -265,26 +482,119 @@
 
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
                 <div class="sidebar-group-label">Settings</div>
-                <a class="sidebar-item {{ request()->routeIs('settings.profile') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('settings.profile') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.user class="!size-[15px]" /> Profile
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('settings.password') ? 'active' : '' }}" href="{{ route('settings.password') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('settings.password') ? 'active' : '' }}" href="{{ route('settings.password') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.key class="!size-[15px]" /> Password
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.swatch class="!size-[15px]" /> Appearance
                 </a>
             @else
                 {{-- Normal mobile sidebar --}}
-                <a class="sidebar-item {{ request()->routeIs('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.home class="!size-[15px]" /> Dashboard
+                </a>
+
+                @can('members.access')
+                    <div class="sidebar-group-label">People &amp; Places</div>
+                    <a class="sidebar-item {{ ActiveRoute::is('members.*') ? 'active' : '' }}" href="{{ route('members.index') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.user-group class="!size-[15px]" /> Members
+                    </a>
+                @endcan
+
+                {{-- Job Planning placeholders (ungated until modules ship). --}}
+                <div class="sidebar-group-label">Job Planning</div>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.briefcase class="!size-[15px]" /> Opportunities
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.calendar-days class="!size-[15px]" /> Planner
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.chart-bar class="!size-[15px]" /> Equipment Availability
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.folder class="!size-[15px]" /> Projects
+                </a>
+
+                <div class="sidebar-group-label">Catalogue</div>
+                <a class="sidebar-item {{ ActiveRoute::is('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.cube class="!size-[15px]" /> Products
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('product-groups.*') ? 'active' : '' }}" href="{{ route('product-groups.index') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('product-groups.*') ? 'active' : '' }}" href="{{ route('product-groups.index') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.folder class="!size-[15px]" /> Product Groups
                 </a>
-                <a class="sidebar-item {{ request()->routeIs('stock-levels.*') ? 'active' : '' }}" href="{{ route('stock-levels.index') }}" wire:navigate x-on:click="mobileNav = false">
+                <a class="sidebar-item {{ ActiveRoute::is('stock-levels.*') ? 'active' : '' }}" href="{{ route('stock-levels.index') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.archive-box class="!size-[15px]" /> Stock Levels
                 </a>
+
+                {{-- Services / Finance / Operations placeholders (ungated until modules ship). --}}
+                <div class="sidebar-group-label">Services</div>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.users class="!size-[15px]" /> Crew
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.wrench-screwdriver class="!size-[15px]" /> Labour
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.truck class="!size-[15px]" /> Vehicles
+                </a>
+
+                <div class="sidebar-group-label">Finance</div>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.document-currency-pound class="!size-[15px]" /> Invoices
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.receipt-refund class="!size-[15px]" /> Credit Notes
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.banknotes class="!size-[15px]" /> Payments
+                </a>
+
+                <div class="sidebar-group-label">Purchasing</div>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.shopping-cart class="!size-[15px]" /> Purchase Orders
+                </a>
+
+                <div class="sidebar-group-label">Warehouse</div>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.arrow-path class="!size-[15px]" /> Processing
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.squares-2x2 class="!size-[15px]" /> Prep Bays
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.rectangle-stack class="!size-[15px]" /> Shelf
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.qr-code class="!size-[15px]" /> Global Check-in
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.cube-transparent class="!size-[15px]" /> Containers
+                </a>
+
+                <div class="sidebar-group-label">Operations</div>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.clipboard-document-check class="!size-[15px]" /> Testing
+                </a>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.shield-check class="!size-[15px]" /> Certificates
+                </a>
+
+                <div class="sidebar-group-label">Reports</div>
+                <a class="sidebar-item" href="#">
+                    <flux:icon.chart-pie class="!size-[15px]" /> Reports
+                </a>
+
+                @can('activities.access')
+                    <div class="sidebar-group-label">Engagement</div>
+                    <a class="sidebar-item {{ ActiveRoute::is('activities.*') ? 'active' : '' }}" href="{{ route('activities.index') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.calendar-days class="!size-[15px]" /> Activities
+                    </a>
+                @endcan
+
                 <div class="flex-1"></div>
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
                 @if(auth()->user()?->hasAdminAccess())
@@ -303,15 +613,12 @@
         {{-- ============================================================ --}}
         <div class="app-layout">
             {{-- Desktop sidebar --}}
-            @php
-                $hasSidebarContent = request()->is('admin*') || request()->routeIs('settings.*');
-            @endphp
             <aside class="app-sidebar hidden lg:flex"
                    :class="{
                        'collapsed': !{{ json_encode($hasSidebarContent) }} || !sidebarOpen,
                        'ready': sidebarReady
                    }">
-                @if(request()->is('admin*'))
+                @if($isAdminArea)
                     {{-- Admin sidebar --}}
                     <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate>
                         <flux:icon.arrow-left class="!size-[15px]" />
@@ -321,43 +628,43 @@
                     <div class="sidebar-divider"></div>
                     <div class="sidebar-group-label">Admin</div>
 
-                    <a class="sidebar-item {{ request()->routeIs('admin.settings.company') || request()->routeIs('admin.settings.stores*') || request()->routeIs('admin.settings.branding') || request()->routeIs('admin.settings.modules') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.company', 'admin.settings.stores*', 'admin.settings.branding') ? 'active' : '' }}" href="{{ route('admin.settings.company') }}" wire:navigate>
                         <flux:icon.cog-6-tooth class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Setup</span>
                     </a>
 
-                    <a class="sidebar-item {{ request()->routeIs('admin.settings.users*') || request()->routeIs('admin.settings.roles*') || request()->routeIs('admin.settings.permissions') || request()->routeIs('admin.settings.security') ? 'active' : '' }}" href="{{ route('admin.settings.users') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.users*', 'admin.settings.roles*', 'admin.settings.permissions', 'admin.settings.security', 'admin.settings.api') ? 'active' : '' }}" href="{{ route('admin.settings.users') }}" wire:navigate>
                         <flux:icon.users class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Users & Security</span>
                     </a>
 
-                    <a class="sidebar-item {{ request()->routeIs('admin.settings.preferences') || request()->routeIs('admin.settings.email') || request()->routeIs('admin.settings.email-templates*') || request()->routeIs('admin.settings.notifications') || request()->routeIs('admin.settings.scheduling') ? 'active' : '' }}" href="{{ route('admin.settings.preferences') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.preferences', 'admin.settings.email', 'admin.settings.email-templates*', 'admin.settings.notifications', 'admin.settings.scheduling', 'admin.settings.integrations') ? 'active' : '' }}" href="{{ route('admin.settings.preferences') }}" wire:navigate>
                         <flux:icon.adjustments-horizontal class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Preferences</span>
                     </a>
 
-                    <a class="sidebar-item {{ request()->routeIs('admin.settings.custom-field-groups*') || request()->routeIs('admin.settings.custom-fields*') || request()->routeIs('admin.settings.list-names*') || request()->routeIs('admin.settings.lists*') || request()->routeIs('admin.settings.list-values*') || request()->routeIs('admin.settings.countries') ? 'active' : '' }}" href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.custom-field-groups*', 'admin.settings.custom-fields*', 'admin.settings.list-names*', 'admin.settings.lists*', 'admin.settings.list-values*', 'admin.settings.countries') ? 'active' : '' }}" href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate>
                         <flux:icon.rectangle-group class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Data</span>
                     </a>
 
-                    <a class="sidebar-item {{ request()->routeIs('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate>
                         <flux:icon.receipt-percent class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Tax</span>
                     </a>
 
                     @can('rates.view')
-                        <a class="sidebar-item {{ request()->routeIs('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate>
+                        <a class="sidebar-item {{ ActiveRoute::is('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate>
                             <flux:icon.calculator class="!size-[15px]" />
                             <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Pricing</span>
                         </a>
                     @endcan
 
-                    <a class="sidebar-item {{ request()->routeIs('admin.settings.action-log') || request()->routeIs('admin.settings.system-health') || request()->routeIs('admin.settings.infrastructure') || request()->routeIs('admin.settings.seeders') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.action-log', 'admin.settings.system-health', 'admin.settings.infrastructure', 'admin.settings.seeders', 'admin.settings.webhooks') ? 'active' : '' }}" href="{{ route('admin.settings.action-log') }}" wire:navigate>
                         <flux:icon.server-stack class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>System</span>
                     </a>
-                @elseif(request()->routeIs('settings.*'))
+                @elseif($isSettingsArea)
                     {{-- Settings sidebar --}}
                     <a class="sidebar-item" href="{{ route('dashboard') }}" wire:navigate>
                         <flux:icon.arrow-left class="!size-[15px]" />
@@ -367,17 +674,17 @@
                     <div class="sidebar-divider"></div>
                     <div class="sidebar-group-label">Settings</div>
 
-                    <a class="sidebar-item {{ request()->routeIs('settings.profile') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('settings.profile') ? 'active' : '' }}" href="{{ route('settings.profile') }}" wire:navigate>
                         <flux:icon.user class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Profile</span>
                     </a>
 
-                    <a class="sidebar-item {{ request()->routeIs('settings.password') ? 'active' : '' }}" href="{{ route('settings.password') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('settings.password') ? 'active' : '' }}" href="{{ route('settings.password') }}" wire:navigate>
                         <flux:icon.key class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Password</span>
                     </a>
 
-                    <a class="sidebar-item {{ request()->routeIs('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate>
+                    <a class="sidebar-item {{ ActiveRoute::is('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate>
                         <flux:icon.swatch class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Appearance</span>
                     </a>
@@ -387,7 +694,7 @@
 
                 {{-- Bottom section: Admin link + toggle (consistent across all pages) --}}
                 <div class="flex-1"></div>
-                @if(auth()->user()?->hasAdminAccess() && !request()->is('admin*'))
+                @if(auth()->user()?->hasAdminAccess() && ! $isAdminArea)
                     <a class="sidebar-item" href="{{ route('admin.index') }}" wire:navigate>
                         <flux:icon.wrench-screwdriver class="!size-[15px]" />
                         <span class="sidebar-label" x-show="{{ $hasSidebarContent ? 'sidebarOpen' : 'false' }}" x-cloak>Admin</span>

@@ -33,21 +33,37 @@ describe('CRM nav gating on members.access', function () {
     });
 });
 
-describe('CRM nav gating per column', function () {
-    it('shows the Engagement column and Activities link but not the People & Places column to a user with only activities.access', function () {
+describe('Activities icon gating on activities.access', function () {
+    // The header renders Activities as an icon button with aria-label="Activities".
+    // (route('activities.index') also appears in the always-present command palette,
+    // so we assert against the header's aria-label, not the bare URL.)
+    $activitiesIcon = 'aria-label="Activities"';
+
+    it('shows the activities icon to a user with only activities.access', function () use ($activitiesIcon) {
         $user = User::factory()->create();
         $user->givePermissionTo(['activities.access', 'activities.view']);
 
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Engagement', false)
-            ->assertSee(route('activities.index'), false)
+            ->assertSee($activitiesIcon, false)
+            // Activities now lives independently of CRM — no member entries leak in.
             ->assertDontSee('People &amp; Places', false)
             ->assertDontSee(route('members.index'), false);
     });
 
-    it('shows the People & Places column but not the Engagement column to a user with only members.access', function () {
+    it('shows the activities icon to a member-only user when they also hold activities.access', function () use ($activitiesIcon) {
+        $user = User::factory()->create();
+        $user->givePermissionTo(['members.access', 'members.view', 'activities.access']);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('People &amp; Places', false)
+            ->assertSee($activitiesIcon, false);
+    });
+
+    it('hides the activities icon from a member-only user without activities.access', function () use ($activitiesIcon) {
         $user = User::factory()->create();
         $user->givePermissionTo(['members.access', 'members.view']);
 
@@ -55,19 +71,69 @@ describe('CRM nav gating per column', function () {
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('People &amp; Places', false)
-            ->assertSee(route('members.index'), false)
-            ->assertDontSee('Engagement', false);
+            ->assertDontSee($activitiesIcon, false);
     });
 
-    it('hides the CRM dropdown entirely from a user with neither members.access nor activities.access', function () {
+    it('hides both the CRM dropdown and the activities icon from a user with neither permission', function () use ($activitiesIcon) {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk()
             ->assertDontSee('People &amp; Places', false)
-            ->assertDontSee('Engagement', false)
-            ->assertDontSee(route('members.index'), false);
+            ->assertDontSee(route('members.index'), false)
+            ->assertDontSee($activitiesIcon, false);
+    });
+});
+
+describe('Restructured navigation group labels', function () {
+    it('renders the new top-level mega-dropdown group labels', function () {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Job Planning', false)
+            ->assertSee('Finance', false)
+            ->assertSee('Operations', false)
+            ->assertSee('Catalogue', false)
+            ->assertSee('Services', false);
+    });
+
+    it('renders the new Job Planning, Warehouse, Purchasing and Reports nav entries', function () {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            // Job Planning → Opportunities additions
+            ->assertSee('Planner', false)
+            ->assertSee('Equipment Availability', false)
+            // Operations → Warehouse subsection (rendered first)
+            ->assertSee('Warehouse', false)
+            ->assertSee('Processing', false)
+            ->assertSee('Prep Bays', false)
+            ->assertSee('Shelf', false)
+            ->assertSee('Global Check-in', false)
+            ->assertSee('Containers', false)
+            // Finance → Purchasing subsection
+            ->assertSee('Purchasing', false)
+            ->assertSee('Purchase Orders', false)
+            // New top-level module
+            ->assertSee('Reports', false)
+            // Resources → Services addition
+            ->assertSee('Vehicles', false);
+    });
+
+    it('renders the extensions menu items', function () {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Workflows', false)
+            ->assertSee('Plugin', false)
+            ->assertSee('API', false);
     });
 });
 

@@ -47,6 +47,12 @@
     --navy: var(--brand-primary, #1e3a5f);
     --navy-mid: color-mix(in srgb, var(--brand-primary, #1e3a5f), #1e293b 50%);
     --navy-light: color-mix(in srgb, var(--brand-primary, #1e3a5f), #94a3b8 30%);
+    /* Contrast-safe "ink" variants for text/heading/border/active-indicator use
+       on light surfaces. They equal the raw brand colour for the stock theme;
+       a too-pale brand colour is darkened (see App\Support\BrandColour) so it
+       stays legible. The fallbacks mirror the raw-var fallbacks above. */
+    --navy-ink: var(--brand-primary-ink, var(--brand-primary, #1e3a5f));
+    --blue-ink: var(--brand-accent-ink, var(--brand-accent, #059669));
     --base: #f8f9fb;
     --white: #ffffff;
     --blue: var(--brand-accent, #059669);
@@ -71,14 +77,14 @@
     --sidebar-bg: var(--white);
     --sidebar-border: var(--grey-border);
     --sidebar-group: var(--grey-light);
-    --sidebar-item: var(--navy);
+    --sidebar-item: var(--navy-ink);
     --sidebar-item-hover: rgba(0, 0, 0, 0.04);
     --sidebar-active-bg: var(--blue-pale);
-    --sidebar-active-text: var(--navy);
+    --sidebar-active-text: var(--navy-ink);
     --content-bg: var(--base);
     --card-bg: var(--white);
     --card-border: var(--grey-border);
-    --text-primary: var(--navy);
+    --text-primary: var(--navy-ink);
     --text-secondary: var(--grey);
     --text-muted: var(--grey-light);
     --table-header-bg: var(--base);
@@ -88,20 +94,20 @@
     --subnav-bg: var(--white);
     --subnav-border: var(--grey-border);
     --subnav-text: var(--grey);
-    --subnav-active: var(--blue);
+    --subnav-active: var(--blue-ink);
     --pill-bg: transparent;
     --pill-border: var(--grey-border);
     --pill-text: var(--grey);
     --pill-hover-bg: #f1f5f9;
     --pill-active-bg: var(--navy);
-    --pill-active-text: #ffffff;
+    --pill-active-text: var(--brand-on-primary, #ffffff);
     --pill-active-border: var(--navy);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
     --dropdown-bg: var(--white);
     --dropdown-border: var(--grey-border);
     --dropdown-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
     --dropdown-group: var(--grey);
-    --dropdown-item: var(--navy);
+    --dropdown-item: var(--navy-ink);
     --dropdown-item-desc: var(--grey-light);
     --dropdown-hover: #f1f5f9;
 }
@@ -313,8 +319,6 @@ select:focus[data-flux-control] {
 .notifications-toggle:hover { color: var(--sidebar-item); background: var(--sidebar-item-hover); }
 .app-notifications-pane.open .notifications-toggle { justify-content: flex-start; padding: 0 18px; }
 
-.header-icon-btn.active { background: rgba(255, 255, 255, 0.15); }
-
 /* ================================================================ */
 /*  SIDEBAR ITEMS                                                     */
 /* ================================================================ */
@@ -349,7 +353,7 @@ select:focus[data-flux-control] {
 }
 
 .sidebar-item.active {
-    border-left-color: var(--blue);
+    border-left-color: var(--blue-ink);
     background: var(--sidebar-active-bg);
     color: var(--sidebar-active-text);
     font-weight: 600;
@@ -433,28 +437,28 @@ select:focus[data-flux-control] {
     user-select: none;
 }
 
-.header-brand {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #ffffff;
-    margin-right: 32px;
-    white-space: nowrap;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
 .header-actions {
     height: 100%;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
     margin-left: auto;
+}
+
+/* Equal-footprint, optically-centred user avatar button in the header cluster.
+   Matches the .header-icon-btn hit-area (32px) so the bell and avatar read as
+   one tidy, vertically-centred pair. */
+.header-avatar-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    background: none;
+    border: none;
+    flex-shrink: 0;
 }
 
 /* ================================================================ */
@@ -499,6 +503,17 @@ select:focus[data-flux-control] {
     transition: transform 0.2s;
 }
 
+/* Icon-only nav item (e.g. Dashboard home). Keeps the 48px nav-row height and
+   active underline behaviour but centres a single glyph instead of text. */
+.header-nav-item-icon {
+    padding: 0 12px;
+}
+
+.header-nav-item .header-nav-icon-glyph {
+    width: 16px;
+    height: 16px;
+}
+
 /* ================================================================ */
 /*  MEGA DROPDOWN                                                     */
 /* ================================================================ */
@@ -514,7 +529,11 @@ select:focus[data-flux-control] {
     position: absolute;
     top: 48px;
     left: 0;
+    /* Width scales with subsection column count (see .mega-dropdown-cols-*).
+       Base unit is 240px per column; default matches the legacy 2-col size. */
     min-width: 480px;
+    /* Never overflow the viewport: leave a small gutter on either side. */
+    max-width: calc(100vw - 32px);
     background: var(--dropdown-bg);
     border: 1px solid var(--dropdown-border);
     box-shadow: var(--dropdown-shadow);
@@ -523,10 +542,54 @@ select:focus[data-flux-control] {
     z-index: 200;
 }
 
+/* Column-count modifiers: width = 240px per subsection column, with the inner
+   grid laid out to match. 1 column renders at half the legacy width; 3 and 4
+   scale up proportionally. Capped at 4 supported columns. */
+.mega-dropdown.mega-dropdown-cols-1 {
+    min-width: 240px;
+}
+
+.mega-dropdown.mega-dropdown-cols-1 > .mega-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.mega-dropdown.mega-dropdown-cols-2 {
+    min-width: 480px;
+}
+
+.mega-dropdown.mega-dropdown-cols-2 > .mega-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mega-dropdown.mega-dropdown-cols-3 {
+    min-width: 720px;
+}
+
+.mega-dropdown.mega-dropdown-cols-3 > .mega-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mega-dropdown.mega-dropdown-cols-4 {
+    min-width: 960px;
+}
+
+.mega-dropdown.mega-dropdown-cols-4 > .mega-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .mega-dropdown.mega-dropdown-end {
     left: auto;
     right: 0;
     min-width: 240px;
+}
+
+/* Right-edge clipping protection: wide dropdowns on nav items near the right of
+   the bar anchor to their right edge instead of overflowing off-screen. The
+   3- and 4-column variants are wide enough to risk clipping; pin them right. */
+.mega-dropdown.mega-dropdown-cols-3,
+.mega-dropdown.mega-dropdown-cols-4 {
+    left: auto;
+    right: 0;
 }
 
 .nav-dropdown-wrapper:hover .mega-dropdown,
@@ -567,7 +630,7 @@ select:focus[data-flux-control] {
 .mega-item-icon {
     width: 16px;
     height: 16px;
-    color: var(--blue);
+    color: var(--blue-ink);
     flex-shrink: 0;
     margin-top: 1px;
 }
@@ -582,6 +645,26 @@ select:focus[data-flux-control] {
     font-size: 10px;
     color: var(--dropdown-item-desc);
     line-height: 1.35;
+}
+
+/* ================================================================ */
+/*  TEMP: unwired nav placeholders                                   */
+/*  Any nav link still pointing at "#" is a not-yet-built            */
+/*  destination — flag it with a red ✕ so placeholders are obvious.  */
+/*  Self-clearing: swapping "#" for a real route() href removes it.  */
+/* ================================================================ */
+.header-nav-item[href="#"]::after,
+.mega-item[href="#"]::after,
+.sidebar-item[href="#"]::after {
+    content: "✕";
+    margin-left: auto;
+    align-self: center;
+    padding-left: 8px;
+    color: #ef4444;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
 /* ================================================================ */
@@ -600,6 +683,7 @@ select:focus[data-flux-control] {
     background: none;
     border: none;
     position: relative;
+    flex-shrink: 0;
 }
 
 .header-icon-btn:hover {
@@ -612,21 +696,88 @@ select:focus[data-flux-control] {
     height: 16px;
 }
 
+/* In the app header (brand primary background), drive the bell button tones
+   from --brand-on-primary so it stays legible on any primary colour, matching
+   the search field. */
+.header .header-icon-btn {
+    color: color-mix(in srgb, var(--brand-on-primary, #ffffff) 70%, transparent);
+}
+
+.header .header-icon-btn:hover {
+    color: var(--brand-on-primary, #ffffff);
+    background: color-mix(in srgb, var(--brand-on-primary, #ffffff) 12%, transparent);
+}
+
+/* Selected/open state (dropdown is expanded). Drive both the glyph and its
+   backing tint from --brand-on-primary so the icon reads at full strength on
+   ANY primary colour, rather than washing out to a near-invisible light box. */
+.header .header-icon-btn.active {
+    color: var(--brand-on-primary, #ffffff);
+    background: color-mix(in srgb, var(--brand-on-primary, #ffffff) 14%, transparent);
+}
+
+/* Hovering an already-open button deepens the tint slightly for feedback. */
+.header .header-icon-btn.active:hover {
+    background: color-mix(in srgb, var(--brand-on-primary, #ffffff) 20%, transparent);
+}
+
 .notification-badge {
     position: absolute;
-    top: 2px;
-    right: 1px;
+    /* Anchored to the top-right corner of the centred 16px bell glyph within the
+       32px button (icon spans 8px–24px), so the badge sits consistently on the
+       bell rather than floating at the button corner. */
+    top: 5px;
+    right: 5px;
     background: var(--red);
     color: #fff;
     font-family: var(--font-display);
     font-size: 8px;
     font-weight: 600;
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
+}
+
+/* ================================================================ */
+/*  HEADER SEARCH (app shell)                                         */
+/* ================================================================ */
+/*  The app header reuses the .docs-search markup but sits on the     */
+/*  brand primary colour (var(--navy)), which can be any user-chosen  */
+/*  primary. Derive all text/icon/border tones from                  */
+/*  --brand-on-primary so the search stays legible on ANY primary,    */
+/*  light or dark, instead of the hardcoded greys the docs header     */
+/*  uses on its fixed-dark bar.                                       */
+
+.header .header-search.docs-search {
+    margin-left: 0;
+}
+
+.header .header-search .docs-search-input {
+    color: var(--brand-on-primary, #ffffff);
+    background: color-mix(in srgb, var(--brand-on-primary, #ffffff) 10%, transparent);
+    border-color: color-mix(in srgb, var(--brand-on-primary, #ffffff) 18%, transparent);
+}
+
+.header .header-search .docs-search-input::placeholder {
+    color: color-mix(in srgb, var(--brand-on-primary, #ffffff) 55%, transparent);
+}
+
+.header .header-search .docs-search-input:focus {
+    background: color-mix(in srgb, var(--brand-on-primary, #ffffff) 16%, transparent);
+    border-color: color-mix(in srgb, var(--brand-on-primary, #ffffff) 32%, transparent);
+}
+
+.header .header-search .docs-search-icon {
+    color: color-mix(in srgb, var(--brand-on-primary, #ffffff) 55%, transparent);
+}
+
+.header .header-search .docs-search-kbd {
+    color: color-mix(in srgb, var(--brand-on-primary, #ffffff) 55%, transparent);
+    background: color-mix(in srgb, var(--brand-on-primary, #ffffff) 10%, transparent);
+    border-color: color-mix(in srgb, var(--brand-on-primary, #ffffff) 18%, transparent);
 }
 
 /* ================================================================ */
@@ -812,7 +963,7 @@ select:focus[data-flux-control] {
 
 .table-action {
     font-size: 10px;
-    color: var(--blue);
+    color: var(--blue-ink);
     text-decoration: none;
     font-weight: 500;
     cursor: pointer;
@@ -859,7 +1010,7 @@ select:focus[data-flux-control] {
 .cell-ref {
     font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--blue);
+    color: var(--blue-ink);
     font-weight: 400;
     letter-spacing: 0.2px;
     text-decoration: none;
@@ -985,7 +1136,7 @@ select:focus[data-flux-control] {
 
 .badge-blue {
     background: rgba(37, 99, 235, 0.1);
-    color: var(--blue);
+    color: var(--blue-ink);
 }
 
 .badge-amber {
@@ -1405,7 +1556,7 @@ select:focus[data-flux-control] {
 }
 
 .docs-prose a:not(.docs-heading-anchor) {
-    color: var(--blue);
+    color: var(--blue-ink);
     text-decoration: underline;
     text-underline-offset: 2px;
 }
@@ -1611,7 +1762,7 @@ select:focus[data-flux-control] {
 .docs-promo-cta {
     font-size: 11px;
     font-weight: 600;
-    color: var(--blue);
+    color: var(--blue-ink);
     text-decoration: none;
     transition: color 0.15s;
 }
@@ -1750,7 +1901,7 @@ select:focus[data-flux-control] {
     }
 
     .docs-mobile-search-input-wrap .docs-search-input:focus {
-        border-color: var(--blue);
+        border-color: var(--blue-ink);
     }
 
     .docs-mobile-search-input-wrap .docs-search-icon {
