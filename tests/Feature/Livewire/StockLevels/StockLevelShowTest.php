@@ -15,10 +15,7 @@ beforeEach(function () {
     $this->actingAs($this->user);
 });
 
-// Distinctive path from the placeholder image graphic.
-$placeholderMarker = 'M21 15l-5-5L5 21';
-
-it('shows the product image when the product has one', function () use ($placeholderMarker) {
+it('shows the product image in the header when the product has one', function () {
     Storage::fake('public');
 
     $product = Product::factory()->create([
@@ -28,11 +25,12 @@ it('shows the product image when the product has one', function () use ($placeho
     $stockLevel = StockLevel::factory()->create(['product_id' => $product->id]);
 
     Volt::test('stock-levels.show', ['stockLevel' => $stockLevel])
-        ->assertSee('icons/product-thumb.jpg', false)
-        ->assertDontSee($placeholderMarker, false);
+        ->assertSee('icons/product-thumb.jpg', false);
 });
 
-it('shows a placeholder graphic when the product has no image', function () use ($placeholderMarker) {
+it('falls back to the product initials in the header when there is no image', function () {
+    // Mirrors the product page: the shared entity-icon shows initials when the
+    // product has no uploaded image.
     $product = Product::factory()->create([
         'name' => 'Plain Product',
         'icon_thumb_url' => null,
@@ -40,7 +38,7 @@ it('shows a placeholder graphic when the product has no image', function () use 
     $stockLevel = StockLevel::factory()->create(['product_id' => $product->id]);
 
     Volt::test('stock-levels.show', ['stockLevel' => $stockLevel])
-        ->assertSee($placeholderMarker, false);
+        ->assertSee('PP', false);
 });
 
 it('rejects a decimal transaction quantity', function () {
@@ -91,9 +89,9 @@ it('deletes a transaction and reverses its effect through the confirm flow', fun
     $txn = $stockLevel->stockTransactions()->latest('id')->firstOrFail();
 
     $component->call('confirmDeleteTransaction', $txn->id)
-        ->assertSet('showDeleteModal', true)
+        ->assertSet('deletingTransactionId', $txn->id)
         ->call('deleteTransaction')
-        ->assertSet('showDeleteModal', false);
+        ->assertSet('deletingTransactionId', null);
 
     expect(StockTransaction::find($txn->id))->toBeNull();
     expect((float) $stockLevel->fresh()->quantity_held)->toBe(0.0);

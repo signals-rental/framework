@@ -12,9 +12,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $transactionQuantity = '1';
     public ?string $transactionAt = null;
     public string $transactionDescription = '';
-    public bool $showTransactionModal = false;
 
-    public bool $showDeleteModal = false;
     public ?int $deletingTransactionId = null;
 
     public function mount(StockLevel $stockLevel): void
@@ -40,7 +38,6 @@ new #[Layout('components.layouts.app')] class extends Component {
         $this->transactionQuantity = '1';
         $this->transactionDescription = '';
         $this->transactionAt = now()->format('Y-m-d\TH:i');
-        $this->showTransactionModal = true;
     }
 
     public function addTransaction(): void
@@ -73,9 +70,9 @@ new #[Layout('components.layouts.app')] class extends Component {
 
             $this->stockLevel->refresh();
             $this->stockLevel->load(['product', 'store', 'member', 'stockTransactions']);
-            $this->showTransactionModal = false;
             $this->transactionQuantity = '1';
             $this->transactionDescription = '';
+            $this->dispatch('transaction-saved');
         } catch (\Illuminate\Auth\Access\AuthorizationException) {
             $this->addError('transactionQuantity', 'You do not have permission to adjust stock.');
         }
@@ -84,7 +81,6 @@ new #[Layout('components.layouts.app')] class extends Component {
     public function confirmDeleteTransaction(int $transactionId): void
     {
         $this->deletingTransactionId = $transactionId;
-        $this->showDeleteModal = true;
     }
 
     public function deleteTransaction(): void
@@ -103,8 +99,8 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->addError('transactionQuantity', 'You do not have permission to adjust stock.');
         }
 
-        $this->showDeleteModal = false;
         $this->deletingTransactionId = null;
+        $this->dispatch('transaction-deleted');
     }
 }; ?>
 
@@ -123,7 +119,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             @php
                 $isSerialised = $stockLevel->isSerialised();
             @endphp
-            <span class="s-badge {{ $isSerialised ? 's-badge-blue' : 's-badge-zinc' }}" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span class="s-badge {{ $isSerialised ? 's-badge-violet' : 's-badge-cyan' }}" style="display: inline-flex; align-items: center; gap: 4px;">
                 @if($isSerialised)
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
                 @else
@@ -200,7 +196,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Available</span>
                         <span class="text-lg font-bold" style="font-family: var(--font-display); color: {{ $available > 0 ? 'var(--green)' : 'var(--red)' }};">
-                            {{ number_format($available, 2) }}
+                            <x-signals.skeleton-value width="3rem">{{ number_format($available, 2) }}</x-signals.skeleton-value>
                         </span>
                     </div>
                 </div>
@@ -208,19 +204,19 @@ new #[Layout('components.layouts.app')] class extends Component {
                 <div class="grid grid-cols-4 gap-3">
                     <div>
                         <div class="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Held</div>
-                        <div class="text-base font-bold" style="font-family: var(--font-display);">{{ $stockLevel->quantity_held }}</div>
+                        <div class="text-base font-bold" style="font-family: var(--font-display);"><x-signals.skeleton-value width="2rem">{{ $stockLevel->quantity_held }}</x-signals.skeleton-value></div>
                     </div>
                     <div>
                         <div class="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Allocated</div>
-                        <div class="text-base font-bold" style="font-family: var(--font-display);">{{ $stockLevel->quantity_allocated }}</div>
+                        <div class="text-base font-bold" style="font-family: var(--font-display);"><x-signals.skeleton-value width="2rem">{{ $stockLevel->quantity_allocated }}</x-signals.skeleton-value></div>
                     </div>
                     <div>
                         <div class="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Unavailable</div>
-                        <div class="text-base font-bold" style="font-family: var(--font-display);">{{ $stockLevel->quantity_unavailable }}</div>
+                        <div class="text-base font-bold" style="font-family: var(--font-display);"><x-signals.skeleton-value width="2rem">{{ $stockLevel->quantity_unavailable }}</x-signals.skeleton-value></div>
                     </div>
                     <div>
                         <div class="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">On Order</div>
-                        <div class="text-base font-bold" style="font-family: var(--font-display);">{{ $stockLevel->quantity_on_order }}</div>
+                        <div class="text-base font-bold" style="font-family: var(--font-display);"><x-signals.skeleton-value width="2rem">{{ $stockLevel->quantity_on_order }}</x-signals.skeleton-value></div>
                     </div>
                 </div>
             </x-signals.panel>
@@ -230,42 +226,85 @@ new #[Layout('components.layouts.app')] class extends Component {
         <div class="order-1">
             <x-signals.panel title="Transactions">
                 <div class="flex justify-end mb-4">
-                    <button wire:click="openTransactionModal" class="s-btn s-btn-sm s-btn-primary">
+                    <button type="button" wire:click="openTransactionModal" x-on:click="$dispatch('open-modal', 'add-transaction')" class="s-btn s-btn-sm s-btn-primary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add Transaction
                     </button>
                 </div>
 
+                <div x-data="{ ready: false }" x-init="$nextTick(() => ready = true)">
+                    <div x-show="!ready"><x-signals.skeleton type="text" :lines="5" /></div>
+                    <div x-show="ready" x-cloak>
                 @if($stockLevel->stockTransactions->isNotEmpty())
+                    @php
+                        // Build a running balance chronologically (oldest first) so each
+                        // row carries its brought-forward and carried-forward balance.
+                        // The newest row's c/fwd always equals the held quantity.
+                        $orderedTxns = $stockLevel->stockTransactions->sortBy([
+                            ['transaction_at', 'asc'],
+                            ['id', 'asc'],
+                        ])->values();
+                        $runningBalance = 0.0;
+                        $txnBalances = [];
+                        foreach ($orderedTxns as $orderedTxn) {
+                            $opening = $runningBalance;
+                            $runningBalance += (float) $orderedTxn->quantity_move;
+                            $txnBalances[$orderedTxn->id] = ['opening' => $opening, 'closing' => $runningBalance];
+                        }
+                        $latestTxnId = $orderedTxns->last()?->id;
+                    @endphp
                     <div class="s-table-wrap">
                         <table class="s-table w-full">
                             <thead>
                                 <tr>
                                     <th>Date</th>
                                     <th>Type</th>
+                                    <th>Opening b/fwd</th>
                                     <th>Quantity</th>
                                     <th>Move</th>
+                                    <th>Closing c/fwd</th>
                                     <th>Description</th>
                                     <th>Manual</th>
                                     <th class="w-[60px]"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($stockLevel->stockTransactions->sortByDesc('transaction_at') as $txn)
+                                @foreach($orderedTxns->reverse() as $txn)
                                     <tr wire:key="txn-{{ $txn->id }}">
                                         <td>{{ $txn->transaction_at->format('d M Y H:i') }}</td>
-                                        <td><span class="s-badge s-badge-blue">{{ $txn->transaction_type->label() }}</span></td>
-                                        <td>{{ number_format((float) $txn->quantity, 1) }}</td>
                                         <td>
-                                            @php $move = (float) $txn->quantity_move; @endphp
-                                            <span class="{{ $move >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]' }}">
+                                            @php
+                                                $txnType = $txn->transaction_type;
+                                                $typeBadge = $txnType === \App\Enums\TransactionType::Opening
+                                                    ? 's-badge-navy'
+                                                    : ($txnType->quantitySign() >= 0 ? 's-badge-green' : 's-badge-red');
+                                            @endphp
+                                            <span class="s-badge {{ $typeBadge }}">{{ $txnType->label() }}</span>
+                                        </td>
+                                        <td>{{ number_format($txnBalances[$txn->id]['opening'] ?? 0, 1) }}</td>
+                                        <td>{{ number_format((float) $txn->quantity, 1) }}</td>
+                                        @php $move = (float) $txn->quantity_move; @endphp
+                                        <td style="background: {{ $move >= 0 ? 'rgba(5, 150, 105, 0.07)' : 'rgba(220, 38, 38, 0.07)' }};">
+                                            <span class="inline-flex items-center gap-1 font-medium {{ $move >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]' }}">
+                                                @if($move >= 0)
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3 h-3"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                                                @else
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3 h-3"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+                                                @endif
                                                 {{ $move >= 0 ? '+' : '' }}{{ $txn->quantity_move }}
                                             </span>
+                                        </td>
+                                        <td>
+                                            @if($txn->id === $latestTxnId)
+                                                <span class="font-bold text-[var(--text-primary)]" style="font-family: var(--font-display);">{{ number_format($txnBalances[$txn->id]['closing'] ?? 0, 1) }}</span>
+                                            @else
+                                                {{ number_format($txnBalances[$txn->id]['closing'] ?? 0, 1) }}
+                                            @endif
                                         </td>
                                         <td>{{ $txn->description ?? '—' }}</td>
                                         <td>{{ $txn->manual ? 'Yes' : 'No' }}</td>
                                         <td class="text-right">
-                                            <button wire:click="confirmDeleteTransaction({{ $txn->id }})" class="s-btn s-btn-xs s-btn-ghost text-[var(--red)]" title="Delete transaction">
+                                            <button type="button" wire:click="confirmDeleteTransaction({{ $txn->id }})" x-on:click="$dispatch('open-modal', 'delete-transaction')" class="s-btn s-btn-xs s-btn-ghost text-[var(--red)]" title="Delete transaction">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                             </button>
                                         </td>
@@ -277,52 +316,46 @@ new #[Layout('components.layouts.app')] class extends Component {
                 @else
                     <p class="text-sm text-[var(--text-muted)] text-center py-4">No transactions recorded yet.</p>
                 @endif
+                    </div>
+                </div>
             </x-signals.panel>
         </div>
     </div>
 
     {{-- Add Transaction modal --}}
-    <flux:modal wire:model="showTransactionModal">
-        <div class="space-y-6">
-            <flux:heading size="lg">Add Transaction</flux:heading>
+    <x-signals.modal name="add-transaction" title="Add Transaction" x-on:transaction-saved.window="open = false">
+        <form id="add-transaction-form" wire:submit="addTransaction" class="flex flex-col gap-4">
+            <flux:select wire:model="transactionType" label="Type">
+                @foreach(\App\Enums\TransactionType::manualCreationValues() as $val)
+                    <option value="{{ $val }}">{{ \App\Enums\TransactionType::from($val)->label() }}</option>
+                @endforeach
+            </flux:select>
 
-            <form wire:submit="addTransaction" class="space-y-4">
-                <flux:select wire:model="transactionType" label="Type">
-                    @foreach(\App\Enums\TransactionType::manualCreationValues() as $val)
-                        <option value="{{ $val }}">{{ \App\Enums\TransactionType::from($val)->label() }}</option>
-                    @endforeach
-                </flux:select>
+            @if($this->isSerialised())
+                <flux:input wire:model="transactionQuantity" label="Quantity" type="number" readonly
+                    description="Serialised stock moves one unit (+1 / -1) per transaction." />
+            @else
+                <flux:input wire:model="transactionQuantity" label="Quantity" type="number" step="1" min="1" required
+                    description="Whole numbers only." />
+            @endif
 
-                @if($this->isSerialised())
-                    <flux:input wire:model="transactionQuantity" label="Quantity" type="number" readonly
-                        description="Serialised stock moves one unit (+1 / -1) per transaction." />
-                @else
-                    <flux:input wire:model="transactionQuantity" label="Quantity" type="number" step="1" min="1" required
-                        description="Whole numbers only." />
-                @endif
+            <flux:input wire:model="transactionAt" label="Date" type="datetime-local" />
+            <flux:input wire:model="transactionDescription" label="Description" />
+        </form>
 
-                <flux:input wire:model="transactionAt" label="Date" type="datetime-local" />
-                <flux:input wire:model="transactionDescription" label="Description" />
-
-                <div class="flex justify-end gap-3">
-                    <flux:button variant="ghost" wire:click="$set('showTransactionModal', false)">Cancel</flux:button>
-                    <flux:button variant="primary" type="submit">Save Transaction</flux:button>
-                </div>
-            </form>
-        </div>
-    </flux:modal>
+        <x-slot:footer>
+            <button type="button" class="s-btn s-btn-sm" x-on:click="$dispatch('close-modal', 'add-transaction')">Cancel</button>
+            <button type="submit" form="add-transaction-form" class="s-btn s-btn-sm s-btn-primary">Save Transaction</button>
+        </x-slot:footer>
+    </x-signals.modal>
 
     {{-- Delete Transaction confirmation modal --}}
-    <flux:modal wire:model="showDeleteModal">
-        <div class="space-y-4">
-            <flux:heading size="lg">Delete Transaction</flux:heading>
-            <p class="text-sm text-zinc-600 dark:text-zinc-400">
-                Are you sure you want to delete this transaction? The stock level quantity will be adjusted to reverse its effect. This cannot be undone.
-            </p>
-            <div class="flex justify-end gap-3">
-                <flux:button variant="ghost" wire:click="$set('showDeleteModal', false)">Cancel</flux:button>
-                <flux:button variant="danger" wire:click="deleteTransaction">Delete Transaction</flux:button>
-            </div>
-        </div>
-    </flux:modal>
+    <x-signals.modal name="delete-transaction" title="Delete Transaction" size="sm" x-on:transaction-deleted.window="open = false">
+        <p>Are you sure you want to delete this transaction? The stock level quantity will be adjusted to reverse its effect. This cannot be undone.</p>
+
+        <x-slot:footer>
+            <button type="button" class="s-btn s-btn-sm" x-on:click="$dispatch('close-modal', 'delete-transaction')">Cancel</button>
+            <button type="button" class="s-btn s-btn-sm s-btn-danger" wire:click="deleteTransaction" x-on:click="$dispatch('close-modal', 'delete-transaction')">Delete Transaction</button>
+        </x-slot:footer>
+    </x-signals.modal>
 </section>
