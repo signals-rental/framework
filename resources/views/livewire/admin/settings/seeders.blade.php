@@ -97,13 +97,14 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
             'lists' => [
                 'name' => 'ListOfValuesSeeder',
                 'class' => 'Database\\Seeders\\ListOfValuesSeeder',
-                'description' => 'Creates system lists used for contact detail type classification.',
+                'description' => 'Creates the editable system lists used across the app — contact-detail type classification and the Activity Type list (manageable in Settings → List Names).',
                 'items' => [
                     'Address Type (Billing, Shipping, Primary, Registered)',
                     'Email Type (Work, Personal, Billing, Support)',
                     'Phone Type (Work, Mobile, Home, Fax)',
                     'Link Type (Website, LinkedIn, Facebook, Instagram, X, YouTube)',
                     'Relationship Type (Employee, Director, Contractor, Agent)',
+                    'Activity Type (Task, Call, Fax, Email, Meeting, Note, Letter)',
                 ],
                 'seeded' => $listsSeeded,
                 'isDefault' => true,
@@ -225,14 +226,16 @@ new #[Layout('components.layouts.app')] #[Title('Seeders')] class extends Compon
 <section class="w-full">
     <x-admin.layout group="system" title="Database Seeders" description="View seeder status and populate the database with default or demo data.">
         @php
-            $anyDefaultSeeded = collect($seeders)->where('isDefault', true)->contains('seeded', true);
+            // The bulk button runs `db:seed` (PermissionSeeder + RoleSeeder + test user), so gate
+            // it on those core seeders — other default seeders may be populated by migrations.
+            $coreSeeded = ($seeders['permissions']['seeded'] ?? false) && ($seeders['roles']['seeded'] ?? false);
         @endphp
 
         <div class="mb-6 flex items-center justify-between">
             <p class="text-sm text-zinc-500">
                 The default <code class="text-xs s-badge">php artisan db:seed</code> command runs PermissionSeeder, RoleSeeder, and creates a test user.
             </p>
-            @unless($anyDefaultSeeded)
+            @unless($coreSeeded)
                 <flux:button wire:click="seedAll" wire:confirm="Run all default seeders (PermissionSeeder + RoleSeeder + test user)?">
                     Run Default Seeders
                 </flux:button>

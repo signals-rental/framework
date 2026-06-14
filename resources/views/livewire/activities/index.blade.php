@@ -1,8 +1,9 @@
 <?php
 
 use App\Enums\ActivityStatus;
-use App\Enums\ActivityType;
 use App\Models\Activity;
+use App\Models\ListName;
+use App\Models\ListValue;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -31,11 +32,23 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
 
     public function setTypeFilter(string $type): void
     {
-        if ($type !== '' && ActivityType::tryFrom((int) $type) === null) {
+        if ($type !== '' && ! $this->activityTypeValues()->contains('id', (int) $type)) {
             return;
         }
 
         $this->typeFilter = $type;
+    }
+
+    /**
+     * Active "Activity Type" list values, ordered for filter chips/options.
+     *
+     * @return Collection<int, ListValue>
+     */
+    private function activityTypeValues(): Collection
+    {
+        return ListName::query()->where('name', 'Activity Type')->first()
+            ?->values()->where('is_active', true)->orderBy('sort_order')->get()
+            ?? collect();
     }
 
     public function setStatusFilter(string $status): void
@@ -93,8 +106,10 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
      */
     public function with(): array
     {
-        $typeOptions = collect(ActivityType::cases())
-            ->mapWithKeys(fn (ActivityType $t): array => [(string) $t->value => $t->label()])
+        $typeValues = $this->activityTypeValues();
+
+        $typeOptions = $typeValues
+            ->mapWithKeys(fn (ListValue $v): array => [(string) $v->id => $v->name])
             ->all();
 
         $statusOptions = collect(ActivityStatus::cases())
@@ -102,13 +117,7 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
             ->all();
 
         return [
-            'activityTypes' => [
-                ActivityType::Task,
-                ActivityType::Call,
-                ActivityType::Meeting,
-                ActivityType::Email,
-                ActivityType::Note,
-            ],
+            'activityTypes' => $typeValues,
             'activityStatuses' => ActivityStatus::cases(),
             'totalCount' => $this->totalCount,
             'typeCounts' => $this->typeCounts,
@@ -126,7 +135,7 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
                 ['key' => 'actions', 'type' => 'actions'],
             ],
             'scopes' => [
-                ...($this->typeFilter !== '' ? ['ofType' => ActivityType::from((int) $this->typeFilter)] : []),
+                ...($this->typeFilter !== '' ? ['ofType' => (int) $this->typeFilter] : []),
                 ...($this->statusFilter !== '' ? ['ofStatus' => ActivityStatus::from((int) $this->statusFilter)] : []),
             ],
         ];
@@ -145,9 +154,9 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
                 All <span style="opacity: 0.6;">{{ $totalCount }}</span>
             </button>
             @foreach($activityTypes as $type)
-                <button wire:click="setTypeFilter('{{ $type->value }}')"
-                        class="s-chip {{ $typeFilter === (string) $type->value ? 'on' : '' }}">
-                    {{ $type->label() }} <span style="opacity: 0.6;">{{ $typeCounts[$type->value] ?? 0 }}</span>
+                <button wire:click="setTypeFilter('{{ $type->id }}')"
+                        class="s-chip {{ $typeFilter === (string) $type->id ? 'on' : '' }}">
+                    {{ $type->name }} <span style="opacity: 0.6;">{{ $typeCounts[$type->id] ?? 0 }}</span>
                 </button>
             @endforeach
         </div>
@@ -168,7 +177,7 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
             :columns="$columns"
             :model="\App\Models\Activity::class"
             :searchable="['subject']"
-            :with="['owner', 'regarding']"
+            :with="['owner', 'regarding', 'type']"
             :scopes="$scopes"
             :refresh-events="['activity-deleted', 'activity-completed']"
             default-sort="-created_at"

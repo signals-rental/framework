@@ -3,6 +3,7 @@
 use App\Models\Activity;
 use App\Models\User;
 use Carbon\Carbon;
+use Database\Seeders\ListOfValuesSeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Livewire\Volt\Volt;
@@ -11,6 +12,7 @@ beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
     $this->seed(PermissionSeeder::class);
     $this->seed(RoleSeeder::class);
+    $this->seed(ListOfValuesSeeder::class);
 });
 
 it('renders the create activity form', function () {

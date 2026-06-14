@@ -17,6 +17,18 @@ it('returns human-readable labels', function () {
         ->and(ActivityType::Meeting->label())->toBe('Meeting');
 });
 
+it('returns a stable icon key for every case', function (ActivityType $type, string $icon) {
+    expect($type->icon())->toBe($icon);
+})->with([
+    'task' => [ActivityType::Task, 'task'],
+    'call' => [ActivityType::Call, 'call'],
+    'fax' => [ActivityType::Fax, 'fax'],
+    'email' => [ActivityType::Email, 'email'],
+    'meeting' => [ActivityType::Meeting, 'meeting'],
+    'note' => [ActivityType::Note, 'note'],
+    'letter' => [ActivityType::Letter, 'letter'],
+]);
+
 it('returns the correct label for every case', function (ActivityType $type, string $label) {
     expect($type->label())->toBe($label);
 })->with([

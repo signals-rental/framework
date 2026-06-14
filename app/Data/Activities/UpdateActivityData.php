@@ -4,15 +4,21 @@ namespace App\Data\Activities;
 
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
-use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
+use App\Models\ListName;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
 
+/**
+ * Request payload for updating an activity. All properties are optional;
+ * only provided fields are applied.
+ */
 class UpdateActivityData extends Data
 {
     /**
+     * @param  int|null  $type_id  The 'Activity Type' list_values id (custom list value); must reference a value in the 'Activity Type' list.
      * @param  list<array{member_id: int, mute?: bool}>|null  $participants
      * @param  array<string, mixed>|null  $custom_fields
      */
@@ -26,7 +32,7 @@ class UpdateActivityData extends Data
         public ?string $starts_at = null,
         public ?string $ends_at = null,
         public ?ActivityPriority $priority = null,
-        public ?ActivityType $type_id = null,
+        public ?int $type_id = null,
         public ?ActivityStatus $status_id = null,
         public ?bool $completed = null,
         public ?TimeStatus $time_status = null,
@@ -49,7 +55,15 @@ class UpdateActivityData extends Data
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],
             'priority' => ['sometimes', new Enum(ActivityPriority::class)],
-            'type_id' => ['sometimes', new Enum(ActivityType::class)],
+            'type_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                Rule::exists('list_values', 'id')->where(
+                    'list_name_id',
+                    ListName::query()->where('name', 'Activity Type')->value('id'),
+                ),
+            ],
             'status_id' => ['sometimes', new Enum(ActivityStatus::class)],
             'completed' => ['sometimes', 'boolean'],
             'time_status' => ['sometimes', new Enum(TimeStatus::class)],

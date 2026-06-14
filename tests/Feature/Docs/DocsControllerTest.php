@@ -61,7 +61,7 @@ test('docs page includes previous and next links', function () {
 
 test('first docs page has no previous link', function () {
     get(route('docs.show', ['getting-started', 'introduction']))
-        ->assertDontSee('Previous');
+        ->assertDontSee('&larr; Previous', false);
 });
 
 test('last docs page has no next link', function () {

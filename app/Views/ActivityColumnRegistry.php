@@ -2,6 +2,8 @@
 
 namespace App\Views;
 
+use App\Models\Activity;
+
 class ActivityColumnRegistry extends ColumnRegistry
 {
     public function entityType(): string
@@ -11,7 +13,7 @@ class ActivityColumnRegistry extends ColumnRegistry
 
     public function modelClass(): string
     {
-        return \App\Models\Activity::class;
+        return Activity::class;
     }
 
     /**
@@ -21,7 +23,7 @@ class ActivityColumnRegistry extends ColumnRegistry
     {
         return [
             Column::make('subject')->label('Subject')->sortable()->filterable(),
-            Column::make('type_id')->label('Type')->sortable()->filterable()->type('enum'),
+            Column::make('type_id')->label('Type')->sortable()->filterable()->type('relation'),
             Column::make('status_id')->label('Status')->sortable()->filterable()->type('enum'),
             Column::make('priority')->label('Priority')->sortable()->filterable()->type('enum'),
             Column::make('regarding')->label('Regarding')->filterable(),

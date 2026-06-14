@@ -34,25 +34,26 @@ describe('CRM nav gating on members.access', function () {
 });
 
 describe('Activities icon gating on activities.access', function () {
-    // The header renders Activities as an icon button with aria-label="Activities".
-    // (route('activities.index') also appears in the always-present command palette,
-    // so we assert against the header's aria-label, not the bare URL.)
-    $activitiesIcon = 'aria-label="Activities"';
+    // The header renders Activities inside the CRM mega-dropdown's "Engagement"
+    // column (gated on activities.access). route('activities.index') also appears in
+    // the always-present command palette, so we assert against the Activities
+    // mega-item itself, not the bare URL.
+    $activitiesNav = 'mega-item-label">Activities';
 
-    it('shows the activities icon to a user with only activities.access', function () use ($activitiesIcon) {
+    it('shows the activities icon to a user with only activities.access', function () use ($activitiesNav) {
         $user = User::factory()->create();
         $user->givePermissionTo(['activities.access', 'activities.view']);
 
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee($activitiesIcon, false)
-            // Activities now lives independently of CRM — no member entries leak in.
+            ->assertSee($activitiesNav, false)
+            // The People & Places column is gated separately on members.access — none leak in.
             ->assertDontSee('People &amp; Places', false)
             ->assertDontSee(route('members.index'), false);
     });
 
-    it('shows the activities icon to a member-only user when they also hold activities.access', function () use ($activitiesIcon) {
+    it('shows the activities icon to a member-only user when they also hold activities.access', function () use ($activitiesNav) {
         $user = User::factory()->create();
         $user->givePermissionTo(['members.access', 'members.view', 'activities.access']);
 
@@ -60,10 +61,10 @@ describe('Activities icon gating on activities.access', function () {
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('People &amp; Places', false)
-            ->assertSee($activitiesIcon, false);
+            ->assertSee($activitiesNav, false);
     });
 
-    it('hides the activities icon from a member-only user without activities.access', function () use ($activitiesIcon) {
+    it('hides the activities icon from a member-only user without activities.access', function () use ($activitiesNav) {
         $user = User::factory()->create();
         $user->givePermissionTo(['members.access', 'members.view']);
 
@@ -71,10 +72,10 @@ describe('Activities icon gating on activities.access', function () {
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('People &amp; Places', false)
-            ->assertDontSee($activitiesIcon, false);
+            ->assertDontSee($activitiesNav, false);
     });
 
-    it('hides both the CRM dropdown and the activities icon from a user with neither permission', function () use ($activitiesIcon) {
+    it('hides both the CRM dropdown and the activities icon from a user with neither permission', function () use ($activitiesNav) {
         $user = User::factory()->create();
 
         $this->actingAs($user)
@@ -82,7 +83,7 @@ describe('Activities icon gating on activities.access', function () {
             ->assertOk()
             ->assertDontSee('People &amp; Places', false)
             ->assertDontSee(route('members.index'), false)
-            ->assertDontSee($activitiesIcon, false);
+            ->assertDontSee($activitiesNav, false);
     });
 });
 

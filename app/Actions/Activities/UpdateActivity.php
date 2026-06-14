@@ -57,10 +57,10 @@ class UpdateActivity
             event(new AuditableEvent($activity, 'activity.updated'));
 
             app(WebhookService::class)->dispatch('activity.updated', [
-                'activity' => ActivityData::fromModel($activity->load(['owner', 'participants.member']))->toArray(),
+                'activity' => ActivityData::fromModel($activity->load(['owner', 'participants.member', 'type']))->toArray(),
             ]);
 
-            return ActivityData::fromModel($activity->load(['owner', 'participants.member']));
+            return ActivityData::fromModel($activity->load(['owner', 'participants.member', 'type']));
         });
     }
 }

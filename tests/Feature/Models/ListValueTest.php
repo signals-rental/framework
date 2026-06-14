@@ -12,10 +12,13 @@ it('belongs to a list name', function () {
 
 it('scopes to active values', function () {
     $listName = ListName::factory()->create();
-    ListValue::factory()->for($listName)->create(['is_active' => true]);
-    ListValue::factory()->for($listName)->create(['is_active' => false]);
+    $active = ListValue::factory()->for($listName)->create(['is_active' => true]);
+    $inactive = ListValue::factory()->for($listName)->create(['is_active' => false]);
 
-    expect(ListValue::active()->count())->toBe(1);
+    $activeIds = ListValue::active()->pluck('id');
+
+    expect($activeIds)->toContain($active->id)
+        ->and($activeIds)->not->toContain($inactive->id);
 });
 
 it('supports parent-child hierarchy', function () {

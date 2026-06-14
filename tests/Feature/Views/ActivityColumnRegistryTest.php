@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Activity;
 use App\Views\ActivityColumnRegistry;
 use App\Views\Column;
 
@@ -13,7 +14,7 @@ describe('ActivityColumnRegistry', function () {
     it('returns Activity model class', function () {
         $registry = new ActivityColumnRegistry;
 
-        expect($registry->modelClass())->toBe(\App\Models\Activity::class);
+        expect($registry->modelClass())->toBe(Activity::class);
     });
 
     it('returns all activity columns', function () {
@@ -65,7 +66,7 @@ describe('ActivityColumnRegistry', function () {
     it('returns correct column types', function () {
         $registry = new ActivityColumnRegistry;
 
-        expect($registry->get('type_id')->type)->toBe('enum')
+        expect($registry->get('type_id')->type)->toBe('relation')
             ->and($registry->get('status_id')->type)->toBe('enum')
             ->and($registry->get('completed')->type)->toBe('boolean')
             ->and($registry->get('created_at')->type)->toBe('datetime');

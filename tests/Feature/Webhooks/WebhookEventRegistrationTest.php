@@ -6,6 +6,7 @@ use App\Jobs\DeliverWebhook;
 use App\Models\User;
 use App\Models\Webhook;
 use App\Services\Api\WebhookService;
+use Database\Seeders\ListOfValuesSeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Facades\File;
@@ -32,6 +33,7 @@ beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
     $this->seed(PermissionSeeder::class);
     $this->seed(RoleSeeder::class);
+    $this->seed(ListOfValuesSeeder::class);
     $this->owner = User::factory()->owner()->create();
     $this->actingAs($this->owner);
 });
@@ -130,7 +132,6 @@ it('fires activity.created to a subscribed webhook when an activity is created',
 
     (new CreateActivity)(CreateActivityData::from([
         'subject' => 'Webhook anchor activity',
-        'type_id' => 1001,
     ]));
 
     Queue::assertPushed(

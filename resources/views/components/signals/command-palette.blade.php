@@ -26,6 +26,9 @@
             { group: 'Navigation', label: 'Stock Levels', icon: 'archive', url: '{{ route('stock-levels.index') }}', keywords: 'inventory stock items assets' },
             { group: 'Navigation', label: 'Product Groups', icon: 'folder', url: '{{ route('product-groups.index') }}', keywords: 'groups categories catalogue organize' },
             { group: 'Navigation', label: 'Activities', icon: 'calendar', url: '{{ route('activities.index') }}', keywords: 'tasks calls meetings emails notes follow-up crm' },
+            @can('activities.access')
+            { group: 'Navigation', label: 'Calendar', icon: 'calendar', url: '{{ route('calendar.index') }}', keywords: 'calendar schedule activities planner day week month' },
+            @endcan
             { group: 'Navigation', label: 'Admin Settings', icon: 'cog', url: '{{ route('admin.settings.company') }}', keywords: 'setup configuration company' },
             @can('members.create')
             { group: 'Create', label: 'New Member', icon: 'plus', url: '{{ route('members.create') }}', keywords: 'add create organisation contact venue' },
@@ -36,6 +39,7 @@
             { group: 'Settings', label: 'Profile Settings', icon: 'user', url: '{{ route('settings.profile') }}', keywords: 'account name email' },
             { group: 'Settings', label: 'Change Password', icon: 'lock', url: '{{ route('settings.password') }}', keywords: 'security password' },
             { group: 'Settings', label: 'Appearance', icon: 'palette', url: '{{ route('settings.appearance') }}', keywords: 'theme dark light mode' },
+            { group: 'Settings', label: 'Calendar Feed', icon: 'calendar', url: '{{ route('settings.calendar') }}', keywords: 'calendar ical feed subscribe ics download' },
             { group: 'Admin', label: 'Users & Security', icon: 'shield', url: '{{ route('admin.settings.users') }}', keywords: 'users roles permissions security' },
             { group: 'Admin', label: 'Roles & Permissions', icon: 'key', url: '{{ route('admin.settings.roles') }}', keywords: 'roles permissions access' },
             { group: 'Admin', label: 'Custom Fields', icon: 'grid', url: '{{ route('admin.settings.custom-fields') }}', keywords: 'fields custom metadata' },

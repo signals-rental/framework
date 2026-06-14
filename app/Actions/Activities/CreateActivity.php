@@ -4,8 +4,11 @@ namespace App\Actions\Activities;
 
 use App\Data\Activities\ActivityData;
 use App\Data\Activities\CreateActivityData;
+use App\Enums\ActivityType;
 use App\Events\AuditableEvent;
 use App\Models\Activity;
+use App\Models\ListName;
+use App\Models\ListValue;
 use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +33,7 @@ class CreateActivity
                 'starts_at' => $data->starts_at,
                 'ends_at' => $data->ends_at,
                 'priority' => $data->priority,
-                'type_id' => $data->type_id,
+                'type_id' => $data->type_id ?? $this->defaultTypeId(),
                 'status_id' => $data->status_id,
                 'completed' => $data->completed,
                 'time_status' => $data->time_status,
@@ -50,10 +53,29 @@ class CreateActivity
             event(new AuditableEvent($activity, 'activity.created'));
 
             app(WebhookService::class)->dispatch('activity.created', [
-                'activity' => ActivityData::fromModel($activity->load(['owner', 'participants.member']))->toArray(),
+                'activity' => ActivityData::fromModel($activity->load(['owner', 'participants.member', 'type']))->toArray(),
             ]);
 
-            return ActivityData::fromModel($activity->load(['owner', 'participants.member']));
+            return ActivityData::fromModel($activity->load(['owner', 'participants.member', 'type']));
         });
+    }
+
+    /**
+     * The "Activity Type" list's Task value id, used when no type is supplied.
+     */
+    private function defaultTypeId(): ?int
+    {
+        $listId = ListName::query()->where('name', 'Activity Type')->value('id');
+
+        if ($listId === null) {
+            return null;
+        }
+
+        $id = ListValue::query()
+            ->where('list_name_id', $listId)
+            ->where('name', ActivityType::Task->label())
+            ->value('id');
+
+        return $id !== null ? (int) $id : null;
     }
 }

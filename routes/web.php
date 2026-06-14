@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\Web\DocsController;
 use App\Http\Controllers\Web\SearchController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,7 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
+    Volt::route('settings/calendar', 'settings.calendar')->name('settings.calendar');
 
     // Search
     Route::get('search', SearchController::class)->name('search');
@@ -108,6 +110,9 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('activities/create', 'activities.form')->name('activities.create');
     Volt::route('activities/{activity}', 'activities.show')->name('activities.show');
     Volt::route('activities/{activity}/edit', 'activities.form')->name('activities.edit');
+
+    // Calendar
+    Volt::route('calendar', 'calendar.index')->name('calendar.index');
 });
 
 /*
@@ -119,6 +124,21 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
 Route::middleware(['signals.setup-complete'])->group(function () {
     Volt::route('invitation/{user}', 'auth.accept-invitation')
         ->name('invitation.accept')
+        ->middleware('signed');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Calendar iCal Feeds (signed URL, no auth required)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['signals.setup-complete'])->group(function () {
+    Route::get('calendar/feed.ics', [CalendarFeedController::class, 'global'])
+        ->name('calendar.feed.global')
+        ->middleware('signed');
+    Route::get('calendar/feed/{user}.ics', [CalendarFeedController::class, 'user'])
+        ->name('calendar.feed.user')
         ->middleware('signed');
 });
 

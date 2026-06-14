@@ -9,6 +9,7 @@ use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
+use App\Models\ListName;
 use App\Models\Member;
 use App\Models\Product;
 use App\Models\StockLevel;
@@ -23,7 +24,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $subject = '';
     public string $description = '';
     public string $location = '';
-    public int $typeId = 1001;
+    public ?int $typeId = null;
     public int $statusId = 2001;
     public int $priority = 1;
     public int $timeStatus = 0;
@@ -51,13 +52,14 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         $this->ownedBy = auth()->id();
+        $this->typeId = $this->defaultTypeId();
 
         if ($activity?->exists) {
             $this->activityId = $activity->id;
             $this->subject = $activity->subject;
             $this->description = $activity->description ?? '';
             $this->location = $activity->location ?? '';
-            $this->typeId = $activity->type_id->value;
+            $this->typeId = $activity->type_id;
             $this->statusId = $activity->status_id->value;
             $this->priority = $activity->priority->value;
             $this->timeStatus = $activity->time_status->value;
@@ -71,6 +73,28 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Resolve selected names for autocomplete display
         $this->resolveRegardingName();
         $this->resolveOwnerName();
+    }
+
+    /**
+     * The "Activity Type" list's active values, ordered for the type dropdown.
+     *
+     * @return Collection<int, \App\Models\ListValue>
+     */
+    public function getActivityTypesProperty(): Collection
+    {
+        return ListName::query()->where('name', 'Activity Type')->first()
+            ?->values()->where('is_active', true)->orderBy('sort_order')->get()
+            ?? collect();
+    }
+
+    /**
+     * The default type (Task) value id for new activities.
+     */
+    private function defaultTypeId(): ?int
+    {
+        $task = $this->activityTypes->firstWhere('name', ActivityType::Task->label());
+
+        return $task?->id ?? $this->activityTypes->first()?->id;
     }
 
     /**
@@ -213,7 +237,7 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         return [
             'isEditing' => $this->activityId !== null,
-            'activityTypes' => ActivityType::cases(),
+            'activityTypes' => $this->activityTypes,
             'activityStatuses' => ActivityStatus::cases(),
             'activityPriorities' => ActivityPriority::cases(),
             'timeStatuses' => TimeStatus::cases(),
@@ -310,7 +334,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                             <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
                                 <flux:select wire:model="typeId" label="Type">
                                     @foreach($activityTypes as $type)
-                                        <option value="{{ $type->value }}">{{ $type->label() }}</option>
+                                        <option value="{{ $type->id }}">{{ $type->name }}</option>
                                     @endforeach
                                 </flux:select>
 

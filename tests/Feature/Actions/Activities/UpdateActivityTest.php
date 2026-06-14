@@ -2,17 +2,34 @@
 
 use App\Actions\Activities\UpdateActivity;
 use App\Data\Activities\UpdateActivityData;
+use App\Enums\ActivityType;
 use App\Enums\CustomFieldType;
 use App\Events\AuditableEvent;
 use App\Models\Activity;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
+use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * Resolve an "Activity Type" list value id by its enum default name.
+ */
+function updateActivityTypeId(ActivityType $type): int
+{
+    $listId = ListName::query()->where('name', 'Activity Type')->value('id');
+
+    return (int) ListValue::query()
+        ->where('list_name_id', $listId)
+        ->where('name', $type->label())
+        ->value('id');
+}
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -35,6 +52,38 @@ it('updates an activity subject', function () {
     Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
         return $event->action === 'activity.updated';
     });
+});
+
+it('changes the type to a different valid list value', function () {
+    Event::fake([AuditableEvent::class]);
+
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    // Factory state creates both the Task and Meeting list values up front.
+    $activity = Activity::factory()->task()->create();
+    Activity::factory()->meeting()->create();
+    $meetingId = updateActivityTypeId(ActivityType::Meeting);
+
+    $dto = UpdateActivityData::from(['type_id' => $meetingId]);
+    $result = (new UpdateActivity)($activity, $dto);
+
+    expect($result->type_id)->toBe($meetingId)
+        ->and($result->activity_type_name)->toBe('Meeting');
+    expect($activity->refresh()->type_id)->toBe($meetingId);
+});
+
+it('rejects a type_id that is not an Activity Type list value', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    // Ensure the "Activity Type" list exists for the exists rule's scope.
+    Activity::factory()->create();
+
+    // 999999 is not a real list_value id, so the exists rule must reject it.
+    expect(fn () => UpdateActivityData::validateAndCreate([
+        'type_id' => 999999,
+    ]))->toThrow(ValidationException::class);
 });
 
 it('replaces participants when provided', function () {

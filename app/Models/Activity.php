@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Contracts\HasSchema;
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
-use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
@@ -86,7 +85,6 @@ class Activity extends Model implements HasSchema
     protected function casts(): array
     {
         return [
-            'type_id' => ActivityType::class,
             'status_id' => ActivityStatus::class,
             'priority' => ActivityPriority::class,
             'time_status' => TimeStatus::class,
@@ -102,7 +100,9 @@ class Activity extends Model implements HasSchema
         $builder->string('subject')->label('Subject')->required()->searchable()->filterable()->sortable();
         $builder->text('description')->label('Description')->searchable();
         $builder->string('location')->label('Location')->searchable()->filterable();
-        $builder->enum('type_id')->label('Type')->filterable()->sortable()->groupable();
+        $builder->relation('type_id')->label('Type')
+            ->relation('type', 'belongsTo', ListValue::class, 'name')
+            ->filterable()->sortable()->groupable();
         $builder->enum('status_id')->label('Status')->filterable()->sortable()->groupable();
         $builder->enum('priority')->label('Priority')->filterable()->sortable()->groupable();
         $builder->enum('time_status')->label('Time Status')->filterable();
@@ -125,6 +125,16 @@ class Activity extends Model implements HasSchema
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owned_by');
+    }
+
+    /**
+     * The activity type, resolved from the "Activity Type" list of values.
+     *
+     * @return BelongsTo<ListValue, $this>
+     */
+    public function type(): BelongsTo
+    {
+        return $this->belongsTo(ListValue::class, 'type_id');
     }
 
     /**
@@ -187,14 +197,14 @@ class Activity extends Model implements HasSchema
     }
 
     /**
-     * Scope to activities of a specific type.
+     * Scope to activities of a specific type (list_value id, or a ListValue).
      *
      * @param  Builder<Activity>  $query
      * @return Builder<Activity>
      */
-    public function scopeOfType(Builder $query, ActivityType $type): Builder
+    public function scopeOfType(Builder $query, ListValue|int $type): Builder
     {
-        return $query->where('type_id', $type);
+        return $query->where('type_id', $type instanceof ListValue ? $type->id : $type);
     }
 
     /**

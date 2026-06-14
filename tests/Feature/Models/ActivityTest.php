@@ -2,10 +2,10 @@
 
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
-use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
 use App\Models\ActivityParticipant;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\Product;
 use App\Models\StockLevel;
@@ -37,16 +37,18 @@ it('creates an activity with factory defaults', function () {
     $activity = Activity::factory()->create(['subject' => 'Test Activity']);
 
     expect($activity->subject)->toBe('Test Activity')
-        ->and($activity->type_id)->toBe(ActivityType::Task)
         ->and($activity->status_id)->toBe(ActivityStatus::Scheduled)
         ->and($activity->priority)->toBe(ActivityPriority::Normal)
-        ->and($activity->completed)->toBeFalse();
+        ->and($activity->completed)->toBeFalse()
+        ->and($activity->type?->name)->toBe('Task');
 });
 
-it('casts type_id to ActivityType enum', function () {
+it('resolves type_id through the Activity Type list of values', function () {
     $activity = Activity::factory()->create();
 
-    expect($activity->type_id)->toBeInstanceOf(ActivityType::class);
+    expect($activity->type_id)->toBeInt()
+        ->and($activity->type)->toBeInstanceOf(ListValue::class)
+        ->and($activity->type->listName->name)->toBe('Activity Type');
 });
 
 it('casts status_id to ActivityStatus enum', function () {
@@ -176,12 +178,14 @@ it('member has activities morphMany', function () {
 });
 
 it('scopes to activities of a specific type', function () {
-    Activity::factory()->create(['type_id' => ActivityType::Task]);
-    Activity::factory()->create(['type_id' => ActivityType::Call]);
-    Activity::factory()->create(['type_id' => ActivityType::Task]);
+    Activity::factory()->task()->count(2)->create();
+    $call = Activity::factory()->call()->create();
 
-    expect(Activity::ofType(ActivityType::Task)->count())->toBe(2);
-    expect(Activity::ofType(ActivityType::Call)->count())->toBe(1);
+    $taskId = Activity::factory()->task()->create()->type_id;
+
+    expect(Activity::ofType($taskId)->count())->toBe(3)
+        ->and(Activity::ofType($call->type_id)->count())->toBe(1)
+        ->and(Activity::ofType(ListValue::find($call->type_id))->count())->toBe(1);
 });
 
 it('scopes to activities with a specific status', function () {

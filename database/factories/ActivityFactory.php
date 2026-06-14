@@ -7,6 +7,8 @@ use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
+use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\Product;
 use App\Models\StockLevel;
@@ -27,7 +29,7 @@ class ActivityFactory extends Factory
     {
         return [
             'subject' => fake()->sentence(4),
-            'type_id' => ActivityType::Task,
+            'type_id' => $this->typeValueId(ActivityType::Task),
             'status_id' => ActivityStatus::Scheduled,
             'priority' => ActivityPriority::Normal,
             'time_status' => TimeStatus::Free,
@@ -38,22 +40,22 @@ class ActivityFactory extends Factory
 
     public function task(): static
     {
-        return $this->state(fn () => [
-            'type_id' => ActivityType::Task,
+        return $this->state(fn (): array => [
+            'type_id' => $this->typeValueId(ActivityType::Task),
         ]);
     }
 
     public function call(): static
     {
-        return $this->state(fn () => [
-            'type_id' => ActivityType::Call,
+        return $this->state(fn (): array => [
+            'type_id' => $this->typeValueId(ActivityType::Call),
         ]);
     }
 
     public function meeting(): static
     {
-        return $this->state(fn () => [
-            'type_id' => ActivityType::Meeting,
+        return $this->state(fn (): array => [
+            'type_id' => $this->typeValueId(ActivityType::Meeting),
             'starts_at' => now()->addDay(),
             'ends_at' => now()->addDay()->addHour(),
             'time_status' => TimeStatus::Busy,
@@ -62,15 +64,15 @@ class ActivityFactory extends Factory
 
     public function email(): static
     {
-        return $this->state(fn () => [
-            'type_id' => ActivityType::Email,
+        return $this->state(fn (): array => [
+            'type_id' => $this->typeValueId(ActivityType::Email),
         ]);
     }
 
     public function note(): static
     {
-        return $this->state(fn () => [
-            'type_id' => ActivityType::Note,
+        return $this->state(fn (): array => [
+            'type_id' => $this->typeValueId(ActivityType::Note),
         ]);
     }
 
@@ -114,5 +116,29 @@ class ActivityFactory extends Factory
             'regarding_type' => StockLevel::class,
             'regarding_id' => $stockLevel->id,
         ]);
+    }
+
+    /**
+     * Resolve the "Activity Type" list value id for a default type, creating the
+     * list + value if absent so tests that don't seed still produce valid rows.
+     */
+    private function typeValueId(ActivityType $type): int
+    {
+        $list = ListName::query()->firstOrCreate(
+            ['name' => 'Activity Type'],
+            ['description' => 'Activity Type options', 'is_system' => true],
+        );
+
+        $sortOrder = (int) array_search($type, ActivityType::cases(), true);
+
+        return ListValue::query()->firstOrCreate(
+            ['list_name_id' => $list->id, 'name' => $type->label()],
+            [
+                'sort_order' => $sortOrder,
+                'is_system' => true,
+                'is_active' => true,
+                'metadata' => ['icon' => $type->icon()],
+            ],
+        )->id;
     }
 }

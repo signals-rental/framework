@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ActivityType;
 use App\Models\ListName;
 use App\Models\ListValue;
 use Illuminate\Database\Seeder;
@@ -53,6 +54,35 @@ class ListOfValuesSeeder extends Seeder
                     ],
                 );
             }
+        }
+
+        $this->seedActivityTypes();
+    }
+
+    /**
+     * Seed the "Activity Type" system list from the ActivityType default-set,
+     * persisting each case's icon key in the value metadata.
+     */
+    private function seedActivityTypes(): void
+    {
+        $list = ListName::query()->updateOrCreate(
+            ['name' => 'Activity Type'],
+            [
+                'description' => 'Activity Type options',
+                'is_system' => true,
+            ],
+        );
+
+        foreach (ActivityType::cases() as $index => $case) {
+            ListValue::query()->updateOrCreate(
+                ['list_name_id' => $list->id, 'name' => $case->label()],
+                [
+                    'sort_order' => $index,
+                    'is_system' => true,
+                    'is_active' => true,
+                    'metadata' => ['icon' => $case->icon()],
+                ],
+            );
         }
     }
 }

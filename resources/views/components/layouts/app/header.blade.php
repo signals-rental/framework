@@ -40,16 +40,17 @@
                     <flux:icon.home class="header-nav-icon-glyph" />
                 </a>
 
-                {{-- CRM mega dropdown (members only) --}}
-                @can('members.access')
+                {{-- CRM mega dropdown (members and/or activities) --}}
+                @canany(['members.access', 'activities.access'])
                 <div class="nav-dropdown-wrapper">
                     <button class="header-nav-item {{ ActiveRoute::is('members.*') ? 'active' : '' }}" type="button">
                         CRM
                         <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
                     </button>
-                    <div class="mega-dropdown mega-dropdown-cols-1">
+                    <div class="mega-dropdown mega-dropdown-cols-2">
                         <div class="mega-grid grid gap-x-8 gap-y-5">
                             {{-- People & Places --}}
+                            @can('members.access')
                             <div>
                                 <div class="mega-group-label">People &amp; Places</div>
                                 <a href="{{ route('members.index') }}" class="mega-item" wire:navigate>
@@ -81,10 +82,24 @@
                                     </div>
                                 </a>
                             </div>
+                            @endcan
+                            {{-- Engagement --}}
+                            @can('activities.access')
+                            <div>
+                                <div class="mega-group-label">Engagement</div>
+                                <a href="{{ route('activities.index') }}" class="mega-item {{ ActiveRoute::is('activities.*') ? 'active' : '' }}" wire:navigate>
+                                    <flux:icon.chat-bubble-left-right class="mega-item-icon" />
+                                    <div class="flex flex-col gap-px">
+                                        <span class="mega-item-label">Activities</span>
+                                        <span class="mega-item-desc">Calls, emails, meetings &amp; tasks</span>
+                                    </div>
+                                </a>
+                            </div>
+                            @endcan
                         </div>
                     </div>
                 </div>
-                @endcan
+                @endcanany
 
                 {{-- Job Planning mega dropdown.
                      Placeholder links are ungated for now; they gain
@@ -351,11 +366,11 @@
                     </div>
                 </div>
 
-                {{-- Activities (moved out of CRM) --}}
+                {{-- Calendar (quick access) --}}
                 @can('activities.access')
-                <a href="{{ route('activities.index') }}"
-                   class="header-icon-btn {{ ActiveRoute::is('activities.*') ? 'active' : '' }}"
-                   title="{{ __('Activities') }}" aria-label="{{ __('Activities') }}"
+                <a href="{{ route('calendar.index') }}"
+                   class="header-icon-btn {{ ActiveRoute::is('calendar.*') ? 'active' : '' }}"
+                   title="{{ __('Calendar') }}" aria-label="{{ __('Calendar') }}"
                    wire:navigate>
                     <flux:icon.calendar-days />
                 </a>
@@ -491,6 +506,9 @@
                 <a class="sidebar-item {{ ActiveRoute::is('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.swatch class="!size-[15px]" /> Appearance
                 </a>
+                <a class="sidebar-item {{ ActiveRoute::is('settings.calendar') ? 'active' : '' }}" href="{{ route('settings.calendar') }}" wire:navigate x-on:click="mobileNav = false">
+                    <flux:icon.calendar-days class="!size-[15px]" /> Calendar
+                </a>
             @else
                 {{-- Normal mobile sidebar --}}
                 <a class="sidebar-item {{ ActiveRoute::is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" wire:navigate x-on:click="mobileNav = false">
@@ -501,6 +519,11 @@
                     <div class="sidebar-group-label">People &amp; Places</div>
                     <a class="sidebar-item {{ ActiveRoute::is('members.*') ? 'active' : '' }}" href="{{ route('members.index') }}" wire:navigate x-on:click="mobileNav = false">
                         <flux:icon.user-group class="!size-[15px]" /> Members
+                    </a>
+                @endcan
+                @can('activities.access')
+                    <a class="sidebar-item {{ ActiveRoute::is('activities.*') ? 'active' : '' }}" href="{{ route('activities.index') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.chat-bubble-left-right class="!size-[15px]" /> Activities
                     </a>
                 @endcan
 
@@ -587,13 +610,6 @@
                 <a class="sidebar-item" href="#">
                     <flux:icon.chart-pie class="!size-[15px]" /> Reports
                 </a>
-
-                @can('activities.access')
-                    <div class="sidebar-group-label">Engagement</div>
-                    <a class="sidebar-item {{ ActiveRoute::is('activities.*') ? 'active' : '' }}" href="{{ route('activities.index') }}" wire:navigate x-on:click="mobileNav = false">
-                        <flux:icon.calendar-days class="!size-[15px]" /> Activities
-                    </a>
-                @endcan
 
                 <div class="flex-1"></div>
                 <div class="mx-2 my-1 h-px bg-[var(--sidebar-border)]"></div>
@@ -687,6 +703,11 @@
                     <a class="sidebar-item {{ ActiveRoute::is('settings.appearance') ? 'active' : '' }}" href="{{ route('settings.appearance') }}" wire:navigate>
                         <flux:icon.swatch class="!size-[15px]" />
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Appearance</span>
+                    </a>
+
+                    <a class="sidebar-item {{ ActiveRoute::is('settings.calendar') ? 'active' : '' }}" href="{{ route('settings.calendar') }}" wire:navigate>
+                        <flux:icon.calendar-days class="!size-[15px]" />
+                        <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Calendar</span>
                     </a>
                 @else
                     {{-- Normal sidebar (no nav items) --}}

@@ -2567,3 +2567,520 @@ a.s-module-card { transition: border-color 0.15s, background 0.15s, box-shadow 0
 }
 .s-auth-split .s-auth-field-row .s-field-label { margin-bottom: 0; }
 .s-auth-split .s-auth-field-row a { font-size: 0.8125rem; }
+
+/* ================================================================ */
+/*  93. SCHEDULING CALENDAR (s-cal-*)                                */
+/*  Full-page day/week/month scheduling grid. DISTINCT from the      */
+/*  s-calendar-* mini date-picker (section 72). Hour-axis day/week   */
+/*  views position events absolutely via inline top/height/left/     */
+/*  width set by JS; month is a 7-col grid of event chips. Owner      */
+/*  tints mirror the s-avatar-* palette. Dark mode is inherited via   */
+/*  --card-bg / --card-border / --s-border-sub / --text-* tokens.    */
+/* ================================================================ */
+
+/* Wrapper — flex column; --s-cal-hour-h drives hour-row + event geometry */
+.s-cal {
+  --s-cal-hour-h: 44px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+/* --- Hour-axis (day / week) ------------------------------------- */
+
+/* Left hour-label column */
+.s-cal-gutter {
+  flex-shrink: 0;
+  width: 52px;
+  border-right: 1px solid var(--card-border);
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+}
+.s-cal-gutter-spacer { height: 56px; flex-shrink: 0; }
+.s-cal-gutter .s-cal-hour {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 2px 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* Scrollable hour area — a flex row of day/owner columns alongside the gutter */
+.s-cal-grid {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  align-items: stretch;
+}
+
+/* A single day or owner column; events are absolutely positioned inside */
+.s-cal-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 96px;
+  border-right: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+}
+.s-cal-col:last-child { border-right: none; }
+
+/* Column body fills the remaining height; hour rows divide it equally, events
+   are absolutely positioned by percentage of the window. */
+.s-cal-colbody {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sticky column header (avatar / day label) — fixed height so all columns and
+   the hour gutter's top spacer align exactly. */
+.s-cal-colhead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 56px;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 6px 8px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  text-align: center;
+}
+.s-cal-colhead.today { color: var(--green); }
+.s-cal-colhead-dow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.s-cal-colhead-date { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+
+/* An hour row line — subtle top border; height driven by --s-cal-hour-h */
+.s-cal-hour {
+  flex: 1 1 0;
+  min-height: 26px;
+  border-top: 1px solid var(--s-border-sub);
+  box-sizing: border-box;
+}
+.s-cal-hour:first-child { border-top: none; }
+
+/* Current-time line — 2px accent line across the active column */
+.s-cal-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--blue);
+  z-index: 6;
+  pointer-events: none;
+}
+.s-cal-now::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
+/* All-day band above the hour grid */
+.s-cal-allday {
+  display: flex;
+  align-items: stretch;
+  min-height: 26px;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--s-subtle);
+}
+.s-cal-allday-label {
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 2px 6px 0 0;
+  text-align: right;
+  line-height: 1.2;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Week multi-day / all-day spanning bars: a 7-column grid aligned with the day
+   columns; each bar spans the days it covers (iCal/Fantastical style). */
+.s-cal-allday-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 2px;
+  align-content: start;
+}
+.s-cal-allday-bar {
+  display: flex;
+  align-items: center;
+  height: 19px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+  border-left: 3px solid currentColor;
+  background: var(--card-bg);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.s-cal-allday-bar.completed { opacity: 0.6; text-decoration: line-through; }
+.s-cal-allday-bar.cancelled { opacity: 0.55; }
+
+/* Subtle shading for non-working hours / weekend columns */
+.s-cal-nonwork { background: var(--s-hover); }
+.s-cal-col.s-cal-nonwork { background: var(--s-hover); }
+
+/* --- Event blocks ----------------------------------------------- */
+
+/* Absolutely positioned by inline top/height/left/width */
+.s-cal-event {
+  position: absolute;
+  min-height: 15px;
+  overflow: hidden;
+  padding: 3px 6px;
+  border-left: 3px solid currentColor;
+  background: var(--card-bg);
+  font-family: var(--font-display);
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  cursor: pointer;
+  z-index: 4;
+  transition: box-shadow 0.12s, filter 0.12s;
+}
+.s-cal-event:hover { box-shadow: var(--s-shadow-lg); z-index: 7; }
+
+/* Multi-day continuation cue: a dashed edge signals the segment continues
+   onto the adjacent day. Square corners are kept (Signals has no radius). */
+.s-cal-event-continue-top { border-top: 1px dashed currentColor; }
+.s-cal-event-continue-bottom { border-bottom: 1px dashed currentColor; }
+.s-cal-event-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-cal-event-time { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); }
+/* Secondary "regarding" line beneath the event subject */
+.s-cal-event-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Event meta row: priority + type/status icons + location */
+.s-cal-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 1px;
+  min-width: 0;
+}
+.s-cal-event-meta svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.s-cal-event-prio {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.s-cal-prio-high { color: var(--red); }
+.s-cal-prio-normal { color: var(--amber); }
+.s-cal-prio-low { color: var(--text-muted); }
+.s-cal-event-loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+.s-cal-event-loc span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  opacity: 0.85;
+}
+
+/* Owner + participant avatar stack — overlapping, ringed in the pane background */
+.s-cal-event-avatars {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+.s-cal-event-avatars > * + * { margin-left: -5px; }
+.s-cal-event-avatars .s-avatar {
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 0 0 1.5px var(--card-bg);
+}
+.s-cal-event-avatars .s-avatar .s-avatar-initials { font-size: 8px; }
+.s-cal-event-avatars-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 3px;
+  margin-left: 1px;
+  border-radius: 8px;
+  background: var(--s-hover);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Owner tints — backgrounds/borders mirror the s-avatar-* palette */
+.s-cal-event-green  { background: var(--s-green-bg);  color: #16a34a; }
+.s-cal-event-blue   { background: var(--s-blue-bg);   color: #2563eb; }
+.s-cal-event-amber  { background: var(--s-amber-bg);  color: #d97706; }
+.s-cal-event-violet { background: var(--s-violet-bg); color: #7c3aed; }
+.s-cal-event-cyan   { background: rgba(6, 182, 212, 0.1);  color: #0891b2; }
+.s-cal-event-navy   { background: rgba(15, 23, 42, 0.1);   color: #334155; }
+.dark .s-cal-event-navy { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+.s-cal-event-green .s-cal-event-title,
+.s-cal-event-blue .s-cal-event-title,
+.s-cal-event-amber .s-cal-event-title,
+.s-cal-event-violet .s-cal-event-title,
+.s-cal-event-cyan .s-cal-event-title,
+.s-cal-event-navy .s-cal-event-title { color: inherit; }
+
+/* State modifiers */
+.s-cal-event.completed {
+  opacity: 0.6;
+  background: var(--s-hover);
+  color: var(--text-muted);
+}
+.s-cal-event.completed .s-cal-event-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.s-cal-event.cancelled {
+  opacity: 0.55;
+  background: var(--s-hover);
+  color: var(--text-muted);
+  border-left-style: dashed;
+}
+.s-cal-event.cancelled .s-cal-event-title { color: var(--text-muted); }
+
+/* --- Month grid ------------------------------------------------- */
+
+.s-cal-month {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
+  border-top: 1px solid var(--card-border);
+  border-left: 1px solid var(--card-border);
+}
+.s-cal-month-dow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 6px 0;
+  border-right: 1px solid var(--card-border);
+  border-bottom: 1px solid var(--card-border);
+  background: var(--table-header-bg);
+}
+
+.s-cal-month-cell {
+  position: relative;
+  min-height: 96px;
+  padding: 4px 5px 6px;
+  border-right: 1px solid var(--card-border);
+  border-bottom: 1px solid var(--card-border);
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.s-cal-month-cell.other-month {
+  background: var(--s-subtle);
+  color: var(--text-muted);
+}
+.s-cal-month-cell.nonwork { background: var(--s-hover); }
+.s-cal-month-cell.today { box-shadow: inset 0 0 0 2px var(--green); }
+
+.s-cal-month-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.s-cal-month-cell.other-month .s-cal-month-daynum { color: var(--s-faint); }
+.s-cal-month-cell.today .s-cal-month-daynum {
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--green);
+}
+
+/* Compact event chip inside a month cell */
+.s-cal-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 2px 5px;
+  background: var(--card-bg);
+  border-left: 3px solid currentColor;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.12s;
+}
+.s-cal-chip:hover { background: var(--s-hover); }
+.s-cal-chip-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.s-cal-chip-time { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); }
+/* Secondary "regarding" line inside a month chip */
+.s-cal-chip-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-cal-chip-green  { color: #16a34a; }
+.s-cal-chip-blue   { color: #2563eb; }
+.s-cal-chip-amber  { color: #d97706; }
+.s-cal-chip-violet { color: #7c3aed; }
+.s-cal-chip-cyan   { color: #0891b2; }
+.s-cal-chip-navy   { color: #334155; }
+.dark .s-cal-chip-navy { color: #94a3b8; }
+.s-cal-chip.completed { opacity: 0.6; }
+.s-cal-chip.completed .s-cal-chip-title { text-decoration: line-through; }
+.s-cal-chip.cancelled { opacity: 0.55; }
+
+/* "+N more" overflow link */
+.s-cal-more {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: #2563eb;
+  cursor: pointer;
+}
+.s-cal-more:hover { color: #1d4ed8; text-decoration: underline; }
+
+/* --- Unscheduled tray ------------------------------------------- */
+
+.s-cal-unscheduled {
+  flex-shrink: 0;
+  border-top: 1px solid var(--card-border);
+  background: var(--s-subtle);
+}
+.s-cal-unscheduled-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.s-cal-unscheduled-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 12px 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.s-cal-unscheduled-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-left: 3px solid currentColor;
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.s-cal-unscheduled-item:hover { background: var(--s-hover); border-color: var(--text-muted); }
+.s-cal-unscheduled-item-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-cal-unscheduled-owner {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}

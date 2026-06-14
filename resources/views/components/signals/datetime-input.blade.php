@@ -15,6 +15,7 @@
 <x-signals.datepicker
     {{ $attributes }}
     :value="$dateValue ? \Carbon\Carbon::parse($dateValue)->format('Y-m-d') : null"
+    :time="$dateValue ? \Carbon\Carbon::parse($dateValue)->format('H:i') : null"
     :show-time="$showTime"
     :placeholder="$placeholder"
 />

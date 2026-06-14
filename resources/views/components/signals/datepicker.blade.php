@@ -6,6 +6,7 @@
     'rangeStart' => null,
     'rangeEnd' => null,
     'showTime' => false,
+    'time' => null,
 ])
 
 <div
@@ -17,7 +18,7 @@
         rangeStart: @js($rangeStart),
         rangeEnd: @js($rangeEnd),
         showTime: @js($showTime),
-        time: @js($showTime && $value ? \Carbon\Carbon::parse($value)->format('H:i') : '12:00'),
+        time: @js($time ?? ($showTime && $value ? \Carbon\Carbon::parse($value)->format('H:i') : '12:00')),
         get display() {
             if (this.rangeMode) {
                 if (!this.rangeStart) return '';

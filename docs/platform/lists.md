@@ -42,10 +42,13 @@ System values cannot be edited or deleted. Non-system values can be deactivated 
 
 | List Name | Used For |
 |-----------|----------|
+| ActivityType | Activity type classification (e.g. Task, Call, Email, Meeting) |
 | AddressType | Address classification (e.g. Head Office, Branch, Billing) |
 | EmailType | Email classification (e.g. Work, Personal, Support) |
 | PhoneType | Phone classification (e.g. Mobile, Landline, Fax) |
 | LinkType | Link classification (e.g. Website, LinkedIn, Twitter) |
+
+> **Note:** List names are stored in the database using camelCase (e.g. `ActivityType`). The **Settings → List Names** UI displays them with spaces (e.g. "Activity Type"). Both refer to the same list.
 
 ## Using Lists in Custom Fields
 

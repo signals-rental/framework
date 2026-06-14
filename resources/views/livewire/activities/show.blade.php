@@ -10,7 +10,12 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function mount(Activity $activity): void
     {
-        $this->activity = $activity->load(['owner', 'participants.member', 'regarding']);
+        $this->activity = $activity->load([
+            'owner.member',
+            'type',
+            'regarding',
+            'participants.member' => fn ($query) => $query->withTrashed()->with('user'),
+        ]);
     }
 
     public function rendering(View $view): void
@@ -29,6 +34,47 @@ new #[Layout('components.layouts.app')] class extends Component {
         (new \App\Actions\Activities\DeleteActivity)($this->activity);
         $this->redirect(route('activities.index'), navigate: true);
     }
+
+    /**
+     * When the activity's "regarding" is a Member, resolve avatar + link data:
+     * the photo (signed thumbnail when present), initials fallback, and the
+     * member record URL. Returns null for any other regarding type.
+     *
+     * @return array{name: string, initials: string, src: string|null, url: string}|null
+     */
+    public function getRegardingMemberProperty(): ?array
+    {
+        if (Activity::shortRegardingType($this->activity->regarding_type) !== 'Member' || $this->activity->regarding_id === null) {
+            return null;
+        }
+
+        $member = \App\Models\Member::find($this->activity->regarding_id);
+
+        if ($member === null) {
+            return null;
+        }
+
+        $name = (string) $member->name;
+        $initials = \Illuminate\Support\Str::of($name)->explode(' ')->take(2)
+            ->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
+
+        return [
+            'name' => $name,
+            'initials' => $initials,
+            'src' => app(\App\Services\FileService::class)->signedUrlOrNull($member->icon_thumb_url),
+            'url' => route('members.show', $member->id),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function with(): array
+    {
+        return [
+            'regardingMember' => $this->regardingMember,
+        ];
+    }
 }; ?>
 
 <section class="w-full">
@@ -40,7 +86,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         </x-slot:breadcrumbs>
         <x-slot:meta>
             <div class="flex items-center gap-2">
-                <span class="s-badge s-badge-blue">{{ $activity->type_id->label() }}</span>
+                <span class="s-badge s-badge-blue">{{ $activity->type?->name ?? '—' }}</span>
                 <span class="s-badge {{ $activity->status_id === \App\Enums\ActivityStatus::Completed ? 's-badge-green' : ($activity->status_id === \App\Enums\ActivityStatus::Cancelled ? 's-badge-zinc' : 's-badge-amber') }}">
                     {{ $activity->status_id->label() }}
                 </span>
@@ -71,7 +117,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     ['label' => 'Subject', 'value' => $activity->subject],
                     $activity->description ? ['label' => 'Description', 'value' => $activity->description] : null,
                     $activity->location ? ['label' => 'Location', 'value' => $activity->location] : null,
-                    ['label' => 'Type', 'value' => $activity->type_id->label()],
+                    ['label' => 'Type', 'value' => $activity->type?->name ?? '—'],
                     ['label' => 'Status', 'value' => $activity->status_id->label()],
                     ['label' => 'Priority', 'value' => $activity->priority->label()],
                     ['label' => 'Time Status', 'value' => $activity->time_status->label()],
@@ -83,27 +129,62 @@ new #[Layout('components.layouts.app')] class extends Component {
 
             @if($activity->regarding)
                 <x-signals.panel title="Regarding">
-                    <div class="flex items-center gap-2">
-                        <span class="s-badge s-badge-zinc">{{ $activity->regarding_type }}</span>
-                        <span class="text-sm font-medium">{{ $activity->regarding->name ?? '—' }}</span>
-                    </div>
+                    @if($regardingMember)
+                        <a href="{{ $regardingMember['url'] }}" target="_blank" rel="noopener"
+                           class="group flex w-fit items-center gap-2">
+                            <x-signals.avatar size="sm" :initials="$regardingMember['initials']" :src="$regardingMember['src']" color="zinc" />
+                            <span class="text-sm font-medium text-[var(--link)] group-hover:underline">{{ $regardingMember['name'] }}</span>
+                            <svg class="h-3.5 w-3.5 text-[var(--link)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M14 5h5v5" />
+                                <path d="M19 5l-7 7" />
+                                <path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4" />
+                            </svg>
+                        </a>
+                    @else
+                        <div class="flex items-center gap-2">
+                            <span class="s-badge s-badge-zinc">{{ $activity->regarding_type }}</span>
+                            <span class="text-sm font-medium">{{ $activity->regarding->name ?? '—' }}</span>
+                        </div>
+                    @endif
                 </x-signals.panel>
             @endif
 
-            @if($activity->participants->isNotEmpty())
-                <x-signals.panel title="Participants">
-                    <div class="space-y-2">
-                        @foreach($activity->participants as $participant)
-                            <div class="flex items-center justify-between" wire:key="participant-{{ $participant->id }}">
-                                <span class="text-sm">{{ $participant->member?->name ?? 'Unknown' }}</span>
-                                @if($participant->mute)
-                                    <span class="s-badge s-badge-zinc">Muted</span>
-                                @endif
+            {{-- Participants: owner first, then participants — resolved to the linked user's name/avatar --}}
+            <x-signals.panel title="Participants">
+                <div class="space-y-2">
+                    @if($activity->owner)
+                        @php
+                            $ownerName = $activity->owner->name;
+                            $ownerInitials = \Illuminate\Support\Str::of($ownerName)->explode(' ')->take(2)->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
+                            $ownerColor = str_replace('s-avatar-', '', app(\App\Services\Calendar\OwnerColorResolver::class)->for($activity->owner->id));
+                        @endphp
+                        <div class="flex items-center justify-between" wire:key="person-owner-{{ $activity->owner->id }}">
+                            <div class="flex items-center gap-2">
+                                <x-signals.avatar size="sm" :initials="$ownerInitials" :src="app(\App\Services\FileService::class)->signedUrlOrNull($activity->owner->member?->icon_thumb_url)" :color="$ownerColor" />
+                                <span class="text-sm font-medium">{{ $ownerName }}</span>
                             </div>
-                        @endforeach
-                    </div>
-                </x-signals.panel>
-            @endif
+                            <span class="s-badge s-badge-blue">Owner</span>
+                        </div>
+                    @endif
+                    @foreach($activity->participants as $participant)
+                        @php
+                            $pUser = $participant->member?->user;
+                            $pName = $pUser?->name ?? $participant->member?->name ?? 'Unknown';
+                            $pInitials = \Illuminate\Support\Str::of($pName)->explode(' ')->take(2)->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
+                            $pColor = $pUser !== null ? str_replace('s-avatar-', '', app(\App\Services\Calendar\OwnerColorResolver::class)->for($pUser->id)) : 'zinc';
+                        @endphp
+                        <div class="flex items-center justify-between" wire:key="participant-{{ $participant->id }}">
+                            <div class="flex items-center gap-2">
+                                <x-signals.avatar size="sm" :initials="$pInitials" :src="app(\App\Services\FileService::class)->signedUrlOrNull($participant->member?->icon_thumb_url)" :color="$pColor" />
+                                <span class="text-sm">{{ $pName }}</span>
+                            </div>
+                            @if($participant->mute)
+                                <span class="s-badge s-badge-zinc">Muted</span>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </x-signals.panel>
         </div>
 
         {{-- Sidebar --}}

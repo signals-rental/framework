@@ -1,8 +1,12 @@
 <?php
 
+use App\Enums\ActivityType;
 use App\Models\Activity;
+use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\User;
+use Database\Seeders\ListOfValuesSeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 
@@ -10,8 +14,22 @@ beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
     $this->seed(PermissionSeeder::class);
     $this->seed(RoleSeeder::class);
+    $this->seed(ListOfValuesSeeder::class);
     $this->owner = User::factory()->owner()->create();
 });
+
+/**
+ * Resolve an "Activity Type" list value id by its enum default name.
+ */
+function apiTypeId(ActivityType $type): int
+{
+    $listId = ListName::query()->where('name', 'Activity Type')->value('id');
+
+    return (int) ListValue::query()
+        ->where('list_name_id', $listId)
+        ->where('name', $type->label())
+        ->value('id');
+}
 
 describe('GET /api/v1/activities', function () {
     it('lists activities with pagination meta', function () {
@@ -33,10 +51,11 @@ describe('GET /api/v1/activities', function () {
     it('filters by type_id', function () {
         Activity::factory()->task()->create();
         Activity::factory()->meeting()->create();
+        $meetingId = apiTypeId(ActivityType::Meeting);
         $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/v1/activities?q[type_id_eq]=1005')
+            ->getJson("/api/v1/activities?q[type_id_eq]={$meetingId}")
             ->assertOk();
 
         expect($response->json('activities'))->toHaveCount(1);
@@ -89,7 +108,7 @@ describe('GET /api/v1/activities/{id}', function () {
             ->getJson("/api/v1/activities/{$activity->id}")
             ->assertOk()
             ->assertJsonPath('activity.subject', 'Test Activity')
-            ->assertJsonPath('activity.type_id', 1001)
+            ->assertJsonPath('activity.type_id', apiTypeId(ActivityType::Task))
             ->assertJsonPath('activity.activity_type_name', 'Task');
     });
 
@@ -159,16 +178,18 @@ describe('POST /api/v1/activities', function () {
     it('creates an activity', function () {
         $token = $this->owner->createToken('test', ['activities:write'])->plainTextToken;
 
+        $taskId = apiTypeId(ActivityType::Task);
+
         $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson('/api/v1/activities', [
                 'subject' => 'New Task',
-                'type_id' => 1001,
+                'type_id' => $taskId,
                 'status_id' => 2001,
                 'priority' => 1,
             ])
             ->assertCreated()
             ->assertJsonPath('activity.subject', 'New Task')
-            ->assertJsonPath('activity.type_id', 1001)
+            ->assertJsonPath('activity.type_id', $taskId)
             ->assertJsonPath('activity.activity_type_name', 'Task');
     });
 
@@ -179,7 +200,7 @@ describe('POST /api/v1/activities', function () {
         $response = $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson('/api/v1/activities', [
                 'subject' => 'Meeting with client',
-                'type_id' => 1005,
+                'type_id' => apiTypeId(ActivityType::Meeting),
                 'participants' => [
                     ['member_id' => $member->id, 'mute' => false],
                 ],
@@ -213,6 +234,18 @@ describe('POST /api/v1/activities', function () {
             ->assertJsonValidationErrors('subject');
     });
 
+    it('rejects a type_id that is not an Activity Type list value', function () {
+        $token = $this->owner->createToken('test', ['activities:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/activities', [
+                'subject' => 'Bad type',
+                'type_id' => 999999,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('type_id');
+    });
+
     it('returns forbidden without write ability', function () {
         $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -232,6 +265,32 @@ describe('PUT /api/v1/activities/{id}', function () {
             ])
             ->assertOk()
             ->assertJsonPath('activity.subject', 'Updated Subject');
+    });
+
+    it('changes the type_id to a different valid list value', function () {
+        $activity = Activity::factory()->task()->create();
+        $meetingId = apiTypeId(ActivityType::Meeting);
+        $token = $this->owner->createToken('test', ['activities:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/activities/{$activity->id}", [
+                'type_id' => $meetingId,
+            ])
+            ->assertOk()
+            ->assertJsonPath('activity.type_id', $meetingId)
+            ->assertJsonPath('activity.activity_type_name', 'Meeting');
+    });
+
+    it('rejects a type_id that is not an Activity Type list value', function () {
+        $activity = Activity::factory()->create();
+        $token = $this->owner->createToken('test', ['activities:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/activities/{$activity->id}", [
+                'type_id' => 999999,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('type_id');
     });
 });
 
@@ -273,11 +332,12 @@ describe('POST /api/v1/activities/{id}/complete', function () {
 
 describe('RMS response shape', function () {
     it('matches RMS field names and types', function () {
+        $faxId = apiTypeId(ActivityType::Fax);
         $activity = Activity::factory()->create([
             'subject' => 'Enable dynamic e-tailers',
             'location' => 'Hereford',
             'priority' => 1,
-            'type_id' => 1003,
+            'type_id' => $faxId,
             'status_id' => 2001,
             'completed' => false,
             'time_status' => 0,
@@ -300,7 +360,7 @@ describe('RMS response shape', function () {
             'created_at', 'updated_at',
         ]);
 
-        expect($data['type_id'])->toBe(1003);
+        expect($data['type_id'])->toBe($faxId);
         expect($data['activity_type_name'])->toBe('Fax');
         expect($data['status_id'])->toBe(2001);
         expect($data['activity_status_name'])->toBe('Scheduled');

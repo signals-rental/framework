@@ -25,6 +25,24 @@ enum ActivityType: int
         };
     }
 
+    /**
+     * Stable icon key per default activity type. Persisted in each seeded
+     * ListValue's metadata (`['icon' => ...]`) so the calendar can render the
+     * right glyph regardless of the user-chosen list value name.
+     */
+    public function icon(): string
+    {
+        return match ($this) {
+            self::Task => 'task',
+            self::Call => 'call',
+            self::Fax => 'fax',
+            self::Email => 'email',
+            self::Meeting => 'meeting',
+            self::Note => 'note',
+            self::Letter => 'letter',
+        };
+    }
+
     public static function fromCrmsName(string $name): self
     {
         return match (strtolower($name)) {

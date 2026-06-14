@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Web;
 
-use App\Enums\ActivityType;
 use App\Enums\MembershipType;
 use App\Enums\ProductType;
 use App\Models\Activity;
@@ -133,18 +132,17 @@ class SearchController
         if (Gate::allows('activities.view')) {
             $activities = Activity::query()
                 ->where('subject', 'ilike', '%'.$escaped.'%')
-                ->with('owner')
+                ->with(['owner', 'type'])
                 ->orderBy('subject')
                 ->limit(5)
                 ->get();
 
             foreach ($activities as $activity) {
-                /** @var ActivityType $activityType */
-                $activityType = $activity->type_id;
+                $type = $activity->relationLoaded('type') ? $activity->type : null;
                 $results['activities'][] = [
                     'id' => $activity->id,
                     'name' => $activity->subject,
-                    'type' => $activityType->label(),
+                    'type' => $type !== null ? $type->name : 'Activity',
                     'typeValue' => 'activity',
                     'url' => route('activities.show', $activity->id),
                 ];
