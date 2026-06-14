@@ -92,6 +92,20 @@ it('redirects to login when no two_factor_user_id in session', function () {
     $this->assertGuest();
 });
 
+it('renders a single one-time-code input on the challenge page for autofill', function () {
+    // The challenge uses a single password-manager / WebOTP friendly input.
+    // Client-side Alpine auto-submit (typed or autofilled 6 digits) is not
+    // covered here — it requires manual 1Password / WebOTP verification.
+    $user = User::factory()->withTwoFactor()->create();
+
+    $this->withSession(['two_factor_user_id' => $user->id])
+        ->get(route('two-factor.challenge'))
+        ->assertOk()
+        ->assertSee('autocomplete="one-time-code"', escape: false)
+        ->assertSee('inputmode="numeric"', escape: false)
+        ->assertSee('name="one_time_code"', escape: false);
+});
+
 // ──────────────────────────────────────────────
 // Two-factor challenge — recovery codes
 // ──────────────────────────────────────────────

@@ -43,6 +43,11 @@ new #[Layout('components.layouts.auth')] class extends Component {
     />
 
     <form wire:submit="accept" class="flex flex-col gap-5">
+        <div class="s-field !mb-0">
+            <label class="s-field-label">{{ __('Email address') }}</label>
+            <input type="email" name="email" class="s-input" value="{{ $user->email }}" autocomplete="username" readonly>
+        </div>
+
         <div class="s-field !mb-0 {{ $errors->has('password') ? 'has-error' : '' }}">
             <label class="s-field-label">{{ __('Password') }}</label>
             <input wire:model="password" type="password" name="password" class="s-input" required autocomplete="new-password" placeholder="Password">

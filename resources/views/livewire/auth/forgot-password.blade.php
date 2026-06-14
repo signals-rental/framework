@@ -32,7 +32,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
     <form wire:submit="sendPasswordResetLink" class="flex flex-col gap-5">
         <div class="s-field !mb-0 {{ $errors->has('email') ? 'has-error' : '' }}">
             <label class="s-field-label">{{ __('Email address') }}</label>
-            <input wire:model="email" type="email" name="email" class="s-input" required autofocus placeholder="email@example.com">
+            <input wire:model="email" type="email" name="email" class="s-input" required autofocus autocomplete="username" placeholder="email@example.com">
             @error('email') <div class="s-field-error">{{ $message }}</div> @enderror
         </div>
 

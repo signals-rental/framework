@@ -117,6 +117,20 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
 
 /*
 |--------------------------------------------------------------------------
+| Well-Known URLs
+|--------------------------------------------------------------------------
+|
+| Password managers (1Password, Chrome, Safari) deep-link to this URL to
+| jump users to the change-password screen. The target route handles its
+| own authentication, so this redirect stays publicly reachable.
+*/
+
+Route::get('.well-known/change-password', function () {
+    return redirect()->route('settings.password');
+})->name('well-known.change-password');
+
+/*
+|--------------------------------------------------------------------------
 | Invitation Acceptance (signed URL, no auth required)
 |--------------------------------------------------------------------------
 */

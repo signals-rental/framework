@@ -175,14 +175,38 @@ new #[Layout('components.layouts.auth')] class extends Component {
         description="{{ $useRecovery ? __('Enter one of your recovery codes to continue.') : __('Enter the authentication code from your app to continue.') }}"
     />
 
-    <form wire:submit="authenticate" class="flex flex-col gap-5">
+    <form
+        wire:submit="authenticate"
+        class="flex flex-col gap-5"
+        x-data="{ submitting: false }"
+        x-init="$wire.$interceptMessage('authenticate', ({ onFinish }) => onFinish(() => submitting = false))"
+    >
         @if (! $useRecovery)
             <div class="s-field !mb-0 {{ $errors->has('code') ? 'has-error' : '' }}">
                 <label class="s-field-label">{{ __('Authentication code') }}</label>
-                <x-signals.otp-input
-                    length="6"
-                    x-on:otp-complete="$wire.set('code', $event.detail.code)"
-                />
+                <input
+                    wire:model="code"
+                    type="text"
+                    name="one_time_code"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    pattern="[0-9]*"
+                    maxlength="6"
+                    class="s-input"
+                    required
+                    autofocus
+                    placeholder="123456"
+                    x-on:input="
+                        const v = $el.value.replace(/\D/g,'').slice(0,6);
+                        if (v !== $el.value) $el.value = v;
+                        $wire.code = v;
+                        if (v.length < 6) submitting = false;
+                        if (v.length === 6 && !submitting) {
+                            submitting = true;
+                            $wire.authenticate();
+                        }
+                    "
+                >
                 @error('code') <div class="s-field-error">{{ $message }}</div> @enderror
             </div>
         @else

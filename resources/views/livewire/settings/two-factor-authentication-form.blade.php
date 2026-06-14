@@ -227,14 +227,33 @@ new class extends Component {
             <form
                 wire:submit="confirmTwoFactor"
                 class="space-y-3"
-                x-data
+                x-data="{ submitting: false }"
+                x-init="$wire.$interceptMessage('confirmTwoFactor', ({ onFinish }) => onFinish(() => submitting = false))"
             >
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-[var(--text-primary)]">{{ __('Verification code') }}</label>
-                    <x-signals.otp-input
-                        length="6"
-                        x-on:otp-complete="$wire.set('code', $event.detail.code)"
-                    />
+                    <input
+                        wire:model="code"
+                        type="text"
+                        name="one_time_code"
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
+                        pattern="[0-9]*"
+                        maxlength="6"
+                        class="s-input"
+                        required
+                        placeholder="123456"
+                        x-on:input="
+                            const v = $el.value.replace(/\D/g,'').slice(0,6);
+                            if (v !== $el.value) $el.value = v;
+                            $wire.code = v;
+                            if (v.length < 6) submitting = false;
+                            if (v.length === 6 && !submitting) {
+                                submitting = true;
+                                $wire.confirmTwoFactor();
+                            }
+                        "
+                    >
                     @error('code')
                         <p class="text-sm text-red-600">{{ $message }}</p>
                     @enderror

@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\URL;
+use Livewire\Volt\Volt;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -15,6 +16,17 @@ it('renders the invitation acceptance page with valid signed URL', function () {
     $this->get($url)
         ->assertOk()
         ->assertSee('Welcome');
+});
+
+it('renders a username field with the invitee email for credential pairing', function () {
+    $user = User::factory()->invited()->create();
+
+    $url = URL::signedRoute('invitation.accept', ['user' => $user->id]);
+
+    $this->get($url)
+        ->assertOk()
+        ->assertSee('autocomplete="username"', escape: false)
+        ->assertSee('value="'.e($user->email).'"', escape: false);
 });
 
 it('rejects invalid signatures', function () {
@@ -41,7 +53,7 @@ it('allows setting password and completing invitation', function () {
 
     $url = URL::signedRoute('invitation.accept', ['user' => $user->id]);
 
-    \Livewire\Volt\Volt::test('auth.accept-invitation', ['user' => $user])
+    Volt::test('auth.accept-invitation', ['user' => $user])
         ->set('password', 'NewPassword123!')
         ->set('password_confirmation', 'NewPassword123!')
         ->call('accept')
