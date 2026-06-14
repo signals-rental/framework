@@ -9,6 +9,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -199,6 +200,16 @@ class User extends Authenticatable implements HasSchema
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class);
+    }
+
+    /**
+     * The linked OAuth/SSO identities (Google, Microsoft) for this user.
+     *
+     * @return HasMany<OAuthIdentity, $this>
+     */
+    public function oauthIdentities(): HasMany
+    {
+        return $this->hasMany(OAuthIdentity::class);
     }
 
     /**

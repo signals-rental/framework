@@ -4,6 +4,7 @@ use App\Services\SettingsRegistry;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
+use Spatie\Permission\Models\Role;
 
 new #[Layout('components.layouts.app')] #[Title('Security')] class extends Component {
     public int $passwordMinLength = 8;
@@ -15,6 +16,9 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
     public int $lockoutDuration = 15;
     public bool $require2faAdmin = false;
     public bool $require2faAll = false;
+
+    /** @var list<string> */
+    public array $ssoEnforcedRoles = [];
 
     public function mount(): void
     {
@@ -29,6 +33,15 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
         $this->lockoutDuration = (int) $group['lockout_duration'];
         $this->require2faAdmin = (bool) $group['require_2fa_admin'];
         $this->require2faAll = (bool) $group['require_2fa_all'];
+
+        // Drop stale entries whose role was later renamed or deleted, so a stored
+        // value that no longer satisfies `exists:roles,name` cannot block saving
+        // the entire Security settings form.
+        $existingRoleNames = Role::query()->pluck('name')->all();
+        $this->ssoEnforcedRoles = array_values(array_intersect(
+            array_values((array) $group['sso_enforced_roles']),
+            $existingRoleNames,
+        ));
     }
 
     public function save(): void
@@ -47,6 +60,8 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
             'lockoutDuration' => $rules['lockout_duration'],
             'require2faAdmin' => $rules['require_2fa_admin'],
             'require2faAll' => $rules['require_2fa_all'],
+            'ssoEnforcedRoles' => $rules['sso_enforced_roles'],
+            'ssoEnforcedRoles.*' => $rules['sso_enforced_roles.*'],
         ]);
 
         settings()->setMany([
@@ -59,9 +74,21 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
             'security.lockout_duration' => ['value' => $validated['lockoutDuration'], 'type' => $types['lockout_duration']],
             'security.require_2fa_admin' => ['value' => $validated['require2faAdmin'], 'type' => $types['require_2fa_admin']],
             'security.require_2fa_all' => ['value' => $validated['require2faAll'], 'type' => $types['require_2fa_all']],
+            'security.sso_enforced_roles' => ['value' => array_values($validated['ssoEnforcedRoles']), 'type' => $types['sso_enforced_roles']],
         ]);
 
         $this->dispatch('security-settings-saved');
+    }
+
+    public function with(): array
+    {
+        return [
+            // Owner is a membership flag, not a Spatie role, and is always exempt from SSO enforcement.
+            'enforceableRoles' => Role::query()
+                ->where('name', '!=', 'Owner')
+                ->orderBy('sort_order')
+                ->get(),
+        ];
     }
 }; ?>
 
@@ -117,6 +144,31 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
                         <span class="text-sm">Require 2FA for all users</span>
                     </label>
                 </div>
+            </x-signals.form-section>
+
+            <x-signals.form-section title="Single Sign-On Enforcement">
+                <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
+                    Users in the selected roles must sign in with single sign-on and cannot use password login. The Owner is always exempt as a break-glass account.
+                </p>
+                @if($enforceableRoles->isEmpty())
+                    <p class="text-sm text-zinc-500">No roles available. Create a role before enforcing single sign-on.</p>
+                @else
+                    <div class="space-y-2">
+                        @foreach($enforceableRoles as $role)
+                            <label class="flex items-center gap-2 cursor-pointer" wire:key="sso-role-{{ $role->id }}"
+                                   x-data="{ checked: @js(in_array($role->name, $ssoEnforcedRoles, true)) }"
+                                   x-init="$watch('$wire.ssoEnforcedRoles', v => checked = v.includes('{{ $role->name }}'))">
+                                <input type="checkbox" wire:model="ssoEnforcedRoles" value="{{ $role->name }}" class="hidden" x-on:change="checked = $el.checked" />
+                                <x-signals.checkbox x-bind:class="checked && 'checked'" />
+                                <span class="text-sm">{{ $role->name }}</span>
+                                @if($role->description)
+                                    <span class="text-xs text-zinc-500">- {{ $role->description }}</span>
+                                @endif
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('ssoEnforcedRoles') <div class="s-field-error">{{ $message }}</div> @enderror
+                @endif
             </x-signals.form-section>
 
             <div class="flex items-center gap-4">

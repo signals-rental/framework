@@ -1,5 +1,6 @@
 <?php
 
+use App\Events\AuditableEvent;
 use App\Models\User;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Auth;
@@ -76,7 +77,35 @@ new #[Layout('components.layouts.auth')] class extends Component {
         Session::put('two_factor_confirmed', true);
         Session::regenerate();
 
+        $this->auditSsoLoginIfPending($user);
+
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+    }
+
+    /**
+     * Audit an SSO login once the second factor completes it.
+     *
+     * The SSO callback stashes the provider in the session before handing a
+     * 2FA-enabled user to this challenge. When that key is present, fire the same
+     * `auth.sso_login` audit event the non-2FA SSO path records, so SSO+2FA logins
+     * are audited identically. Password+2FA logins have no `sso_provider` key and
+     * are unaffected.
+     */
+    private function auditSsoLoginIfPending(User $user): void
+    {
+        $provider = Session::get('sso_provider');
+
+        if (! is_string($provider) || $provider === '') {
+            return;
+        }
+
+        event(new AuditableEvent(
+            model: $user,
+            action: 'auth.sso_login',
+            metadata: ['provider' => $provider],
+        ));
+
+        Session::forget('sso_provider');
     }
 
     /**

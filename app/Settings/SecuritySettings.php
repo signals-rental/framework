@@ -21,6 +21,7 @@ class SecuritySettings extends SettingsDefinition
             'lockout_duration' => 15,
             'require_2fa_admin' => false,
             'require_2fa_all' => false,
+            'sso_enforced_roles' => [],
         ];
     }
 
@@ -36,6 +37,8 @@ class SecuritySettings extends SettingsDefinition
             'lockout_duration' => ['required', 'integer', 'min:1', 'max:1440'],
             'require_2fa_admin' => ['required', 'boolean'],
             'require_2fa_all' => ['required', 'boolean'],
+            'sso_enforced_roles' => ['array'],
+            'sso_enforced_roles.*' => ['string', 'exists:roles,name'],
         ];
     }
 
@@ -51,6 +54,7 @@ class SecuritySettings extends SettingsDefinition
             'lockout_duration' => 'integer',
             'require_2fa_admin' => 'boolean',
             'require_2fa_all' => 'boolean',
+            'sso_enforced_roles' => 'json',
         ];
     }
 }

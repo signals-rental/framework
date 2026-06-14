@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Auth\SsoController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Livewire\Actions\Logout;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -17,6 +19,21 @@ Route::middleware('signals.setup-complete')->group(function () {
 
         Volt::route('reset-password/{token}', 'auth.reset-password')
             ->name('password.reset');
+
+        // Single Sign-On (Google / Microsoft 365) — OAuth handshake.
+        // The provider is constrained to the supported allow-list so unknown
+        // providers 404, and both routes are rate-limited (spec §7, §10). The
+        // constraint is applied per-route — a `whereIn` chained after `group()`
+        // is a no-op because the routes are already registered.
+        Route::middleware('throttle:6,1')->group(function () {
+            Route::get('auth/{provider}/redirect', [SsoController::class, 'redirect'])
+                ->whereIn('provider', ['google', 'microsoft'])
+                ->name('sso.redirect');
+
+            Route::get('auth/{provider}/callback', [SsoController::class, 'callback'])
+                ->whereIn('provider', ['google', 'microsoft'])
+                ->name('sso.callback');
+        });
     });
 
     Route::middleware('auth')->group(function () {
@@ -31,6 +48,6 @@ Route::middleware('signals.setup-complete')->group(function () {
             ->name('password.confirm');
     });
 
-    Route::post('logout', App\Livewire\Actions\Logout::class)
+    Route::post('logout', Logout::class)
         ->name('logout');
 });

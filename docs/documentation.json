@@ -26,7 +26,8 @@
                 { "title": "Lists", "slug": "lists" },
                 { "title": "Tax Classes", "slug": "tax-classes" },
                 { "title": "Countries", "slug": "countries" },
-                { "title": "Rate Definitions", "slug": "rate-definitions" }
+                { "title": "Rate Definitions", "slug": "rate-definitions" },
+                { "title": "Single Sign-On (SSO)", "slug": "sso" }
             ]
         },
         {

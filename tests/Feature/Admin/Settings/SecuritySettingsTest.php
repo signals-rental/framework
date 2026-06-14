@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\RoleSeeder;
 use Livewire\Volt\Volt;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -70,4 +72,65 @@ it('returns 403 for non-admin users', function () {
     $this->actingAs($regularUser)
         ->get(route('admin.settings.security'))
         ->assertForbidden();
+});
+
+it('loads sso enforced roles with empty default', function () {
+    Volt::test('admin.settings.security')
+        ->assertSet('ssoEnforcedRoles', []);
+});
+
+it('saves sso enforced roles', function () {
+    $this->seed(RoleSeeder::class);
+
+    Volt::test('admin.settings.security')
+        ->set('ssoEnforcedRoles', ['Admin', 'Sales'])
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('security-settings-saved');
+
+    expect(settings('security.sso_enforced_roles'))->toBe(['Admin', 'Sales']);
+});
+
+it('does not offer the owner as an enforceable role', function () {
+    $this->seed(RoleSeeder::class);
+
+    // Force an Owner Spatie role to exist to prove the page still excludes it.
+    Role::findOrCreate('Owner', 'web');
+
+    Volt::test('admin.settings.security')
+        ->assertSee('value="Admin"', escape: false)
+        ->assertDontSee('value="Owner"', escape: false);
+});
+
+it('rejects an unknown role for sso enforcement', function () {
+    $this->seed(RoleSeeder::class);
+
+    Volt::test('admin.settings.security')
+        ->set('ssoEnforcedRoles', ['Nonexistent Role'])
+        ->call('save')
+        ->assertHasErrors(['ssoEnforcedRoles.0']);
+});
+
+it('drops a stale enforced role on load when its role was renamed or deleted', function () {
+    $this->seed(RoleSeeder::class);
+
+    // Persist a mix of a valid role and a now-deleted one.
+    settings()->set('security.sso_enforced_roles', ['Admin', 'Deleted Role'], 'json');
+
+    Volt::test('admin.settings.security')
+        ->assertSet('ssoEnforcedRoles', ['Admin']);
+});
+
+it('saves successfully even when a stale enforced role is stored', function () {
+    $this->seed(RoleSeeder::class);
+
+    settings()->set('security.sso_enforced_roles', ['Admin', 'Deleted Role'], 'json');
+
+    // The stale entry is sanitised on load, so saving is not blocked by `exists`.
+    Volt::test('admin.settings.security')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('security-settings-saved');
+
+    expect(settings('security.sso_enforced_roles'))->toBe(['Admin']);
 });
