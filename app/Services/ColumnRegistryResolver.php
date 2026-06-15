@@ -7,6 +7,8 @@ use App\Views\ColumnRegistry;
 use App\Views\MemberColumnRegistry;
 use App\Views\ProductColumnRegistry;
 use App\Views\ProductGroupColumnRegistry;
+use App\Views\ProductRateColumnRegistry;
+use App\Views\RateDefinitionColumnRegistry;
 use App\Views\StockLevelColumnRegistry;
 use Illuminate\Validation\ValidationException;
 
@@ -26,6 +28,8 @@ class ColumnRegistryResolver
         'product_groups' => ProductGroupColumnRegistry::class,
         'stock_levels' => StockLevelColumnRegistry::class,
         'activities' => ActivityColumnRegistry::class,
+        'rate_definitions' => RateDefinitionColumnRegistry::class,
+        'product_rates' => ProductRateColumnRegistry::class,
     ];
 
     /** @var array<string, ColumnRegistry> */

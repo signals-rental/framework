@@ -55,6 +55,109 @@ describe('GET stock_transactions', function () {
     });
 });
 
+describe('GET stock_transactions (Ransack filtering)', function () {
+    it('filters by transaction_type with the _eq predicate', function () {
+        StockTransaction::factory()->buy()->count(2)->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        StockTransaction::factory()->sell()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
+
+        // Buy = 4
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions?q[transaction_type_eq]=4")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonCount(2, 'stock_transactions');
+    });
+
+    it('filters by the manual flag with the _eq predicate', function () {
+        // Buy is manual; Opening (system type) is not manual.
+        StockTransaction::factory()->buy()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        StockTransaction::factory()->opening()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
+
+        // The integer boolean form (1/0) is the SQLite-safe `eq` predicate.
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions?q[manual_eq]=1")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1);
+    });
+});
+
+describe('DELETE stock_transactions/{id}', function () {
+    it('reverses a transaction and removes the ledger row', function () {
+        // Seed held stock then add a buy transaction worth +4.
+        $this->stockLevel->update(['quantity_held' => 10]);
+        $txn = StockTransaction::factory()->buy()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+            'quantity' => '4.0',
+        ]);
+        $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions/{$txn->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('stock_transactions', ['id' => $txn->id]);
+
+        // Deleting a +4 buy decrements held stock back to 6.
+        $this->stockLevel->refresh();
+        expect((float) $this->stockLevel->quantity_held)->toBe(6.0);
+    });
+
+    it('returns forbidden without the stock:write ability', function () {
+        $txn = StockTransaction::factory()->buy()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        // stock:read alone is insufficient for a delete (needs stock:write).
+        $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions/{$txn->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('stock_transactions', ['id' => $txn->id]);
+    });
+
+    it('requires authentication', function () {
+        $txn = StockTransaction::factory()->buy()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        $this->deleteJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions/{$txn->id}")
+            ->assertUnauthorized();
+    });
+
+    it('returns 404 when the transaction belongs to a different stock level', function () {
+        $otherStockLevel = StockLevel::factory()->create();
+        $txn = StockTransaction::factory()->buy()->create([
+            'stock_level_id' => $otherStockLevel->id,
+            'store_id' => $this->store->id,
+        ]);
+        $token = $this->owner->createToken('test', ['stock:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions/{$txn->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('stock_transactions', ['id' => $txn->id]);
+    });
+});
+
 describe('GET stock_transactions/{id}', function () {
     it('shows a single transaction', function () {
         $txn = StockTransaction::factory()->create([

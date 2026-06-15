@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Products\CreateStockTransaction;
+use App\Actions\Products\DeleteStockTransaction;
 use App\Data\Products\CreateStockTransactionData;
 use App\Data\Products\StockTransactionData;
 use App\Http\Controllers\Api\Controller;
+use App\Http\Traits\FiltersQueries;
+use App\Models\StockLevel;
 use App\Models\StockTransaction;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -14,25 +17,58 @@ use Symfony\Component\HttpFoundation\Response;
 
 class StockTransactionController extends Controller
 {
+    use FiltersQueries;
+
+    /** @var list<string> */
+    protected array $allowedFilters = [
+        'transaction_type',
+        'store_id',
+        'source_id',
+        'source_type',
+        'manual',
+        'transaction_at',
+        'created_at',
+        'updated_at',
+    ];
+
+    /** @var list<string> */
+    protected array $allowedSorts = [
+        'transaction_type',
+        'transaction_at',
+        'quantity',
+        'created_at',
+        'updated_at',
+    ];
+
+    /** @var list<string> */
+    protected array $allowedIncludes = [
+        'stockLevel',
+        'store',
+        'source',
+    ];
+
     /**
      * List stock transactions for a stock level.
+     *
+     * Supports Ransack `q[...]` filtering and `sort` on the whitelisted fields.
      */
     #[ApiResponse(200, 'Stock transactions list')]
     public function index(Request $request, int $productId, int $stockLevelId): JsonResponse
     {
         $this->authorizeApi('stock.view', 'stock:read');
 
-        $stockLevel = \App\Models\StockLevel::where('id', $stockLevelId)
-            ->where('product_id', $productId)
-            ->firstOrFail();
+        $stockLevel = $this->resolveStockLevel($productId, $stockLevelId);
 
-        $perPage = max(min((int) $request->input('per_page', 20), 100), 1);
-        $page = max((int) $request->input('page', 1), 1);
+        $query = StockTransaction::query()->where('stock_level_id', $stockLevel->id);
+        $query = $this->applyIncludes($query, $request);
+        $query = $this->applyFilters($query, $request);
+        $query = $this->applySort($query, $request);
 
-        $transactions = StockTransaction::query()
-            ->where('stock_level_id', $stockLevel->id)
-            ->orderByDesc('transaction_at')
-            ->paginate(perPage: $perPage, page: $page);
+        if (! $request->filled('sort')) {
+            $query->orderByDesc('transaction_at');
+        }
+
+        $transactions = $this->paginateQuery($query, $request);
 
         $items = $transactions->getCollection()->map(
             fn (StockTransaction $t): array => StockTransactionData::fromModel($t)->toArray()
@@ -56,9 +92,7 @@ class StockTransactionController extends Controller
     {
         $this->authorizeApi('stock.view', 'stock:read');
 
-        \App\Models\StockLevel::where('id', $stockLevelId)
-            ->where('product_id', $productId)
-            ->firstOrFail();
+        $this->resolveStockLevel($productId, $stockLevelId);
 
         abort_unless($stockTransaction->stock_level_id === (int) $stockLevelId, 404);
 
@@ -78,9 +112,7 @@ class StockTransactionController extends Controller
     {
         $this->authorizeApi('stock.adjust', 'stock:write');
 
-        \App\Models\StockLevel::where('id', $stockLevelId)
-            ->where('product_id', $productId)
-            ->firstOrFail();
+        $this->resolveStockLevel($productId, $stockLevelId);
 
         $request->merge(['stock_level_id' => $stockLevelId]);
         $validated = $request->validate(CreateStockTransactionData::rules());
@@ -93,5 +125,35 @@ class StockTransactionController extends Controller
             'stock_transaction',
             Response::HTTP_CREATED,
         );
+    }
+
+    /**
+     * Delete (reverse) a stock transaction.
+     *
+     * Reverses the transaction's effect on held stock and removes the ledger row.
+     */
+    #[ApiResponse(204, 'Stock transaction deleted')]
+    public function destroy(int $productId, int $stockLevelId, StockTransaction $stockTransaction): JsonResponse
+    {
+        $this->authorizeApi('stock.adjust', 'stock:write');
+
+        $this->resolveStockLevel($productId, $stockLevelId);
+
+        abort_unless($stockTransaction->stock_level_id === (int) $stockLevelId, 404);
+
+        (new DeleteStockTransaction)($stockTransaction);
+
+        return response()->json(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Resolve the stock level scoped to the routed product, 404ing on mismatch.
+     */
+    private function resolveStockLevel(int $productId, int $stockLevelId): StockLevel
+    {
+        return StockLevel::query()
+            ->where('id', $stockLevelId)
+            ->where('product_id', $productId)
+            ->firstOrFail();
     }
 }

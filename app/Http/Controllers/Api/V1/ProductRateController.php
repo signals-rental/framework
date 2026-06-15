@@ -10,6 +10,7 @@ use App\Data\Rates\ProductRateData;
 use App\Data\Rates\UpdateProductRateData;
 use App\Enums\RateTransactionType;
 use App\Http\Controllers\Api\Controller;
+use App\Http\Traits\FiltersQueries;
 use App\Models\Product;
 use App\Models\ProductRate;
 use App\Services\RateEngine\ProductRateOverlapChecker;
@@ -20,18 +21,60 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ProductRateController extends Controller
 {
+    use FiltersQueries;
+
+    /** @var list<string> */
+    protected array $allowedFilters = [
+        'rate_definition_id',
+        'store_id',
+        'transaction_type',
+        'currency',
+        'priority',
+        'valid_from',
+        'valid_to',
+        'created_at',
+        'updated_at',
+    ];
+
+    /** @var list<string> */
+    protected array $allowedSorts = [
+        'transaction_type',
+        'price',
+        'priority',
+        'valid_from',
+        'valid_to',
+        'created_at',
+        'updated_at',
+    ];
+
+    /** @var list<string> */
+    protected array $allowedIncludes = [
+        'rateDefinition',
+        'store',
+    ];
+
+    /** @var list<string> */
+    protected array $defaultIncludes = [
+        'rateDefinition',
+    ];
+
     /**
      * List the rate assignments for a product.
+     *
+     * Supports Ransack `q[...]` filtering, `sort`, and `?include=` on the
+     * whitelisted fields and relationships.
      */
     #[ApiResponse(200, 'Product rate list', type: 'array{product_rates: list<array{id: int, product_id: int, rate_definition_id: int, store_id: int|null, transaction_type: string, transaction_type_name: string, price: string, currency: string, valid_from: string|null, valid_to: string|null, priority: int, created_at: string, updated_at: string}>, meta: array{total: int, per_page: int, page: int}}')]
     public function index(Request $request, Product $product): JsonResponse
     {
         $this->authorizeApi('rates.view', 'rates:read');
 
-        $perPage = max(min((int) $request->input('per_page', 20), 100), 1);
-        $page = max((int) $request->input('page', 1), 1);
+        $query = $product->rates()->getQuery();
+        $query = $this->applyIncludes($query, $request);
+        $query = $this->applyFilters($query, $request);
+        $query = $this->applySort($query, $request);
 
-        $paginator = $product->rates()->with('rateDefinition')->paginate(perPage: $perPage, page: $page);
+        $paginator = $this->paginateQuery($query, $request);
 
         $items = $paginator->getCollection()
             ->map(fn (ProductRate $rate): array => ProductRateData::fromModel($rate)->toArray())

@@ -55,6 +55,9 @@
             { group: 'Admin', label: 'Custom Fields', icon: 'grid', url: '{{ route('admin.settings.custom-fields') }}', keywords: 'fields custom metadata' },
             { group: 'Admin', label: 'List Values', icon: 'list', url: '{{ route('admin.settings.list-names') }}', keywords: 'lists values types categories' },
             { group: 'Admin', label: 'Tax Rates', icon: 'calculator', url: '{{ route('admin.settings.tax.rates') }}', keywords: 'tax vat rates' },
+            @can('rates.view')
+            { group: 'Admin', label: 'Rate Definitions', icon: 'calculator', url: '{{ route('admin.settings.rate-definitions') }}', keywords: 'rate definitions pricing rental period hire engine' },
+            @endcan
             { group: 'Admin', label: 'Email Settings', icon: 'mail', url: '{{ route('admin.settings.email') }}', keywords: 'smtp email sending' },
             { group: 'Admin', label: 'Email Templates', icon: 'template', url: '{{ route('admin.settings.email-templates') }}', keywords: 'templates email notifications' },
             { group: 'Admin', label: 'Notifications', icon: 'bell', url: '{{ route('admin.settings.notifications') }}', keywords: 'notifications channels alerts' },

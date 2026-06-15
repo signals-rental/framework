@@ -43,15 +43,20 @@ class RoleSeeder extends Seeder
             || in_array($p, ['members.access', 'members.view', 'reports.access', 'reports.view'])
         );
 
+        // Custom-field management is configured under Settings > Customisation. Grant it
+        // explicitly to the management-tier roles so the capability cannot be silently
+        // dropped if the prefix-based filters above are ever refactored.
+        $customFieldPermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'custom-fields.'));
+
         // Admin — all permissions, cost visibility on
         $admin = Role::findOrCreate('Admin', 'web');
         $admin->update(['is_system' => true, 'description' => 'Full access to all features and settings.', 'sort_order' => 1, 'cost_visibility' => true]);
-        $admin->syncPermissions($allPermissions);
+        $admin->syncPermissions([...$allPermissions, ...$customFieldPermissions]);
 
         // Operations Manager — all resource permissions, no settings/users/roles, cost visibility on
         $opsManager = Role::findOrCreate('Operations Manager', 'web');
         $opsManager->update(['is_system' => true, 'description' => 'Manages day-to-day operations without system settings.', 'sort_order' => 2, 'cost_visibility' => true]);
-        $opsManager->syncPermissions($opsManagerPermissions);
+        $opsManager->syncPermissions([...$opsManagerPermissions, ...$customFieldPermissions]);
 
         // Sales — opportunities, invoices, members, product/report viewing, cost visibility off
         $sales = Role::findOrCreate('Sales', 'web');

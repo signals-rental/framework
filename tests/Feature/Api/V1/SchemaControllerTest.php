@@ -17,7 +17,7 @@ describe('GET /api/v1/schema', function () {
                 'members', 'stores', 'addresses', 'countries', 'currencies',
                 'exchange_rates', 'emails', 'phones', 'links', 'attachments',
                 'users', 'action_logs', 'webhooks', 'custom_views', 'tax_rates', 'tax_rules',
-                'products', 'product_groups', 'stock_levels', 'activities',
+                'products', 'product_groups', 'stock_levels', 'stock_transactions', 'activities',
                 'rate_definitions', 'product_rates',
             ])))]);
     });
@@ -76,6 +76,13 @@ describe('GET /api/v1/schema/{model}', function () {
             ->assertOk()
             ->assertJsonStructure(['model', 'model_class', 'fields'])
             ->assertJsonFragment(['model' => 'product_rates', 'model_class' => 'ProductRate']);
+    });
+
+    it('returns schema for stock_transactions', function () {
+        $this->getJson('/api/v1/schema/stock_transactions')
+            ->assertOk()
+            ->assertJsonStructure(['model', 'model_class', 'fields'])
+            ->assertJsonFragment(['model' => 'stock_transactions', 'model_class' => 'StockTransaction']);
     });
 
     it('resolves a singular model name to its plural schema (D3)', function () {

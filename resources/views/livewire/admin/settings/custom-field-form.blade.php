@@ -8,6 +8,7 @@ use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use App\Models\CustomFieldGroup;
 use App\Models\ListName;
+use App\Services\CustomFieldModuleRegistry;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -100,7 +101,7 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field')] class extends C
             'groups' => CustomFieldGroup::query()->orderBy('name')->get(),
             'listNames' => ListName::query()->orderBy('name')->get(),
             'fieldTypes' => CustomFieldType::cases(),
-            'moduleTypes' => ['Member', 'Opportunity', 'Product', 'Invoice', 'Store'],
+            'moduleTypes' => app(CustomFieldModuleRegistry::class)->modules(),
             'showListNameField' => in_array($this->fieldType, [CustomFieldType::ListOfValues->value, CustomFieldType::MultiListOfValues->value]),
         ];
     }
@@ -135,8 +136,8 @@ new #[Layout('components.layouts.app')] #[Title('Custom Field')] class extends C
                 <div class="grid grid-cols-2 gap-4 mt-4">
                     <flux:select wire:model="moduleType" label="Module" required>
                         <flux:select.option value="">Select module...</flux:select.option>
-                        @foreach ($moduleTypes as $module)
-                            <flux:select.option value="{{ $module }}">{{ $module }}</flux:select.option>
+                        @foreach ($moduleTypes as $moduleValue => $moduleLabel)
+                            <flux:select.option value="{{ $moduleValue }}">{{ $moduleLabel }}</flux:select.option>
                         @endforeach
                     </flux:select>
 

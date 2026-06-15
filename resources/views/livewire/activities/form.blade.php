@@ -89,10 +89,16 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     /**
      * The default type (Task) value id for new activities.
+     *
+     * Anchored on the stable `metadata.icon` key ('task') rather than the
+     * user-editable label, so the default survives an admin renaming the
+     * "Task" list value. Falls back to the first active value.
      */
     private function defaultTypeId(): ?int
     {
-        $task = $this->activityTypes->firstWhere('name', ActivityType::Task->label());
+        $task = $this->activityTypes->first(
+            fn ($type): bool => ($type->metadata['icon'] ?? null) === ActivityType::Task->icon()
+        );
 
         return $task?->id ?? $this->activityTypes->first()?->id;
     }

@@ -97,6 +97,21 @@ describe('List Values API (nested)', function () {
             ->assertJsonCount(2, 'list_values');
     });
 
+    it('filters list values by is_active with the _eq predicate', function () {
+        $listName = ListName::factory()->create();
+        ListValue::factory()->for($listName)->count(2)->create(['is_active' => true]);
+        ListValue::factory()->for($listName)->create(['is_active' => false]);
+        $token = $this->owner->createToken('test', ['static-data:read'])->plainTextToken;
+
+        // The integer boolean form (1/0) is the SQLite-safe core consumer
+        // use case for "active only"; it exercises the same `eq` predicate path.
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/list_names/{$listName->id}/list_values?q[is_active_eq]=1")
+            ->assertOk()
+            ->assertJsonCount(2, 'list_values')
+            ->assertJsonPath('meta.total', 2);
+    });
+
     it('creates a value for a list name', function () {
         $listName = ListName::factory()->create();
         $token = $this->owner->createToken('test', ['static-data:write'])->plainTextToken;

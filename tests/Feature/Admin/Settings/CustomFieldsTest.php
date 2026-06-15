@@ -97,3 +97,35 @@ it('returns 403 for non-admin users', function () {
         ->get(route('admin.settings.custom-fields'))
         ->assertForbidden();
 });
+
+it('renders the Phase-2 module options in the create form', function () {
+    Volt::test('admin.settings.custom-field-form')
+        // Module-type values (stored in custom_fields.module_type)
+        ->assertSeeHtml('value="Activity"')
+        ->assertSeeHtml('value="ProductGroup"')
+        ->assertSeeHtml('value="StockLevel"')
+        ->assertSeeHtml('value="Member"')
+        ->assertSeeHtml('value="Product"')
+        ->assertSeeHtml('value="Store"')
+        // Human-readable labels
+        ->assertSee('Product Group')
+        ->assertSee('Stock Level');
+});
+
+it('does not render phantom module options for non-existent models', function () {
+    Volt::test('admin.settings.custom-field-form')
+        ->assertDontSeeHtml('value="Opportunity"')
+        ->assertDontSeeHtml('value="Invoice"');
+});
+
+it('can create a field for a previously-missing module', function () {
+    Volt::test('admin.settings.custom-field-form')
+        ->set('name', 'inspection_due')
+        ->set('displayName', 'Inspection Due')
+        ->set('moduleType', 'StockLevel')
+        ->set('fieldType', CustomFieldType::Date->value)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(CustomField::where('name', 'inspection_due')->where('module_type', 'StockLevel')->exists())->toBeTrue();
+});

@@ -9,6 +9,7 @@ use App\Data\ListValues\CreateListValueData;
 use App\Data\ListValues\ListValueData;
 use App\Data\ListValues\UpdateListValueData;
 use App\Http\Controllers\Api\Controller;
+use App\Http\Traits\FiltersQueries;
 use App\Models\ListName;
 use App\Models\ListValue;
 use Illuminate\Http\JsonResponse;
@@ -17,16 +18,43 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ListValueController extends Controller
 {
+    use FiltersQueries;
+
+    /** @var list<string> */
+    protected array $allowedFilters = [
+        'name',
+        'parent_id',
+        'is_active',
+        'is_system',
+    ];
+
+    /** @var list<string> */
+    protected array $allowedSorts = [
+        'name',
+        'sort_order',
+        'created_at',
+        'updated_at',
+    ];
+
     /**
      * List values for a list name.
+     *
+     * Supports Ransack `q[...]` filtering — e.g. `?q[is_active_eq]=true` to
+     * return only active values — and `sort` on the whitelisted fields.
      */
-    public function index(ListName $listName): JsonResponse
+    public function index(Request $request, ListName $listName): JsonResponse
     {
         $this->authorizeApi('list-values.view', 'static-data:read');
 
-        $values = $listName->values()
-            ->orderBy('sort_order')
-            ->get()
+        $query = $listName->values()->getQuery();
+        $query = $this->applyFilters($query, $request);
+        $query = $this->applySort($query, $request);
+
+        if (! $request->filled('sort')) {
+            $query->orderBy('sort_order');
+        }
+
+        $values = $query->get()
             ->map(fn (ListValue $value): array => ListValueData::fromModel($value)->toArray())
             ->all();
 

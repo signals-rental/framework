@@ -4,6 +4,9 @@ use App\Models\Product;
 use App\Models\ProductRate;
 use App\Models\RateDefinition;
 use App\Models\User;
+use App\Services\ColumnRegistryResolver;
+use App\Views\ProductRateColumnRegistry;
+use App\Views\RateDefinitionColumnRegistry;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 
@@ -45,6 +48,56 @@ describe('GET /api/v1/products/{product}/rates', function () {
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson("/api/v1/products/{$this->product->id}/rates")
             ->assertForbidden();
+    });
+
+    it('filters by transaction_type with the _eq predicate', function () {
+        ProductRate::factory()->count(2)->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $this->definition->id,
+            'transaction_type' => 'rental',
+        ]);
+        ProductRate::factory()->forSale()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $this->definition->id,
+        ]);
+        $token = $this->owner->createToken('test', ['rates:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/rates?q[transaction_type_eq]=rental")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2);
+
+        expect($response->json('product_rates'))->toHaveCount(2);
+    });
+
+    it('filters by rate_definition_id with the _eq predicate', function () {
+        $otherDefinition = RateDefinition::factory()->create();
+        ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $this->definition->id,
+        ]);
+        ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $otherDefinition->id,
+        ]);
+        $token = $this->owner->createToken('test', ['rates:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/rates?q[rate_definition_id_eq]={$this->definition->id}")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1);
+    });
+});
+
+describe('ColumnRegistry resolution', function () {
+    it('resolves the product_rates column registry', function () {
+        expect(app(ColumnRegistryResolver::class)->resolve('product_rates'))
+            ->toBeInstanceOf(ProductRateColumnRegistry::class);
+    });
+
+    it('resolves the rate_definitions column registry', function () {
+        expect(app(ColumnRegistryResolver::class)->resolve('rate_definitions'))
+            ->toBeInstanceOf(RateDefinitionColumnRegistry::class);
     });
 });
 

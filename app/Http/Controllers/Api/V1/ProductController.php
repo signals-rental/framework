@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Products\CreateProduct;
 use App\Actions\Products\DeleteProduct;
+use App\Actions\Products\MergeProduct;
 use App\Actions\Products\UpdateProduct;
 use App\Data\Products\CreateProductData;
+use App\Data\Products\MergeProductData;
 use App\Data\Products\ProductData;
 use App\Data\Products\UpdateProductData;
 use App\Http\Controllers\Api\Controller;
@@ -189,5 +191,34 @@ class ProductController extends Controller
     public function destroy(Product $product): JsonResponse
     {
         return $this->resourceDestroy($product);
+    }
+
+    /**
+     * Merge another product into this product.
+     *
+     * The path product is the primary (surviving) record; the request `secondary_id`
+     * identifies the product to merge in and archive. Both products must share the
+     * same `product_type`. Stock levels, accessories, attachments and custom fields
+     * transfer to the primary, then the secondary is soft-deleted.
+     */
+    #[ApiResponse(200, 'Primary product after merge', type: 'array{product: array{id: int, name: string, product_type: string, is_active: bool, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
+    public function merge(Request $request, Product $product): JsonResponse
+    {
+        $this->authorizeApi('products.edit', 'products:write');
+
+        // Validation lives in MergeProductData::rules(). The path product is the
+        // primary; secondary_id arrives in the request body. The DTO enforces
+        // existence (excluding soft-deleted) and the self-merge guard.
+        $dto = MergeProductData::validateAndCreate([
+            'primary_id' => $product->id,
+            'secondary_id' => $request->input('secondary_id'),
+        ]);
+
+        $primary = (new MergeProduct)($dto);
+
+        return $this->respondWith(
+            $primary->toArray(),
+            'product',
+        );
     }
 }

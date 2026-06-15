@@ -11,6 +11,7 @@ use App\Models\ListName;
 use App\Models\ListValue;
 use App\Services\Api\WebhookService;
 use App\Services\CustomFieldValidator;
+use Database\Seeders\ListOfValuesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -61,7 +62,13 @@ class CreateActivity
     }
 
     /**
-     * The "Activity Type" list's Task value id, used when no type is supplied.
+     * The "Activity Type" list's default (Task) value id, used when no type is
+     * supplied.
+     *
+     * Anchored on the stable `metadata.icon` key ('task') seeded by
+     * {@see ListOfValuesSeeder}, not the user-editable label,
+     * so default selection survives an admin renaming the "Task" list value.
+     * Falls back to the first active value if no Task value is found.
      */
     private function defaultTypeId(): ?int
     {
@@ -71,11 +78,16 @@ class CreateActivity
             return null;
         }
 
-        $id = ListValue::query()
+        $values = ListValue::query()
             ->where('list_name_id', $listId)
-            ->where('name', ActivityType::Task->label())
-            ->value('id');
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
 
-        return $id !== null ? (int) $id : null;
+        $default = $values->first(
+            fn (ListValue $value): bool => ($value->metadata['icon'] ?? null) === ActivityType::Task->icon()
+        ) ?? $values->first();
+
+        return $default?->id !== null ? (int) $default->id : null;
     }
 }

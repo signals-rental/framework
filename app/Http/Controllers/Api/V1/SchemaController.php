@@ -20,6 +20,7 @@ use App\Models\ProductGroup;
 use App\Models\ProductRate;
 use App\Models\RateDefinition;
 use App\Models\StockLevel;
+use App\Models\StockTransaction;
 use App\Models\Store;
 use App\Models\TaxRate;
 use App\Models\TaxRule;
@@ -57,6 +58,7 @@ class SchemaController extends Controller
         'products' => Product::class,
         'product_groups' => ProductGroup::class,
         'stock_levels' => StockLevel::class,
+        'stock_transactions' => StockTransaction::class,
         'activities' => Activity::class,
         'rate_definitions' => RateDefinition::class,
         'product_rates' => ProductRate::class,
