@@ -27,7 +27,8 @@
                 { "title": "Tax Classes", "slug": "tax-classes" },
                 { "title": "Countries", "slug": "countries" },
                 { "title": "Rate Definitions", "slug": "rate-definitions" },
-                { "title": "Single Sign-On (SSO)", "slug": "sso" }
+                { "title": "Single Sign-On (SSO)", "slug": "sso" },
+                { "title": "Magic-Link Login", "slug": "magic-link" }
             ]
         },
         {

@@ -104,7 +104,7 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
     $service = app(DocsService::class);
     $index = $service->getSearchIndex();
 
-    expect($index)->toBeArray()->toHaveCount(40)
+    expect($index)->toBeArray()->toHaveCount(41)
         ->and($index[0])->toHaveKeys(['title', 'section', 'url', 'content'])
         ->and($index[0]['title'])->toBe('Introduction')
         ->and($index[0]['section'])->toBe('Getting Started')
@@ -139,7 +139,7 @@ test('getChangelog extracts frontmatter correctly', function () {
 
     expect($entries[0]['version'])->toBe('0.4.2')
         ->and($entries[0]['date'])->toBe('2026-06-13')
-        ->and($entries[0]['title'])->toBe('Activities Calendar, iCal Feeds & SSO Login');
+        ->and($entries[0]['title'])->toBe('Activities Calendar, iCal Feeds, SSO & Magic-Link Login');
 });
 
 test('getChangelog renders markdown to html', function () {
