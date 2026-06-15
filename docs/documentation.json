@@ -28,7 +28,8 @@
                 { "title": "Countries", "slug": "countries" },
                 { "title": "Rate Definitions", "slug": "rate-definitions" },
                 { "title": "Single Sign-On (SSO)", "slug": "sso" },
-                { "title": "Magic-Link Login", "slug": "magic-link" }
+                { "title": "Magic-Link Login", "slug": "magic-link" },
+                { "title": "Stock Transactions", "slug": "stock-transactions" }
             ]
         },
         {
@@ -49,7 +50,10 @@
                 { "title": "Exchange Rates", "slug": "exchange-rates" },
                 { "title": "Attachments", "slug": "attachments" },
                 { "title": "Webhooks", "slug": "webhooks" },
-                { "title": "Rate Definitions", "slug": "rate-definitions" }
+                { "title": "Rate Definitions", "slug": "rate-definitions" },
+                { "title": "Tax Classes", "slug": "tax-classes" },
+                { "title": "Lists", "slug": "lists" },
+                { "title": "Custom Fields", "slug": "custom-fields" }
             ]
         },
         {

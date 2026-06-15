@@ -13,6 +13,19 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Product groups are lightweight catalogue taxonomy and are intentionally
+ * thin compared with the products they organise. Deliberate scope decisions:
+ *
+ * - No merge flow — groups are reference data; re-parenting products is the
+ *   way to consolidate, not a destructive merge.
+ * - No archive flag and no soft-delete trait — groups are deleted outright
+ *   when no longer needed (products fall back to "ungrouped").
+ * - No dedicated `products.*` permission namespace of its own — group
+ *   management is authorised under the shared `products.*` permissions.
+ * - No dedicated show page — groups are managed inline within the catalogue
+ *   rather than having their own detail screen.
+ */
 class ProductGroup extends Model implements HasSchema
 {
     /** @use HasFactory<ProductGroupFactory> */

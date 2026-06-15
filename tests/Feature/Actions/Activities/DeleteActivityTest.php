@@ -8,6 +8,7 @@ use App\Models\Member;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
@@ -30,6 +31,16 @@ it('deletes an activity', function () {
     Event::assertDispatched(AuditableEvent::class, function (AuditableEvent $event) {
         return $event->action === 'activity.deleted';
     });
+});
+
+it('records an action_logs row when an activity is deleted', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $activity = Activity::factory()->create();
+
+    (new DeleteActivity)($activity);
+
+    assertActionLogged('activity.deleted', Activity::class, $activity->id, $user->id);
 });
 
 it('cascades deletion to participants', function () {
@@ -58,4 +69,4 @@ it('throws authorization exception without permission', function () {
     $activity = Activity::factory()->create();
 
     (new DeleteActivity)($activity);
-})->throws(\Illuminate\Auth\Access\AuthorizationException::class);
+})->throws(AuthorizationException::class);

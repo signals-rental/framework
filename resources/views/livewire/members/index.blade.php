@@ -4,6 +4,7 @@ use App\Actions\Members\ArchiveMember;
 use App\Actions\Members\RestoreMember;
 use App\Enums\MembershipType;
 use App\Models\Member;
+use App\Views\MemberColumnRegistry;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -113,6 +114,19 @@ new #[Layout('components.layouts.app')] #[Title('Members')] class extends Compon
             ->mapWithKeys(fn (MembershipType $t): array => [$t->value => $t->label()])
             ->all();
 
+        // Derive sortable/filterable flags from the canonical MemberColumnRegistry
+        // rather than duplicating them inline, so the table column metadata cannot
+        // drift from the registry that drives custom views and the column picker.
+        // Only columns that map 1:1 to a real `members` column take their flags from
+        // the registry — the DataTable sorts/filters directly on the column key, so
+        // relation-backed display columns (email/phone) stay flagless here even
+        // though Ransack/custom-views can resolve them through relationships.
+        $registry = app(MemberColumnRegistry::class);
+        $columnMeta = fn (string $key): array => [
+            'sortable' => $registry->get($key)?->sortable ?? false,
+            'filterable' => $registry->get($key)?->filterable ?? false,
+        ];
+
         return [
             'membershipTypes' => [
                 MembershipType::Organisation,
@@ -124,13 +138,13 @@ new #[Layout('components.layouts.app')] #[Title('Members')] class extends Compon
             'columns' => [
                 ['key' => 'checkbox', 'type' => 'checkbox'],
                 ['key' => 'avatar', 'label' => '', 'view' => 'livewire.members.partials.column-avatar'],
-                ['key' => 'name', 'label' => 'Name', 'sortable' => true, 'filterable' => true, 'filter_type' => 'text', 'view' => 'livewire.members.partials.column-name'],
-                ['key' => 'membership_type', 'label' => 'Type', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => $typeOptions, 'view' => 'livewire.members.partials.column-type'],
+                ['key' => 'name', 'label' => 'Name', ...$columnMeta('name'), 'filter_type' => 'text', 'view' => 'livewire.members.partials.column-name'],
+                ['key' => 'membership_type', 'label' => 'Type', ...$columnMeta('membership_type'), 'filter_type' => 'select', 'filter_options' => $typeOptions, 'view' => 'livewire.members.partials.column-type'],
                 ['key' => 'email', 'label' => 'Primary Email', 'view' => 'livewire.members.partials.column-email'],
                 ['key' => 'phone', 'label' => 'Primary Phone', 'view' => 'livewire.members.partials.column-phone'],
-                ['key' => 'is_active', 'label' => 'Status', 'sortable' => true, 'filterable' => true, 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.partials.column-active-status'],
+                ['key' => 'is_active', 'label' => 'Status', ...$columnMeta('is_active'), 'filter_type' => 'select', 'filter_options' => ['1' => 'Active', '0' => 'Inactive'], 'view' => 'livewire.partials.column-active-status'],
                 ['key' => 'tag_list', 'label' => 'Tags', 'view' => 'livewire.members.partials.column-tags'],
-                ['key' => 'created_at', 'label' => 'Created', 'sortable' => true, 'view' => 'livewire.members.partials.column-created'],
+                ['key' => 'created_at', 'label' => 'Created', ...$columnMeta('created_at'), 'view' => 'livewire.members.partials.column-created'],
                 ['key' => 'actions', 'type' => 'actions'],
             ],
             'scopes' => [

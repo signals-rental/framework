@@ -117,6 +117,22 @@ it('fires the stock_transaction.deleted audit event', function () {
     });
 });
 
+it('records an action_logs row when a stock transaction is deleted', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $store = Store::factory()->create();
+    $stockLevel = StockLevel::factory()->create(['store_id' => $store->id, 'quantity_held' => 10]);
+    $transaction = StockTransaction::factory()->buy()->create([
+        'stock_level_id' => $stockLevel->id,
+        'store_id' => $store->id,
+        'quantity' => '4.0',
+    ]);
+
+    (new DeleteStockTransaction)($transaction);
+
+    assertActionLogged('stock_transaction.deleted', StockTransaction::class, $transaction->id, $user->id);
+});
+
 it('dispatches the stock_transaction.deleted webhook', function () {
     Event::fake([AuditableEvent::class]);
 

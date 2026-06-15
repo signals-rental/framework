@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | .env Crash Recovery
@@ -28,8 +32,8 @@ if (file_exists($envBackup)) {
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->in('Feature');
 
 /*
@@ -61,4 +65,29 @@ expect()->extend('toBeOne', function () {
 function something(): void
 {
     // ..
+}
+
+/**
+ * Assert that the AuditableEvent → LogAction listener wrote an action_logs row
+ * end-to-end for the given action against the given model.
+ *
+ * Unlike the per-action tests that fake AuditableEvent (and so only prove the
+ * event fired), callers of this helper must NOT fake AuditableEvent so the
+ * auto-discovered LogAction listener runs and persists the row.
+ *
+ * @param  class-string<Model>  $auditableType
+ */
+function assertActionLogged(string $action, string $auditableType, int $auditableId, ?int $userId = null): void
+{
+    $expected = [
+        'action' => $action,
+        'auditable_type' => $auditableType,
+        'auditable_id' => $auditableId,
+    ];
+
+    if ($userId !== null) {
+        $expected['user_id'] = $userId;
+    }
+
+    \Pest\Laravel\assertDatabaseHas('action_logs', $expected);
 }

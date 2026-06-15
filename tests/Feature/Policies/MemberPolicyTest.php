@@ -135,4 +135,35 @@ describe('MemberPolicy', function () {
             expect($method->invoke($policy))->toBe('members.create');
         });
     });
+
+    describe('seeded role matrix', function () {
+        // Expected member abilities per seeded role (see RoleSeeder). Each entry
+        // maps a role to the abilities it should be granted; everything else is
+        // denied. Owner is excluded — it bypasses policies via the is_owner flag.
+        $roleMatrix = [
+            'Admin' => ['view' => true, 'create' => true, 'update' => true, 'delete' => true],
+            'Operations Manager' => ['view' => true, 'create' => true, 'update' => true, 'delete' => true],
+            'Sales' => ['view' => true, 'create' => true, 'update' => true, 'delete' => true],
+            'Warehouse' => ['view' => true, 'create' => false, 'update' => false, 'delete' => false],
+            'Read Only' => ['view' => true, 'create' => false, 'update' => false, 'delete' => false],
+        ];
+
+        $cases = [];
+        foreach ($roleMatrix as $role => $abilities) {
+            foreach ($abilities as $ability => $allowed) {
+                $verb = $allowed ? 'allows' : 'denies';
+                $cases["{$role} role {$verb} members.{$ability}"] = [$role, $ability, $allowed];
+            }
+        }
+
+        it('grants the expected member abilities per seeded role', function (string $role, string $ability, bool $allowed) {
+            $user = User::factory()->create();
+            $user->assignRole($role);
+            $member = Member::factory()->create();
+
+            $subject = $ability === 'create' ? Member::class : $member;
+
+            expect($user->can($ability, $subject))->toBe($allowed);
+        })->with($cases);
+    });
 });

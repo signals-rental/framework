@@ -11,6 +11,7 @@ CRUD endpoints for managing products in the catalogue.
 | POST | `/api/v1/products` | Create a product |
 | PUT | `/api/v1/products/{id}` | Update a product |
 | DELETE | `/api/v1/products/{id}` | Delete (soft-delete) a product |
+| POST | `/api/v1/products/{id}/merge` | Merge another product into this one |
 
 ### Nested Resources
 
@@ -18,6 +19,7 @@ CRUD endpoints for managing products in the catalogue.
 |--------|-----|-------------|
 | GET | `/api/v1/products/{id}/accessories` | List accessories |
 | POST | `/api/v1/products/{id}/accessories` | Add an accessory |
+| PUT | `/api/v1/products/{id}/accessories/{accessory_id}` | Update an accessory |
 | DELETE | `/api/v1/products/{id}/accessories/{accessory_id}` | Remove an accessory |
 
 ## Authentication
@@ -186,3 +188,25 @@ DELETE /api/v1/products/{id}
 ```
 
 Soft-deletes the product. Returns `204 No Content`.
+
+## Merge Product
+
+```
+POST /api/v1/products/{id}/merge
+```
+
+Merges a secondary product into the product in the URL (the primary). Stock, accessories, custom-field values, and attachments transfer to the primary, and the secondary is soft-deleted. Requires the `products:write` ability.
+
+### Request Body
+
+```json
+{
+    "secondary_id": 42
+}
+```
+
+The `secondary_id` must reference an existing, non-archived product and must differ from the primary. Attempting to merge a product into itself returns a `422` validation error.
+
+### Response
+
+Returns `200 OK` with the merged primary product object.

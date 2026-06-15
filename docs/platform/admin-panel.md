@@ -382,6 +382,32 @@ Manage organisation tax classifications. See the [Tax Classes](/docs/platform/ta
 | Set Default | Designate as the default for new organisations |
 | Delete | Remove a non-default tax class |
 
+### Tax Rates
+
+**Route:** `/admin/settings/tax/rates`
+
+Manage named tax rate percentages used by tax rules. See the [Tax Classes](/docs/platform/tax-classes) page for detailed documentation.
+
+| Action | Description |
+|--------|-------------|
+| Create | Add a new named rate and percentage |
+| Edit | Update name, description, or percentage |
+| Activate / Deactivate | Toggle whether the rate is available |
+| Delete | Remove a rate |
+
+### Tax Rules
+
+**Route:** `/admin/settings/tax/rules`
+
+Map organisation and product tax class combinations to a tax rate. See the [Tax Classes](/docs/platform/tax-classes) page for detailed documentation.
+
+| Action | Description |
+|--------|-------------|
+| Create | Map a class pair to a tax rate, with a priority |
+| Edit | Update the class pair, rate, or priority |
+| Activate / Deactivate | Toggle whether the rule participates in resolution |
+| Delete | Remove a rule |
+
 ## Access Control
 
 The admin panel is protected by the `EnsureAdmin` middleware, which checks that the authenticated user has `is_admin` set to `true`, `is_owner` set to `true`, or holds the `Admin` role. The middleware is registered as the `admin` alias and applied to all `/admin/*` routes alongside authentication and 2FA middleware.

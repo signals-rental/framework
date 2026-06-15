@@ -4,6 +4,7 @@ use App\Models\Email;
 use App\Models\Member;
 use App\Models\MemberRelationship;
 use App\Models\Phone;
+use App\Models\Product;
 use App\Models\Store;
 use Illuminate\Support\Facades\Artisan;
 
@@ -21,21 +22,40 @@ it('warns when no demo data has been seeded', function () {
         ->expectsOutputToContain('No demo data');
 });
 
-it('removes demo stores', function () {
-    Store::factory()->create(['name' => 'London Warehouse', 'is_default' => false]);
-    Store::factory()->create(['name' => 'Manchester Depot', 'is_default' => false]);
-    Store::factory()->create(['name' => 'Edinburgh Office', 'is_default' => false]);
-    Store::factory()->create(['name' => 'My Real Store', 'is_default' => true]);
+it('removes demo stores tagged with demo-data and leaves untagged stores', function () {
+    // Demo stores are tagged 'demo-data' by DemoDataSeeder::createDemoStores();
+    // clear-demo selects them by tag, not by name.
+    Store::factory()->create(['name' => 'London Warehouse', 'is_default' => false, 'tag_list' => ['demo-data']]);
+    Store::factory()->create(['name' => 'Manchester Depot', 'is_default' => false, 'tag_list' => ['demo-data']]);
+    Store::factory()->create(['name' => 'Edinburgh Office', 'is_default' => false, 'tag_list' => ['demo-data']]);
+    Store::factory()->create(['name' => 'My Real Store', 'is_default' => true, 'tag_list' => []]);
+    // A store named like a demo store but NOT tagged must survive.
+    Store::factory()->create(['name' => 'London Warehouse', 'is_default' => false, 'tag_list' => ['real']]);
 
     settings()->set('setup.demo_seeded_at', now()->toIso8601String());
 
     $this->artisan('signals:clear-demo', ['--force' => true])
-        ->assertSuccessful();
+        ->assertSuccessful()
+        ->expectsOutputToContain('Removed 3 demo stores');
 
-    expect(Store::where('name', 'London Warehouse')->exists())->toBeFalse();
-    expect(Store::where('name', 'Manchester Depot')->exists())->toBeFalse();
-    expect(Store::where('name', 'Edinburgh Office')->exists())->toBeFalse();
+    expect(Store::whereJsonContains('tag_list', 'demo-data')->exists())->toBeFalse();
     expect(Store::where('name', 'My Real Store')->exists())->toBeTrue();
+    expect(Store::where('name', 'London Warehouse')->whereJsonContains('tag_list', 'real')->exists())->toBeTrue();
+});
+
+it('force-removes demo products tagged with demo-data and leaves real products', function () {
+    $demoProduct = Product::factory()->create(['name' => 'Demo - LED PAR Can', 'tag_list' => ['demo-data']]);
+    $realProduct = Product::factory()->create(['name' => 'Real Product', 'tag_list' => ['catalogue']]);
+
+    settings()->set('setup.demo_seeded_at', now()->toIso8601String());
+
+    $this->artisan('signals:clear-demo', ['--force' => true])
+        ->assertSuccessful()
+        ->expectsOutputToContain('Removed 1 demo products');
+
+    // Products soft-delete, so demo rows must be gone even withTrashed().
+    expect(Product::withTrashed()->find($demoProduct->id))->toBeNull();
+    expect(Product::find($realProduct->id))->not->toBeNull();
 });
 
 it('removes a demo store tagged with demo-data created by the seeder', function () {
@@ -166,14 +186,14 @@ it('removes member relationships involving demo members', function () {
 it('confirms interactively and proceeds when user accepts', function () {
     settings()->set('setup.demo_seeded_at', now()->toIso8601String());
 
-    Store::factory()->create(['name' => 'London Warehouse', 'is_default' => false]);
+    Store::factory()->create(['name' => 'London Warehouse', 'is_default' => false, 'tag_list' => ['demo-data']]);
 
     $this->artisan('signals:clear-demo')
         ->expectsConfirmation('This will remove all demo data. Continue?', 'yes')
         ->assertSuccessful()
         ->expectsOutputToContain('Demo data removed');
 
-    expect(Store::where('name', 'London Warehouse')->exists())->toBeFalse();
+    expect(Store::whereJsonContains('tag_list', 'demo-data')->exists())->toBeFalse();
 });
 
 it('outputs count of removed demo members', function () {

@@ -5,10 +5,12 @@ use App\Data\Products\CreateStockTransactionData;
 use App\Enums\TransactionType;
 use App\Events\AuditableEvent;
 use App\Models\StockLevel;
+use App\Models\StockTransaction;
 use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
@@ -68,6 +70,23 @@ it('decrements quantity for sell transactions', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('records an action_logs row when a stock transaction is created', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $store = Store::factory()->create();
+    $stockLevel = StockLevel::factory()->create(['store_id' => $store->id, 'quantity_held' => 0]);
+
+    $result = (new CreateStockTransaction)(CreateStockTransactionData::from([
+        'stock_level_id' => $stockLevel->id,
+        'store_id' => $store->id,
+        'transaction_type' => TransactionType::Buy->value,
+        'quantity' => '10.0',
+        'transaction_at' => now()->toISOString(),
+    ]));
+
+    assertActionLogged('stock_transaction.created', StockTransaction::class, $result->id, $user->id);
+});
+
 it('throws authorization exception without permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -81,4 +100,4 @@ it('throws authorization exception without permission', function () {
     ]);
 
     (new CreateStockTransaction)($dto);
-})->throws(\Illuminate\Auth\Access\AuthorizationException::class);
+})->throws(AuthorizationException::class);

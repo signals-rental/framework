@@ -7,6 +7,7 @@ use App\Models\Activity;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
@@ -32,6 +33,16 @@ it('marks an activity as completed', function () {
     });
 });
 
+it('records an action_logs row when an activity is completed', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $activity = Activity::factory()->create(['completed' => false]);
+
+    (new CompleteActivity)($activity);
+
+    assertActionLogged('activity.completed', Activity::class, $activity->id, $user->id);
+});
+
 it('can complete an already-completed activity without error', function () {
     Event::fake([AuditableEvent::class]);
 
@@ -53,4 +64,4 @@ it('throws authorization exception without permission', function () {
     $activity = Activity::factory()->create();
 
     (new CompleteActivity)($activity);
-})->throws(\Illuminate\Auth\Access\AuthorizationException::class);
+})->throws(AuthorizationException::class);

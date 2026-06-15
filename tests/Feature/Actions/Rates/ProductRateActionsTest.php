@@ -52,6 +52,35 @@ it('creates a product rate', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('records an action_logs row when a product rate is created', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $result = (new CreateProductRate)(productRateData());
+
+    assertActionLogged('product_rate.created', ProductRate::class, $result->id, $user->id);
+});
+
+it('records an action_logs row when a product rate is updated', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $rate = ProductRate::factory()->create(['price' => 1000]);
+
+    (new UpdateProductRate)($rate, UpdateProductRateData::from(['price' => 8000]));
+
+    assertActionLogged('product_rate.updated', ProductRate::class, $rate->id, $user->id);
+});
+
+it('records an action_logs row when a product rate is deleted', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $rate = ProductRate::factory()->create();
+
+    (new DeleteProductRate)($rate);
+
+    assertActionLogged('product_rate.deleted', ProductRate::class, $rate->id, $user->id);
+});
+
 it('forbids creating a product rate without permission', function () {
     $this->actingAs(User::factory()->create());
 

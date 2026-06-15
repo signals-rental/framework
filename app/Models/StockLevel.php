@@ -17,6 +17,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Stock levels are delete-only by design: there is no archive flag and no
+ * soft-delete trait. A stock level represents physical inventory, so it is
+ * either present or it is not — when goods are written off, lost, or disposed
+ * of, the quantity change is recorded against `stock_transactions` (preserving
+ * the audit history) rather than soft-deleting the row. Hard-deleting a stock
+ * level is reserved for correcting data-entry mistakes.
+ */
 class StockLevel extends Model implements HasSchema
 {
     /** @use HasFactory<StockLevelFactory> */

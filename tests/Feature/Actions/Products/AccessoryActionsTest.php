@@ -101,6 +101,23 @@ it('updates an accessory and fires AuditableEvent', function () {
     Event::assertDispatched(AuditableEvent::class, fn (AuditableEvent $e) => $e->action === 'accessory.updated');
 });
 
+it('records an action_logs row when an accessory is updated', function () {
+    Queue::fake([DeliverWebhook::class]);
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $accessory = Accessory::factory()->create();
+
+    (new UpdateAccessory)($accessory, UpdateAccessoryData::from(['quantity' => '5.0']));
+
+    $this->assertDatabaseHas('action_logs', [
+        'action' => 'accessory.updated',
+        'auditable_type' => Accessory::class,
+        'auditable_id' => $accessory->id,
+        'user_id' => $user->id,
+    ]);
+});
+
 it('deletes an accessory and fires AuditableEvent', function () {
     Event::fake([AuditableEvent::class]);
     Queue::fake([DeliverWebhook::class]);

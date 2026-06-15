@@ -1,11 +1,16 @@
 <?php
 
+use App\Models\ActionLog;
 use App\Models\Member;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    /** Number of recent audit-log entries shown on the activity timeline. */
+    private const TIMELINE_LIMIT = 15;
+
     public Member $member;
 
     public function mount(Member $member): void
@@ -45,7 +50,42 @@ new #[Layout('components.layouts.app')] class extends Component {
         return [
             'relatedMembers' => $relatedMembers,
             'relatedCount' => $relatedMembers->count(),
+            'timeline' => $this->timelineEntries(),
         ];
+    }
+
+    /**
+     * Most-recent audit-log entries for this member, shaped for the timeline.
+     *
+     * @return \Illuminate\Support\Collection<int, array{title: string, meta: string, color: ?string, body: ?string}>
+     */
+    private function timelineEntries(): \Illuminate\Support\Collection
+    {
+        return ActionLog::query()
+            ->with('user')
+            ->forEntity($this->member->getMorphClass(), $this->member->id)
+            ->latest('created_at')
+            ->limit(self::TIMELINE_LIMIT)
+            ->get()
+            ->map(fn (ActionLog $log): array => [
+                'title' => Str::of($log->action)->replace(['.', '_'], ' ')->headline()->toString(),
+                'meta' => $log->created_at?->diffForHumans() ?? '',
+                'color' => $this->timelineColor($log->action),
+                'body' => $log->user?->name ? "by {$log->user->name}" : null,
+            ]);
+    }
+
+    /**
+     * Map an audit action to a timeline dot colour for at-a-glance scanning.
+     */
+    private function timelineColor(string $action): ?string
+    {
+        return match (true) {
+            Str::endsWith($action, ['.created', '.restored']) => 'green',
+            Str::endsWith($action, ['.deleted', '.archived', '.anonymised']) => 'red',
+            Str::endsWith($action, ['.updated', '.merged']) => 'blue',
+            default => null,
+        };
     }
 
 }; ?>
@@ -219,193 +259,26 @@ new #[Layout('components.layouts.app')] class extends Component {
                 </div>
             </x-signals.panel>
 
-            {{-- Activity Timeline --}}
+            {{-- Activity Timeline (live audit trail) --}}
             <x-signals.panel title="Activity Timeline">
-                {{-- Toolbar --}}
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="s-search" style="width: 220px;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text" placeholder="Search activity...">
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <button class="s-chip on">All <span style="opacity: 0.6;">47</span></button>
-                        <button class="s-chip">Orders <span style="opacity: 0.6;">18</span></button>
-                        <button class="s-chip">Quotes <span style="opacity: 0.6;">12</span></button>
-                        <button class="s-chip">Comms <span style="opacity: 0.6;">9</span></button>
-                        <button class="s-chip">Finance <span style="opacity: 0.6;">8</span></button>
-                    </div>
-                </div>
-                <x-signals.timeline>
-                    <x-signals.timeline-item color="green" title="Invoice Paid" meta="Today, 11:42">
-                        INV-2026-1284 paid in full — <span class="s-cell-amount">&pound;12,450.00</span>
-                        <span class="s-badge s-badge-green" style="margin-left: 6px;">On Time</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Invoice Issued" meta="Today, 09:15">
-                        INV-2026-1284 issued for order OPP-2026-0891 — <span class="s-cell-amount">&pound;12,450.00</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Order Dispatched" meta="Yesterday, 16:30">
-                        OPP-2026-0891 dispatched — 24 items via own transport
-                        <span class="s-badge" style="margin-left: 6px;">Delivery</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Order Checked Out" meta="Yesterday, 14:20">
-                        OPP-2026-0891 checked out by warehouse team — all items scanned
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Converted to Order" meta="3 days ago, 10:05">
-                        QUO-2026-0456 converted to order OPP-2026-0891
-                        <span class="s-badge s-badge-green" style="margin-left: 6px;">Won</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Quote Revised" meta="3 days ago, 09:48">
-                        QUO-2026-0456 v3 created — added 4x LED wash lights, revised total to &pound;12,450.00
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Email Sent" meta="4 days ago, 15:12">
-                        Revised quote PDF sent to sarah@example.com
-                        <span class="s-badge s-badge-blue" style="margin-left: 6px;">Comms</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Note Added" meta="4 days ago, 14:55">
-                        Client requested LED wash upgrade for main stage — budget approved
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Quote Sent" meta="5 days ago, 11:30">
-                        QUO-2026-0456 v2 emailed to client — &pound;10,800.00
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Phone Call Logged" meta="5 days ago, 11:15">
-                        Discussed requirements with Sarah Johnson — needs extra lighting for outdoor stage
-                        <span class="s-badge s-badge-blue" style="margin-left: 6px;">Comms</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Item Quantity Changed" meta="6 days ago, 16:40">
-                        QUO-2026-0456: Shure SM58 qty changed from 8 to 12
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Item Added to Quote" meta="6 days ago, 16:35">
-                        QUO-2026-0456: Added 6x JBL EON615 Speaker (&pound;120.00/day)
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Item Added to Quote" meta="6 days ago, 16:32">
-                        QUO-2026-0456: Added 12x Shure SM58 Microphone (&pound;5.00/day)
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Quote Created" meta="6 days ago, 16:30">
-                        QUO-2026-0456 created — Summer Festival Main Stage
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Logged In" meta="6 days ago, 16:28">
-                        Web portal login from 192.168.1.42
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Payment Received" meta="1 week ago, 09:00">
-                        INV-2026-1180 paid — <span class="s-cell-amount">&pound;8,200.00</span>
-                        <span class="s-badge s-badge-green" style="margin-left: 6px;">On Time</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Invoice Issued" meta="2 weeks ago, 10:30">
-                        INV-2026-1180 issued for OPP-2026-0834 — <span class="s-cell-amount">&pound;8,200.00</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Order Returned" meta="2 weeks ago, 08:45">
-                        OPP-2026-0834 — all 18 items returned, condition checked OK
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Order Dispatched" meta="3 weeks ago, 07:15">
-                        OPP-2026-0834 dispatched — 18 items to ExCeL London
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Delivery Note Signed" meta="3 weeks ago, 09:30">
-                        Signed by James Thompson at venue
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Crew Assigned" meta="3 weeks ago, 14:00">
-                        OPP-2026-0834: 2 crew members assigned for setup (Mike R, Dave S)
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Converted to Order" meta="4 weeks ago, 11:20">
-                        QUO-2026-0389 converted to order OPP-2026-0834
-                        <span class="s-badge s-badge-green" style="margin-left: 6px;">Won</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Email Received" meta="4 weeks ago, 10:55">
-                        Client confirmed go-ahead via email
-                        <span class="s-badge s-badge-blue" style="margin-left: 6px;">Comms</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Quote Follow-up" meta="5 weeks ago, 09:00">
-                        Automated follow-up sent for QUO-2026-0389
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Quote Sent" meta="6 weeks ago, 14:45">
-                        QUO-2026-0389 emailed — Corporate Awards Dinner — &pound;8,200.00
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Added to Basket" meta="6 weeks ago, 14:30">
-                        Web portal: 4x Stage Deck 4x8, 2x Truss Section 3m, 8x PAR64 LED
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Logged In" meta="6 weeks ago, 14:25">
-                        Web portal login from 10.0.0.15
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Meeting Scheduled" meta="7 weeks ago, 16:00">
-                        Site visit at ExCeL London — Rachel Green attending
-                        <span class="s-badge s-badge-blue" style="margin-left: 6px;">Comms</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="red" title="Quote Declined" meta="8 weeks ago, 11:30">
-                        QUO-2026-0301 declined — client went with competitor for lighting package
-                        <span class="s-badge s-badge-red" style="margin-left: 6px;">Lost</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Quote Sent" meta="9 weeks ago, 10:15">
-                        QUO-2026-0301 emailed — Gaming Expo Setup — &pound;32,000.00
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Sub-hire Requested" meta="9 weeks ago, 09:50">
-                        QUO-2026-0301: 20x moving head lights requested from Stage Solutions Ltd
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Phone Call Logged" meta="9 weeks ago, 09:30">
-                        Initial enquiry from Sarah — large AV setup for gaming expo
-                        <span class="s-badge s-badge-blue" style="margin-left: 6px;">Comms</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Payment Received" meta="10 weeks ago, 14:20">
-                        INV-2026-0934 paid — <span class="s-cell-amount">&pound;68,000.00</span>
-                        <span class="s-badge s-badge-green" style="margin-left: 6px;">On Time</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Payment Reminder Sent" meta="10 weeks ago, 09:00">
-                        Automated reminder for INV-2026-0934 (due in 3 days)
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Invoice Issued" meta="11 weeks ago, 11:00">
-                        INV-2026-0934 issued for Summer Festival 2025 — <span class="s-cell-amount">&pound;68,000.00</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Order Returned" meta="11 weeks ago, 08:00">
-                        OPP-2025-0612 — 142 items returned, 2 items flagged for inspection
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Damage Reported" meta="11 weeks ago, 10:30">
-                        OPP-2025-0612: 1x JBL VTX speaker cabinet — dent on rear panel
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Order Dispatched" meta="12 weeks ago, 06:00">
-                        OPP-2025-0612 dispatched — 142 items across 3 vehicles
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="blue" title="Transport Arranged" meta="12 weeks ago, 14:00">
-                        3 vehicles booked for OPP-2025-0612: 2x 7.5t + 1x Sprinter
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Document Uploaded" meta="13 weeks ago, 16:20">
-                        Risk assessment uploaded for Summer Festival venue
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Contact Added" meta="13 weeks ago, 15:00">
-                        James Thompson added as Technical Director
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="green" title="Converted to Order" meta="14 weeks ago, 09:45">
-                        QUO-2025-0198 converted to order OPP-2025-0612
-                        <span class="s-badge s-badge-green" style="margin-left: 6px;">Won</span>
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Credit Check Passed" meta="14 weeks ago, 09:30">
-                        Automated credit check — approved for &pound;75,000 limit
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Quote Revised" meta="15 weeks ago, 13:00">
-                        QUO-2025-0198 v2 — added video wall, revised to &pound;68,000.00
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item color="amber" title="Quote Created" meta="16 weeks ago, 10:00">
-                        QUO-2025-0198 created — Summer Festival 2025 Full AV Package — &pound;52,400.00
-                    </x-signals.timeline-item>
-                    <x-signals.timeline-item title="Organisation Created" meta="18 weeks ago, 14:30">
-                        Member record created — Organisation type
-                    </x-signals.timeline-item>
-                </x-signals.timeline>
-
-                {{-- Pagination --}}
-                <div class="flex items-center justify-between mt-4 pt-3 border-t border-[var(--card-border)]">
-                    <span class="text-xs text-[var(--text-muted)]" style="font-family: var(--font-mono);">Showing 1–5 of 47 events</span>
-                    <div class="flex items-center gap-1">
-                        <button class="s-pagination-btn" disabled style="opacity: 0.4;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><polyline points="15 18 9 12 15 6"/></svg>
-                        </button>
-                        <button class="s-pagination-btn" style="background: var(--green); color: white; font-weight: 600;">1</button>
-                        <button class="s-pagination-btn">2</button>
-                        <button class="s-pagination-btn">3</button>
-                        <span class="s-pagination-ellipsis">&hellip;</span>
-                        <button class="s-pagination-btn">10</button>
-                        <button class="s-pagination-btn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
-                        </button>
-                    </div>
-                </div>
+                @if($timeline->isEmpty())
+                    <div class="text-sm text-[var(--text-muted)] py-4">No recorded activity for this member yet.</div>
+                @else
+                    <x-signals.timeline>
+                        @foreach($timeline as $event)
+                            <x-signals.timeline-item
+                                :color="$event['color']"
+                                :title="$event['title']"
+                                :meta="$event['meta']"
+                                wire:key="timeline-{{ $loop->index }}"
+                            >
+                                @if($event['body'])
+                                    {{ $event['body'] }}
+                                @endif
+                            </x-signals.timeline-item>
+                        @endforeach
+                    </x-signals.timeline>
+                @endif
             </x-signals.panel>
 
         </div>

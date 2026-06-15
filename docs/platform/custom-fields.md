@@ -7,7 +7,7 @@ description: Add custom data fields to any entity using the EAV field system.
 
 Custom fields extend Signals entities with additional data fields without modifying the database schema. Fields are stored using an Entity-Attribute-Value (EAV) pattern — field definitions in the `custom_fields` table and values in the `custom_field_values` table.
 
-Custom fields can be added to Members, Opportunities, Products, Invoices, and Stores.
+Custom fields can be added to Members, Products, Product Groups, Stock Levels, Activities, and Stores.
 
 ## Custom Field Groups
 

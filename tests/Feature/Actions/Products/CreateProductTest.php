@@ -5,12 +5,15 @@ use App\Data\Products\CreateProductData;
 use App\Data\Products\ProductData;
 use App\Enums\ProductType;
 use App\Events\AuditableEvent;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -40,7 +43,7 @@ it('creates a product', function () {
 it('creates a product with custom fields', function () {
     Event::fake([AuditableEvent::class]);
 
-    \App\Models\CustomField::factory()->string()->create([
+    CustomField::factory()->string()->create([
         'name' => 'product_ref',
         'module_type' => 'Product',
     ]);
@@ -55,13 +58,25 @@ it('creates a product with custom fields', function () {
 
     expect($result->name)->toBe('Custom Product');
 
-    $cfv = \App\Models\CustomFieldValue::query()
+    $cfv = CustomFieldValue::query()
         ->where('entity_type', Product::class)
         ->where('entity_id', $result->id)
         ->first();
 
     expect($cfv)->not->toBeNull()
         ->and($cfv->value_string)->toBe('REF-001');
+});
+
+it('records an action_logs row when a product is created', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $result = (new CreateProduct)(CreateProductData::from([
+        'name' => 'Audited Product',
+        'product_type' => ProductType::Rental->value,
+    ]));
+
+    assertActionLogged('product.created', Product::class, $result->id, $user->id);
 });
 
 it('requires products.create permission', function () {
@@ -77,7 +92,7 @@ it('requires products.create permission', function () {
 })->throws(AuthorizationException::class);
 
 it('rejects creation when required custom field is missing', function () {
-    \App\Models\CustomField::factory()->string()->required()->create([
+    CustomField::factory()->string()->required()->create([
         'name' => 'mandatory_ref',
         'module_type' => 'Product',
     ]);
@@ -89,10 +104,10 @@ it('rejects creation when required custom field is missing', function () {
     ]);
 
     (new CreateProduct)($data);
-})->throws(\Illuminate\Validation\ValidationException::class);
+})->throws(ValidationException::class);
 
 it('does not persist product when required custom field validation fails', function () {
-    \App\Models\CustomField::factory()->string()->required()->create([
+    CustomField::factory()->string()->required()->create([
         'name' => 'mandatory_ref',
         'module_type' => 'Product',
     ]);
@@ -105,7 +120,7 @@ it('does not persist product when required custom field validation fails', funct
 
     try {
         (new CreateProduct)($data);
-    } catch (\Illuminate\Validation\ValidationException) {
+    } catch (ValidationException) {
         // expected
     }
 

@@ -141,6 +141,47 @@ it('deletes a rate definition', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('records an action_logs row when a rate definition is created', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $result = (new CreateRateDefinition)(createDefinitionData());
+
+    assertActionLogged('rate_definition.created', RateDefinition::class, $result->id, $user->id);
+});
+
+it('records an action_logs row when a rate definition is updated', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $definition = RateDefinition::factory()->create([
+        'calculation_strategy' => CalculationStrategyType::Period,
+    ]);
+
+    (new UpdateRateDefinition)($definition, UpdateRateDefinitionData::from(['name' => 'Audited Rename']));
+
+    assertActionLogged('rate_definition.updated', RateDefinition::class, $definition->id, $user->id);
+});
+
+it('records an action_logs row when a rate definition is deleted', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $definition = RateDefinition::factory()->create(['is_preset' => false]);
+
+    (new DeleteRateDefinition)($definition);
+
+    assertActionLogged('rate_definition.deleted', RateDefinition::class, $definition->id, $user->id);
+});
+
+it('records an action_logs row when a rate definition is duplicated', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $original = RateDefinition::factory()->create();
+
+    $copy = (new DuplicateRateDefinition)($original);
+
+    assertActionLogged('rate_definition.created', RateDefinition::class, $copy->id, $user->id);
+});
+
 it('refuses to delete a preset rate definition', function () {
     $preset = RateDefinition::factory()->preset()->create();
 

@@ -54,6 +54,16 @@ it('updates an activity subject', function () {
     });
 });
 
+it('records an action_logs row when an activity is updated', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $activity = Activity::factory()->create();
+
+    (new UpdateActivity)($activity, UpdateActivityData::from(['subject' => 'Audited Update']));
+
+    assertActionLogged('activity.updated', Activity::class, $activity->id, $user->id);
+});
+
 it('changes the type to a different valid list value', function () {
     Event::fake([AuditableEvent::class]);
 

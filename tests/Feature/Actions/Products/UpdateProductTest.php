@@ -2,7 +2,10 @@
 
 use App\Actions\Products\UpdateProduct;
 use App\Data\Products\UpdateProductData;
+use App\Enums\CustomFieldType;
 use App\Events\AuditableEvent;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -36,10 +39,10 @@ it('updates a product', function () {
 it('updates a product with custom fields', function () {
     Event::fake([AuditableEvent::class]);
 
-    $customField = \App\Models\CustomField::factory()->create([
+    $customField = CustomField::factory()->create([
         'name' => 'product_ref',
         'module_type' => 'Product',
-        'field_type' => \App\Enums\CustomFieldType::String,
+        'field_type' => CustomFieldType::String,
     ]);
 
     $product = Product::factory()->create(['name' => 'Test Product']);
@@ -53,7 +56,7 @@ it('updates a product with custom fields', function () {
 
     expect($result->name)->toBe('Updated Product');
 
-    $cfv = \App\Models\CustomFieldValue::query()
+    $cfv = CustomFieldValue::query()
         ->where('custom_field_id', $customField->id)
         ->where('entity_type', Product::class)
         ->where('entity_id', $product->id)
@@ -61,6 +64,17 @@ it('updates a product with custom fields', function () {
 
     expect($cfv)->not->toBeNull()
         ->and($cfv->value_string)->toBe('REF-999');
+});
+
+it('records an action_logs row when a product is updated', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $product = Product::factory()->create(['name' => 'Before']);
+
+    (new UpdateProduct)($product, UpdateProductData::from(['name' => 'After']));
+
+    assertActionLogged('product.updated', Product::class, $product->id, $user->id);
 });
 
 it('requires products.edit permission', function () {
@@ -106,11 +120,11 @@ it('leaves field unchanged when null is passed via DTO', function () {
 it('allows partial custom field updates without enforcing required', function () {
     Event::fake([AuditableEvent::class]);
 
-    \App\Models\CustomField::factory()->string()->required()->create([
+    CustomField::factory()->string()->required()->create([
         'name' => 'mandatory_ref',
         'module_type' => 'Product',
     ]);
-    \App\Models\CustomField::factory()->string()->create([
+    CustomField::factory()->string()->create([
         'name' => 'optional_note',
         'module_type' => 'Product',
     ]);

@@ -61,6 +61,18 @@ it('creates an activity with valid data', function () {
     });
 });
 
+it('records an action_logs row when an activity is created', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $result = (new CreateActivity)(CreateActivityData::from([
+        'subject' => 'Audited Activity',
+        'type_id' => activityTypeId(ActivityType::Task),
+    ]));
+
+    assertActionLogged('activity.created', Activity::class, $result->id, $user->id);
+});
+
 it('creates an activity with participants', function () {
     $user = User::factory()->owner()->create();
     $this->actingAs($user);

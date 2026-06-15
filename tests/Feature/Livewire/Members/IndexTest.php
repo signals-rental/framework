@@ -3,6 +3,7 @@
 use App\Enums\MembershipType;
 use App\Models\Member;
 use App\Models\User;
+use App\Views\MemberColumnRegistry;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -120,4 +121,21 @@ it('ignores invalid membership type in setTypeFilter', function () {
     Volt::test('members.index')
         ->call('setTypeFilter', 'invalid_type')
         ->assertSet('typeFilter', '');
+});
+
+it('derives shared table column flags from the MemberColumnRegistry', function () {
+    Member::factory()->create(['name' => 'Registry Member']);
+
+    $registry = app(MemberColumnRegistry::class);
+    $columns = collect((array) Volt::test('members.index')->viewData('columns'))->keyBy('key');
+
+    // The name/is_active/created_at columns map 1:1 to real members columns, so
+    // their sortable/filterable flags must match the registry rather than a
+    // divergent inline copy.
+    foreach (['name', 'is_active', 'created_at'] as $key) {
+        expect($columns[$key]['sortable'] ?? false)->toBe($registry->get($key)->sortable);
+    }
+
+    expect($columns['name']['filterable'] ?? false)->toBe($registry->get('name')->filterable);
+    expect($columns['is_active']['filterable'] ?? false)->toBe($registry->get('is_active')->filterable);
 });

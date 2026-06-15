@@ -28,6 +28,17 @@ it('deletes a product via soft delete', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('records an action_logs row when a product is deleted', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $product = Product::factory()->create();
+
+    (new DeleteProduct)($product);
+
+    assertActionLogged('product.deleted', Product::class, $product->id, $user->id);
+});
+
 it('requires products.delete permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

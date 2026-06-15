@@ -62,6 +62,35 @@ it('deletes a list name', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('records an action_logs row when a list name is created', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $result = (new CreateListName)(CreateListNameData::from(['name' => 'Audited List']));
+
+    assertActionLogged('list_name.created', ListName::class, $result->id, $user->id);
+});
+
+it('records an action_logs row when a list name is updated', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $listName = ListName::factory()->create();
+
+    (new UpdateListName)($listName, UpdateListNameData::from(['name' => 'Renamed List']));
+
+    assertActionLogged('list_name.updated', ListName::class, $listName->id, $user->id);
+});
+
+it('records an action_logs row when a list name is deleted', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+    $listName = ListName::factory()->create();
+
+    (new DeleteListName)($listName);
+
+    assertActionLogged('list_name.deleted', ListName::class, $listName->id, $user->id);
+});
+
 it('rejects unauthorized list name creation', function () {
     $regularUser = User::factory()->create();
     $this->actingAs($regularUser);

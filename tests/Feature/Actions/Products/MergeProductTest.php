@@ -255,6 +255,21 @@ it('transfers unique custom field values and retains primary values', function (
     expect($secondaryCfvCount)->toBe(0);
 });
 
+it('records an action_logs row on the primary product when two products are merged', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    $primary = Product::factory()->rental()->create();
+    $secondary = Product::factory()->rental()->create();
+
+    (new MergeProduct)(MergeProductData::from([
+        'primary_id' => $primary->id,
+        'secondary_id' => $secondary->id,
+    ]));
+
+    assertActionLogged('product.merged', Product::class, $primary->id, $user->id);
+});
+
 it('fires AuditableEvent with product.merged action and metadata', function () {
     Event::fake([AuditableEvent::class]);
 

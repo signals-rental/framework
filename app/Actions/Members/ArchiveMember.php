@@ -19,11 +19,14 @@ class ArchiveMember
 
             event(new AuditableEvent($member, 'member.archived'));
 
-            app(WebhookService::class)->dispatch('member.archived', [
-                'id' => $member->id,
-            ]);
-
             $member->delete();
         });
+
+        // Dispatch the webhook only after the transaction has committed. All queue
+        // connections use after_commit: false, so dispatching inside the closure
+        // would queue a delivery even if the transaction later rolled back.
+        app(WebhookService::class)->dispatch('member.archived', [
+            'id' => $member->id,
+        ]);
     }
 }

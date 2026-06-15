@@ -7,6 +7,7 @@ use App\Models\Email;
 use App\Models\Member;
 use App\Models\MemberRelationship;
 use App\Models\Phone;
+use App\Models\Product;
 use App\Models\Store;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -71,9 +72,25 @@ class SignalsClearDemoCommand extends Command
             $this->components->info("Removed {$count} demo members and their contact details");
         }
 
-        // Remove demo stores
-        $demoStoreNames = ['London Warehouse', 'Manchester Depot', 'Edinburgh Office'];
-        Store::query()->whereIn('name', $demoStoreNames)->delete();
+        // Remove demo products. Products soft-delete, so force-delete the demo
+        // rows to clear them out entirely rather than leaving trashed records.
+        $productCount = Product::query()
+            ->whereJsonContains('tag_list', 'demo-data')
+            ->forceDelete();
+
+        if ($productCount > 0) {
+            $this->components->info("Removed {$productCount} demo products");
+        }
+
+        // Remove demo stores by their demo-data tag (set by DemoDataSeeder), so
+        // re-seeding does not accumulate duplicate stores.
+        $storeCount = Store::query()
+            ->whereJsonContains('tag_list', 'demo-data')
+            ->delete();
+
+        if ($storeCount > 0) {
+            $this->components->info("Removed {$storeCount} demo stores");
+        }
 
         settings()->set('setup.demo_seeded_at', '');
 

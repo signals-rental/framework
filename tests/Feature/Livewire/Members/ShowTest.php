@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ActionLog;
 use App\Models\Member;
 use App\Models\MemberRelationship;
 use App\Models\User;
@@ -150,6 +151,48 @@ it('shows description when present', function () {
 
     Volt::test('members.show', ['member' => $member])
         ->assertSee('A useful description');
+});
+
+it('shows live audit-log entries on the activity timeline', function () {
+    $member = Member::factory()->create(['name' => 'Timeline Member']);
+
+    ActionLog::factory()->create([
+        'action' => 'member.archived',
+        'auditable_type' => $member->getMorphClass(),
+        'auditable_id' => $member->id,
+        'user_id' => $this->user->id,
+    ]);
+
+    Volt::test('members.show', ['member' => $member])
+        ->assertSee('Activity Timeline')
+        // Action string is humanised: member.archived -> "Member Archived".
+        ->assertSee('Member Archived')
+        ->assertSee("by {$this->user->name}")
+        // The old hardcoded placeholder content must be gone.
+        ->assertDontSee('INV-2026-1284');
+});
+
+it('does not show audit entries belonging to other members on the timeline', function () {
+    $member = Member::factory()->create();
+    $other = Member::factory()->create();
+
+    ActionLog::factory()->create([
+        'action' => 'member.updated',
+        'auditable_type' => $other->getMorphClass(),
+        'auditable_id' => $other->id,
+        'user_id' => $this->user->id,
+    ]);
+
+    Volt::test('members.show', ['member' => $member])
+        ->assertSee('No recorded activity for this member yet.')
+        ->assertDontSee('Member Updated');
+});
+
+it('shows an empty-state message when the member has no audit history', function () {
+    $member = Member::factory()->create();
+
+    Volt::test('members.show', ['member' => $member])
+        ->assertSee('No recorded activity for this member yet.');
 });
 
 it('requires authentication', function () {
