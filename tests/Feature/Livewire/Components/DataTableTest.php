@@ -70,6 +70,26 @@ it('sorts by column ascending and descending', function () {
     expect($zebraIndex)->toBeLessThan($alphaIndex);
 });
 
+it('normalises a leading "-" default sort into a clean field and descending direction', function () {
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+        'defaultSort' => '-created_at',
+    ])
+        ->assertSet('sortField', 'created_at')
+        ->assertSet('sortDirection', 'desc');
+});
+
+it('keeps an ascending default sort untouched', function () {
+    Livewire::test(DataTable::class, [
+        'columns' => memberColumns(),
+        'model' => Member::class,
+        'defaultSort' => 'name',
+    ])
+        ->assertSet('sortField', 'name')
+        ->assertSet('sortDirection', 'asc');
+});
+
 it('searches across searchable columns', function () {
     if (config('database.default') === 'sqlite') {
         $this->markTestSkipped('Search uses PostgreSQL ilike operator');

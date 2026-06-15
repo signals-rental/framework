@@ -68,6 +68,7 @@
                                     <div>{{ $productA->stock_levels_count }} stock levels</div>
                                     <div>{{ $productA->accessories_count }} accessories</div>
                                     <div>{{ $productA->attachments_count }} files</div>
+                                    <div>{{ $productA->custom_field_values_count }} {{ Str::plural('custom field', $productA->custom_field_values_count) }}</div>
                                 </div>
                             </button>
 
@@ -86,6 +87,7 @@
                                     <div>{{ $productB->stock_levels_count }} stock levels</div>
                                     <div>{{ $productB->accessories_count }} accessories</div>
                                     <div>{{ $productB->attachments_count }} files</div>
+                                    <div>{{ $productB->custom_field_values_count }} {{ Str::plural('custom field', $productB->custom_field_values_count) }}</div>
                                 </div>
                             </button>
                         </div>

@@ -144,6 +144,41 @@ describe('POST /api/v1/products/{product}/rates', function () {
         $this->assertDatabaseHas('product_rates', ['product_id' => $this->product->id, 'price' => 7500]);
     });
 
+    it('accepts a mixed-case transaction_type and normalises it to the canonical backing value', function (string $supplied) {
+        $token = $this->owner->createToken('test', ['rates:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$this->product->id}/rates", [
+                'rate_definition_id' => $this->definition->id,
+                'transaction_type' => $supplied,
+                'price' => 7500,
+                'currency' => 'GBP',
+                'priority' => 0,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('product_rate.transaction_type', 'rental');
+
+        $this->assertDatabaseHas('product_rates', [
+            'product_id' => $this->product->id,
+            'transaction_type' => 'rental',
+        ]);
+    })->with(['Rental', 'RENTAL', 'rEnTaL']);
+
+    it('rejects an unrecognised transaction_type', function () {
+        $token = $this->owner->createToken('test', ['rates:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$this->product->id}/rates", [
+                'rate_definition_id' => $this->definition->id,
+                'transaction_type' => 'lease',
+                'price' => 7500,
+                'currency' => 'GBP',
+                'priority' => 0,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['transaction_type']);
+    });
+
     it('warns (non-blocking) when the new rate overlaps an existing one at the same priority', function () {
         $existing = ProductRate::factory()->create([
             'product_id' => $this->product->id,
@@ -227,6 +262,27 @@ describe('PUT /api/v1/products/{product}/rates/{rate}', function () {
             ->assertOk()
             ->assertJsonPath('product_rate.price', '99.99')
             ->assertJsonPath('meta.overlapping_rate_ids', []);
+    });
+
+    it('accepts a mixed-case transaction_type on update', function () {
+        $rate = ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $this->definition->id,
+            'transaction_type' => 'rental',
+        ]);
+        $token = $this->owner->createToken('test', ['rates:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/products/{$this->product->id}/rates/{$rate->id}", [
+                'transaction_type' => 'Sale',
+            ])
+            ->assertOk()
+            ->assertJsonPath('product_rate.transaction_type', 'sale');
+
+        $this->assertDatabaseHas('product_rates', [
+            'id' => $rate->id,
+            'transaction_type' => 'sale',
+        ]);
     });
 
     it('warns (non-blocking) when an update moves a rate into an overlap', function () {

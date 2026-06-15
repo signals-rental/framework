@@ -140,6 +140,15 @@ class DataTable extends Component
             throw new \InvalidArgumentException('DataTable requires a valid Eloquent model class.');
         }
 
+        // A leading `-` on the default sort field denotes descending order
+        // (the Ransack `-field` convention). Normalise it into an explicit
+        // field + direction so the field is a clean column key and the sort
+        // summary reads coherently (e.g. "created_at desc", not "-created_at asc").
+        if (str_starts_with($defaultSort, '-')) {
+            $defaultSort = mb_substr($defaultSort, 1);
+            $defaultDirection = 'desc';
+        }
+
         $this->columns = $columns;
         $this->model = $model;
         $this->searchable = $searchable;

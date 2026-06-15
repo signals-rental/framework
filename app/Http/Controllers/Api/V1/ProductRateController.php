@@ -118,6 +118,7 @@ class ProductRateController extends Controller
         $this->authorizeApi('rates.create', 'rates:write');
 
         $request->merge(['product_id' => $product->id]);
+        $this->normaliseTransactionType($request);
         $validated = $request->validate(CreateProductRateData::rules());
         $dto = CreateProductRateData::from($validated);
 
@@ -143,6 +144,7 @@ class ProductRateController extends Controller
 
         $this->ensureBelongsToProduct($product, $rate);
 
+        $this->normaliseTransactionType($request);
         $validated = $request->validate(UpdateProductRateData::rules());
         $dto = UpdateProductRateData::from($validated);
 
@@ -167,6 +169,24 @@ class ProductRateController extends Controller
         (new DeleteProductRate)($rate);
 
         return response()->json(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Coerce a supplied `transaction_type` to its canonical backing value so a
+     * mixed-case value (e.g. `Rental`) passes the case-sensitive enum validation
+     * rule and casts cleanly — mirroring the case-insensitive coercion applied
+     * to Ransack filters on the read path. Absent values are left untouched so
+     * the partial-update (`sometimes`) and required-field rules still apply.
+     */
+    private function normaliseTransactionType(Request $request): void
+    {
+        if (! $request->has('transaction_type')) {
+            return;
+        }
+
+        $request->merge([
+            'transaction_type' => RateTransactionType::coerce($request->input('transaction_type')),
+        ]);
     }
 
     /**

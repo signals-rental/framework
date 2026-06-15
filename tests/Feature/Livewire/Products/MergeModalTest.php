@@ -2,6 +2,8 @@
 
 use App\Events\AuditableEvent;
 use App\Livewire\Products\MergeModal;
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -203,6 +205,45 @@ it('clears merge target', function () {
         ->assertSet('productBId', null)
         ->assertSet('mergeSearch', '')
         ->assertSet('mergeSearchResults', []);
+});
+
+it('includes the custom-field count in the side-by-side comparison', function () {
+    $productA = Product::factory()->rental()->create();
+    $productB = Product::factory()->rental()->create();
+
+    $field = CustomField::factory()->string()->create([
+        'name' => 'po_reference',
+        'module_type' => 'Product',
+    ]);
+
+    // Product A has two custom field values, product B has one.
+    $secondField = CustomField::factory()->string()->create([
+        'name' => 'site_notes',
+        'module_type' => 'Product',
+    ]);
+    CustomFieldValue::factory()->create([
+        'custom_field_id' => $field->id,
+        'entity_type' => Product::class,
+        'entity_id' => $productA->id,
+        'value_string' => 'PO-1',
+    ]);
+    CustomFieldValue::factory()->create([
+        'custom_field_id' => $secondField->id,
+        'entity_type' => Product::class,
+        'entity_id' => $productA->id,
+        'value_string' => 'note',
+    ]);
+    CustomFieldValue::factory()->create([
+        'custom_field_id' => $field->id,
+        'entity_type' => Product::class,
+        'entity_id' => $productB->id,
+        'value_string' => 'PO-2',
+    ]);
+
+    Livewire::test(MergeModal::class)
+        ->dispatch('open-merge-modal', productA: $productA->id, productB: $productB->id)
+        ->assertSee('2 custom fields')
+        ->assertSee('1 custom field');
 });
 
 it('rejects merge when primary is not one of the selected products', function () {

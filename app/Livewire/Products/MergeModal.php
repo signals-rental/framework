@@ -114,8 +114,8 @@ class MergeModal extends Component
      */
     public function with(): array
     {
-        $productA = $this->productAId ? Product::withCount(['stockLevels', 'accessories', 'attachments'])->find($this->productAId) : null;
-        $productB = $this->productBId ? Product::withCount(['stockLevels', 'accessories', 'attachments'])->find($this->productBId) : null;
+        $productA = $this->productAId ? Product::withCount(['stockLevels', 'accessories', 'attachments', 'customFieldValues'])->find($this->productAId) : null;
+        $productB = $this->productBId ? Product::withCount(['stockLevels', 'accessories', 'attachments', 'customFieldValues'])->find($this->productBId) : null;
 
         return [
             'productA' => $productA,
