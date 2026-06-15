@@ -41,6 +41,16 @@ class RansackFilter
     ];
 
     /**
+     * The supported Ransack predicate suffixes (without the leading underscore).
+     *
+     * @return list<string>
+     */
+    public static function predicates(): array
+    {
+        return self::PREDICATES;
+    }
+
+    /**
      * Apply Ransack-compatible filters to a query builder.
      *
      * Filter keys are parsed as `{field}_{predicate}`. Filters on fields
@@ -100,10 +110,72 @@ class RansackFilter
                 continue;
             }
 
+            $value = $this->coerceEnumValue($query, $field, $predicate, $value);
+
             $this->applyPredicate($query, $field, $predicate, $value);
         }
 
         return $query;
+    }
+
+    /**
+     * Coerce an incoming filter value to its canonical backed-enum value when
+     * the target column is cast to a BackedEnum on the query's model.
+     *
+     * This makes equality-family filters on enum columns case-insensitive: a
+     * caller may send the enum's backing value (`rental`), its case name
+     * (`Rental`), or any casing thereof, and it resolves to the stored value.
+     * Non-enum columns and non-equality predicates are returned untouched.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     */
+    private function coerceEnumValue(Builder $query, string $field, string $predicate, mixed $value): mixed
+    {
+        if (! in_array($predicate, ['eq', 'not_eq', 'in', 'not_in'], true)) {
+            return $value;
+        }
+
+        $casts = $query->getModel()->getCasts();
+        $cast = $casts[$field] ?? null;
+
+        if (! is_string($cast) || ! enum_exists($cast) || ! is_subclass_of($cast, \BackedEnum::class)) {
+            return $value;
+        }
+
+        if ($predicate === 'in' || $predicate === 'not_in') {
+            $values = is_array($value) ? $value : explode(',', (string) $value);
+
+            return array_map(fn (mixed $item): mixed => $this->resolveEnumValue($cast, $item), $values);
+        }
+
+        return $this->resolveEnumValue($cast, $value);
+    }
+
+    /**
+     * Resolve a single value to the canonical backing value of a backed enum,
+     * matching case-insensitively against both backing values and case names.
+     * Returns the original value when no case-insensitive match is found, so
+     * unrecognised values still produce a (zero-result) query rather than an error.
+     *
+     * @param  class-string<\BackedEnum>  $enumClass
+     */
+    private function resolveEnumValue(string $enumClass, mixed $value): mixed
+    {
+        if (! is_string($value) && ! is_int($value)) {
+            return $value;
+        }
+
+        $needle = mb_strtolower((string) $value);
+
+        foreach ($enumClass::cases() as $case) {
+            if (mb_strtolower((string) $case->value) === $needle || mb_strtolower($case->name) === $needle) {
+                return $case->value;
+            }
+        }
+
+        return $value;
     }
 
     /**

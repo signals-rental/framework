@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
 
 trait FiltersQueries
 {
@@ -54,16 +55,62 @@ trait FiltersQueries
      */
     protected function applySort(Builder $query, Request $request, ?array $allowedFields = null): Builder
     {
-        $sort = $request->input('sort');
+        $sort = $this->resolveSortParam($request);
 
-        if (! $sort) {
+        if ($sort === null) {
             return $query;
         }
 
-        $sort = $this->translateSortAlias((string) $sort);
+        $sort = $this->translateSortAlias($sort);
         $allowed = $allowedFields ?? $this->allowedSorts;
 
         return app(RansackFilter::class)->applySort($query, $sort, $allowed);
+    }
+
+    /**
+     * Resolve the requested sort into the canonical `field` / `-field` form.
+     *
+     * Accepts either the dedicated `sort` parameter (`name`, `-name`) or the
+     * Ransack-style `q[s]` parameter (`name`, `name asc`, `name desc`). Returns
+     * null when no sort was requested.
+     */
+    protected function resolveSortParam(Request $request): ?string
+    {
+        $sort = $request->input('sort');
+
+        if (is_string($sort) && $sort !== '') {
+            return $sort;
+        }
+
+        $ransackSort = $request->input('q.s');
+
+        // Ransack also accepts an array form (q[s][]=name desc); take the first.
+        if (is_array($ransackSort)) {
+            $ransackSort = $ransackSort[0] ?? null;
+        }
+
+        if (! is_string($ransackSort) || trim($ransackSort) === '') {
+            return null;
+        }
+
+        $parts = preg_split('/\s+/', trim($ransackSort)) ?: [];
+        $field = $parts[0] ?? '';
+
+        if ($field === '') {
+            return null;
+        }
+
+        $direction = strtolower($parts[1] ?? 'asc');
+
+        return ($direction === 'desc' ? '-' : '').$field;
+    }
+
+    /**
+     * Whether the request carries an explicit sort (either `sort` or `q[s]`).
+     */
+    protected function hasExplicitSort(Request $request): bool
+    {
+        return $this->resolveSortParam($request) !== null;
     }
 
     /**
@@ -96,7 +143,7 @@ trait FiltersQueries
             $explicitFilters = $this->translateFilterAliases($explicitFilters);
             $query = $viewResolver->applyFilters($query, $view, $explicitFilters, $this->allowedFilters, $this->allowedRelationFilters);
 
-            if (! $request->filled('sort')) {
+            if (! $this->hasExplicitSort($request)) {
                 $query = $viewResolver->applySort($query, $view);
             } else {
                 $query = $this->applySort($query, $request);
@@ -116,6 +163,12 @@ trait FiltersQueries
      * protected array $allowedIncludes = ['addresses', 'emails', ...];
      * protected array $defaultIncludes = ['customFieldValues'];
      *
+     * Requested include names are accepted either as the relation method name
+     * (e.g. `stockLevels`) or as their response-facing snake_case alias
+     * (e.g. `stock_levels`), so callers can request includes using the same
+     * names they receive in responses. Names not matching an allowed relation
+     * are silently dropped.
+     *
      * @template TModel of Model
      *
      * @param  Builder<TModel>  $query
@@ -124,10 +177,19 @@ trait FiltersQueries
     protected function applyIncludes(Builder $query, Request $request, ?Model $model = null): Builder
     {
         $requested = array_filter(explode(',', $request->input('include', '')));
-        $allowed = $this->allowedIncludes;
         $defaults = $this->defaultIncludes;
 
-        $eagerLoad = array_intersect(array_unique(array_merge($defaults, $requested)), $allowed);
+        $resolved = [];
+
+        foreach (array_unique(array_merge($defaults, $requested)) as $name) {
+            $relation = $this->resolveIncludeRelation((string) $name);
+
+            if ($relation !== null) {
+                $resolved[$relation] = $relation;
+            }
+        }
+
+        $eagerLoad = array_values($resolved);
 
         if ($model) {
             $model->load($eagerLoad);
@@ -138,6 +200,43 @@ trait FiltersQueries
         }
 
         return $query;
+    }
+
+    /**
+     * Resolve a requested include name to its whitelisted relation method name.
+     *
+     * Matches the exact relation path (e.g. `accessories.accessoryProduct`) or
+     * the response-facing snake_case alias of each allowed include
+     * (e.g. `stock_levels` -> `stockLevels`). Returns null when the name does
+     * not correspond to any allowed include.
+     */
+    protected function resolveIncludeRelation(string $name): ?string
+    {
+        $allowed = $this->allowedIncludes;
+
+        if (in_array($name, $allowed, true)) {
+            return $name;
+        }
+
+        foreach ($allowed as $relation) {
+            if ($this->snakeIncludePath($relation) === $name) {
+                return $relation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Convert a (possibly dotted) relation path to its snake_case alias form,
+     * preserving the dot segment separators (e.g. `participants.member`).
+     */
+    protected function snakeIncludePath(string $relation): string
+    {
+        return implode('.', array_map(
+            static fn (string $segment): string => Str::snake($segment),
+            explode('.', $relation),
+        ));
     }
 
     /**
@@ -176,8 +275,19 @@ trait FiltersQueries
             // Leave custom-field filters (cf.*) untouched.
             if (! str_starts_with($newKey, 'cf.')) {
                 foreach ($this->filterAliases as $alias => $column) {
-                    if ($newKey === $alias || str_starts_with($newKey, $alias.'_')) {
+                    if ($newKey === $alias) {
+                        $newKey = $column;
+
+                        break;
+                    }
+
+                    // Only rewrite `{alias}_{predicate}` keys — never a longer real
+                    // column that merely starts with the alias (e.g. the `preset`
+                    // alias must not mangle the real `preset_slug` column key).
+                    if (str_starts_with($newKey, $alias.'_')
+                        && in_array(substr($newKey, strlen($alias) + 1), RansackFilter::predicates(), true)) {
                         $newKey = $column.substr($newKey, strlen($alias));
+
                         break;
                     }
                 }

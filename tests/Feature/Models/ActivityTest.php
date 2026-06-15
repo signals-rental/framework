@@ -233,6 +233,14 @@ it('falls back to class basename for an unmapped regarding_type', function () {
     expect(Activity::shortRegardingType(User::class))->toBe('User');
 });
 
+it('produces a human-friendly label for a regarding_type, never the class string', function () {
+    expect(Activity::regardingTypeLabel(Member::class))->toBe('Member')
+        ->and(Activity::regardingTypeLabel(Product::class))->toBe('Product')
+        ->and(Activity::regardingTypeLabel(StockLevel::class))->toBe('Stock Level')
+        ->and(Activity::regardingTypeLabel(User::class))->toBe('User')
+        ->and(Activity::regardingTypeLabel(null))->toBeNull();
+});
+
 it('defines its schema with core field definitions', function () {
     $schema = (new SchemaRegistry)->resolve(Activity::class);
 

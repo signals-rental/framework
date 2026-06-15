@@ -81,6 +81,26 @@ it('includes product_rates on a rate definition', function () {
         ->assertJsonPath('rate_definition.product_rates.0.id', $rate->id);
 });
 
+it('includes rates on a product', function () {
+    $product = Product::factory()->create();
+    $rate = ProductRate::factory()->create(['product_id' => $product->id]);
+
+    $this->withHeader('Authorization', "Bearer {$this->token}")
+        ->getJson("/api/v1/products/{$product->id}?include=rates")
+        ->assertOk()
+        ->assertJsonPath('product.rates.0.id', $rate->id);
+});
+
+it('omits rates on a product when not requested', function () {
+    $product = Product::factory()->create();
+    ProductRate::factory()->create(['product_id' => $product->id]);
+
+    $this->withHeader('Authorization', "Bearer {$this->token}")
+        ->getJson("/api/v1/products/{$product->id}")
+        ->assertOk()
+        ->assertJsonPath('product.rates', null);
+});
+
 it('includes member on a stock level', function () {
     $member = Member::factory()->create(['name' => 'Acme Hire']);
     $product = Product::factory()->create();

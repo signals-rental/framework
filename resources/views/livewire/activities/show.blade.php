@@ -221,7 +221,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         </a>
                     @else
                         <div class="flex items-center gap-2">
-                            <span class="s-badge s-badge-zinc">{{ $activity->regarding_type }}</span>
+                            <span class="s-badge s-badge-zinc">{{ \App\Models\Activity::regardingTypeLabel($activity->regarding_type) ?? '—' }}</span>
                             <span class="text-sm font-medium">{{ $activity->regarding->name ?? '—' }}</span>
                         </div>
                     @endif

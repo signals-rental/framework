@@ -33,6 +33,18 @@ class RateDefinitionController extends Controller
         'updated_at',
     ];
 
+    /**
+     * Maps response/CRMS-facing keys to the underlying filterable/sortable
+     * column, so consumers can filter by the shorter names they receive
+     * (e.g. `strategy` -> `calculation_strategy`, `preset` -> `preset_slug`).
+     *
+     * @var array<string, string>
+     */
+    protected array $filterAliases = [
+        'strategy' => 'calculation_strategy',
+        'preset' => 'preset_slug',
+    ];
+
     /** @var list<string> */
     protected array $allowedSorts = [
         'name',

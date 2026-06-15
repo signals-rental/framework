@@ -5,6 +5,7 @@ use App\Models\Activity;
 use App\Models\CustomField;
 use App\Models\Member;
 use App\Models\Product;
+use App\Models\StockLevel;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
@@ -55,6 +56,26 @@ it('renders a non-member regarding as a badge without a member link', function (
         ->assertSee('Par Can 64')
         ->assertSee('Product')
         ->assertDontSeeHtml('href="'.route('members.show', $product->id).'"');
+});
+
+it('shows a friendly regarding badge, never the raw class string', function () {
+    $product = Product::factory()->create(['name' => 'Par Can 64']);
+    $activity = Activity::factory()->forProduct($product)->create();
+
+    Volt::test('activities.show', ['activity' => $activity])
+        ->assertSee('Product')
+        ->assertDontSee('App\\Models\\Product')
+        ->assertDontSee('App\Models\Product');
+});
+
+it('renders a stock-level regarding as a "Stock Level" badge, not the class string', function () {
+    $stockLevel = StockLevel::factory()->create(['item_name' => 'Crate 12U']);
+    $activity = Activity::factory()->forStockLevel($stockLevel)->create();
+
+    Volt::test('activities.show', ['activity' => $activity])
+        ->assertSee('Stock Level')
+        ->assertDontSee('App\\Models\\StockLevel')
+        ->assertDontSee('App\Models\StockLevel');
 });
 
 // ── Tabs ────────────────────────────────────────────────────────────────────

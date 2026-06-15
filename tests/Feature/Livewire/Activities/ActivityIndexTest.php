@@ -2,6 +2,8 @@
 
 use App\Enums\ActivityStatus;
 use App\Models\Activity;
+use App\Models\Product;
+use App\Models\StockLevel;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -39,6 +41,29 @@ it('shows the new activity button', function () {
         ->get('/activities')
         ->assertOk()
         ->assertSee('New Activity');
+});
+
+// ── Regarding column ──────────────────────────────────────────────────────────
+
+it('renders the regarding column with a friendly type label, not the class string', function () {
+    $product = Product::factory()->create(['name' => 'Par Can 64']);
+    $activity = Activity::factory()->forProduct($product)->create()->load('regarding');
+
+    $html = view('livewire.activities.partials.column-regarding', ['item' => $activity])->render();
+
+    expect($html)->toContain('Par Can 64')
+        ->and($html)->toContain('Product')
+        ->and($html)->not->toContain('App\\Models\\Product');
+});
+
+it('renders a stock-level regarding column as "Stock Level"', function () {
+    $stockLevel = StockLevel::factory()->create(['item_name' => 'Crate 12U']);
+    $activity = Activity::factory()->forStockLevel($stockLevel)->create()->load('regarding');
+
+    $html = view('livewire.activities.partials.column-regarding', ['item' => $activity])->render();
+
+    expect($html)->toContain('Stock Level')
+        ->and($html)->not->toContain('App\\Models\\StockLevel');
 });
 
 // ── Bulk actions ──────────────────────────────────────────────────────────────

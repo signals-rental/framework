@@ -67,6 +67,7 @@ class ProductController extends Controller
         'taxClass',
         'purchaseTaxClass',
         'stockLevels',
+        'rates',
         'accessories',
         'accessories.accessoryProduct',
         'rentalRevenueGroup',

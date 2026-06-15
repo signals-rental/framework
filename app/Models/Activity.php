@@ -62,6 +62,22 @@ class Activity extends Model implements HasSchema
         return $flipped[$type] ?? class_basename($type);
     }
 
+    /**
+     * Human-friendly label for a regarding_type (FQCN or short alias), e.g.
+     * "App\Models\StockLevel" => "Stock Level". Returns null when unset so the
+     * caller can decide on a placeholder. Never leaks the raw class string.
+     */
+    public static function regardingTypeLabel(?string $type): ?string
+    {
+        $short = self::shortRegardingType($type);
+
+        if ($short === null) {
+            return null;
+        }
+
+        return (string) preg_replace('/(?<=[a-z])(?=[A-Z])/', ' ', $short);
+    }
+
     /** @var list<string> */
     protected $fillable = [
         'subject',

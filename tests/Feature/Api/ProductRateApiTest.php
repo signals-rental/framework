@@ -168,6 +168,32 @@ describe('POST /api/v1/products/{product}/rates', function () {
             ->assertJsonPath('meta.overlapping_rate_ids', [$existing->id]);
     });
 
+    it('warns (non-blocking) when the new rate has overlapping validity dates at the same priority', function () {
+        $existing = ProductRate::factory()->create([
+            'product_id' => $this->product->id,
+            'rate_definition_id' => $this->definition->id,
+            'store_id' => null,
+            'transaction_type' => 'rental',
+            'priority' => 0,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '2026-06-30',
+        ]);
+        $token = $this->owner->createToken('test', ['rates:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$this->product->id}/rates", [
+                'rate_definition_id' => $this->definition->id,
+                'transaction_type' => 'rental',
+                'price' => 5000,
+                'currency' => 'GBP',
+                'priority' => 0,
+                'valid_from' => '2026-03-01', // overlaps the existing Jan–Jun window
+                'valid_to' => '2026-09-30',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('meta.overlapping_rate_ids', [$existing->id]);
+    });
+
     it('validates required fields', function () {
         $token = $this->owner->createToken('test', ['rates:write'])->plainTextToken;
 

@@ -4,10 +4,12 @@ namespace App\Data\Products;
 
 use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
+use App\Data\Rates\ProductRateData;
 use App\Enums\AllowedStockType;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
 use App\Models\Product;
+use App\Models\ProductRate;
 use App\Models\StockLevel;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Attributes\MapOutputName;
@@ -22,6 +24,7 @@ class ProductData extends Data
      * @param  array<string, mixed>|null  $icon
      * @param  list<array<string, mixed>>  $accessories
      * @param  list<StockLevelData>|null  $stock_levels
+     * @param  list<ProductRateData>|null  $rates
      */
     public function __construct(
         public int $id,
@@ -68,6 +71,7 @@ class ProductData extends Data
         public ?array $icon = null,
         public array $accessories = [],
         public ?array $stock_levels = null,
+        public ?array $rates = null,
     ) {}
 
     public static function fromModel(Product $product): self
@@ -165,6 +169,9 @@ class ProductData extends Data
             accessories: $accessories,
             stock_levels: $product->relationLoaded('stockLevels')
                 ? $product->stockLevels->map(fn (StockLevel $stockLevel): StockLevelData => StockLevelData::fromModel($stockLevel))->all()
+                : null,
+            rates: $product->relationLoaded('rates')
+                ? $product->rates->map(fn (ProductRate $rate): ProductRateData => ProductRateData::fromModel($rate))->all()
                 : null,
         );
     }
