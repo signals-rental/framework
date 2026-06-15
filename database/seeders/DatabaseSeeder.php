@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             CountrySeeder::class,
             ListOfValuesSeeder::class,
             CurrencySeeder::class,
+            ExchangeRateSeeder::class,
             StoreSeeder::class,
             TaxClassSeeder::class,
             TaxRateSeeder::class,

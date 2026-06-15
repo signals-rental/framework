@@ -83,9 +83,11 @@ class Product extends Model implements HasSchema
         $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
         $builder->text('description')->label('Description')->searchable();
         $builder->enum('product_type')->label('Product Type')->filterable()->sortable()->groupable();
+        $builder->integer('allowed_stock_type')->label('Allowed Stock Type')->filterable()->groupable();
         $builder->enum('stock_method')->label('Stock Method')->filterable()->sortable()->groupable();
         $builder->boolean('is_active')->label('Active')->filterable()->sortable()->groupable();
         $builder->boolean('accessory_only')->label('Accessory Only')->filterable();
+        $builder->boolean('system')->label('System')->filterable()->groupable();
         $builder->boolean('discountable')->label('Discountable')->filterable();
         $builder->string('barcode')->label('Barcode')->searchable()->filterable();
         $builder->string('sku')->label('SKU')->searchable()->filterable();
@@ -107,6 +109,12 @@ class Product extends Model implements HasSchema
             ->filterable();
         $builder->relation('sale_revenue_group_id')->label('Sale Revenue Group')
             ->relation('saleRevenueGroup', 'belongsTo', RevenueGroup::class, 'name')
+            ->filterable();
+        $builder->relation('sub_rental_cost_group_id')->label('Sub-Rental Cost Group')
+            ->relation('subRentalCostGroup', 'belongsTo', CostGroup::class, 'name')
+            ->filterable();
+        $builder->relation('purchase_cost_group_id')->label('Purchase Cost Group')
+            ->relation('purchaseCostGroup', 'belongsTo', CostGroup::class, 'name')
             ->filterable();
         $builder->relation('country_of_origin_id')->label('Country of Origin')
             ->relation('countryOfOrigin', 'belongsTo', Country::class, 'name')

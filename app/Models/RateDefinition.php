@@ -81,6 +81,8 @@ class RateDefinition extends Model implements HasSchema
         $builder->enum('calculation_strategy')->label('Calculation Strategy')->required()->filterable()->sortable()->groupable();
         $builder->enum('base_period')->label('Base Period')->filterable()->sortable()->groupable();
         $builder->json('enabled_modifiers')->label('Enabled Modifiers');
+        $builder->json('strategy_config')->label('Strategy Config');
+        $builder->json('modifier_configs')->label('Modifier Configs');
         $builder->boolean('is_preset')->label('Preset')->filterable()->sortable()->groupable();
         $builder->string('preset_slug')->label('Preset Slug')->filterable();
         $builder->relation('cloned_from_id')->label('Cloned From')

@@ -93,6 +93,9 @@ class StockLevel extends Model implements HasSchema
         $builder->decimal('quantity_allocated')->label('Quantity Allocated')->sortable();
         $builder->decimal('quantity_unavailable')->label('Quantity Unavailable')->sortable();
         $builder->decimal('quantity_on_order')->label('Quantity on Order')->sortable();
+        $builder->relation('container_stock_level_id')->label('Container')
+            ->relation('container', 'belongsTo', self::class, 'item_name')
+            ->filterable();
         $builder->string('container_mode')->label('Container Mode')->filterable();
         $builder->datetime('starts_at')->label('Starts At')->filterable()->sortable();
         $builder->datetime('ends_at')->label('Ends At')->filterable()->sortable();
