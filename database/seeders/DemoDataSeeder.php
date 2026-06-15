@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\MemberRelationship;
 use App\Models\Phone;
 use App\Models\Store;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
 
 class DemoDataSeeder extends Seeder
@@ -33,6 +34,7 @@ class DemoDataSeeder extends Seeder
                 'postcode' => 'E1 6AN',
                 'country_code' => settings('company.country_code') ?: 'GB',
                 'is_default' => false,
+                'tag_list' => ['demo-data'],
             ],
             [
                 'name' => 'Manchester Depot',
@@ -42,6 +44,7 @@ class DemoDataSeeder extends Seeder
                 'postcode' => 'M1 1AA',
                 'country_code' => settings('company.country_code') ?: 'GB',
                 'is_default' => false,
+                'tag_list' => ['demo-data'],
             ],
             [
                 'name' => 'Edinburgh Office',
@@ -51,6 +54,7 @@ class DemoDataSeeder extends Seeder
                 'postcode' => 'EH1 1BB',
                 'country_code' => settings('company.country_code') ?: 'GB',
                 'is_default' => false,
+                'tag_list' => ['demo-data'],
             ],
         ];
 
@@ -90,7 +94,7 @@ class DemoDataSeeder extends Seeder
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Collection<int, Member>  $members
+     * @param  Collection<int, Member>  $members
      */
     private function createContactDetailsForMembers($members): void
     {
@@ -128,9 +132,9 @@ class DemoDataSeeder extends Seeder
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Collection<int, Member>  $contacts
-     * @param  \Illuminate\Database\Eloquent\Collection<int, Member>  $organisations
-     * @param  \Illuminate\Database\Eloquent\Collection<int, Member>  $venues
+     * @param  Collection<int, Member>  $contacts
+     * @param  Collection<int, Member>  $organisations
+     * @param  Collection<int, Member>  $venues
      */
     private function createRelationships($contacts, $organisations, $venues): void
     {

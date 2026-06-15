@@ -37,6 +37,8 @@ class WebhookService
         'tax_rule.deleted',
         'product.created',
         'product.updated',
+        'product.archived',
+        'product.restored',
         'product.deleted',
         'product.merged',
         'product_group.created',

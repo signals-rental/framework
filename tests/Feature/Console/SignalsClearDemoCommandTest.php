@@ -38,6 +38,27 @@ it('removes demo stores', function () {
     expect(Store::where('name', 'My Real Store')->exists())->toBeTrue();
 });
 
+it('removes a demo store tagged with demo-data created by the seeder', function () {
+    // Mirror DemoDataSeeder::createDemoStores() — demo stores carry the
+    // demo-data tag so they are identifiable as demo records.
+    $demoStore = Store::factory()->create([
+        'name' => 'London Warehouse',
+        'is_default' => false,
+        'tag_list' => ['demo-data'],
+    ]);
+    Store::factory()->create(['name' => 'My Real Store', 'is_default' => true]);
+
+    expect($demoStore->fresh()->tag_list)->toContain('demo-data');
+
+    settings()->set('setup.demo_seeded_at', now()->toIso8601String());
+
+    $this->artisan('signals:clear-demo', ['--force' => true])
+        ->assertSuccessful();
+
+    expect(Store::find($demoStore->id))->toBeNull();
+    expect(Store::where('name', 'My Real Store')->exists())->toBeTrue();
+});
+
 it('cancels when user declines interactive confirmation', function () {
     settings()->set('setup.demo_seeded_at', now()->toIso8601String());
 

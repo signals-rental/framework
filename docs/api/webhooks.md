@@ -31,6 +31,8 @@ Webhooks can be managed via the API (`/api/v1/webhooks`) or from the admin panel
 |-------|---------|
 | `product.created` | A new product is created |
 | `product.updated` | A product's details are updated |
+| `product.archived` | A product is archived (soft-deleted, recoverable) |
+| `product.restored` | An archived product is restored |
 | `product.deleted` | A product is deleted |
 | `product.merged` | Two products are merged |
 | `product_group.created` | A new product group is created |

@@ -2,11 +2,18 @@
 
 use App\Models\Store;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
+    $this->seed(PermissionSeeder::class);
+    $this->seed(RoleSeeder::class);
+    // Store mutations are gated by StorePolicy (settings.manage). Grant the
+    // admin the manage permission so the admin-page flow exercises the actions.
     $this->user = User::factory()->admin()->create();
+    $this->user->givePermissionTo('settings.manage');
     $this->actingAs($this->user);
 });
 

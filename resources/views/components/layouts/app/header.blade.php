@@ -157,8 +157,10 @@
                     </button>
                     <div class="mega-dropdown mega-dropdown-cols-2">
                         <div class="mega-grid grid gap-x-8 gap-y-5">
+                            @canany(['products.access', 'stock.access'])
                             <div>
                                 <div class="mega-group-label">Catalogue</div>
+                                @can('products.access')
                                 <a href="{{ route('products.index') }}" class="mega-item" wire:navigate>
                                     <flux:icon.cube class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
@@ -173,6 +175,8 @@
                                         <span class="mega-item-desc">Categories &amp; hierarchy</span>
                                     </div>
                                 </a>
+                                @endcan
+                                @can('stock.access')
                                 <a href="{{ route('stock-levels.index') }}" class="mega-item" wire:navigate>
                                     <flux:icon.archive-box class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
@@ -180,7 +184,9 @@
                                         <span class="mega-item-desc">Inventory &amp; asset tracking</span>
                                     </div>
                                 </a>
+                                @endcan
                             </div>
+                            @endcanany
                             <div>
                                 <div class="mega-group-label">Services</div>
                                 <a href="#" class="mega-item">
@@ -478,9 +484,11 @@
                 <a class="sidebar-item {{ ActiveRoute::is('admin.settings.custom-field-groups*', 'admin.settings.custom-fields*', 'admin.settings.list-names*', 'admin.settings.lists*', 'admin.settings.list-values*', 'admin.settings.countries') ? 'active' : '' }}" href="{{ route('admin.settings.custom-field-groups') }}" wire:navigate x-on:click="mobileNav = false">
                     <flux:icon.rectangle-group class="!size-[15px]" /> Data
                 </a>
-                <a class="sidebar-item {{ ActiveRoute::is('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate x-on:click="mobileNav = false">
-                    <flux:icon.receipt-percent class="!size-[15px]" /> Tax
-                </a>
+                @can('tax-classes.view')
+                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.receipt-percent class="!size-[15px]" /> Tax
+                    </a>
+                @endcan
                 @can('rates.view')
                     <a class="sidebar-item {{ ActiveRoute::is('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate x-on:click="mobileNav = false">
                         <flux:icon.calculator class="!size-[15px]" /> Pricing
@@ -542,16 +550,22 @@
                     <flux:icon.folder class="!size-[15px]" /> Projects
                 </a>
 
-                <div class="sidebar-group-label">Catalogue</div>
-                <a class="sidebar-item {{ ActiveRoute::is('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}" wire:navigate x-on:click="mobileNav = false">
-                    <flux:icon.cube class="!size-[15px]" /> Products
-                </a>
-                <a class="sidebar-item {{ ActiveRoute::is('product-groups.*') ? 'active' : '' }}" href="{{ route('product-groups.index') }}" wire:navigate x-on:click="mobileNav = false">
-                    <flux:icon.folder class="!size-[15px]" /> Product Groups
-                </a>
-                <a class="sidebar-item {{ ActiveRoute::is('stock-levels.*') ? 'active' : '' }}" href="{{ route('stock-levels.index') }}" wire:navigate x-on:click="mobileNav = false">
-                    <flux:icon.archive-box class="!size-[15px]" /> Stock Levels
-                </a>
+                @canany(['products.access', 'stock.access'])
+                    <div class="sidebar-group-label">Catalogue</div>
+                    @can('products.access')
+                        <a class="sidebar-item {{ ActiveRoute::is('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}" wire:navigate x-on:click="mobileNav = false">
+                            <flux:icon.cube class="!size-[15px]" /> Products
+                        </a>
+                        <a class="sidebar-item {{ ActiveRoute::is('product-groups.*') ? 'active' : '' }}" href="{{ route('product-groups.index') }}" wire:navigate x-on:click="mobileNav = false">
+                            <flux:icon.folder class="!size-[15px]" /> Product Groups
+                        </a>
+                    @endcan
+                    @can('stock.access')
+                        <a class="sidebar-item {{ ActiveRoute::is('stock-levels.*') ? 'active' : '' }}" href="{{ route('stock-levels.index') }}" wire:navigate x-on:click="mobileNav = false">
+                            <flux:icon.archive-box class="!size-[15px]" /> Stock Levels
+                        </a>
+                    @endcan
+                @endcanany
 
                 {{-- Services / Finance / Operations placeholders (ungated until modules ship). --}}
                 <div class="sidebar-group-label">Services</div>
@@ -664,10 +678,12 @@
                         <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Data</span>
                     </a>
 
-                    <a class="sidebar-item {{ ActiveRoute::is('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate>
-                        <flux:icon.receipt-percent class="!size-[15px]" />
-                        <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Tax</span>
-                    </a>
+                    @can('tax-classes.view')
+                        <a class="sidebar-item {{ ActiveRoute::is('admin.settings.tax.*') ? 'active' : '' }}" href="{{ route('admin.settings.tax.product-tax-classes') }}" wire:navigate>
+                            <flux:icon.receipt-percent class="!size-[15px]" />
+                            <span class="sidebar-label" x-show="sidebarOpen" x-cloak>Tax</span>
+                        </a>
+                    @endcan
 
                     @can('rates.view')
                         <a class="sidebar-item {{ ActiveRoute::is('admin.settings.rate-definitions*') ? 'active' : '' }}" href="{{ route('admin.settings.rate-definitions') }}" wire:navigate>

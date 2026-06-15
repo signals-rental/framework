@@ -1,8 +1,11 @@
 <?php
 
-use App\Models\Accessory;
+use App\Actions\Products\CreateAccessory;
+use App\Actions\Products\DeleteAccessory;
+use App\Data\Products\CreateAccessoryData;
 use App\Models\Product;
 use App\Services\Api\RansackFilter;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -29,6 +32,8 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function addAccessory(): void
     {
+        Gate::authorize('products.edit');
+
         $this->validate([
             'selectedAccessoryId' => ['required', 'integer', 'exists:products,id'],
             'accessoryQuantity' => ['required', 'integer', 'min:1'],
@@ -50,11 +55,11 @@ new #[Layout('components.layouts.app')] class extends Component {
             return;
         }
 
-        Accessory::create([
+        (new CreateAccessory)(CreateAccessoryData::from([
             'product_id' => $this->product->id,
             'accessory_product_id' => $this->selectedAccessoryId,
-            'quantity' => $this->accessoryQuantity,
-        ]);
+            'quantity' => (string) $this->accessoryQuantity,
+        ]));
 
         $this->resetForm();
         $this->product->load(['accessories.accessoryProduct']);
@@ -73,7 +78,16 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function removeAccessory(int $accessoryId): void
     {
-        $this->product->accessories()->where('id', $accessoryId)->delete();
+        Gate::authorize('products.edit');
+
+        $accessory = $this->product->accessories()->whereKey($accessoryId)->first();
+
+        if ($accessory === null) {
+            return;
+        }
+
+        (new DeleteAccessory)($accessory);
+
         $this->product->load(['accessories.accessoryProduct']);
         $this->product->loadCount('accessories');
     }

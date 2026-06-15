@@ -6,6 +6,7 @@ use App\Data\Tax\TaxRateData;
 use App\Data\Tax\UpdateTaxRateData;
 use App\Events\AuditableEvent;
 use App\Models\TaxRate;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 
 class UpdateTaxRate
@@ -18,6 +19,12 @@ class UpdateTaxRate
 
         event(new AuditableEvent($taxRate, 'tax_rate.updated'));
 
-        return TaxRateData::fromModel($taxRate->fresh());
+        $fresh = $taxRate->fresh();
+
+        app(WebhookService::class)->dispatch('tax_rate.updated', [
+            'tax_rate' => TaxRateData::fromModel($fresh)->toArray(),
+        ]);
+
+        return TaxRateData::fromModel($fresh);
     }
 }

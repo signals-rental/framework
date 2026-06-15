@@ -44,7 +44,7 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
     public function archiveProduct(int $productId): void
     {
         $product = Product::findOrFail($productId);
-        $product->delete(); // soft delete
+        (new \App\Actions\Products\ArchiveProduct)($product);
         $this->refreshTypeCounts();
         $this->dispatch('product-archived');
     }
@@ -52,7 +52,7 @@ new #[Layout('components.layouts.app')] #[Title('Products')] class extends Compo
     public function restoreProduct(int $productId): void
     {
         $product = Product::withTrashed()->findOrFail($productId);
-        $product->restore();
+        (new \App\Actions\Products\RestoreProduct)($product);
         $this->refreshTypeCounts();
         $this->dispatch('product-restored');
     }

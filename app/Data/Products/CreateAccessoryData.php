@@ -2,6 +2,7 @@
 
 namespace App\Data\Products;
 
+use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Data;
 
 class CreateAccessoryData extends Data
@@ -21,7 +22,7 @@ class CreateAccessoryData extends Data
     public static function rules(): array
     {
         return [
-            'accessory_product_id' => ['required', 'integer', 'exists:products,id'],
+            'accessory_product_id' => ['required', 'integer', Rule::exists('products', 'id')->withoutTrashed()],
             'quantity' => ['sometimes', 'numeric', 'min:0'],
             'included' => ['sometimes', 'boolean'],
             'zero_priced' => ['sometimes', 'boolean'],

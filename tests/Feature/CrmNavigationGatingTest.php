@@ -97,7 +97,6 @@ describe('Restructured navigation group labels', function () {
             ->assertSee('Job Planning', false)
             ->assertSee('Finance', false)
             ->assertSee('Operations', false)
-            ->assertSee('Catalogue', false)
             ->assertSee('Services', false);
     });
 

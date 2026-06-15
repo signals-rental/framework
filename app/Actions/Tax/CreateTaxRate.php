@@ -6,6 +6,7 @@ use App\Data\Tax\CreateTaxRateData;
 use App\Data\Tax\TaxRateData;
 use App\Events\AuditableEvent;
 use App\Models\TaxRate;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 
 class CreateTaxRate
@@ -17,6 +18,10 @@ class CreateTaxRate
         $taxRate = TaxRate::create($data->toArray());
 
         event(new AuditableEvent($taxRate, 'tax_rate.created'));
+
+        app(WebhookService::class)->dispatch('tax_rate.created', [
+            'tax_rate' => TaxRateData::fromModel($taxRate)->toArray(),
+        ]);
 
         return TaxRateData::fromModel($taxRate);
     }

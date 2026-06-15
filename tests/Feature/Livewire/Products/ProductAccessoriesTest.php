@@ -1,12 +1,20 @@
 <?php
 
+use App\Events\AuditableEvent;
+use App\Jobs\DeliverWebhook;
 use App\Models\Accessory;
 use App\Models\Product;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
+    $this->seed(PermissionSeeder::class);
+    $this->seed(RoleSeeder::class);
     $this->user = User::factory()->owner()->create();
     $this->actingAs($this->user);
 });
@@ -97,4 +105,77 @@ it('resets the form fields when resetForm is called', function () {
         ->assertSet('selectedAccessoryId', null)
         ->assertSet('accessoryQuantity', 1)
         ->assertSet('accessorySearch', '');
+});
+
+it('removes an accessory via removeAccessory', function () {
+    $product = Product::factory()->create();
+    $accessoryProduct = Product::factory()->create();
+    $accessory = Accessory::factory()->create([
+        'product_id' => $product->id,
+        'accessory_product_id' => $accessoryProduct->id,
+    ]);
+
+    Volt::test('products.accessories', ['product' => $product])
+        ->call('removeAccessory', $accessory->id);
+
+    expect(Accessory::find($accessory->id))->toBeNull();
+});
+
+it('routes add through the CreateAccessory action so the audit trail is written', function () {
+    Queue::fake([DeliverWebhook::class]);
+
+    $product = Product::factory()->create();
+    $accessoryProduct = Product::factory()->create();
+
+    Volt::test('products.accessories', ['product' => $product])
+        ->set('selectedAccessoryId', $accessoryProduct->id)
+        ->set('accessoryQuantity', 2)
+        ->call('addAccessory')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('action_logs', [
+        'action' => 'accessory.created',
+        'auditable_type' => Accessory::class,
+    ]);
+});
+
+it('routes remove through the DeleteAccessory action firing AuditableEvent', function () {
+    Event::fake([AuditableEvent::class]);
+    Queue::fake([DeliverWebhook::class]);
+
+    $product = Product::factory()->create();
+    $accessory = Accessory::factory()->create(['product_id' => $product->id]);
+
+    Volt::test('products.accessories', ['product' => $product])
+        ->call('removeAccessory', $accessory->id);
+
+    Event::assertDispatched(AuditableEvent::class, fn (AuditableEvent $e) => $e->action === 'accessory.deleted');
+});
+
+it('forbids adding an accessory for a user without products.edit permission', function () {
+    $this->actingAs(User::factory()->create());
+
+    $product = Product::factory()->create();
+    $accessoryProduct = Product::factory()->create();
+
+    Volt::test('products.accessories', ['product' => $product])
+        ->set('selectedAccessoryId', $accessoryProduct->id)
+        ->set('accessoryQuantity', 1)
+        ->call('addAccessory')
+        ->assertForbidden();
+
+    expect(Accessory::query()->where('product_id', $product->id)->exists())->toBeFalse();
+});
+
+it('forbids removing an accessory for a user without products.edit permission', function () {
+    $this->actingAs(User::factory()->create());
+
+    $product = Product::factory()->create();
+    $accessory = Accessory::factory()->create(['product_id' => $product->id]);
+
+    Volt::test('products.accessories', ['product' => $product])
+        ->call('removeAccessory', $accessory->id)
+        ->assertForbidden();
+
+    expect(Accessory::find($accessory->id))->not->toBeNull();
 });

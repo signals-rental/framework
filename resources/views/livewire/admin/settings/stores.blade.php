@@ -1,7 +1,12 @@
 <?php
 
+use App\Actions\Stores\CreateStore;
+use App\Actions\Stores\DeleteStore;
+use App\Actions\Stores\UpdateStore;
 use App\Data\Reference\CountryData;
 use App\Models\Store;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -71,10 +76,9 @@ new #[Layout('components.layouts.app')] #[Title('Stores')] class extends Compone
         ];
 
         if ($this->editingStoreId) {
-            Store::findOrFail($this->editingStoreId)->update($data);
+            (new UpdateStore)(Store::findOrFail($this->editingStoreId), $data);
         } else {
-            $isFirst = Store::count() === 0;
-            Store::create(array_merge($data, ['is_default' => $isFirst]));
+            (new CreateStore)($data);
         }
 
         $this->dispatch('close-store-modal');
@@ -86,9 +90,9 @@ new #[Layout('components.layouts.app')] #[Title('Stores')] class extends Compone
     {
         $store = Store::findOrFail($storeId);
 
-        $store->getConnection()->transaction(function () use ($store) {
-            Store::query()->update(['is_default' => false]);
-            $store->update(['is_default' => true]);
+        DB::transaction(function () use ($store): void {
+            Store::query()->whereKeyNot($store->id)->update(['is_default' => false]);
+            (new UpdateStore)($store, ['is_default' => true]);
         });
 
         $this->loadStores();
@@ -98,13 +102,14 @@ new #[Layout('components.layouts.app')] #[Title('Stores')] class extends Compone
     {
         $store = Store::findOrFail($storeId);
 
-        if ($store->is_default) {
-            $this->addError('deleteStore', 'The default store cannot be deleted.');
+        try {
+            (new DeleteStore)($store);
+        } catch (ValidationException $e) {
+            $this->addError('deleteStore', $e->validator->errors()->first());
 
             return;
         }
 
-        $store->delete();
         $this->loadStores();
     }
 

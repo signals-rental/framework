@@ -6,6 +6,7 @@ use App\Data\Tax\TaxRuleData;
 use App\Data\Tax\UpdateTaxRuleData;
 use App\Events\AuditableEvent;
 use App\Models\TaxRule;
+use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
 
 class UpdateTaxRule
@@ -18,6 +19,12 @@ class UpdateTaxRule
 
         event(new AuditableEvent($taxRule, 'tax_rule.updated'));
 
-        return TaxRuleData::fromModel($taxRule->fresh());
+        $fresh = $taxRule->fresh();
+
+        app(WebhookService::class)->dispatch('tax_rule.updated', [
+            'tax_rule' => TaxRuleData::fromModel($fresh)->toArray(),
+        ]);
+
+        return TaxRuleData::fromModel($fresh);
     }
 }

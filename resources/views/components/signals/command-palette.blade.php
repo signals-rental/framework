@@ -22,10 +22,16 @@
             @can('members.access')
             { group: 'Navigation', label: 'Members', icon: 'users', url: '{{ route('members.index') }}', keywords: 'contacts organisations venues people' },
             @endcan
+            @can('products.access')
             { group: 'Navigation', label: 'Products', icon: 'cube', url: '{{ route('products.index') }}', keywords: 'catalogue equipment rental sale' },
-            { group: 'Navigation', label: 'Stock Levels', icon: 'archive', url: '{{ route('stock-levels.index') }}', keywords: 'inventory stock items assets' },
             { group: 'Navigation', label: 'Product Groups', icon: 'folder', url: '{{ route('product-groups.index') }}', keywords: 'groups categories catalogue organize' },
+            @endcan
+            @can('stock.access')
+            { group: 'Navigation', label: 'Stock Levels', icon: 'archive', url: '{{ route('stock-levels.index') }}', keywords: 'inventory stock items assets' },
+            @endcan
+            @can('activities.access')
             { group: 'Navigation', label: 'Activities', icon: 'calendar', url: '{{ route('activities.index') }}', keywords: 'tasks calls meetings emails notes follow-up crm' },
+            @endcan
             @can('activities.access')
             { group: 'Navigation', label: 'Calendar', icon: 'calendar', url: '{{ route('calendar.index') }}', keywords: 'calendar schedule activities planner day week month' },
             @endcan
@@ -33,9 +39,13 @@
             @can('members.create')
             { group: 'Create', label: 'New Member', icon: 'plus', url: '{{ route('members.create') }}', keywords: 'add create organisation contact venue' },
             @endcan
+            @can('products.create')
             { group: 'Create', label: 'New Product', icon: 'plus', url: '{{ route('products.create') }}', keywords: 'add create product equipment' },
             { group: 'Create', label: 'New Product Group', icon: 'plus', url: '{{ route('product-groups.create') }}', keywords: 'add create product group category' },
+            @endcan
+            @can('activities.create')
             { group: 'Create', label: 'New Activity', icon: 'plus', url: '{{ route('activities.create') }}', keywords: 'add create activity task call meeting' },
+            @endcan
             { group: 'Settings', label: 'Profile Settings', icon: 'user', url: '{{ route('settings.profile') }}', keywords: 'account name email' },
             { group: 'Settings', label: 'Change Password', icon: 'lock', url: '{{ route('settings.password') }}', keywords: 'security password' },
             { group: 'Settings', label: 'Appearance', icon: 'palette', url: '{{ route('settings.appearance') }}', keywords: 'theme dark light mode' },

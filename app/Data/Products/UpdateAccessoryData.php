@@ -2,6 +2,7 @@
 
 namespace App\Data\Products;
 
+use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Data;
 
 class UpdateAccessoryData extends Data
@@ -20,7 +21,7 @@ class UpdateAccessoryData extends Data
     public static function rules(): array
     {
         return [
-            'accessory_product_id' => ['sometimes', 'integer', 'exists:products,id'],
+            'accessory_product_id' => ['sometimes', 'integer', Rule::exists('products', 'id')->withoutTrashed()],
             'quantity' => ['sometimes', 'numeric', 'min:0'],
             'included' => ['sometimes', 'boolean'],
             'zero_priced' => ['sometimes', 'boolean'],
