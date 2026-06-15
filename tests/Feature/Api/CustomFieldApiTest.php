@@ -128,6 +128,48 @@ describe('Custom Fields API', function () {
             ->assertJsonPath('custom_field.display_name', 'Updated Display');
     });
 
+    it('clears validation and visibility rules when sent as null', function () {
+        // #204: an explicit null in the PATCH/PUT body must persist as a clear.
+        $field = CustomField::factory()->create([
+            'validation_rules' => ['max_length' => 20],
+            'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'active']],
+        ]);
+        $token = $this->owner->createToken('test', ['custom-fields:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/custom_fields/{$field->id}", [
+                'validation_rules' => null,
+                'visibility_rules' => null,
+            ])
+            ->assertOk();
+
+        $field->refresh();
+        expect($field->validation_rules)->toBeNull();
+        expect($field->visibility_rules)->toBeNull();
+    });
+
+    it('leaves omitted fields unchanged on update', function () {
+        // Fields not present in the request body are left untouched (partial update).
+        $field = CustomField::factory()->create([
+            'display_name' => 'Original Display',
+            'validation_rules' => ['max_length' => 20],
+            'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'active']],
+        ]);
+        $token = $this->owner->createToken('test', ['custom-fields:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/custom_fields/{$field->id}", [
+                'display_name' => 'Changed Display',
+            ])
+            ->assertOk()
+            ->assertJsonPath('custom_field.display_name', 'Changed Display');
+
+        $field->refresh();
+        expect($field->display_name)->toBe('Changed Display');
+        expect($field->validation_rules)->toBe(['max_length' => 20]);
+        expect($field->visibility_rules)->toBe([['field' => 'status', 'operator' => 'eq', 'value' => 'active']]);
+    });
+
     it('deletes a custom field', function () {
         $field = CustomField::factory()->create();
         $token = $this->owner->createToken('test', ['custom-fields:write'])->plainTextToken;

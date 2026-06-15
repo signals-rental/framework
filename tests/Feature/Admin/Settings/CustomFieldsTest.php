@@ -312,3 +312,32 @@ it('preserves rules round-trip when editing without changes', function () {
     expect($field->validation_rules)->toBe(['max_length' => 10]);
     expect($field->visibility_rules)->toBe([['field' => 'status', 'operator' => 'eq', 'value' => 'active']]);
 });
+
+it('clears validation and visibility rules from the edit form', function () {
+    // #204: emptying the rule inputs in the editor must persist the clear.
+    $field = CustomField::factory()->create([
+        'name' => 'clearable_field',
+        'module_type' => 'Member',
+        'field_type' => CustomFieldType::String,
+        'validation_rules' => ['min_length' => 2, 'max_length' => 50],
+        'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'active']],
+    ]);
+
+    Volt::test('admin.settings.custom-field-form', ['customField' => $field])
+        ->assertSet('validationRules.min_length', '2')
+        ->assertSet('validationRules.max_length', '50')
+        ->assertSet('visibilityRules.0.field', 'status')
+        // Empty every validation input.
+        ->set('validationRules.min_length', '')
+        ->set('validationRules.max_length', '')
+        ->set('validationRules.pattern', '')
+        // Drop the only visibility rule row.
+        ->call('removeVisibilityRule', 0)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $field->refresh();
+
+    expect($field->validation_rules)->toBeNull();
+    expect($field->visibility_rules)->toBeNull();
+});

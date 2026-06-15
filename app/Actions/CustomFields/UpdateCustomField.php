@@ -16,7 +16,11 @@ class UpdateCustomField
     {
         Gate::authorize('custom-fields.manage');
 
-        $field->update(array_filter($data->toArray(), fn ($v) => $v !== null));
+        // toArray() omits Optional (untouched) fields but keeps explicitly
+        // provided values — including nulls — so a caller can clear a nullable
+        // column (e.g. validation_rules/visibility_rules) by sending it as null,
+        // while omitted keys leave their column unchanged (partial update).
+        $field->update($data->toArray());
 
         app(CustomFieldDefinitionResolver::class)->clearCache($field->module_type);
         app(SchemaRegistry::class)->invalidateAll();

@@ -58,6 +58,88 @@ it('updates a custom field', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('sets and changes validation and visibility rules on update', function () {
+    $field = CustomField::factory()->string()->forModule('Member')->create([
+        'validation_rules' => null,
+        'visibility_rules' => null,
+    ]);
+
+    // Set rules where there were none.
+    (new UpdateCustomField)($field, UpdateCustomFieldData::from([
+        'validation_rules' => ['max_length' => 20],
+        'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'active']],
+    ]));
+
+    $field->refresh();
+    expect($field->validation_rules)->toBe(['max_length' => 20]);
+    expect($field->visibility_rules)->toBe([['field' => 'status', 'operator' => 'eq', 'value' => 'active']]);
+
+    // Change the existing rules.
+    (new UpdateCustomField)($field, UpdateCustomFieldData::from([
+        'validation_rules' => ['min_length' => 3, 'max_length' => 50],
+        'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'archived']],
+    ]));
+
+    $field->refresh();
+    expect($field->validation_rules)->toBe(['min_length' => 3, 'max_length' => 50]);
+    expect($field->visibility_rules)->toBe([['field' => 'status', 'operator' => 'eq', 'value' => 'archived']]);
+});
+
+it('clears validation and visibility rules when explicitly set to null on update', function () {
+    // #204: an explicit null must persist as a clear, not be silently dropped.
+    $field = CustomField::factory()->string()->forModule('Member')->create([
+        'validation_rules' => ['max_length' => 20],
+        'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'active']],
+    ]);
+
+    (new UpdateCustomField)($field, UpdateCustomFieldData::from([
+        'validation_rules' => null,
+        'visibility_rules' => null,
+    ]));
+
+    $field->refresh();
+    expect($field->validation_rules)->toBeNull();
+    expect($field->visibility_rules)->toBeNull();
+});
+
+it('clears validation and visibility rules when explicitly set to empty arrays on update', function () {
+    $field = CustomField::factory()->string()->forModule('Member')->create([
+        'validation_rules' => ['max_length' => 20],
+        'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'active']],
+    ]);
+
+    (new UpdateCustomField)($field, UpdateCustomFieldData::from([
+        'validation_rules' => [],
+        'visibility_rules' => [],
+    ]));
+
+    $field->refresh();
+    expect($field->validation_rules)->toBe([]);
+    expect($field->visibility_rules)->toBe([]);
+});
+
+it('leaves omitted fields unchanged on update (partial update)', function () {
+    $field = CustomField::factory()->string()->forModule('Member')->create([
+        'display_name' => 'Original Display',
+        'description' => 'Original description',
+        'validation_rules' => ['max_length' => 20],
+        'visibility_rules' => [['field' => 'status', 'operator' => 'eq', 'value' => 'active']],
+        'is_required' => true,
+    ]);
+
+    // Only touch display_name; everything else is omitted and must be preserved.
+    (new UpdateCustomField)($field, UpdateCustomFieldData::from([
+        'display_name' => 'New Display',
+    ]));
+
+    $field->refresh();
+    expect($field->display_name)->toBe('New Display');
+    expect($field->description)->toBe('Original description');
+    expect($field->validation_rules)->toBe(['max_length' => 20]);
+    expect($field->visibility_rules)->toBe([['field' => 'status', 'operator' => 'eq', 'value' => 'active']]);
+    expect($field->is_required)->toBeTrue();
+});
+
 it('deletes a custom field', function () {
     Event::fake([AuditableEvent::class]);
 
