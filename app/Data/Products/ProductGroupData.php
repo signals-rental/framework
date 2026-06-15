@@ -32,6 +32,11 @@ class ProductGroupData extends Data
 
     public static function fromModel(ProductGroup $group): self
     {
+        // Ensure the flat `custom_fields` object is always present in the
+        // response (e.g. directly after a create/update action where the
+        // relation has not yet been eager-loaded for serialisation).
+        $group->loadMissing('customFieldValues.customField');
+
         /** @var Carbon $createdAt */
         $createdAt = $group->created_at;
 

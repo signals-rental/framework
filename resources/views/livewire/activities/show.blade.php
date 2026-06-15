@@ -1,12 +1,23 @@
 <?php
 
+use App\Livewire\Concerns\HasFileActions;
 use App\Models\Activity;
+use App\Models\ActionLog;
+use App\Models\CustomField;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use HasFileActions;
+
+    /** Number of recent audit-log entries shown on the activity timeline. */
+    private const TIMELINE_LIMIT = 15;
+
     public Activity $activity;
+
+    public ?int $deleteAttachmentId = null;
 
     public function mount(Activity $activity): void
     {
@@ -15,7 +26,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             'type',
             'regarding',
             'participants.member' => fn ($query) => $query->withTrashed()->with('user'),
-        ]);
+        ])->loadCount('attachments');
     }
 
     public function rendering(View $view): void
@@ -33,6 +44,11 @@ new #[Layout('components.layouts.app')] class extends Component {
     {
         (new \App\Actions\Activities\DeleteActivity)($this->activity);
         $this->redirect(route('activities.index'), navigate: true);
+    }
+
+    protected function getFileableModel(): Activity
+    {
+        return $this->activity;
     }
 
     /**
@@ -55,8 +71,8 @@ new #[Layout('components.layouts.app')] class extends Component {
         }
 
         $name = (string) $member->name;
-        $initials = \Illuminate\Support\Str::of($name)->explode(' ')->take(2)
-            ->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
+        $initials = Str::of($name)->explode(' ')->take(2)
+            ->map(fn ($w) => Str::substr($w, 0, 1))->implode('');
 
         return [
             'name' => $name,
@@ -67,17 +83,67 @@ new #[Layout('components.layouts.app')] class extends Component {
     }
 
     /**
+     * Most-recent audit-log entries for this activity, shaped for the timeline.
+     *
+     * @return \Illuminate\Support\Collection<int, array{title: string, meta: string, color: ?string, body: ?string}>
+     */
+    private function timelineEntries(): \Illuminate\Support\Collection
+    {
+        return ActionLog::query()
+            ->with('user')
+            ->forEntity($this->activity->getMorphClass(), $this->activity->id)
+            ->latest('created_at')
+            ->limit(self::TIMELINE_LIMIT)
+            ->get()
+            ->map(fn (ActionLog $log): array => [
+                'title' => Str::of($log->action)->replace(['.', '_'], ' ')->headline()->toString(),
+                'meta' => $log->created_at?->diffForHumans() ?? '',
+                'color' => $this->timelineColor($log->action),
+                'body' => $log->user?->name ? "by {$log->user->name}" : null,
+            ]);
+    }
+
+    /**
+     * Map an audit action to a timeline dot colour for at-a-glance scanning.
+     */
+    private function timelineColor(string $action): ?string
+    {
+        return match (true) {
+            Str::endsWith($action, ['.created', '.restored', '.completed']) => 'green',
+            Str::endsWith($action, ['.deleted', '.cancelled']) => 'red',
+            Str::endsWith($action, ['.updated']) => 'blue',
+            default => null,
+        };
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function with(): array
     {
+        $fields = CustomField::query()
+            ->forModule('Activity')
+            ->active()
+            ->with('group')
+            ->orderBy('sort_order')
+            ->get();
+
+        $values = $this->activity->customFieldValues()
+            ->with('customField')
+            ->get()
+            ->keyBy('custom_field_id');
+
         return [
             'regardingMember' => $this->regardingMember,
+            'timeline' => $this->timelineEntries(),
+            'groupedCustomFields' => $fields->groupBy(fn (CustomField $f) => $f->group?->name ?? 'General'),
+            'customFieldValues' => $values,
+            ...$this->fileData(),
         ];
     }
 }; ?>
 
-<section class="w-full">
+<section class="w-full" x-data="{ tab: 'details' }">
     <x-signals.page-header :title="$activity->subject">
         <x-slot:breadcrumbs>
             <a href="{{ route('activities.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Activities</a>
@@ -109,7 +175,20 @@ new #[Layout('components.layouts.app')] class extends Component {
         </x-slot:actions>
     </x-signals.page-header>
 
-    <div class="grid grid-cols-[1fr_280px] gap-6 px-6 py-4 max-md:grid-cols-1 max-md:px-5 max-sm:px-3">
+    {{-- Tabs --}}
+    <nav class="app-subnav">
+        <div class="flex h-full items-center gap-0">
+            <button type="button" x-on:click="tab = 'details'" class="subnav-link" x-bind:class="{ 'active': tab === 'details' }">Details</button>
+            <button type="button" x-on:click="tab = 'custom-fields'" class="subnav-link" x-bind:class="{ 'active': tab === 'custom-fields' }">Custom Fields</button>
+            <button type="button" x-on:click="tab = 'files'" class="subnav-link" x-bind:class="{ 'active': tab === 'files' }">
+                Files <span class="ml-1 text-[10px] text-[var(--text-muted)]">({{ $activity->attachments_count ?? 0 }})</span>
+            </button>
+            <button type="button" x-on:click="tab = 'timeline'" class="subnav-link" x-bind:class="{ 'active': tab === 'timeline' }">Timeline</button>
+        </div>
+    </nav>
+
+    {{-- DETAILS TAB --}}
+    <div x-show="tab === 'details'" class="grid grid-cols-[1fr_280px] gap-6 px-6 py-4 max-md:grid-cols-1 max-md:px-5 max-sm:px-3">
         {{-- Main Content --}}
         <div class="space-y-6">
             <x-signals.panel title="Details">
@@ -155,7 +234,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                     @if($activity->owner)
                         @php
                             $ownerName = $activity->owner->name;
-                            $ownerInitials = \Illuminate\Support\Str::of($ownerName)->explode(' ')->take(2)->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
+                            $ownerInitials = Str::of($ownerName)->explode(' ')->take(2)->map(fn ($w) => Str::substr($w, 0, 1))->implode('');
                             $ownerColor = str_replace('s-avatar-', '', app(\App\Services\Calendar\OwnerColorResolver::class)->for($activity->owner->id));
                         @endphp
                         <div class="flex items-center justify-between" wire:key="person-owner-{{ $activity->owner->id }}">
@@ -170,7 +249,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                         @php
                             $pUser = $participant->member?->user;
                             $pName = $pUser?->name ?? $participant->member?->name ?? 'Unknown';
-                            $pInitials = \Illuminate\Support\Str::of($pName)->explode(' ')->take(2)->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
+                            $pInitials = Str::of($pName)->explode(' ')->take(2)->map(fn ($w) => Str::substr($w, 0, 1))->implode('');
                             $pColor = $pUser !== null ? str_replace('s-avatar-', '', app(\App\Services\Calendar\OwnerColorResolver::class)->for($pUser->id)) : 'zinc';
                         @endphp
                         <div class="flex items-center justify-between" wire:key="participant-{{ $participant->id }}">
@@ -208,4 +287,62 @@ new #[Layout('components.layouts.app')] class extends Component {
             @endif
         </div>
     </div>
+
+    {{-- CUSTOM FIELDS TAB --}}
+    <div x-show="tab === 'custom-fields'" x-cloak class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
+        <div class="max-w-2xl space-y-8">
+            <x-signals.custom-fields-display
+                :grouped="$groupedCustomFields"
+                :values="$customFieldValues"
+                emptyMessage="No custom fields have been configured for activities."
+            />
+        </div>
+    </div>
+
+    {{-- FILES TAB --}}
+    <div x-show="tab === 'files'" x-cloak class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
+        <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-[var(--text-secondary)]" style="font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em;">
+                Files ({{ $totalCount }})
+            </h3>
+            <button
+                x-data
+                x-on:click="$dispatch('open-file-upload')"
+                class="s-btn s-btn-sm s-btn-primary"
+            >
+                Upload File
+            </button>
+        </div>
+
+        @include('livewire.partials.file-browser', ['entityLabel' => 'activity'])
+    </div>
+
+    {{-- TIMELINE TAB --}}
+    <div x-show="tab === 'timeline'" x-cloak class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
+        <div class="max-w-2xl">
+            <x-signals.panel title="Activity Timeline">
+                @if($timeline->isEmpty())
+                    <div class="text-sm text-[var(--text-muted)] py-4">No recorded history for this activity yet.</div>
+                @else
+                    <x-signals.timeline>
+                        @foreach($timeline as $event)
+                            <x-signals.timeline-item
+                                :color="$event['color']"
+                                :title="$event['title']"
+                                :meta="$event['meta']"
+                                wire:key="timeline-{{ $loop->index }}"
+                            >
+                                @if($event['body'])
+                                    {{ $event['body'] }}
+                                @endif
+                            </x-signals.timeline-item>
+                        @endforeach
+                    </x-signals.timeline>
+                @endif
+            </x-signals.panel>
+        </div>
+    </div>
+
+    {{-- Upload Modal (separate Livewire component for file upload isolation) --}}
+    <livewire:components.file-upload-modal :model-type="\App\Models\Activity::class" :model-id="$activity->id" />
 </section>

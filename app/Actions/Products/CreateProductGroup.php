@@ -7,6 +7,7 @@ use App\Data\Products\ProductGroupData;
 use App\Events\AuditableEvent;
 use App\Models\ProductGroup;
 use App\Services\Api\WebhookService;
+use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -16,6 +17,8 @@ class CreateProductGroup
     {
         Gate::authorize('products.create');
 
+        app(CustomFieldValidator::class)->validate('ProductGroup', $data->custom_fields, enforceRequired: true);
+
         return DB::transaction(function () use ($data): ProductGroupData {
             $group = ProductGroup::create([
                 'name' => $data->name,
@@ -23,6 +26,8 @@ class CreateProductGroup
                 'parent_id' => $data->parent_id,
                 'sort_order' => $data->sort_order,
             ]);
+
+            $group->syncCustomFields($data->custom_fields, applyDefaults: true);
 
             event(new AuditableEvent($group, 'product_group.created'));
 

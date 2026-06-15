@@ -6,6 +6,7 @@ use App\Contracts\HasSchema;
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
 use App\Enums\TimeStatus;
+use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
 use Database\Factories\ActivityFactory;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class Activity extends Model implements HasSchema
 {
     /** @use HasFactory<ActivityFactory> */
-    use HasCustomFields, HasFactory;
+    use HasAttachments, HasCustomFields, HasFactory;
 
     /** @var array<string, class-string<Model>> */
     public static array $regardingMap = [

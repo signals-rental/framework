@@ -86,6 +86,42 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
         }
     }
 
+    /**
+     * Mark each selected activity complete via the CompleteActivity action.
+     *
+     * @param  array<int, int>  $ids
+     */
+    public function bulkComplete(array $ids): void
+    {
+        $action = new \App\Actions\Activities\CompleteActivity;
+        foreach ($ids as $id) {
+            $activity = Activity::find($id);
+            if ($activity && ! $activity->completed) {
+                $action($activity);
+            }
+        }
+        $this->refreshCounts();
+        $this->dispatch('activity-completed');
+    }
+
+    /**
+     * Delete each selected activity via the DeleteActivity action.
+     *
+     * @param  array<int, int>  $ids
+     */
+    public function bulkDelete(array $ids): void
+    {
+        $action = new \App\Actions\Activities\DeleteActivity;
+        foreach ($ids as $id) {
+            $activity = Activity::find($id);
+            if ($activity) {
+                $action($activity);
+            }
+        }
+        $this->refreshCounts();
+        $this->dispatch('activity-deleted');
+    }
+
     public function refreshCounts(): void
     {
         $this->typeCounts = Activity::query()
@@ -183,6 +219,7 @@ new #[Layout('components.layouts.app')] #[Title('Activities')] class extends Com
             default-sort="-created_at"
             empty-message="No activities found."
             actions-view="livewire.activities.partials.row-actions"
+            bulk-actions-view="livewire.activities.partials.bulk-actions"
             toolbar-view="livewire.activities.partials.toolbar"
             entity-type="activities"
             :key="'activities-table-' . $typeFilter . '-' . $statusFilter"

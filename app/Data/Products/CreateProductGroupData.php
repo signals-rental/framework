@@ -11,6 +11,8 @@ class CreateProductGroupData extends Data
         public ?string $description = null,
         public ?int $parent_id = null,
         public int $sort_order = 0,
+        /** @var array<string, mixed> */
+        public array $custom_fields = [],
     ) {}
 
     /**
@@ -23,6 +25,7 @@ class CreateProductGroupData extends Data
             'description' => ['sometimes', 'nullable', 'string'],
             'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:product_groups,id'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
+            'custom_fields' => ['sometimes', 'array'],
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Data\Products\UpdateProductGroupData;
 use App\Events\AuditableEvent;
 use App\Models\ProductGroup;
 use App\Services\Api\WebhookService;
+use App\Services\CustomFieldValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -32,6 +33,7 @@ class UpdateProductGroup
             $parentIdProvided = array_key_exists('parent_id', $attributes);
 
             $updates = collect($attributes)
+                ->except(['custom_fields'])
                 ->reject(fn ($value) => $value === null)
                 ->map(fn ($value) => $value === '' ? null : $value)
                 ->all();
@@ -41,6 +43,11 @@ class UpdateProductGroup
             }
 
             $group->update($updates);
+
+            if ($data->custom_fields !== null) {
+                app(CustomFieldValidator::class)->validate('ProductGroup', $data->custom_fields);
+                $group->syncCustomFields($data->custom_fields);
+            }
 
             $group->refresh();
 

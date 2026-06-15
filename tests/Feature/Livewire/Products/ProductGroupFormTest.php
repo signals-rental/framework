@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\ProductGroup;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -125,4 +127,68 @@ it('excludes the current group from the parent options when editing', function (
 
     expect($parentOptions->pluck('id'))->not->toContain($group->id)
         ->and($parentOptions->pluck('id'))->toContain($other->id);
+});
+
+it('renders the custom fields editor when ProductGroup custom fields exist', function () {
+    CustomField::factory()->string()->create([
+        'name' => 'colour_code',
+        'display_name' => 'Colour Code',
+        'module_type' => 'ProductGroup',
+    ]);
+
+    Volt::test('product-groups.form')
+        ->assertSee('Colour Code');
+});
+
+it('persists custom field values when creating via the form', function () {
+    CustomField::factory()->string()->create([
+        'name' => 'colour_code',
+        'module_type' => 'ProductGroup',
+    ]);
+
+    Volt::test('product-groups.form')
+        ->set('name', 'Lighting CF')
+        ->set('customFieldValues.colour_code', 'AMBER')
+        ->call('save');
+
+    $group = ProductGroup::where('name', 'Lighting CF')->firstOrFail();
+
+    expect(CustomFieldValue::query()
+        ->where('entity_type', ProductGroup::class)
+        ->where('entity_id', $group->id)
+        ->where('value_string', 'AMBER')
+        ->exists())->toBeTrue();
+});
+
+it('hydrates existing custom field values when editing via the form', function () {
+    CustomField::factory()->string()->create([
+        'name' => 'colour_code',
+        'module_type' => 'ProductGroup',
+    ]);
+
+    $group = ProductGroup::factory()->create(['name' => 'Lighting']);
+    $group->syncCustomFields(['colour_code' => 'BLUE']);
+
+    Volt::test('product-groups.form', ['productGroup' => $group])
+        ->assertSet('customFieldValues.colour_code', 'BLUE');
+});
+
+it('persists updated custom field values when editing via the form', function () {
+    CustomField::factory()->string()->create([
+        'name' => 'colour_code',
+        'module_type' => 'ProductGroup',
+    ]);
+
+    $group = ProductGroup::factory()->create(['name' => 'Lighting']);
+    $group->syncCustomFields(['colour_code' => 'BLUE']);
+
+    Volt::test('product-groups.form', ['productGroup' => $group])
+        ->set('customFieldValues.colour_code', 'GREEN')
+        ->call('save');
+
+    expect(CustomFieldValue::query()
+        ->where('entity_type', ProductGroup::class)
+        ->where('entity_id', $group->id)
+        ->where('value_string', 'GREEN')
+        ->exists())->toBeTrue();
 });

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\HasSignalsBranding;
+use App\Models\Activity;
 use App\Models\Email;
 use App\Models\Member;
 use App\Models\MemberRelationship;
@@ -90,6 +91,16 @@ class SignalsClearDemoCommand extends Command
 
         if ($storeCount > 0) {
             $this->components->info("Removed {$storeCount} demo stores");
+        }
+
+        // Remove demo activities by their demo-data tag (set by DemoDataSeeder).
+        // Activities are not soft-deleted, so a plain delete clears them.
+        $activityCount = Activity::query()
+            ->whereJsonContains('tag_list', 'demo-data')
+            ->delete();
+
+        if ($activityCount > 0) {
+            $this->components->info("Removed {$activityCount} demo activities");
         }
 
         settings()->set('setup.demo_seeded_at', '');

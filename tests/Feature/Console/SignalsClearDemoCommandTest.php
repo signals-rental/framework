@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Activity;
 use App\Models\Email;
 use App\Models\Member;
 use App\Models\MemberRelationship;
@@ -204,4 +205,18 @@ it('outputs count of removed demo members', function () {
     $this->artisan('signals:clear-demo', ['--force' => true])
         ->assertSuccessful()
         ->expectsOutputToContain('Removed 3 demo members');
+});
+
+it('removes demo activities tagged with demo-data and leaves real activities', function () {
+    $demoActivity = Activity::factory()->create(['subject' => 'Demo follow-up', 'tag_list' => ['demo-data']]);
+    $realActivity = Activity::factory()->create(['subject' => 'Real follow-up', 'tag_list' => ['crm']]);
+
+    settings()->set('setup.demo_seeded_at', now()->toIso8601String());
+
+    $this->artisan('signals:clear-demo', ['--force' => true])
+        ->assertSuccessful()
+        ->expectsOutputToContain('Removed 1 demo activities');
+
+    expect(Activity::find($demoActivity->id))->toBeNull();
+    expect(Activity::find($realActivity->id))->not->toBeNull();
 });

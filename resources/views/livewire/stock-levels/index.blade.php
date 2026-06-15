@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Products\DeleteStockLevel;
 use App\Models\StockLevel;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -17,6 +18,33 @@ new #[Layout('components.layouts.app')] #[Title('Stock Levels')] class extends C
         }
 
         $this->statusFilter = $status;
+    }
+
+    /**
+     * Delete a single stock level from the row-actions menu.
+     */
+    public function deleteStockLevel(int $stockLevelId): void
+    {
+        $stockLevel = StockLevel::findOrFail($stockLevelId);
+        (new DeleteStockLevel)($stockLevel);
+        $this->dispatch('stock-level-deleted');
+    }
+
+    /**
+     * Bulk delete the selected stock levels via the shared delete action.
+     *
+     * @param  array<int, int>  $ids
+     */
+    public function deleteSelected(array $ids): void
+    {
+        $action = new DeleteStockLevel;
+        foreach ($ids as $id) {
+            $stockLevel = StockLevel::find($id);
+            if ($stockLevel !== null) {
+                $action($stockLevel);
+            }
+        }
+        $this->dispatch('stock-level-deleted');
     }
 
     /**
@@ -43,8 +71,8 @@ new #[Layout('components.layouts.app')] #[Title('Stock Levels')] class extends C
             ],
             'scopes' => match ($this->statusFilter) {
                 'available' => ['available' => true],
-                'allocated' => [],
-                'quarantined' => [],
+                'allocated' => ['allocated' => true],
+                'quarantined' => ['quarantined' => true],
                 default => [],
             },
         ];
@@ -77,9 +105,11 @@ new #[Layout('components.layouts.app')] #[Title('Stock Levels')] class extends C
             :searchable="['item_name', 'asset_number', 'serial_number', 'barcode']"
             :with="['product', 'store']"
             :scopes="$scopes"
+            :refresh-events="['stock-level-deleted']"
             default-sort="item_name"
             empty-message="No stock levels found."
             actions-view="livewire.stock-levels.partials.row-actions"
+            bulk-actions-view="livewire.stock-levels.partials.bulk-actions"
             toolbar-view="livewire.stock-levels.partials.toolbar"
             entity-type="stock_levels"
             :key="'stock-levels-table-' . $statusFilter"

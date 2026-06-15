@@ -12,6 +12,8 @@ class UpdateProductGroupData extends Data
         public ?string $description = null,
         public int|null|Optional $parent_id = new Optional,
         public ?int $sort_order = null,
+        /** @var array<string, mixed>|null */
+        public ?array $custom_fields = null,
     ) {}
 
     /**
@@ -24,6 +26,7 @@ class UpdateProductGroupData extends Data
             'description' => ['sometimes', 'nullable', 'string'],
             'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:product_groups,id'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
+            'custom_fields' => ['sometimes', 'array'],
         ];
     }
 }

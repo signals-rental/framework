@@ -195,6 +195,40 @@ class StockLevel extends Model implements HasSchema
     }
 
     /**
+     * Scope to fully-allocated stock levels (no remaining availability because
+     * everything held is allocated). Mirrors the "Fully Allocated" status badge:
+     * allocated >= held and the level is not quarantined. The quarantine guard
+     * keeps this chip's subset disjoint from {@see scopeQuarantined()}.
+     *
+     * @param  Builder<StockLevel>  $query
+     * @return Builder<StockLevel>
+     */
+    public function scopeAllocated(Builder $query): Builder
+    {
+        return $query
+            ->whereColumn('quantity_allocated', '>=', 'quantity_held')
+            ->where(function (Builder $inner): void {
+                $inner->where('quantity_unavailable', '<=', 0)
+                    ->orWhereRaw('(quantity_held - quantity_allocated - quantity_unavailable) > 0');
+            });
+    }
+
+    /**
+     * Scope to quarantined stock levels: some quantity is marked unavailable and
+     * there is no remaining availability. Mirrors the "Quarantined" status badge:
+     * quantity_unavailable > 0 and (held - allocated - unavailable) <= 0.
+     *
+     * @param  Builder<StockLevel>  $query
+     * @return Builder<StockLevel>
+     */
+    public function scopeQuarantined(Builder $query): Builder
+    {
+        return $query
+            ->where('quantity_unavailable', '>', 0)
+            ->whereRaw('(quantity_held - quantity_allocated - quantity_unavailable) <= 0');
+    }
+
+    /**
      * Scope to serialised stock levels.
      *
      * @param  Builder<StockLevel>  $query

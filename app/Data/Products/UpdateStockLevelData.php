@@ -41,7 +41,7 @@ class UpdateStockLevelData extends Data
         return [
             'product_id' => ['sometimes', 'integer', 'exists:products,id'],
             'store_id' => ['sometimes', 'integer', 'exists:stores,id'],
-            'member_id' => ['sometimes', 'nullable', 'integer', 'exists:members,id'],
+            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
             'item_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'asset_number' => ['sometimes', 'nullable', 'string', 'max:255'],
             'serial_number' => ['sometimes', 'nullable', 'string', 'max:255'],

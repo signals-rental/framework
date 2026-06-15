@@ -4,20 +4,29 @@ use App\Actions\Products\CreateProductGroup;
 use App\Actions\Products\UpdateProductGroup;
 use App\Data\Products\CreateProductGroupData;
 use App\Data\Products\UpdateProductGroupData;
+use App\Livewire\Concerns\LoadsCustomFieldValues;
+use App\Livewire\Concerns\ReKeysCustomFieldErrors;
+use App\Models\CustomField;
 use App\Models\ProductGroup;
 use App\Services\FileService;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use LoadsCustomFieldValues;
+    use ReKeysCustomFieldErrors;
     use WithFileUploads;
 
     public ?int $groupId = null;
     public string $name = '';
     public string $description = '';
     public ?int $parentId = null;
+
+    /** @var array<string, mixed> */
+    public array $customFieldValues = [];
 
     #[Validate('nullable|image|max:2048|mimes:jpeg,jpg,png,webp,gif')]
     public mixed $photo = null;
@@ -29,6 +38,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->name = $productGroup->name;
             $this->description = $productGroup->description ?? '';
             $this->parentId = $productGroup->parent_id;
+            $this->customFieldValues = $this->loadCustomFieldValuesFrom($productGroup);
         }
     }
 
@@ -38,46 +48,68 @@ new #[Layout('components.layouts.app')] class extends Component {
             'name' => ['required', 'string', 'max:255'],
         ]);
 
-        if ($this->groupId) {
-            $group = ProductGroup::findOrFail($this->groupId);
-            $result = (new UpdateProductGroup)(
-                $group,
-                UpdateProductGroupData::from([
-                    'name' => $this->name,
-                    'description' => $this->description ?: null,
-                    'parent_id' => $this->parentId,
-                ])
-            );
-        } else {
-            $result = (new CreateProductGroup)(
-                CreateProductGroupData::from([
-                    'name' => $this->name,
-                    'description' => $this->description ?: null,
-                    'parent_id' => $this->parentId,
-                ])
-            );
+        try {
+            if ($this->groupId) {
+                $group = ProductGroup::findOrFail($this->groupId);
+                $result = (new UpdateProductGroup)(
+                    $group,
+                    UpdateProductGroupData::from([
+                        'name' => $this->name,
+                        'description' => $this->description ?: null,
+                        'parent_id' => $this->parentId,
+                        'custom_fields' => $this->customFieldValues,
+                    ])
+                );
+            } else {
+                $result = (new CreateProductGroup)(
+                    CreateProductGroupData::from([
+                        'name' => $this->name,
+                        'description' => $this->description ?: null,
+                        'parent_id' => $this->parentId,
+                        'custom_fields' => $this->customFieldValues,
+                    ])
+                );
 
-            if ($this->photo) {
-                $group = ProductGroup::findOrFail($result->id);
+                if ($this->photo) {
+                    $group = ProductGroup::findOrFail($result->id);
 
-                try {
-                    $upload = app(FileService::class)->uploadIcon($this->photo, $group);
-                    $group->update([
-                        'icon_url' => $upload['icon_url'],
-                        'icon_thumb_url' => $upload['icon_thumb_url'],
-                    ]);
-                } catch (\Throwable $e) {
-                    report($e);
-                    $this->addError('photo', 'Failed to upload image. You can add one from the edit screen.');
+                    try {
+                        $upload = app(FileService::class)->uploadIcon($this->photo, $group);
+                        $group->update([
+                            'icon_url' => $upload['icon_url'],
+                            'icon_thumb_url' => $upload['icon_thumb_url'],
+                        ]);
+                    } catch (\Throwable $e) {
+                        report($e);
+                        $this->addError('photo', 'Failed to upload image. You can add one from the edit screen.');
 
-                    $this->redirect(route('product-groups.index'), navigate: true);
+                        $this->redirect(route('product-groups.index'), navigate: true);
 
-                    return;
+                        return;
+                    }
                 }
             }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->reKeyCustomFieldErrors($e, $this->referenceData->pluck('name')->all());
         }
 
         $this->redirect(route('product-groups.index'), navigate: true);
+    }
+
+    /**
+     * Active custom field definitions for the ProductGroup module.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, CustomField>
+     */
+    #[Computed]
+    public function referenceData(): \Illuminate\Database\Eloquent\Collection
+    {
+        return CustomField::query()
+            ->forModule('ProductGroup')
+            ->active()
+            ->with(['group', 'listName.values'])
+            ->orderBy('sort_order')
+            ->get();
     }
 
     /**
@@ -85,6 +117,8 @@ new #[Layout('components.layouts.app')] class extends Component {
      */
     public function with(): array
     {
+        $customFields = $this->referenceData;
+
         return [
             'isEditing' => $this->groupId !== null,
             'group' => $this->groupId ? ProductGroup::find($this->groupId) : null,
@@ -92,6 +126,7 @@ new #[Layout('components.layouts.app')] class extends Component {
                 ->when($this->groupId, fn ($q) => $q->where('id', '!=', $this->groupId))
                 ->orderBy('name')
                 ->get(['id', 'name']),
+            'groupedCustomFields' => $customFields->groupBy(fn ($f) => $f->group?->name ?? 'General'),
         ];
     }
 }; ?>
@@ -157,6 +192,10 @@ new #[Layout('components.layouts.app')] class extends Component {
                         </flux:select>
                     </div>
                 </x-signals.form-section>
+
+                @if($groupedCustomFields->isNotEmpty())
+                    <x-signals.custom-fields-editor :groupedCustomFields="$groupedCustomFields" />
+                @endif
 
                 <div class="flex items-center gap-4">
                     <flux:button variant="primary" type="submit">{{ $isEditing ? 'Save Changes' : 'Create Group' }}</flux:button>

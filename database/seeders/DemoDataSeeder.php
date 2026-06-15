@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
+use App\Models\Activity;
 use App\Models\Email;
 use App\Models\Member;
 use App\Models\MemberRelationship;
@@ -11,6 +12,7 @@ use App\Models\Phone;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\Store;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
 
@@ -320,10 +322,83 @@ class DemoDataSeeder extends Seeder
         // TODO: Implement with custom field example values
     }
 
-    /** @codeCoverageIgnore */
+    /**
+     * Seed a realistic spread of demo activities (tasks, calls, meetings,
+     * emails, notes) across the demo members. Each record is tagged
+     * 'demo-data' so signals:clear-demo can remove them. Keyed on subject via
+     * firstOrCreate so re-runs are idempotent.
+     */
     private function createDemoActivities(): void
     {
-        // TODO: Implement when Activity model exists
-        // Spec: activities and discussions on demo records
+        $this->command->info('Seeding demo activities...');
+
+        $user = User::query()->first();
+
+        if ($user === null) {
+            return;
+        }
+
+        // Anchor a few activities on demo members so the "Regarding" links work.
+        $demoMembers = Member::query()
+            ->whereJsonContains('tag_list', 'demo-data')
+            ->limit(3)
+            ->get();
+
+        $activities = [
+            [
+                'subject' => 'Follow up on rental quote',
+                'state' => 'task',
+                'starts_at' => now()->addDay(),
+                'regarding' => $demoMembers->first(),
+            ],
+            [
+                'subject' => 'Confirm delivery schedule',
+                'state' => 'call',
+                'starts_at' => now()->addHours(3),
+            ],
+            [
+                'subject' => 'Site visit for upcoming event',
+                'state' => 'meeting',
+                'location' => 'Client Office',
+            ],
+            [
+                'subject' => 'Send updated price list',
+                'state' => 'email',
+            ],
+            [
+                'subject' => 'Customer prefers Friday deliveries',
+                'state' => 'note',
+                'description' => 'Noted during last phone call that Friday mornings work best for the customer.',
+                'regarding' => $demoMembers->get(1),
+            ],
+            [
+                'subject' => 'Initial consultation completed',
+                'state' => 'completed',
+            ],
+        ];
+
+        foreach ($activities as $data) {
+            $existing = Activity::query()->where('subject', $data['subject'])->exists();
+
+            if ($existing) {
+                continue;
+            }
+
+            /** @var Member|null $regarding */
+            $regarding = $data['regarding'] ?? null;
+
+            Activity::factory()
+                ->{$data['state']}()
+                ->create([
+                    'subject' => $data['subject'],
+                    'description' => $data['description'] ?? null,
+                    'location' => $data['location'] ?? null,
+                    'owned_by' => $user->id,
+                    'starts_at' => $data['starts_at'] ?? null,
+                    'regarding_type' => $regarding !== null ? Member::class : null,
+                    'regarding_id' => $regarding?->id,
+                    'tag_list' => ['demo-data'],
+                ]);
+        }
     }
 }

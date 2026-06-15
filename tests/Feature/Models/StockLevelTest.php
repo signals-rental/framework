@@ -94,6 +94,50 @@ it('scopes to available stock', function () {
     expect((float) $available->first()->quantity_held)->toBe(10.00);
 });
 
+it('scopes each availability chip to its correct subset', function () {
+    // Available: held exceeds allocated + unavailable.
+    $available = StockLevel::factory()->create([
+        'quantity_held' => 10,
+        'quantity_allocated' => 2,
+        'quantity_unavailable' => 0,
+    ]);
+    // Fully allocated: allocated >= held, nothing quarantined.
+    $allocated = StockLevel::factory()->create([
+        'quantity_held' => 5,
+        'quantity_allocated' => 5,
+        'quantity_unavailable' => 0,
+    ]);
+    // Quarantined: some unavailable and no remaining availability.
+    $quarantined = StockLevel::factory()->create([
+        'quantity_held' => 4,
+        'quantity_allocated' => 0,
+        'quantity_unavailable' => 4,
+    ]);
+
+    expect(StockLevel::query()->count())->toBe(3);
+
+    $availableIds = StockLevel::query()->available()->pluck('id');
+    expect($availableIds->all())->toBe([$available->id]);
+
+    $allocatedIds = StockLevel::query()->allocated()->pluck('id');
+    expect($allocatedIds->all())->toBe([$allocated->id]);
+
+    $quarantinedIds = StockLevel::query()->quarantined()->pluck('id');
+    expect($quarantinedIds->all())->toBe([$quarantined->id]);
+});
+
+it('does not classify a quarantined level as allocated (chips are disjoint)', function () {
+    // allocated >= held but also quarantined — must count as quarantined only.
+    $level = StockLevel::factory()->create([
+        'quantity_held' => 5,
+        'quantity_allocated' => 5,
+        'quantity_unavailable' => 2,
+    ]);
+
+    expect(StockLevel::query()->quarantined()->pluck('id')->all())->toBe([$level->id])
+        ->and(StockLevel::query()->allocated()->exists())->toBeFalse();
+});
+
 it('scopes to serialized stock', function () {
     StockLevel::factory()->serialised()->create();
     StockLevel::factory()->bulk()->create();

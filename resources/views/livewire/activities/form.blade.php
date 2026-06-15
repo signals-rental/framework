@@ -8,7 +8,10 @@ use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
+use App\Livewire\Concerns\LoadsCustomFieldValues;
+use App\Livewire\Concerns\ReKeysCustomFieldErrors;
 use App\Models\Activity;
+use App\Models\CustomField;
 use App\Models\ListName;
 use App\Models\Member;
 use App\Models\Product;
@@ -16,10 +19,14 @@ use App\Models\StockLevel;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use App\Services\Api\RansackFilter;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use LoadsCustomFieldValues;
+    use ReKeysCustomFieldErrors;
+
     public ?int $activityId = null;
     public string $subject = '';
     public string $description = '';
@@ -38,6 +45,9 @@ new #[Layout('components.layouts.app')] class extends Component {
     public string $regardingSelectedName = '';
     public string $ownerSearch = '';
     public string $ownerSelectedName = '';
+
+    /** @var array<string, mixed> */
+    public array $customFieldValues = [];
 
     public function mount(?Activity $activity = null): void
     {
@@ -68,6 +78,9 @@ new #[Layout('components.layouts.app')] class extends Component {
             $this->regardingId = $activity->regarding_id;
             $this->startsAt = $activity->starts_at?->format('Y-m-d H:i');
             $this->endsAt = $activity->ends_at?->format('Y-m-d H:i');
+
+            // Load existing custom field values
+            $this->customFieldValues = $this->loadCustomFieldValuesFrom($activity);
         }
 
         // Resolve selected names for autocomplete display
@@ -224,16 +237,37 @@ new #[Layout('components.layouts.app')] class extends Component {
             'regarding_id' => $this->regardingId,
             'starts_at' => $this->startsAt,
             'ends_at' => $this->endsAt,
+            'custom_fields' => $this->customFieldValues,
         ];
 
-        if ($this->activityId) {
-            $activity = Activity::findOrFail($this->activityId);
-            $result = (new UpdateActivity)($activity, UpdateActivityData::from($payload));
-        } else {
-            $result = (new CreateActivity)(CreateActivityData::from($payload));
+        try {
+            if ($this->activityId) {
+                $activity = Activity::findOrFail($this->activityId);
+                $result = (new UpdateActivity)($activity, UpdateActivityData::from($payload));
+            } else {
+                $result = (new CreateActivity)(CreateActivityData::from($payload));
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->reKeyCustomFieldErrors($e, $this->customFields->pluck('name')->all());
         }
 
         $this->redirect(route('activities.show', $result->id), navigate: true);
+    }
+
+    /**
+     * Active custom field definitions for the Activity module.
+     *
+     * @return Collection<int, CustomField>
+     */
+    #[Computed]
+    public function customFields(): Collection
+    {
+        return CustomField::query()
+            ->forModule('Activity')
+            ->active()
+            ->with(['group', 'listName.values'])
+            ->orderBy('sort_order')
+            ->get();
     }
 
     /**
@@ -247,6 +281,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             'activityStatuses' => ActivityStatus::cases(),
             'activityPriorities' => ActivityPriority::cases(),
             'timeStatuses' => TimeStatus::cases(),
+            'groupedCustomFields' => $this->customFields->groupBy(fn (CustomField $f) => $f->group?->name ?? 'General'),
         ];
     }
 
@@ -463,6 +498,15 @@ new #[Layout('components.layouts.app')] class extends Component {
                             @endif
                         </div>
                     </x-signals.form-section>
+
+                    @if($groupedCustomFields->isNotEmpty())
+                        <div>
+                            <h2 style="font-family: var(--font-display); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding-bottom: 4px; border-bottom: 1px solid var(--card-border);">Custom Fields</h2>
+                            <div class="mt-4">
+                                <x-signals.custom-fields-editor :groupedCustomFields="$groupedCustomFields" />
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </form>

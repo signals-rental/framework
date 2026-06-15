@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\CustomField;
+use App\Models\CustomFieldValue;
 use App\Models\ProductGroup;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -198,6 +200,71 @@ describe('POST /api/v1/product_groups', function () {
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['parent_id']);
+    });
+});
+
+describe('custom fields write path', function () {
+    it('persists custom fields posted on create and returns them flat', function () {
+        CustomField::factory()->string()->create([
+            'name' => 'colour_code',
+            'module_type' => 'ProductGroup',
+        ]);
+        $token = $this->owner->createToken('test', ['products:write'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/product_groups', [
+                'name' => 'Lighting',
+                'custom_fields' => ['colour_code' => 'AMBER'],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('product_group.custom_fields.colour_code', 'AMBER');
+
+        $id = $response->json('product_group.id');
+
+        expect(CustomFieldValue::query()
+            ->where('entity_type', ProductGroup::class)
+            ->where('entity_id', $id)
+            ->where('value_string', 'AMBER')
+            ->exists())->toBeTrue();
+    });
+
+    it('persists custom fields posted on update and returns them flat', function () {
+        CustomField::factory()->string()->create([
+            'name' => 'colour_code',
+            'module_type' => 'ProductGroup',
+        ]);
+        $group = ProductGroup::factory()->create(['name' => 'Lighting']);
+        $token = $this->owner->createToken('test', ['products:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/product_groups/{$group->id}", [
+                'custom_fields' => ['colour_code' => 'BLUE'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('product_group.custom_fields.colour_code', 'BLUE');
+
+        expect(CustomFieldValue::query()
+            ->where('entity_type', ProductGroup::class)
+            ->where('entity_id', $group->id)
+            ->where('value_string', 'BLUE')
+            ->exists())->toBeTrue();
+    });
+
+    it('rejects create when a required custom field is missing', function () {
+        CustomField::factory()->string()->required()->create([
+            'name' => 'mandatory_code',
+            'module_type' => 'ProductGroup',
+        ]);
+        $token = $this->owner->createToken('test', ['products:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/product_groups', [
+                'name' => 'Lighting',
+                'custom_fields' => [],
+            ])
+            ->assertUnprocessable();
+
+        expect(ProductGroup::where('name', 'Lighting')->exists())->toBeFalse();
     });
 });
 

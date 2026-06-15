@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property array<int, array<string, mixed>>|null $visibility_rules
+ */
 class CustomField extends Model
 {
     /** @use HasFactory<\Database\Factories\CustomFieldFactory> */
