@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Actions\Auth\ResolveSsoUser;
 use App\Events\AuditableEvent;
 use App\Exceptions\Auth\SsoAccessDeniedException;
+use App\Http\Controllers\Auth\Concerns\HandlesPasswordlessTwoFactor;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\SsoService;
@@ -27,6 +28,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class SsoController extends Controller
 {
+    use HandlesPasswordlessTwoFactor;
+
     public function __construct(
         private readonly SsoService $sso,
         private readonly ResolveSsoUser $resolveSsoUser,
@@ -100,7 +103,7 @@ class SsoController extends Controller
         }
 
         if ($user->hasTwoFactorEnabled()) {
-            return $this->challengeTwoFactor($user, $provider);
+            return $this->challengeTwoFactor($user, 'sso_provider', $provider);
         }
 
         Auth::login($user);
@@ -109,28 +112,6 @@ class SsoController extends Controller
         $this->recordSsoLogin($user, $provider);
 
         return redirect()->intended(route('dashboard'));
-    }
-
-    /**
-     * Hand a 2FA-enabled user off to the existing two-factor challenge.
-     *
-     * This mirrors the password-login `login()` two-factor branch exactly so the
-     * existing two-factor-challenge component picks up the pending login: the user
-     * is NOT authenticated here — the challenge calls `Auth::loginUsingId()` once
-     * the second factor is verified. The provider is stashed in the session so the
-     * challenge can audit the SSO login once it completes (see the component's
-     * `authenticate()`).
-     *
-     * @return RedirectResponse Redirect to the two-factor challenge page.
-     */
-    protected function challengeTwoFactor(User $user, string $provider): RedirectResponse
-    {
-        Session::forget('two_factor_confirmed');
-        Session::regenerate();
-        Session::put('two_factor_user_id', $user->id);
-        Session::put('sso_provider', $provider);
-
-        return redirect()->route('two-factor.challenge');
     }
 
     /**

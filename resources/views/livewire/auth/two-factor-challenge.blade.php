@@ -1,6 +1,7 @@
 <?php
 
 use App\Events\AuditableEvent;
+use App\Http\Controllers\Auth\Concerns\HandlesPasswordlessTwoFactor;
 use App\Models\User;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Auth;
@@ -77,35 +78,42 @@ new #[Layout('components.layouts.auth')] class extends Component {
         Session::put('two_factor_confirmed', true);
         Session::regenerate();
 
-        $this->auditSsoLoginIfPending($user);
+        $this->auditPendingPasswordlessLogin($user);
 
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
     }
 
     /**
-     * Audit an SSO login once the second factor completes it.
+     * Audit a passwordless (SSO or magic-link) login once 2FA completes it.
      *
-     * The SSO callback stashes the provider in the session before handing a
-     * 2FA-enabled user to this challenge. When that key is present, fire the same
-     * `auth.sso_login` audit event the non-2FA SSO path records, so SSO+2FA logins
-     * are audited identically. Password+2FA logins have no `sso_provider` key and
-     * are unaffected.
+     * Both passwordless callbacks stash a session flag before handing a
+     * 2FA-enabled user to this challenge: the SSO callback sets `sso_provider`,
+     * the magic-link callback sets `magic_link_login`. When one is present, fire
+     * the same audit event the non-2FA path records so 2FA logins are audited
+     * identically. Password+2FA logins set neither flag and are unaffected.
+     *
+     * BOTH flags are always cleared at the end regardless of which one audited,
+     * so an abandoned passwordless attempt can never leave a stale flag that
+     * mis-audits a later login.
      */
-    private function auditSsoLoginIfPending(User $user): void
+    private function auditPendingPasswordlessLogin(User $user): void
     {
         $provider = Session::get('sso_provider');
 
-        if (! is_string($provider) || $provider === '') {
-            return;
+        if (is_string($provider) && $provider !== '') {
+            event(new AuditableEvent(
+                model: $user,
+                action: 'auth.sso_login',
+                metadata: ['provider' => $provider],
+            ));
+        } elseif (Session::get('magic_link_login') === true) {
+            event(new AuditableEvent(
+                model: $user,
+                action: 'auth.magic_link_login',
+            ));
         }
 
-        event(new AuditableEvent(
-            model: $user,
-            action: 'auth.sso_login',
-            metadata: ['provider' => $provider],
-        ));
-
-        Session::forget('sso_provider');
+        HandlesPasswordlessTwoFactor::clearPasswordlessAuditFlags();
     }
 
     /**

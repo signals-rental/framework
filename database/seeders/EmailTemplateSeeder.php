@@ -27,6 +27,13 @@ class EmailTemplateSeeder extends Seeder
                 'description' => 'Sent when a user requests a password reset.',
                 'available_merge_fields' => ['user.name', 'user.email', 'company.name', 'reset.url'],
             ],
+            'magic_link' => [
+                'name' => 'Magic-Link Sign-In',
+                'subject' => 'Your sign-in link for {{ company.name }}',
+                'body_markdown' => "# Sign in to {{ company.name }}\n\nHello {{ user.name }},\n\nClick the button below to sign in to your account. This link can be used once and expires in 15 minutes.\n\n<a class=\"sig-btn\" href=\"{{ magic_link.url }}\">Sign In &rarr;</a>\n\nIf you did not request this link, you can safely ignore this email &mdash; your account remains secure.\n\nRegards,\n**{{ company.name }}**",
+                'description' => 'Sent when a user requests a magic-link sign-in.',
+                'available_merge_fields' => ['user.name', 'user.email', 'company.name', 'magic_link.url'],
+            ],
             'test_email' => [
                 'name' => 'Test Email',
                 'subject' => 'Test email from {{ company.name }}',

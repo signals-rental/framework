@@ -22,6 +22,7 @@ class SecuritySettings extends SettingsDefinition
             'require_2fa_admin' => false,
             'require_2fa_all' => false,
             'sso_enforced_roles' => [],
+            'magic_link_enabled' => false,
         ];
     }
 
@@ -39,6 +40,7 @@ class SecuritySettings extends SettingsDefinition
             'require_2fa_all' => ['required', 'boolean'],
             'sso_enforced_roles' => ['array'],
             'sso_enforced_roles.*' => ['string', 'exists:roles,name'],
+            'magic_link_enabled' => ['required', 'boolean'],
         ];
     }
 
@@ -55,6 +57,7 @@ class SecuritySettings extends SettingsDefinition
             'require_2fa_admin' => 'boolean',
             'require_2fa_all' => 'boolean',
             'sso_enforced_roles' => 'json',
+            'magic_link_enabled' => 'boolean',
         ];
     }
 }

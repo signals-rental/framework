@@ -19,6 +19,7 @@ class EmailTemplateRenderer
             'company' => ['name' => settings('company.name', 'Your Company')],
             'invitation' => ['url' => 'https://example.com/invitation/abc123'],
             'reset' => ['url' => 'https://example.com/reset/abc123'],
+            'magic_link' => ['url' => 'https://example.com/auth/magic-link/abc123'],
         ];
     }
 

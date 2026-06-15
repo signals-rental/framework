@@ -213,6 +213,16 @@ class User extends Authenticatable implements HasSchema
     }
 
     /**
+     * The magic-link login tokens minted for this user.
+     *
+     * @return HasMany<MagicLinkToken, $this>
+     */
+    public function magicLinkTokens(): HasMany
+    {
+        return $this->hasMany(MagicLinkToken::class);
+    }
+
+    /**
      * Propagate this user's name to its linked member record.
      *
      * User-type members are managed entirely from the user's profile, so the

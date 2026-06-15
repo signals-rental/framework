@@ -16,6 +16,7 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
     public int $lockoutDuration = 15;
     public bool $require2faAdmin = false;
     public bool $require2faAll = false;
+    public bool $magicLinkEnabled = false;
 
     /** @var list<string> */
     public array $ssoEnforcedRoles = [];
@@ -33,6 +34,7 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
         $this->lockoutDuration = (int) $group['lockout_duration'];
         $this->require2faAdmin = (bool) $group['require_2fa_admin'];
         $this->require2faAll = (bool) $group['require_2fa_all'];
+        $this->magicLinkEnabled = (bool) $group['magic_link_enabled'];
 
         // Drop stale entries whose role was later renamed or deleted, so a stored
         // value that no longer satisfies `exists:roles,name` cannot block saving
@@ -62,6 +64,7 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
             'require2faAll' => $rules['require_2fa_all'],
             'ssoEnforcedRoles' => $rules['sso_enforced_roles'],
             'ssoEnforcedRoles.*' => $rules['sso_enforced_roles.*'],
+            'magicLinkEnabled' => $rules['magic_link_enabled'],
         ]);
 
         settings()->setMany([
@@ -75,6 +78,7 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
             'security.require_2fa_admin' => ['value' => $validated['require2faAdmin'], 'type' => $types['require_2fa_admin']],
             'security.require_2fa_all' => ['value' => $validated['require2faAll'], 'type' => $types['require_2fa_all']],
             'security.sso_enforced_roles' => ['value' => array_values($validated['ssoEnforcedRoles']), 'type' => $types['sso_enforced_roles']],
+            'security.magic_link_enabled' => ['value' => $validated['magicLinkEnabled'], 'type' => $types['magic_link_enabled']],
         ]);
 
         $this->dispatch('security-settings-saved');
@@ -143,6 +147,17 @@ new #[Layout('components.layouts.app')] #[Title('Security')] class extends Compo
                         <x-signals.checkbox x-bind:class="checked && 'checked'" />
                         <span class="text-sm">Require 2FA for all users</span>
                     </label>
+                </div>
+            </x-signals.form-section>
+
+            <x-signals.form-section title="Passwordless Login">
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 cursor-pointer" x-data="{ checked: @js($magicLinkEnabled) }">
+                        <input type="checkbox" wire:model="magicLinkEnabled" class="hidden" x-on:change="checked = $el.checked" />
+                        <x-signals.checkbox x-bind:class="checked && 'checked'" />
+                        <span class="text-sm">Email magic-link login</span>
+                    </label>
+                    <p class="text-xs text-zinc-500">Allow users to sign in via a one-time link emailed to them; never bypasses two-factor authentication.</p>
                 </div>
             </x-signals.form-section>
 

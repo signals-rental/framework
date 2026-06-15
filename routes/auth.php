@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\MagicLinkController;
 use App\Http\Controllers\Auth\SsoController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Livewire\Actions\Logout;
@@ -33,6 +34,14 @@ Route::middleware('signals.setup-complete')->group(function () {
             Route::get('auth/{provider}/callback', [SsoController::class, 'callback'])
                 ->whereIn('provider', ['google', 'microsoft'])
                 ->name('sso.callback');
+        });
+
+        // Email magic-link login — consume an emailed single-use sign-in link
+        // (spec §8). The request side is a Livewire action on the login page;
+        // only the consume route is registered here. Rate-limited per spec §10.
+        Route::middleware('throttle:6,1')->group(function () {
+            Route::get('auth/magic-link/{token}', [MagicLinkController::class, 'consume'])
+                ->name('magic-link.login');
         });
     });
 

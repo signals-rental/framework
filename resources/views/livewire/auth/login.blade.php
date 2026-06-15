@@ -1,5 +1,7 @@
 <?php
 
+use App\Actions\Auth\RequestMagicLink;
+use App\Data\Auth\RequestMagicLinkData;
 use App\Models\User;
 use App\Services\Auth\SsoEnforcement;
 use App\Services\Auth\SsoService;
@@ -21,6 +23,19 @@ new #[Layout('components.layouts.auth')] class extends Component {
     public string $password = '';
 
     public bool $remember = false;
+
+    /**
+     * The address entered in the "email me a sign-in link" affordance.
+     */
+    public string $magicLinkEmail = '';
+
+    /**
+     * Whether the neutral magic-link confirmation has been shown.
+     *
+     * Set after a {@see sendMagicLink()} request regardless of outcome so the
+     * page never reveals whether an account exists for the address.
+     */
+    public bool $magicLinkSent = false;
 
     /**
      * Handle an incoming authentication request.
@@ -58,6 +73,26 @@ new #[Layout('components.layouts.auth')] class extends Component {
         Session::regenerate();
 
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+    }
+
+    /**
+     * Request a magic-link sign-in email for the entered address (spec §7, §9).
+     *
+     * Always shows the SAME neutral confirmation regardless of outcome so the
+     * page never reveals whether an account exists (anti-enumeration). The
+     * underlying {@see RequestMagicLink} action owns throttling and eligibility
+     * (including the feature toggle), so it silently no-ops while the feature is
+     * off — no re-check is needed here.
+     */
+    public function sendMagicLink(): void
+    {
+        $this->validateOnly('magicLinkEmail', [
+            'magicLinkEmail' => 'required|string|email',
+        ]);
+
+        app(RequestMagicLink::class)(new RequestMagicLinkData(email: $this->magicLinkEmail));
+
+        $this->magicLinkSent = true;
     }
 
     /**
@@ -119,14 +154,15 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 
     /**
-     * Expose the enabled+configured SSO providers (in display order) to the view.
+     * Expose view state: enabled SSO providers and the magic-link toggle.
      *
-     * @return array{ssoProviders: list<string>}
+     * @return array{ssoProviders: list<string>, magicLinkEnabled: bool}
      */
     public function with(): array
     {
         return [
             'ssoProviders' => app(SsoService::class)->enabledProviders(),
+            'magicLinkEnabled' => (bool) settings('security.magic_link_enabled'),
         ];
     }
 }; ?>
@@ -166,11 +202,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
             @endforeach
         </div>
 
-        <div class="flex items-center gap-3" role="separator" aria-hidden="true">
-            <span class="h-px flex-1 bg-[var(--card-border)]"></span>
-            <span class="s-auth-description uppercase tracking-wide">{{ __('or') }}</span>
-            <span class="h-px flex-1 bg-[var(--card-border)]"></span>
-        </div>
+        @include('livewire.auth.partials.or-divider')
     @endif
 
     <form wire:submit="login" class="flex flex-col gap-5">
@@ -198,4 +230,52 @@ new #[Layout('components.layouts.auth')] class extends Component {
 
         <button type="submit" class="s-btn s-btn-primary s-btn-block">{{ __('Log in') }}</button>
     </form>
+
+    @if ($magicLinkEnabled)
+        <div
+            class="flex flex-col gap-4"
+            x-data="{ revealed: @js($magicLinkSent) }"
+            wire:key="magic-link-affordance"
+        >
+            @include('livewire.auth.partials.or-divider')
+
+            <button
+                type="button"
+                class="s-btn s-btn-block"
+                x-show="! revealed"
+                x-on:click="revealed = true; $wire.magicLinkEmail = $wire.email; $nextTick(() => $refs.magicLinkInput?.focus())"
+                aria-controls="magic-link-form"
+                :aria-expanded="revealed.toString()"
+            >
+                {{ __('Email me a sign-in link') }}
+            </button>
+
+            <div x-show="revealed" x-cloak id="magic-link-form" class="flex flex-col gap-4">
+                @if ($magicLinkSent)
+                    <x-signals.alert type="success">
+                        {{ __("If an account exists for that email, we've sent a sign-in link.") }}
+                    </x-signals.alert>
+                @else
+                    <form wire:submit="sendMagicLink" class="flex flex-col gap-4">
+                        <div class="s-field !mb-0 {{ $errors->has('magicLinkEmail') ? 'has-error' : '' }}">
+                            <label class="s-field-label" for="magic-link-email">{{ __('Email address') }}</label>
+                            <input
+                                wire:model="magicLinkEmail"
+                                x-ref="magicLinkInput"
+                                id="magic-link-email"
+                                type="email"
+                                name="magic_link_email"
+                                class="s-input"
+                                autocomplete="username"
+                                placeholder="email@example.com"
+                            >
+                            @error('magicLinkEmail') <div class="s-field-error">{{ $message }}</div> @enderror
+                        </div>
+
+                        <button type="submit" class="s-btn s-btn-block">{{ __('Send sign-in link') }}</button>
+                    </form>
+                @endif
+            </div>
+        </div>
+    @endif
 </div>

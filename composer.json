@@ -78,7 +78,10 @@
         "psr-4": {
             "Tests\\": "tests/",
             "Signals\\PHPStan\\": "phpstan/Extensions/"
-        }
+        },
+        "files": [
+            "tests/Support/MagicLinkHelpers.php"
+        ]
     },
     "scripts": {
         "setup": [

@@ -27,7 +27,8 @@ it('loads security settings with defaults', function () {
         ->assertSet('maxLoginAttempts', 5)
         ->assertSet('lockoutDuration', 15)
         ->assertSet('require2faAdmin', false)
-        ->assertSet('require2faAll', false);
+        ->assertSet('require2faAll', false)
+        ->assertSet('magicLinkEnabled', false);
 });
 
 it('saves security settings', function () {
@@ -41,6 +42,7 @@ it('saves security settings', function () {
         ->set('lockoutDuration', 30)
         ->set('require2faAdmin', true)
         ->set('require2faAll', false)
+        ->set('magicLinkEnabled', true)
         ->call('save')
         ->assertHasNoErrors()
         ->assertDispatched('security-settings-saved');
@@ -50,6 +52,30 @@ it('saves security settings', function () {
     expect(settings('security.session_timeout'))->toBe(60);
     expect(settings('security.max_login_attempts'))->toBe(3);
     expect(settings('security.require_2fa_admin'))->toBe(true);
+    expect(settings('security.magic_link_enabled'))->toBe(true);
+});
+
+it('defaults magic-link login to disabled', function () {
+    Volt::test('admin.settings.security')
+        ->assertSet('magicLinkEnabled', false);
+
+    expect(settings('security.magic_link_enabled'))->toBe(false);
+});
+
+it('persists and round-trips the magic-link login toggle', function () {
+    Volt::test('admin.settings.security')
+        ->set('magicLinkEnabled', true)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('security-settings-saved');
+
+    expect(settings('security.magic_link_enabled'))->toBe(true);
+});
+
+it('renders the magic-link login toggle on the page', function () {
+    Volt::test('admin.settings.security')
+        ->assertSee('Email magic-link login')
+        ->assertSeeHtml('wire:model="magicLinkEnabled"');
 });
 
 it('validates password min length range', function () {
