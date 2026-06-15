@@ -61,7 +61,11 @@ class ListOfValuesSeeder extends Seeder
 
     /**
      * Seed the "Activity Type" system list from the ActivityType default-set,
-     * persisting each case's icon key in the value metadata.
+     * persisting each case's icon key and CRMS-aligned type code in the value
+     * metadata. The `code` (1001-1007) is the RMS-compatible ActivityType code
+     * exposed to API consumers as `type_code`; user-added custom types have no
+     * code. updateOrCreate keeps this idempotent — re-seeding backfills the
+     * `code` onto list values created before this metadata key existed.
      */
     private function seedActivityTypes(): void
     {
@@ -80,7 +84,7 @@ class ListOfValuesSeeder extends Seeder
                     'sort_order' => $index,
                     'is_system' => true,
                     'is_active' => true,
-                    'metadata' => ['icon' => $case->icon()],
+                    'metadata' => ['icon' => $case->icon(), 'code' => $case->value],
                 ],
             );
         }

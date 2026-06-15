@@ -2,6 +2,21 @@
 
 CRUD endpoints for managing activities (tasks, calls, meetings, emails, notes).
 
+## Activity types: `type_id` vs `type_code`
+
+Activity types are editable list-of-values entries, so an activity carries two
+type identifiers in its response:
+
+- **`type_id`** — the `list_values.id` of the chosen "Activity Type". This is the
+  editable system: list values can be renamed, reordered, or added to, and the
+  id is what you read, write (on create/update), and filter on
+  (`q[type_id_eq]=...`). Its value is database-assigned, **not** a fixed code.
+- **`type_code`** — the RMS-aligned ActivityType code, for drop-in compatibility
+  with industry-standard rental management systems. Built-in types expose a
+  stable code: `Task=1001`, `Call=1002`, `Fax=1003`, `Email=1004`,
+  `Meeting=1005`, `Note=1006`, `Letter=1007`. User-added custom activity types
+  have no CRMS code, so their `type_code` is `null`. This field is read-only.
+
 ## Endpoints
 
 | Method | URL | Description |
@@ -51,7 +66,8 @@ GET /api/v1/activities
             "starts_at": "2026-03-21T10:00:00.000Z",
             "ends_at": "2026-03-21T10:30:00.000Z",
             "priority": 1,
-            "type_id": 1001,
+            "type_id": 78,
+            "type_code": 1001,
             "status_id": 2001,
             "completed": false,
             "time_status": 0,
@@ -93,7 +109,8 @@ GET /api/v1/activities/{id}
         "starts_at": "2026-03-21T10:00:00.000Z",
         "ends_at": "2026-03-21T10:30:00.000Z",
         "priority": 1,
-        "type_id": 1001,
+        "type_id": 78,
+        "type_code": 1001,
         "status_id": 2001,
         "completed": false,
         "time_status": 0,
@@ -174,7 +191,8 @@ Marks an activity as complete. Sets `completed` to `true` and updates the status
         "starts_at": "2026-03-21T10:00:00.000Z",
         "ends_at": "2026-03-21T10:30:00.000Z",
         "priority": 1,
-        "type_id": 1001,
+        "type_id": 78,
+        "type_code": 1001,
         "status_id": 2001,
         "completed": true,
         "time_status": 0,

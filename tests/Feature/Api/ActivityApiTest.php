@@ -354,18 +354,58 @@ describe('RMS response shape', function () {
             'id', 'subject', 'description', 'location',
             'regarding_id', 'regarding_type', 'owned_by',
             'starts_at', 'ends_at', 'priority',
-            'type_id', 'status_id', 'completed', 'time_status',
+            'type_id', 'type_code', 'status_id', 'completed', 'time_status',
             'custom_fields', 'participants',
             'activity_type_name', 'activity_status_name', 'time_status_name',
             'created_at', 'updated_at',
         ]);
 
         expect($data['type_id'])->toBe($faxId);
+        expect($data['type_code'])->toBe(1003);
         expect($data['activity_type_name'])->toBe('Fax');
         expect($data['status_id'])->toBe(2001);
         expect($data['activity_status_name'])->toBe('Scheduled');
         expect($data['time_status'])->toBe(0);
         expect($data['time_status_name'])->toBe('Free');
         expect($data['completed'])->toBeFalse();
+    });
+
+    it('exposes the CRMS type_code for a built-in type alongside the editable type_id', function () {
+        $taskId = apiTypeId(ActivityType::Task);
+        $activity = Activity::factory()->task()->create();
+        $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/activities/{$activity->id}")
+            ->assertOk();
+
+        // type_id is the editable list_values id; type_code is the RMS-aligned code.
+        $response
+            ->assertJsonPath('activity.type_id', $taskId)
+            ->assertJsonPath('activity.type_code', 1001);
+
+        expect($response->json('activity.type_id'))->not->toBe(1001);
+    });
+
+    it('returns a null type_code for a user-added custom activity type', function () {
+        // A custom "Activity Type" list value with no CRMS code in its metadata.
+        $listId = ListName::query()->where('name', 'Activity Type')->value('id');
+        $customType = ListValue::query()->create([
+            'list_name_id' => $listId,
+            'name' => 'Site Visit',
+            'sort_order' => 99,
+            'is_system' => false,
+            'is_active' => true,
+            'metadata' => ['icon' => 'task'],
+        ]);
+        $activity = Activity::factory()->create(['type_id' => $customType->id]);
+        $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/activities/{$activity->id}")
+            ->assertOk()
+            ->assertJsonPath('activity.type_id', $customType->id)
+            ->assertJsonPath('activity.activity_type_name', 'Site Visit')
+            ->assertJsonPath('activity.type_code', null);
     });
 });
