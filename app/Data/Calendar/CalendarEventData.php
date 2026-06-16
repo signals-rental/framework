@@ -8,6 +8,7 @@ use App\Enums\TimeStatus;
 use App\Models\Activity;
 use App\Models\User;
 use App\Services\Calendar\OwnerColorResolver;
+use App\Support\Calendar\AllDayDetector;
 use App\Support\Timezone;
 use Carbon\CarbonInterface;
 use Spatie\LaravelData\Data;
@@ -99,7 +100,7 @@ class CalendarEventData extends Data
             }
         }
 
-        $isMultiDay = ! self::isAllDay($startsAt, $endsAt)
+        $isMultiDay = ! AllDayDetector::isAllDay($startsAt, $endsAt)
             && $startsAt !== null
             && $endsAt !== null
             && ! $startsAt->isSameDay($endsAt);
@@ -137,7 +138,7 @@ class CalendarEventData extends Data
             owner_color: app(OwnerColorResolver::class)->for($activity->owned_by),
             starts_at: $startsAt?->toIso8601String(),
             ends_at: $endsAt?->toIso8601String(),
-            all_day: self::isAllDay($startsAt, $endsAt),
+            all_day: AllDayDetector::isAllDay($startsAt, $endsAt),
             type_id: $typeId,
             type_name: $typeName,
             type_icon: $typeIcon,
@@ -153,32 +154,5 @@ class CalendarEventData extends Data
             priority: $priority->value,
             participants: $participants,
         );
-    }
-
-    /**
-     * All-day heuristic (D8): true when the event starts at exactly 00:00 and
-     * either has no end, ends at 23:59, or ends at the next day's 00:00.
-     */
-    private static function isAllDay(?CarbonInterface $startsAt, ?CarbonInterface $endsAt): bool
-    {
-        if ($startsAt === null) {
-            return false;
-        }
-
-        if ($startsAt->format('H:i') !== '00:00') {
-            return false;
-        }
-
-        if ($endsAt === null) {
-            return true;
-        }
-
-        if ($endsAt->format('H:i') === '23:59') {
-            return true;
-        }
-
-        $nextMidnight = $startsAt->copy()->addDay()->startOfDay();
-
-        return $endsAt->equalTo($nextMidnight);
     }
 }

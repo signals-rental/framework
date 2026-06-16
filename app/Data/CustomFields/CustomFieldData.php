@@ -11,7 +11,7 @@ class CustomFieldData extends Data
     /**
      * @param  array<string, mixed>|null  $settings
      * @param  array<string, mixed>|null  $validation_rules
-     * @param  array<string, mixed>|null  $visibility_rules
+     * @param  array<int, array{field: string, operator: string, value?: mixed}>|null  $visibility_rules
      */
     public function __construct(
         public int $id,

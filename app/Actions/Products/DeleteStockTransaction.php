@@ -28,6 +28,9 @@ class DeleteStockTransaction
 
             $transaction->delete();
 
+            // Safe to dispatch inside the transaction: DeliverWebhook sets
+            // afterCommit = true, so the delivery only enqueues after commit
+            // (and is dropped if this transaction rolls back).
             app(WebhookService::class)->dispatch('stock_transaction.deleted', [
                 'stock_transaction' => $payload,
             ]);

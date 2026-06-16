@@ -94,7 +94,7 @@ it('keeps the raw ends_at without applying the D9 default', function () {
     expect($data->ends_at)->toBeNull();
 });
 
-describe('all_day heuristic (D8)', function () {
+describe('all_day rule (unified detector)', function () {
     it('is true for 00:00 start with a null end', function () {
         $activity = Activity::factory()->create([
             'starts_at' => '2026-06-15 00:00:00',
@@ -125,9 +125,44 @@ describe('all_day heuristic (D8)', function () {
         expect(CalendarEventData::fromModel($activity)->all_day)->toBeTrue();
     });
 
+    it('is true for a 3-day midnight-to-midnight span', function () {
+        $activity = Activity::factory()->create([
+            'starts_at' => '2026-06-15 00:00:00',
+            'ends_at' => '2026-06-18 00:00:00',
+        ]);
+        $activity->load('owner');
+
+        expect(CalendarEventData::fromModel($activity)->all_day)->toBeTrue();
+    });
+
     it('is false for a timed 09:00 to 10:00 event', function () {
         $activity = Activity::factory()->create([
             'starts_at' => '2026-06-15 09:00:00',
+            'ends_at' => '2026-06-15 10:00:00',
+        ]);
+        $activity->load('owner');
+
+        expect(CalendarEventData::fromModel($activity)->all_day)->toBeFalse();
+    });
+
+    it('is false for a timed 09:00 to 17:00 (working-hours) event', function () {
+        settings()->set('scheduling.default_start_time', '09:00');
+        settings()->set('scheduling.default_end_time', '17:00');
+
+        $activity = Activity::factory()->create([
+            'starts_at' => '2026-06-15 09:00:00',
+            'ends_at' => '2026-06-15 17:00:00',
+        ]);
+        $activity->load('owner');
+
+        // A 09:00–17:00 event must NOT be treated as all-day even though it
+        // exactly spans the configured working day (the old grid heuristic).
+        expect(CalendarEventData::fromModel($activity)->all_day)->toBeFalse();
+    });
+
+    it('is false when start is at midnight but end is timed', function () {
+        $activity = Activity::factory()->create([
+            'starts_at' => '2026-06-15 00:00:00',
             'ends_at' => '2026-06-15 10:00:00',
         ]);
         $activity->load('owner');
@@ -143,6 +178,21 @@ describe('all_day heuristic (D8)', function () {
         $activity->load('owner');
 
         expect(CalendarEventData::fromModel($activity)->all_day)->toBeFalse();
+    });
+
+    it('resolves all-day against the company timezone, not UTC', function () {
+        // Asia/Singapore is UTC+8. A local all-day block (00:00 → next 00:00 local)
+        // is stored UTC as 2026-06-14 16:00 → 2026-06-15 16:00 — neither endpoint
+        // is a UTC midnight, so a UTC-based check would wrongly report "timed".
+        settings()->set('company.timezone', 'Asia/Singapore');
+
+        $activity = Activity::factory()->create([
+            'starts_at' => '2026-06-14 16:00:00',
+            'ends_at' => '2026-06-15 16:00:00',
+        ]);
+        $activity->load('owner');
+
+        expect(CalendarEventData::fromModel($activity)->all_day)->toBeTrue();
     });
 });
 

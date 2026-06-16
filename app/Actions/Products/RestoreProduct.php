@@ -24,9 +24,9 @@ class RestoreProduct
             event(new AuditableEvent($product, 'product.restored'));
         });
 
-        // Dispatch the webhook only after the transaction has committed. All queue
-        // connections use after_commit: false, so dispatching inside the closure
-        // would queue a delivery even if the transaction later rolled back.
+        // DeliverWebhook sets afterCommit = true, so each delivery only enqueues
+        // after the surrounding transaction commits (and is dropped on rollback).
+        // Dispatch placement relative to the transaction is therefore safe either way.
         app(WebhookService::class)->dispatch('product.restored', [
             'id' => $product->id,
         ]);

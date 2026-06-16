@@ -194,7 +194,6 @@
           <a href="#calendar">Calendar</a>
           <a href="#date-picker">Date Picker</a>
           <a href="#datetime-input">Datetime Input</a>
-          <a href="#otp-input">OTP Input</a>
           <a href="#colour-picker">Colour Picker</a>
           <a href="#upload-zone">Upload Zone</a>
           <a href="#dropzone">Dropzone</a>
@@ -225,6 +224,7 @@
           <a href="#product-cell">Product Cell</a>
           <a href="#availability-bar">Availability Bar</a>
           <a href="#photo-gallery">Photo Gallery</a>
+          <a href="#scheduling-calendar">Scheduling Calendar</a>
         </div>
         <div class="ref-index-group">
           <div class="ref-index-group-label">Overlays</div>
@@ -2549,18 +2549,6 @@
     </div>
 
     {{-- ============================================================ --}}
-    {{--  78. OTP INPUT                                                --}}
-    {{-- ============================================================ --}}
-    <div class="ref-section">
-      <div class="ref-section-title">OTP Input</div>
-      <div class="ref-note">Multi-digit code input with auto-advance, backspace navigation, and paste support. Uses <code>&lt;x-signals.otp-input&gt;</code>.</div>
-      <div class="ref-demo" style="display: flex; flex-direction: column; gap: 16px; align-items: flex-start;">
-        <x-signals.otp-input :length="6" :separator="true" />
-        <x-signals.otp-input :length="4" />
-      </div>
-    </div>
-
-    {{-- ============================================================ --}}
     {{--  79. TIMELINE                                                 --}}
     {{-- ============================================================ --}}
     <div class="ref-section">
@@ -3083,6 +3071,172 @@
               ['src' => 'https://picsum.photos/seed/sig6/400/400', 'alt' => 'Equipment 6', 'caption' => 'Truss and rigging'],
           ]"
         />
+      </div>
+    </div>
+
+    {{-- ============================================================ --}}
+    {{--  99. SCHEDULING CALENDAR                                      --}}
+    {{-- ============================================================ --}}
+    <div class="ref-section">
+      <div class="ref-section-title">Scheduling Calendar</div>
+      <div class="ref-note">Full-page day/week/month scheduling grid. <strong>Distinct from <code>.s-calendar</code> (section 72)</strong> — this is the hour-axis activity/resource calendar. Event blocks are positioned absolutely via inline <code>top</code>/<code>height</code>/<code>left</code>/<code>width</code> set by JS; owner tints mirror the <code>.s-avatar-*</code> palette. The <code>--s-cal-hour-h</code> custom property (default <code>44px</code>) drives all hour-row and event geometry.</div>
+
+      {{-- Live demo: a compact 3-column week view (Mon–Wed) with an all-day band and 3 event blocks --}}
+      <div class="ref-demo" style="overflow: hidden;">
+        <div class="s-cal" style="--s-cal-hour-h: 40px; height: 280px;">
+
+          {{-- All-day band --}}
+          <div class="s-cal-allday">
+            <div class="s-cal-allday-label">All day</div>
+            <div class="s-cal-allday-grid" style="grid-template-columns: repeat(3, 1fr); grid-template-rows: 19px;">
+              <div class="s-cal-allday-bar s-cal-event-blue" style="grid-column: 1 / span 2; grid-row: 1; color: #2563eb;">Summer Festival Prep</div>
+            </div>
+          </div>
+
+          {{-- Scrollable hour grid --}}
+          <div class="s-cal-grid" style="overflow: hidden;">
+
+            {{-- Hour gutter --}}
+            <div class="s-cal-gutter">
+              <div class="s-cal-gutter-spacer"></div>
+              <div class="s-cal-hour">08:00</div>
+              <div class="s-cal-hour">09:00</div>
+              <div class="s-cal-hour">10:00</div>
+              <div class="s-cal-hour">11:00</div>
+              <div class="s-cal-hour">12:00</div>
+            </div>
+
+            {{-- Monday — today (highlighted), one event --}}
+            <div class="s-cal-col">
+              <div class="s-cal-colhead today">
+                <div>
+                  <div class="s-cal-colhead-dow">Mon</div>
+                  <div class="s-cal-colhead-date">16</div>
+                </div>
+              </div>
+              <div class="s-cal-colbody" style="position: relative; flex: 1 1 0; display: flex; flex-direction: column;">
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                {{-- Current-time line at ~09:30 = 30% of 5-hour window --}}
+                <div class="s-cal-now" style="top: 30%;"></div>
+                {{-- Event: 09:00–10:30, green owner tint --}}
+                <div class="s-cal-event s-cal-event-green" style="top: 20%; height: 30%; left: 0; width: 100%;">
+                  <div class="s-cal-event-time">09:00</div>
+                  <div class="s-cal-event-title">Load-in Call</div>
+                  <div class="s-cal-event-sub">Summer Festival · Wembley Arena</div>
+                </div>
+              </div>
+            </div>
+
+            {{-- Tuesday — amber owner tint event --}}
+            <div class="s-cal-col">
+              <div class="s-cal-colhead">
+                <div>
+                  <div class="s-cal-colhead-dow">Tue</div>
+                  <div class="s-cal-colhead-date">17</div>
+                </div>
+              </div>
+              <div class="s-cal-colbody" style="position: relative; flex: 1 1 0; display: flex; flex-direction: column;">
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                {{-- Event: 10:00–11:30, amber owner tint --}}
+                <div class="s-cal-event s-cal-event-amber" style="top: 40%; height: 30%; left: 0; width: 100%;">
+                  <div class="s-cal-event-time">10:00</div>
+                  <div class="s-cal-event-title">Site Survey</div>
+                  <div class="s-cal-event-sub">Corporate Launch · ExCeL</div>
+                </div>
+              </div>
+            </div>
+
+            {{-- Wednesday — completed (muted) event --}}
+            <div class="s-cal-col">
+              <div class="s-cal-colhead">
+                <div>
+                  <div class="s-cal-colhead-dow">Wed</div>
+                  <div class="s-cal-colhead-date">18</div>
+                </div>
+              </div>
+              <div class="s-cal-colbody" style="position: relative; flex: 1 1 0; display: flex; flex-direction: column;">
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour s-cal-nonwork"></div>
+                <div class="s-cal-hour s-cal-nonwork"></div>
+                <div class="s-cal-hour"></div>
+                <div class="s-cal-hour"></div>
+                {{-- Event: 08:00–09:00, completed state --}}
+                <div class="s-cal-event completed" style="top: 0%; height: 20%; left: 0; width: 100%;">
+                  <div class="s-cal-event-time">08:00</div>
+                  <div class="s-cal-event-title">Pre-rig Check</div>
+                </div>
+              </div>
+            </div>
+
+          </div>{{-- /.s-cal-grid --}}
+        </div>{{-- /.s-cal --}}
+      </div>
+
+      {{-- Class reference --}}
+      <div class="ref-note" style="margin-top: 16px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Wrapper &amp; axes (day/week)</div>
+      <div class="ref-note" style="margin-bottom: 4px;">
+        <code>s-cal</code> — wrapper (flex column); sets <code>--s-cal-hour-h</code> (default <code>44px</code>).<br>
+        <code>s-cal-gutter</code> — left hour-label column; <code>s-cal-gutter-spacer</code> top spacer aligns with column headers.<br>
+        <code>s-cal-grid</code> — scrollable flex row of day/owner columns alongside the gutter.<br>
+        <code>s-cal-col</code> — a single day or owner column (events absolutely positioned inside); <code>s-cal-nonwork</code> shades weekend/off-hours.<br>
+        <code>s-cal-colbody</code> — column body that hour rows divide and events position against.<br>
+        <code>s-cal-colhead</code> — sticky column header (avatar / day label); <code>.today</code> tints it green.<br>
+        <code>s-cal-colhead-dow</code> / <code>s-cal-colhead-date</code> — day-of-week label and date number inside a column header.<br>
+        <code>s-cal-hour</code> — an hour-row line (also gutter hour labels); <code>s-cal-nonwork</code> modifier shades off-hours rows.<br>
+        <code>s-cal-now</code> — current-time accent line (blue, 2px) across the active column.
+      </div>
+
+      <div class="ref-note" style="margin-top: 12px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">All-day band</div>
+      <div class="ref-note" style="margin-bottom: 4px;">
+        <code>s-cal-allday</code> — full-width band above the hour grid.<br>
+        <code>s-cal-allday-label</code> — left "All day" label cell.<br>
+        <code>s-cal-allday-grid</code> — 7-column (or n-column) grid for multi-day spanning bars; set <code>grid-template-columns</code> to match visible day count.<br>
+        <code>s-cal-allday-bar</code> — spanning all-day bar; <code>.completed</code> (strikethrough, 0.6 opacity), <code>.cancelled</code> (dashed, 0.55 opacity) state modifiers.
+      </div>
+
+      <div class="ref-note" style="margin-top: 12px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Event blocks (day/week)</div>
+      <div class="ref-note" style="margin-bottom: 4px;">
+        <code>s-cal-event</code> — absolutely-positioned event block; <code>top</code>/<code>height</code>/<code>left</code>/<code>width</code> set by JS as percentages of the column window.<br>
+        &nbsp;&nbsp;<code>.completed</code> — muted background, strikethrough title, 0.6 opacity.<br>
+        &nbsp;&nbsp;<code>.cancelled</code> — muted background, dashed left border, 0.55 opacity.<br>
+        &nbsp;&nbsp;<code>.s-cal-event-continue-top</code> / <code>.s-cal-event-continue-bottom</code> — dashed edge cue that a multi-day event continues onto the adjacent day.<br>
+        <code>s-cal-event-title</code> — event subject (bold, truncated).<br>
+        <code>s-cal-event-time</code> — start time (mono, muted).<br>
+        <code>s-cal-event-sub</code> — secondary "regarding" line beneath the subject (mono, muted).<br>
+        <code>s-cal-event-meta</code> — flex meta row for priority + type icons + location.<br>
+        <code>s-cal-event-prio</code> — priority marker; <code>s-cal-prio-high</code> (red), <code>s-cal-prio-normal</code> (amber), <code>s-cal-prio-low</code> (muted).<br>
+        <code>s-cal-event-loc</code> — location with leading icon inside the meta row.<br>
+        <code>s-cal-event-avatars</code> / <code>s-cal-event-avatars-more</code> — overlapping owner/participant avatar stack with overflow count.<br>
+        <code>s-cal-event-{green|blue|amber|violet|cyan|navy}</code> — owner tint (background + currentColor border/text); mirrors <code>.s-avatar-*</code> palette.
+      </div>
+
+      <div class="ref-note" style="margin-top: 12px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Month grid</div>
+      <div class="ref-note" style="margin-bottom: 4px;">
+        <code>s-cal-month</code> — 7-column CSS grid; one row per calendar week.<br>
+        <code>s-cal-month-dow</code> — day-of-week header cell.<br>
+        <code>s-cal-month-cell</code> — a day cell; <code>.other-month</code> (subtle bg), <code>.nonwork</code> (hover bg), <code>.today</code> (green inset ring) state modifiers.<br>
+        <code>s-cal-month-daynum</code> — day number inside a cell; green filled circle on <code>.today</code>.<br>
+        <code>s-cal-chip</code> — compact event chip inside a month cell; <code>.completed</code> / <code>.cancelled</code> modifiers.<br>
+        <code>s-cal-chip-dot</code> — colour dot leading a chip; <code>s-cal-chip-time</code> — chip time (mono); <code>s-cal-chip-sub</code> — secondary line.<br>
+        <code>s-cal-chip-{green|blue|amber|violet|cyan|navy}</code> — chip currentColor modifiers.<br>
+        <code>s-cal-more</code> — "+N more" overflow link inside a month cell.
+      </div>
+
+      <div class="ref-note" style="margin-top: 12px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Unscheduled tray</div>
+      <div class="ref-note">
+        <code>s-cal-unscheduled</code> — collapsible tray below the grid listing events without a fixed time.<br>
+        <code>s-cal-unscheduled-header</code> — tray toggle header.<br>
+        <code>s-cal-unscheduled-body</code> — scrollable list container.<br>
+        <code>s-cal-unscheduled-item</code> — a single unscheduled activity row (left-border tinted);<br>
+        &nbsp;&nbsp;<code>s-cal-unscheduled-item-title</code> (bold subject) + <code>s-cal-unscheduled-owner</code> (mono, muted) inside.
       </div>
     </div>
 

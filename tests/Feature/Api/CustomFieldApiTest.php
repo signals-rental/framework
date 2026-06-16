@@ -170,6 +170,38 @@ describe('Custom Fields API', function () {
         expect($field->visibility_rules)->toBe([['field' => 'status', 'operator' => 'eq', 'value' => 'active']]);
     });
 
+    it('returns 422 (not 500) when renaming a field to a name used in the same module', function () {
+        // #210: the ['name', 'module_type'] unique index must surface as a
+        // validation error, not an uncaught QueryException.
+        CustomField::factory()->create(['name' => 'existing_field', 'module_type' => 'Member']);
+        $field = CustomField::factory()->create(['name' => 'original_field', 'module_type' => 'Member']);
+        $token = $this->owner->createToken('test', ['custom-fields:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/custom_fields/{$field->id}", [
+                'name' => 'existing_field',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['name']);
+
+        $field->refresh();
+        expect($field->name)->toBe('original_field');
+    });
+
+    it('allows renaming a field to its own current name', function () {
+        $field = CustomField::factory()->create(['name' => 'po_reference', 'module_type' => 'Member']);
+        $token = $this->owner->createToken('test', ['custom-fields:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/custom_fields/{$field->id}", [
+                'name' => 'po_reference',
+                'display_name' => 'Updated Display',
+            ])
+            ->assertOk()
+            ->assertJsonPath('custom_field.name', 'po_reference')
+            ->assertJsonPath('custom_field.display_name', 'Updated Display');
+    });
+
     it('deletes a custom field', function () {
         $field = CustomField::factory()->create();
         $token = $this->owner->createToken('test', ['custom-fields:write'])->plainTextToken;

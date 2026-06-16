@@ -408,4 +408,19 @@ describe('RMS response shape', function () {
             ->assertJsonPath('activity.activity_type_name', 'Site Visit')
             ->assertJsonPath('activity.type_code', null);
     });
+
+    it('serialises a null type_id as null, not 0', function () {
+        // activities.type_id is nullable (legacy/dirty values were nulled by the
+        // type_id->list_value migration; the FK uses nullOnDelete). A null type_id
+        // must serialise as null — never the bogus id 0 that maps to no list value.
+        $activity = Activity::factory()->create(['type_id' => null]);
+        $token = $this->owner->createToken('test', ['activities:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/activities/{$activity->id}")
+            ->assertOk()
+            ->assertJsonPath('activity.type_id', null)
+            ->assertJsonPath('activity.activity_type_name', '')
+            ->assertJsonPath('activity.type_code', null);
+    });
 });

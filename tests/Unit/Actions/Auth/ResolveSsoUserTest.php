@@ -157,6 +157,52 @@ it('denies an inactive user matched via an existing link', function () {
     ($this->resolve)('google', fakeSocialiteUser('google-linked-inactive', $user->email, ['email_verified' => true]));
 })->throws(SsoAccessDeniedException::class);
 
+// ─── enumeration resistance: generic visitor message, distinct log reason ───
+
+it('shows the same generic visitor reason for unknown and inactive users', function () {
+    // Unknown email: no matching Signals user.
+    $unknown = null;
+    try {
+        ($this->resolve)('google', fakeSocialiteUser('g-enum-unknown', 'stranger@example.com', ['email_verified' => true]));
+    } catch (SsoAccessDeniedException $e) {
+        $unknown = $e;
+    }
+
+    // Inactive user matched by verified email.
+    User::factory()->deactivated()->create(['email' => 'inactive@example.com']);
+    $inactive = null;
+    try {
+        ($this->resolve)('google', fakeSocialiteUser('g-enum-inactive', 'inactive@example.com', ['email_verified' => true]));
+    } catch (SsoAccessDeniedException $e) {
+        $inactive = $e;
+    }
+
+    expect($unknown)->not->toBeNull()
+        ->and($inactive)->not->toBeNull()
+        // Visitor-facing reason is identical → no account/status enumeration.
+        ->and($inactive->reason)->toBe($unknown->reason)
+        ->and($unknown->reason)->toBe('We could not sign you in with that account. Please contact your administrator.')
+        // Server-side log reason still distinguishes the two causes.
+        ->and($unknown->logReason)->toBe('no_matching_user')
+        ->and($inactive->logReason)->toBe('inactive_user');
+});
+
+it('carries a distinct log reason for an inactive user matched via an existing link', function () {
+    $user = User::factory()->deactivated()->create();
+    OAuthIdentity::factory()->google()->create([
+        'user_id' => $user->id,
+        'provider_id' => 'g-enum-linked-inactive',
+    ]);
+
+    try {
+        ($this->resolve)('google', fakeSocialiteUser('g-enum-linked-inactive', $user->email, ['email_verified' => true]));
+        $this->fail('Expected SsoAccessDeniedException.');
+    } catch (SsoAccessDeniedException $e) {
+        expect($e->logReason)->toBe('inactive_user')
+            ->and($e->reason)->toBe('We could not sign you in with that account. Please contact your administrator.');
+    }
+});
+
 // ─── deny: orphaned identity (null user) ─────────────────────────
 
 it('denies when the matched identity has no user (orphaned row)', function () {

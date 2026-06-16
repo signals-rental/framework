@@ -138,7 +138,10 @@ it('denies an unknown email and redirects to login without authenticating', func
 
     $this->get(route('sso.callback', ['provider' => 'google']))
         ->assertRedirect(route('login'))
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasErrors([
+            // Generic, non-enumerable visitor message — identical to the inactive case.
+            'email' => 'We could not sign you in with that account. Please contact your administrator.',
+        ]);
 
     $this->assertGuest();
 });
@@ -150,9 +153,58 @@ it('denies an inactive user and redirects to login without authenticating', func
 
     $this->get(route('sso.callback', ['provider' => 'google']))
         ->assertRedirect(route('login'))
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasErrors([
+            // Identical to the unknown-email case so a visitor cannot tell them apart.
+            'email' => 'We could not sign you in with that account. Please contact your administrator.',
+        ]);
 
     $this->assertGuest();
+});
+
+it('shows the visitor an identical message for unknown and inactive accounts', function () {
+    // Unknown email.
+    mockSso('google', available: true, socialiteUser: ssoSocialiteUser('g-enum-unknown', 'nobody@example.com'));
+    $this->get(route('sso.callback', ['provider' => 'google']))
+        ->assertRedirect(route('login'))
+        ->assertSessionHasErrors('email');
+
+    $unknownMessage = session('errors')->get('email')[0];
+
+    // Inactive matched user.
+    User::factory()->deactivated()->create(['email' => 'inactive@example.com']);
+    mockSso('google', available: true, socialiteUser: ssoSocialiteUser('g-enum-inactive', 'inactive@example.com'));
+    $this->get(route('sso.callback', ['provider' => 'google']))
+        ->assertRedirect(route('login'))
+        ->assertSessionHasErrors('email');
+
+    $inactiveMessage = session('errors')->get('email')[0];
+
+    expect($inactiveMessage)->toBe($unknownMessage)
+        ->and($unknownMessage)->toBe('We could not sign you in with that account. Please contact your administrator.');
+});
+
+it('logs the specific access-denied reason server-side for diagnostics', function () {
+    $log = Log::spy();
+
+    // Unknown email → no_matching_user.
+    mockSso('google', available: true, socialiteUser: ssoSocialiteUser('g-log-unknown', 'nobody@example.com'));
+    $this->get(route('sso.callback', ['provider' => 'google']));
+
+    $log->shouldHaveReceived('warning')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'sso.access_denied'
+            && ($context['provider'] ?? null) === 'google'
+            && ($context['log_reason'] ?? null) === 'no_matching_user')
+        ->once();
+
+    // Inactive user → inactive_user (distinct server-side cause for the same visitor message).
+    User::factory()->deactivated()->create(['email' => 'inactive@example.com']);
+    mockSso('google', available: true, socialiteUser: ssoSocialiteUser('g-log-inactive', 'inactive@example.com'));
+    $this->get(route('sso.callback', ['provider' => 'google']));
+
+    $log->shouldHaveReceived('warning')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'sso.access_denied'
+            && ($context['log_reason'] ?? null) === 'inactive_user')
+        ->once();
 });
 
 it('404s on callback when the provider is unavailable', function () {

@@ -15,6 +15,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -138,6 +139,51 @@ it('leaves omitted fields unchanged on update (partial update)', function () {
     expect($field->validation_rules)->toBe(['max_length' => 20]);
     expect($field->visibility_rules)->toBe([['field' => 'status', 'operator' => 'eq', 'value' => 'active']]);
     expect($field->is_required)->toBeTrue();
+});
+
+it('rejects renaming a custom field to a name already used in the same module', function () {
+    // #210: a duplicate rename must fail validation (422), not raise an
+    // uncaught QueryException from the ['name', 'module_type'] unique index (500).
+    CustomField::factory()->string()->forModule('Member')->create(['name' => 'existing_field']);
+    $field = CustomField::factory()->string()->forModule('Member')->create(['name' => 'original_field']);
+
+    try {
+        (new UpdateCustomField)($field, UpdateCustomFieldData::from(['name' => 'existing_field']));
+        $this->fail('Expected a ValidationException for the duplicate rename.');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('name');
+    }
+
+    // The field must be untouched after the failed rename.
+    $field->refresh();
+    expect($field->name)->toBe('original_field');
+})->throws(ValidationException::class);
+
+it('allows renaming a custom field to a name used in a different module', function () {
+    // The unique index is scoped to module_type, so the same name may exist
+    // under another module without conflict.
+    CustomField::factory()->string()->forModule('Product')->create(['name' => 'shared_name']);
+    $field = CustomField::factory()->string()->forModule('Member')->create(['name' => 'original_field']);
+
+    $result = (new UpdateCustomField)($field, UpdateCustomFieldData::from(['name' => 'shared_name']));
+
+    expect($result->name)->toBe('shared_name');
+});
+
+it('allows renaming a custom field to its own current name', function () {
+    // ignore() excludes the current record, so a no-op rename still succeeds.
+    $field = CustomField::factory()->string()->forModule('Member')->create([
+        'name' => 'po_reference',
+        'display_name' => 'Original',
+    ]);
+
+    $result = (new UpdateCustomField)($field, UpdateCustomFieldData::from([
+        'name' => 'po_reference',
+        'display_name' => 'Updated',
+    ]));
+
+    expect($result->name)->toBe('po_reference');
+    expect($result->display_name)->toBe('Updated');
 });
 
 it('deletes a custom field', function () {

@@ -19,7 +19,7 @@ class ActivityData extends Data
 
     /**
      * @param  int  $priority  Priority: 0=Low, 1=Normal, 2=High.
-     * @param  int  $type_id  The 'Activity Type' list_values id (the editable list value).
+     * @param  int|null  $type_id  The 'Activity Type' list_values id (the editable list value). Null when the activity has no type (e.g. a legacy/dirty value was nulled, or its list value was deleted via nullOnDelete).
      * @param  int|null  $type_code  The CRMS-aligned ActivityType code (Task=1001..Letter=1007). Null for user-added custom types that have no CRMS code.
      * @param  int  $status_id  Status: 2001=Scheduled, 2002=Completed, 2003=Cancelled, 2004=Held.
      * @param  int  $time_status  Calendar busy state: 0=Free, 1=Busy.
@@ -37,7 +37,7 @@ class ActivityData extends Data
         public ?string $starts_at,
         public ?string $ends_at,
         public int $priority,
-        public int $type_id,
+        public ?int $type_id,
         public ?int $type_code,
         public int $status_id,
         public bool $completed,
@@ -126,7 +126,7 @@ class ActivityData extends Data
             starts_at: $startsAt !== null ? self::formatTimestamp($startsAt) : null,
             ends_at: $endsAt !== null ? self::formatTimestamp($endsAt) : null,
             priority: $priority->value,
-            type_id: (int) $activity->type_id,
+            type_id: $activity->type_id,
             type_code: $typeCode,
             status_id: $status->value,
             completed: $activity->completed,

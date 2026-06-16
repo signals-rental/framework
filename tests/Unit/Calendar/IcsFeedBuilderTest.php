@@ -180,10 +180,49 @@ it('spans a multi-day all-day event ending at midnight without an extra day (I3)
 
     $lines = icsLines(buildIcsFor($activity));
 
-    // Midnight end is already exclusive → DTEND is the 18th, not the 19th.
+    // Three-day midnight→midnight span: midnight end is already exclusive → DTEND
+    // is the 18th, not the 19th, and the whole event is VALUE=DATE (all-day).
     expect($lines)->toContain('DTSTART;VALUE=DATE:20260615')
         ->and($lines)->toContain('DTEND;VALUE=DATE:20260618')
-        ->and($lines)->not->toContain('DTEND;VALUE=DATE:20260619');
+        ->and($lines)->not->toContain('DTEND;VALUE=DATE:20260619')
+        ->and($lines)->not->toContain('DTSTART:20260615T000000Z');
+});
+
+it('emits a timed 09:00 to 17:00 event with UTC date-times, not as all-day', function () {
+    settings()->set('scheduling.default_start_time', '09:00');
+    settings()->set('scheduling.default_end_time', '17:00');
+
+    $activity = Activity::factory()->create([
+        'starts_at' => '2026-06-15 09:00:00',
+        'ends_at' => '2026-06-15 17:00:00',
+    ]);
+
+    $lines = icsLines(buildIcsFor($activity));
+
+    // A working-hours event is timed, never all-day — emitted as UTC date-times.
+    expect($lines)->toContain('DTSTART:20260615T090000Z')
+        ->and($lines)->toContain('DTEND:20260615T170000Z')
+        ->and($lines)->not->toContain('DTSTART;VALUE=DATE:20260615');
+});
+
+it('resolves all-day against the company timezone with the correct local DATE', function () {
+    // Asia/Singapore is UTC+8. A local all-day block (00:00 → next 00:00 local) is
+    // stored UTC across a day boundary: 2026-06-14 16:00Z → 2026-06-15 16:00Z.
+    // Neither endpoint is a UTC midnight, so a UTC-based check would emit a timed
+    // event on the wrong day. Converting to local first yields VALUE=DATE 20260615.
+    settings()->set('company.timezone', 'Asia/Singapore');
+
+    $activity = Activity::factory()->create([
+        'starts_at' => '2026-06-14 16:00:00',
+        'ends_at' => '2026-06-15 16:00:00',
+    ]);
+
+    $lines = icsLines(buildIcsFor($activity));
+
+    expect($lines)->toContain('DTSTART;VALUE=DATE:20260615')
+        ->and($lines)->toContain('DTEND;VALUE=DATE:20260616')
+        ->and($lines)->not->toContain('DTSTART;VALUE=DATE:20260614')
+        ->and($lines)->not->toContain('DTSTART:20260614T160000Z');
 });
 
 describe('STATUS mapping', function () {

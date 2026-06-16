@@ -7,8 +7,6 @@
     $totalMin = max(60, ($winEnd - $winStart) * 60);
     $workStart = (int) Carbon::parse((string) settings('scheduling.default_start_time'))->format('H');
     $workEnd = (int) Carbon::parse((string) settings('scheduling.default_end_time'))->format('H');
-    $workStartStr = Carbon::parse((string) settings('scheduling.default_start_time'))->format('H:i');
-    $workEndStr = Carbon::parse((string) settings('scheduling.default_end_time'))->format('H:i');
     $timeFormat = (string) (settings('company.time_format_php') ?? 'H:i');
     // user_id => photo URL map, resolved once per render (not per event) so event-pane avatars can show real photos.
     $staffPhotos = $this->staff->mapWithKeys(fn ($u) => [(int) $u->id => app(\App\Services\FileService::class)->signedUrlOrNull($u->member?->icon_thumb_url)])->all();
@@ -21,23 +19,17 @@
     $lanePct = fn (int $lane, int $lanes): float => $lanes > 0 ? ($lane / $lanes) * 100 : 0;
     $widthPct = fn (int $lanes): float => $lanes > 0 ? (100 / $lanes) : 100;
 
-    // "All-day" = an event that exactly spans the configured working day.
-    $isBandEvent = function ($e) use ($workStartStr, $workEndStr): bool {
-        return $e->starts_at !== null && $e->ends_at !== null
-            && Carbon::parse($e->starts_at)->format('H:i') === $workStartStr
-            && Carbon::parse($e->ends_at)->format('H:i') === $workEndStr;
-    };
-
-    // Band events laid out as bars spanning the days they cover. Column offsets are
-    // derived from local calendar dates (Y-m-d strings) so they stay correct when the
-    // app tz (UTC) and display tz (Europe/London) differ.
+    // Band events (the "All day" row) are the activities flagged all-day by the
+    // shared detector, laid out as bars spanning the days they cover. Column offsets
+    // are derived from local calendar dates (Y-m-d strings) so they stay correct when
+    // the app tz (UTC) and display tz (Europe/London) differ.
     $weekStartStr = $weekStart->toDateString();
     $weekEndStr = $weekEnd->toDateString();
     $banded = $events
-        ->filter(fn ($e) => $isBandEvent($e))
+        ->filter(fn ($e) => $e->all_day && $e->starts_at !== null)
         ->map(function ($e) use ($weekStartStr, $weekEndStr, $dayCount) {
             $startStr = Carbon::parse($e->starts_at)->toDateString();
-            $endStr = Carbon::parse($e->ends_at)->toDateString();
+            $endStr = $e->ends_at !== null ? Carbon::parse($e->ends_at)->toDateString() : $startStr;
             $startCol = $startStr <= $weekStartStr
                 ? 0
                 : (int) Carbon::parse($weekStartStr)->diffInDays(Carbon::parse($startStr));
@@ -56,7 +48,7 @@
 @endphp
 
 <div class="s-cal flex-1 min-h-0">
-    {{-- All-day band: events that exactly span the working day, drawn as spanning bars --}}
+    {{-- All-day band: events flagged all-day (midnight-aligned), drawn as spanning bars --}}
     @if(count($bandedAllocated) > 0)
         <div class="s-cal-allday">
             <div class="s-cal-allday-label">All day</div>
@@ -87,8 +79,8 @@
                 $isToday = $day->isToday();
                 $isWeekend = $day->isWeekend();
                 $timed = $events
-                    ->filter(function ($e) use ($isBandEvent, $day) {
-                        if ($isBandEvent($e) || $e->starts_at === null) {
+                    ->filter(function ($e) use ($day) {
+                        if ($e->all_day || $e->starts_at === null) {
                             return false;
                         }
                         // Compare local calendar dates as strings (timezone-robust).

@@ -97,6 +97,14 @@ class SsoController extends Controller
         try {
             $user = ($this->resolveSsoUser)($provider, $socialiteUser);
         } catch (SsoAccessDeniedException $e) {
+            // Record the specific cause for operators (e.g. distinguishing a missing
+            // account from an inactive one) while the visitor only ever sees the
+            // generic, non-enumerable reason carried by $e->reason.
+            Log::warning('sso.access_denied', [
+                'provider' => $provider,
+                'log_reason' => $e->logReason,
+            ]);
+
             return redirect()->route('login')->withErrors([
                 'email' => $e->reason,
             ]);

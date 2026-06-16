@@ -502,3 +502,88 @@ it('spans a multi-day event across month cells and restores the overflow badge',
         ->assertSeeHtml('month-chip-'.$activity->id)
         ->assertSee('+'.$overflow.' more');
 });
+
+// ── Unified all-day band (todo #208 / finding PR-1) ─────────────────────────────
+//
+// The week/day grids previously placed an event in the "All day" band when it
+// exactly spanned the configured working hours. That is now driven solely by the
+// shared all-day detector (CalendarEventData::$all_day), so a midnight-aligned
+// event bands and a 09:00–17:00 working-hours event does not.
+
+it('renders an all-day event in the week all-day band, not the timed grid', function () {
+    settings()->set('preferences.first_day_of_week', 0);
+    $user = User::factory()->owner()->create(['timezone' => null]);
+
+    $activity = Activity::factory()->create([
+        'subject' => 'All Day Block',
+        'owned_by' => $user->id,
+        'starts_at' => '2026-06-15 00:00:00',
+        'ends_at' => '2026-06-16 00:00:00',
+    ]);
+
+    Volt::actingAs($user)
+        ->test('calendar.index')
+        ->call('load')
+        ->set('startDate', '2026-06-14')
+        ->assertSeeHtml('week-band-'.$activity->id)
+        ->assertDontSeeHtml('week-event-'.$activity->id.'-2026-06-15');
+});
+
+it('bands a 3-day midnight-to-midnight event across its week columns', function () {
+    settings()->set('preferences.first_day_of_week', 0);
+    $user = User::factory()->owner()->create(['timezone' => null]);
+
+    $activity = Activity::factory()->create([
+        'subject' => 'Three Day Block',
+        'owned_by' => $user->id,
+        'starts_at' => '2026-06-15 00:00:00',
+        'ends_at' => '2026-06-18 00:00:00',
+    ]);
+
+    Volt::actingAs($user)
+        ->test('calendar.index')
+        ->call('load')
+        ->set('startDate', '2026-06-14')
+        ->assertSeeHtml('week-band-'.$activity->id)
+        ->assertSee('Three Day Block');
+});
+
+it('keeps a 09:00 to 17:00 working-hours event in the timed grid, not the all-day band', function () {
+    settings()->set('preferences.first_day_of_week', 0);
+    settings()->set('scheduling.default_start_time', '09:00');
+    settings()->set('scheduling.default_end_time', '17:00');
+    $user = User::factory()->owner()->create(['timezone' => null]);
+
+    $activity = Activity::factory()->create([
+        'subject' => 'Working Hours Meeting',
+        'owned_by' => $user->id,
+        'starts_at' => '2026-06-15 09:00:00',
+        'ends_at' => '2026-06-15 17:00:00',
+    ]);
+
+    Volt::actingAs($user)
+        ->test('calendar.index')
+        ->call('load')
+        ->set('startDate', '2026-06-14')
+        ->assertSeeHtml('week-event-'.$activity->id.'-2026-06-15')
+        ->assertDontSeeHtml('week-band-'.$activity->id);
+});
+
+it('renders an all-day event in the day-view all-day band, not the timed grid', function () {
+    $user = User::factory()->owner()->create(['timezone' => null]);
+
+    $activity = Activity::factory()->create([
+        'subject' => 'Day All Day Block',
+        'owned_by' => $user->id,
+        'starts_at' => '2026-06-15 00:00:00',
+        'ends_at' => '2026-06-16 00:00:00',
+    ]);
+
+    Volt::actingAs($user)
+        ->test('calendar.index')
+        ->call('load')
+        ->call('setView', 'day')
+        ->set('startDate', '2026-06-15')
+        ->assertSeeHtml('allday-'.$activity->id)
+        ->assertDontSeeHtml('day-event-'.$activity->id.'-'.$user->id);
+});

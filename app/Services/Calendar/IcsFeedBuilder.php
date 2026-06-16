@@ -6,6 +6,8 @@ use App\Enums\ActivityStatus;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
 use App\Models\User;
+use App\Support\Calendar\AllDayDetector;
+use App\Support\Timezone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -75,15 +77,22 @@ class IcsFeedBuilder
         /** @var TimeStatus|null $timeStatus */
         $timeStatus = $activity->time_status;
 
+        // The all-day rule is evaluated against company-timezone-local instants
+        // (shared with the web grids) so a midnight-aligned event resolves the
+        // same way everywhere and emits the correct LOCAL date(s).
+        $timezone = app(Timezone::class);
+        $localStart = $timezone->toLocal($start);
+        $localEnd = $end !== null ? $timezone->toLocal($end) : null;
+
         $lines = [
             'BEGIN:VEVENT',
             'UID:activity-'.$activity->id.'@'.$host,
             'DTSTAMP:'.$dtstamp,
         ];
 
-        if ($this->isAllDay($start, $end)) {
-            $lines[] = 'DTSTART;VALUE=DATE:'.$start->format(self::DATE_FORMAT);
-            $lines[] = 'DTEND;VALUE=DATE:'.$this->allDayExclusiveEnd($start, $end)->format(self::DATE_FORMAT);
+        if (AllDayDetector::isAllDay($localStart, $localEnd)) {
+            $lines[] = 'DTSTART;VALUE=DATE:'.$localStart->format(self::DATE_FORMAT);
+            $lines[] = 'DTEND;VALUE=DATE:'.AllDayDetector::exclusiveEndDate($localStart, $localEnd)->format(self::DATE_FORMAT);
         } else {
             $finish = $end ?? $start->copy()->addMinutes(30);
             $lines[] = 'DTSTART:'.$start->copy()->utc()->format(self::UTC_FORMAT);
@@ -129,63 +138,6 @@ class IcsFeedBuilder
             ActivityStatus::Completed => ['STATUS:CONFIRMED', 'X-COMPLETED:TRUE'],
             default => ['STATUS:CONFIRMED'],
         };
-    }
-
-    /**
-     * All-day heuristic (D8): starts at 00:00 and ends null, at 23:59, or at a
-     * later midnight (single- or multi-day). The exclusive DTEND is derived
-     * separately in {@see allDayExclusiveEnd()} so multi-day spans are
-     * preserved rather than collapsing to a single day.
-     */
-    private function isAllDay(CarbonInterface $start, ?CarbonInterface $end): bool
-    {
-        if ($start->format('H:i:s') !== '00:00:00') {
-            return false;
-        }
-
-        if ($end === null) {
-            return true;
-        }
-
-        if ($end->format('H:i') === '23:59') {
-            return true;
-        }
-
-        return $this->isLaterMidnight($start, $end);
-    }
-
-    /**
-     * Resolve the RFC 5545 exclusive end DATE for an all-day event.
-     *
-     * The three all-day branches in {@see isAllDay()} map to distinct ends so
-     * that multi-day events span their real range rather than collapsing to a
-     * single day:
-     *  - $end null            → start + 1 day (single-day default).
-     *  - 23:59 heuristic      → last day is $end's date, so exclusive end is
-     *                           the following midnight ($end + 1 day).
-     *  - midnight end         → $end is already the exclusive end date as-is.
-     */
-    private function allDayExclusiveEnd(CarbonInterface $start, ?CarbonInterface $end): CarbonInterface
-    {
-        if ($end === null) {
-            return $start->copy()->addDay()->startOfDay();
-        }
-
-        if ($end->format('H:i:s') === '00:00:00') {
-            return $end->copy()->startOfDay();
-        }
-
-        return $end->copy()->addDay()->startOfDay();
-    }
-
-    /**
-     * Determine whether $end is exactly a midnight on a day after $start's date
-     * (i.e. the inclusive next-midnight or a later one for multi-day events).
-     */
-    private function isLaterMidnight(CarbonInterface $start, CarbonInterface $end): bool
-    {
-        return $end->format('H:i:s') === '00:00:00'
-            && $end->copy()->startOfDay()->greaterThan($start->copy()->startOfDay());
     }
 
     /**

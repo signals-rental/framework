@@ -47,7 +47,7 @@ A custom field definition declares a field on one entity type (its `module_type`
 | `is_searchable` | boolean | Whether the field is included in search |
 | `settings` | object\|null | Type-specific settings (JSONB) |
 | `validation_rules` | object\|null | Validation constraints (JSONB) |
-| `visibility_rules` | object\|null | Conditional visibility rules (JSONB) |
+| `visibility_rules` | array\|null | Conditional visibility rules — a JSON array of rule objects, e.g. `[{"field": "membership_type", "operator": "eq", "value": "Organisation"}]` (JSONB) |
 | `default_value` | string\|null | Pre-populated value for new records |
 | `plugin_name` | string\|null | Owning plugin, if any |
 | `document_layout_name` | string\|null | Associated document layout, if any |
@@ -109,6 +109,12 @@ Sortable fields: `name`, `module_type`, `sort_order`, `created_at`.
     }
 }
 ```
+
+### Update Request Body
+
+`PUT /api/v1/custom_fields/{id}` applies a **partial update**: fields omitted from the request body are left unchanged. To clear a nullable field (for example `validation_rules` or `visibility_rules`), send it as an explicit `null` — omitting it leaves the existing value intact.
+
+> **Note:** Renaming a field with `name` is validated against the existing fields in the same `module_type`; a duplicate name returns a `422` validation error.
 
 ## Custom Field Groups
 
