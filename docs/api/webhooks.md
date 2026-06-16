@@ -121,6 +121,110 @@ Every webhook delivery sends a JSON POST request with the event name and associa
 }
 ```
 
+## Payload Schemas
+
+Most events embed the affected resource under a singular key inside `data`, using the same shape the REST API returns. Lifecycle events that only need to identify a record (deletions, archive/restore) send just an `id`.
+
+### Tax Rate Events
+
+`tax_rate.created` and `tax_rate.updated` include the full tax rate object:
+
+```json
+{
+    "event": "tax_rate.created",
+    "timestamp": "2026-01-15T14:30:00Z",
+    "data": {
+        "tax_rate": {
+            "id": 1,
+            "name": "UK Standard",
+            "description": "Standard rate VAT",
+            "rate": "20.0000",
+            "is_active": true,
+            "created_at": "2026-01-15T14:30:00Z",
+            "updated_at": "2026-01-15T14:30:00Z"
+        }
+    }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Tax rate identifier |
+| `name` | string | Display name (e.g. `UK Standard`) |
+| `description` | string\|null | Optional description |
+| `rate` | string | Percentage as a decimal string (e.g. `20.0000`) |
+| `is_active` | boolean | Whether the rate is active |
+| `created_at` / `updated_at` | string | ISO 8601 UTC timestamps |
+
+`tax_rate.deleted` sends only the identifier:
+
+```json
+{
+    "event": "tax_rate.deleted",
+    "timestamp": "2026-01-15T14:30:00Z",
+    "data": { "id": 1 }
+}
+```
+
+### Tax Rule Events
+
+`tax_rule.created` and `tax_rule.updated` include the full tax rule object:
+
+```json
+{
+    "event": "tax_rule.created",
+    "timestamp": "2026-01-15T14:30:00Z",
+    "data": {
+        "tax_rule": {
+            "id": 5,
+            "organisation_tax_class_id": 1,
+            "product_tax_class_id": 2,
+            "tax_rate_id": 1,
+            "priority": 10,
+            "is_active": true,
+            "created_at": "2026-01-15T14:30:00Z",
+            "updated_at": "2026-01-15T14:30:00Z"
+        }
+    }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Tax rule identifier |
+| `organisation_tax_class_id` | integer | Organisation tax class matched by the rule |
+| `product_tax_class_id` | integer | Product tax class matched by the rule |
+| `tax_rate_id` | integer | Tax rate applied when the rule matches |
+| `priority` | integer | Higher priority rules win when several match |
+| `is_active` | boolean | Whether the rule is active |
+| `created_at` / `updated_at` | string | ISO 8601 UTC timestamps |
+
+`tax_rule.deleted` sends only the identifier:
+
+```json
+{
+    "event": "tax_rule.deleted",
+    "timestamp": "2026-01-15T14:30:00Z",
+    "data": { "id": 5 }
+}
+```
+
+### Product Archive & Restore Events
+
+`product.archived` and `product.restored` are lifecycle transitions on an existing product and carry only its identifier. Fetch the current state from `GET /api/v1/products/{id}` if you need the full record.
+
+```json
+{
+    "event": "product.archived",
+    "timestamp": "2026-01-15T14:30:00Z",
+    "data": { "id": 42 }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Product identifier |
+
 ## Verifying Signatures
 
 Every delivery includes an `X-Signals-Signature` header containing an HMAC-SHA256 signature of the request body. Verify it against the secret you received when creating the webhook:

@@ -58,6 +58,18 @@ it('maps activity fields, type list value, and owner display hints', function ()
         ->and($data->all_day)->toBeFalse();
 });
 
+it('emits a null type_id (not 0) when the activity has no type, keeping fallbacks (#224)', function () {
+    $activity = Activity::factory()->create(['type_id' => null]);
+    // No `type` relation to resolve — exercises the NULL branch.
+    $activity->load('owner');
+
+    $data = CalendarEventData::fromModel($activity);
+
+    expect($data->type_id)->toBeNull()
+        ->and($data->type_name)->toBe('')
+        ->and($data->type_icon)->toBe('task');
+});
+
 it('emits starts_at and ends_at as ISO 8601 strings', function () {
     $activity = Activity::factory()->create([
         'starts_at' => '2026-06-15 09:00:00',

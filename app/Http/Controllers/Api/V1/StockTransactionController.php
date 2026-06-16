@@ -64,7 +64,7 @@ class StockTransactionController extends Controller
         $query = $this->applyFilters($query, $request);
         $query = $this->applySort($query, $request);
 
-        if (! $request->filled('sort')) {
+        if (! $this->hasExplicitSort($request)) {
             $query->orderByDesc('transaction_at');
         }
 

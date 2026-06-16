@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\ExchangeRateFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Support\Carbon;
 
 class ExchangeRate extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\ExchangeRateFactory> */
+    /** @use HasFactory<ExchangeRateFactory> */
     use HasFactory;
 
     /** @var list<string> */
@@ -31,8 +32,8 @@ class ExchangeRate extends Model implements HasSchema
     protected function casts(): array
     {
         return [
-            'rate' => 'string',
-            'inverse_rate' => 'string',
+            'rate' => 'decimal:8',
+            'inverse_rate' => 'decimal:8',
             'effective_at' => 'datetime',
             'expires_at' => 'datetime',
         ];

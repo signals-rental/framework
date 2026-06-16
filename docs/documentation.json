@@ -8,6 +8,8 @@
                 { "title": "Installation", "slug": "installation" },
                 { "title": "Configuration", "slug": "configuration" },
                 { "title": "Authentication & Settings", "slug": "authentication" },
+                { "title": "Single Sign-On (SSO)", "slug": "sso" },
+                { "title": "Magic-Link Login", "slug": "magic-link" },
                 { "title": "Seeders", "slug": "seeders" }
             ]
         },
@@ -27,8 +29,6 @@
                 { "title": "Tax Classes", "slug": "tax-classes" },
                 { "title": "Countries", "slug": "countries" },
                 { "title": "Rate Definitions", "slug": "rate-definitions" },
-                { "title": "Single Sign-On (SSO)", "slug": "sso" },
-                { "title": "Magic-Link Login", "slug": "magic-link" },
                 { "title": "Stock Transactions", "slug": "stock-transactions" },
                 { "title": "Accessories", "slug": "accessories" },
                 { "title": "Multi-Currency & Tax", "slug": "multi-currency" }

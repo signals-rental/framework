@@ -95,6 +95,18 @@ describe('SettingsService integration with registry', function () {
         expect($service->get('security.max_login_attempts'))->toBe(5);
     });
 
+    it('resolves sso defaults from the dedicated sso group', function () {
+        // #228: sso.* keys are persisted/read under the `sso` group (the helper
+        // splits on the first dot), so their defaults must be registered there —
+        // previously they were declared under `integrations` and never resolved.
+        $service = app(SettingsService::class);
+
+        expect($service->get('sso.google_enabled'))->toBe(false);
+        expect($service->get('sso.microsoft_enabled'))->toBe(false);
+        expect($service->get('sso.google_client_id'))->toBe('');
+        expect($service->get('sso.allowed_email_domains'))->toBe([]);
+    });
+
     it('returns explicit default when neither stored nor in registry', function () {
         $service = app(SettingsService::class);
 

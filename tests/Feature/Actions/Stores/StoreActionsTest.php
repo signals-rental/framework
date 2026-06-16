@@ -3,6 +3,8 @@
 use App\Actions\Stores\CreateStore;
 use App\Actions\Stores\DeleteStore;
 use App\Actions\Stores\UpdateStore;
+use App\Data\Stores\CreateStoreData;
+use App\Data\Stores\UpdateStoreData;
 use App\Events\AuditableEvent;
 use App\Models\Store;
 use App\Models\User;
@@ -22,7 +24,7 @@ describe('CreateStore', function () {
         $this->actingAs(User::factory()->owner()->create());
         Event::fake([AuditableEvent::class]);
 
-        $store = (new CreateStore)(['name' => 'New Store', 'country_code' => 'GB']);
+        $store = (new CreateStore)(CreateStoreData::from(['name' => 'New Store', 'country_code' => 'GB']));
 
         expect($store->name)->toBe('New Store');
         expect(Store::where('name', 'New Store')->exists())->toBeTrue();
@@ -33,7 +35,7 @@ describe('CreateStore', function () {
     it('flags the first store as default', function () {
         $this->actingAs(User::factory()->owner()->create());
 
-        $store = (new CreateStore)(['name' => 'First Store', 'country_code' => 'GB']);
+        $store = (new CreateStore)(CreateStoreData::from(['name' => 'First Store', 'country_code' => 'GB']));
 
         expect($store->is_default)->toBeTrue();
     });
@@ -42,7 +44,7 @@ describe('CreateStore', function () {
         $this->actingAs(User::factory()->owner()->create());
         Store::factory()->default()->create();
 
-        $store = (new CreateStore)(['name' => 'Second Store', 'country_code' => 'GB']);
+        $store = (new CreateStore)(CreateStoreData::from(['name' => 'Second Store', 'country_code' => 'GB']));
 
         expect($store->is_default)->toBeFalse();
     });
@@ -50,7 +52,7 @@ describe('CreateStore', function () {
     it('records an action_logs row when a store is created', function () {
         $this->actingAs(User::factory()->owner()->create());
 
-        $store = (new CreateStore)(['name' => 'Audit Store', 'country_code' => 'GB']);
+        $store = (new CreateStore)(CreateStoreData::from(['name' => 'Audit Store', 'country_code' => 'GB']));
 
         $this->assertDatabaseHas('action_logs', [
             'action' => 'store.created',
@@ -59,10 +61,48 @@ describe('CreateStore', function () {
         ]);
     });
 
+    it('honours an explicit is_default=false even for the first store', function () {
+        $this->actingAs(User::factory()->owner()->create());
+
+        $store = (new CreateStore)(CreateStoreData::from([
+            'name' => 'Explicit Non-Default',
+            'country_code' => 'GB',
+            'is_default' => false,
+        ]));
+
+        expect($store->is_default)->toBeFalse();
+    });
+
+    it('persists the full set of DTO attributes', function () {
+        $this->actingAs(User::factory()->owner()->create());
+
+        $store = (new CreateStore)(CreateStoreData::from([
+            'name' => 'Full Store',
+            'street' => '1 High St',
+            'city' => 'Bristol',
+            'county' => 'Avon',
+            'postcode' => 'BS1 1AA',
+            'country_code' => 'GB',
+            'phone' => '0117 000 0000',
+            'email' => 'store@example.com',
+        ]));
+
+        expect($store->street)->toBe('1 High St')
+            ->and($store->city)->toBe('Bristol')
+            ->and($store->phone)->toBe('0117 000 0000')
+            ->and($store->email)->toBe('store@example.com');
+    });
+
+    it('rejects an invalid email via the DTO rules', function () {
+        $this->actingAs(User::factory()->owner()->create());
+
+        CreateStoreData::validate(['name' => 'Bad Email', 'email' => 'not-an-email']);
+    })->throws(ValidationException::class);
+
     it('denies a user without settings.manage permission', function () {
         $this->actingAs(User::factory()->create());
 
-        (new CreateStore)(['name' => 'Blocked', 'country_code' => 'GB']);
+        (new CreateStore)(CreateStoreData::from(['name' => 'Blocked', 'country_code' => 'GB']));
     })->throws(AuthorizationException::class);
 });
 
@@ -72,7 +112,7 @@ describe('UpdateStore', function () {
         $store = Store::factory()->create(['name' => 'Old']);
         Event::fake([AuditableEvent::class]);
 
-        $result = (new UpdateStore)($store, ['name' => 'Renamed']);
+        $result = (new UpdateStore)($store, UpdateStoreData::from(['name' => 'Renamed']));
 
         expect($result->name)->toBe('Renamed');
         expect($store->fresh()->name)->toBe('Renamed');
@@ -84,7 +124,7 @@ describe('UpdateStore', function () {
         $this->actingAs(User::factory()->owner()->create());
         $store = Store::factory()->create();
 
-        (new UpdateStore)($store, ['name' => 'Updated Name']);
+        (new UpdateStore)($store, UpdateStoreData::from(['name' => 'Updated Name']));
 
         $this->assertDatabaseHas('action_logs', [
             'action' => 'store.updated',
@@ -93,11 +133,30 @@ describe('UpdateStore', function () {
         ]);
     });
 
+    it('leaves unprovided columns untouched on a partial update', function () {
+        $this->actingAs(User::factory()->owner()->create());
+        $store = Store::factory()->create(['name' => 'Keep', 'city' => 'Bath']);
+
+        // Only the name is provided; city must not be nulled out.
+        (new UpdateStore)($store, UpdateStoreData::from(['name' => 'Renamed']));
+
+        expect($store->fresh()->city)->toBe('Bath');
+    });
+
+    it('promotes a store to default via the DTO', function () {
+        $this->actingAs(User::factory()->owner()->create());
+        $store = Store::factory()->create(['is_default' => false]);
+
+        (new UpdateStore)($store, UpdateStoreData::from(['is_default' => true]));
+
+        expect($store->fresh()->is_default)->toBeTrue();
+    });
+
     it('denies a user without settings.manage permission', function () {
         $this->actingAs(User::factory()->create());
         $store = Store::factory()->create();
 
-        (new UpdateStore)($store, ['name' => 'Blocked']);
+        (new UpdateStore)($store, UpdateStoreData::from(['name' => 'Blocked']));
     })->throws(AuthorizationException::class);
 });
 

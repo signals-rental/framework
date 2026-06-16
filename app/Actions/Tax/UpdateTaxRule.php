@@ -19,12 +19,12 @@ class UpdateTaxRule
 
         event(new AuditableEvent($taxRule, 'tax_rule.updated'));
 
-        $fresh = $taxRule->fresh();
+        $data = TaxRuleData::fromModel($taxRule->fresh());
 
         app(WebhookService::class)->dispatch('tax_rule.updated', [
-            'tax_rule' => TaxRuleData::fromModel($fresh)->toArray(),
+            'tax_rule' => $data->toArray(),
         ]);
 
-        return TaxRuleData::fromModel($fresh);
+        return $data;
     }
 }

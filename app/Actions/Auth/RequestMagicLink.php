@@ -131,6 +131,13 @@ class RequestMagicLink
 
     /**
      * Build the per-email, per-IP throttle key.
+     *
+     * PREREQUISITE: behind a load balancer / reverse proxy, `request()->ip()`
+     * returns the real client IP only when Laravel's trusted-proxy middleware is
+     * configured (see `bootstrap/app.php` → `trustProxies()` and the SSO/magic-link
+     * setup docs). Without it the proxy's IP is used, collapsing the per-IP throttle
+     * across all clients behind that proxy. This is a deployment-config dependency,
+     * not a code defect.
      */
     private function throttleKey(string $email): string
     {
@@ -139,6 +146,9 @@ class RequestMagicLink
 
     /**
      * Build the per-IP throttle key (across all addresses).
+     *
+     * Same trusted-proxy prerequisite as {@see self::throttleKey()}: the per-IP cap
+     * is only meaningful when `request()->ip()` resolves the real client IP.
      */
     private function ipThrottleKey(): string
     {

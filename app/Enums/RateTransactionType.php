@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Support\BackedEnumHelper;
+
 /**
  * Transaction context a product rate applies to.
  *
@@ -30,21 +32,11 @@ enum RateTransactionType: string
      *
      * Mirrors the case-insensitive enum coercion applied to Ransack filters so
      * that writes (`transaction_type=Rental`) accept the same casings as reads.
+     * Delegates to {@see BackedEnumHelper::coerce()} so the matching rules stay
+     * in lockstep with the read path.
      */
     public static function coerce(mixed $value): mixed
     {
-        if (! is_string($value) && ! is_int($value)) {
-            return $value;
-        }
-
-        $needle = mb_strtolower((string) $value);
-
-        foreach (self::cases() as $case) {
-            if (mb_strtolower($case->value) === $needle || mb_strtolower($case->name) === $needle) {
-                return $case->value;
-            }
-        }
-
-        return $value;
+        return BackedEnumHelper::coerce(self::class, $value);
     }
 }

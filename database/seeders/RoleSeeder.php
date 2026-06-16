@@ -51,7 +51,10 @@ class RoleSeeder extends Seeder
         // Admin — all permissions, cost visibility on
         $admin = Role::findOrCreate('Admin', 'web');
         $admin->update(['is_system' => true, 'description' => 'Full access to all features and settings.', 'sort_order' => 1, 'cost_visibility' => true]);
-        $admin->syncPermissions([...$allPermissions, ...$customFieldPermissions]);
+        // $allPermissions already contains every custom-fields.* key, so no extra
+        // spread is needed here (unlike OpsManager, whose prefix filters could in
+        // principle drop them). The Admin role always receives the full set.
+        $admin->syncPermissions($allPermissions);
 
         // Operations Manager — all resource permissions, no settings/users/roles, cost visibility on
         $opsManager = Role::findOrCreate('Operations Manager', 'web');

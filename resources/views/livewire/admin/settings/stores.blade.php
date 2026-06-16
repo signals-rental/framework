@@ -4,6 +4,8 @@ use App\Actions\Stores\CreateStore;
 use App\Actions\Stores\DeleteStore;
 use App\Actions\Stores\UpdateStore;
 use App\Data\Reference\CountryData;
+use App\Data\Stores\CreateStoreData;
+use App\Data\Stores\UpdateStoreData;
 use App\Models\Store;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -66,7 +68,7 @@ new #[Layout('components.layouts.app')] #[Title('Stores')] class extends Compone
             'storeCountryCode' => ['required', 'string', 'size:2'],
         ]);
 
-        $data = [
+        $attributes = [
             'name' => $validated['storeName'],
             'street' => $validated['storeStreet'],
             'city' => $validated['storeCity'],
@@ -76,9 +78,9 @@ new #[Layout('components.layouts.app')] #[Title('Stores')] class extends Compone
         ];
 
         if ($this->editingStoreId) {
-            (new UpdateStore)(Store::findOrFail($this->editingStoreId), $data);
+            (new UpdateStore)(Store::findOrFail($this->editingStoreId), UpdateStoreData::from($attributes));
         } else {
-            (new CreateStore)($data);
+            (new CreateStore)(CreateStoreData::from($attributes));
         }
 
         $this->dispatch('close-store-modal');
@@ -92,7 +94,7 @@ new #[Layout('components.layouts.app')] #[Title('Stores')] class extends Compone
 
         DB::transaction(function () use ($store): void {
             Store::query()->whereKeyNot($store->id)->update(['is_default' => false]);
-            (new UpdateStore)($store, ['is_default' => true]);
+            (new UpdateStore)($store, UpdateStoreData::from(['is_default' => true]));
         });
 
         $this->loadStores();

@@ -1,5 +1,6 @@
 <?php
 
+use App\Data\Activities\ActivityData;
 use App\Enums\ActivityStatus;
 use App\Models\Activity;
 use App\Models\Member;
@@ -164,6 +165,50 @@ it('deletes an activity from the detail modal and refreshes the calendar', funct
     expect(Activity::query()->find($activity->id))->toBeNull();
 });
 
+// ── Detail modal — owner avatar (DTO owner_thumb_url) ──────────────────────────
+
+it('renders the owner avatar photo from the DTO owner_thumb_url (OSS-10)', function () {
+    Storage::fake('public');
+
+    $viewer = User::factory()->owner()->create();
+    $ownerMember = Member::factory()->create(['icon_thumb_url' => 'members/icons/owner-thumb.png']);
+    $owner = User::factory()->create(['name' => 'Owen Owner', 'member_id' => $ownerMember->id]);
+    $activity = Activity::factory()->create(['owned_by' => $owner->id]);
+
+    Volt::actingAs($viewer)
+        ->test('calendar.activity-detail-modal')
+        ->call('open', activityId: $activity->id)
+        ->assertSee('Owen Owner')
+        ->assertSeeHtml('<img');
+});
+
+it('exposes a signed owner_thumb_url on ActivityData when the owner has a thumbnail', function () {
+    Storage::fake('public');
+
+    $ownerMember = Member::factory()->create(['icon_thumb_url' => 'members/icons/owner-thumb.png']);
+    $owner = User::factory()->create(['member_id' => $ownerMember->id]);
+    $activity = Activity::factory()->create(['owned_by' => $owner->id]);
+
+    $data = ActivityData::fromModel(
+        $activity->load(['owner.member', 'type'])
+    );
+
+    expect($data->owner_thumb_url)->toBeString();
+    expect($data->owner_thumb_url)->not->toBeEmpty();
+});
+
+it('leaves owner_thumb_url null when the owner has no thumbnail', function () {
+    $ownerMember = Member::factory()->create(['icon_thumb_url' => null]);
+    $owner = User::factory()->create(['member_id' => $ownerMember->id]);
+    $activity = Activity::factory()->create(['owned_by' => $owner->id]);
+
+    $data = ActivityData::fromModel(
+        $activity->load(['owner.member', 'type'])
+    );
+
+    expect($data->owner_thumb_url)->toBeNull();
+});
+
 // ── Detail modal — member "Regarding" link ─────────────────────────────────────
 
 it('renders a member regarding as a new-tab link with an avatar photo', function () {
@@ -213,6 +258,37 @@ it('renders a non-member regarding as a badge without a member link', function (
         ->assertSee('Par Can 64')
         ->assertSee('Product')
         ->assertDontSeeHtml('href="'.route('members.show', $product->id).'"');
+});
+
+// ── Authorization — modal access gate (mount) ──────────────────────────────────
+
+it('forbids mounting the form modal without activities.access', function () {
+    $user = User::factory()->create();
+
+    Volt::actingAs($user)
+        ->test('calendar.activity-form-modal')
+        ->assertForbidden();
+});
+
+it('forbids mounting the detail modal without activities.access', function () {
+    $user = User::factory()->create();
+
+    Volt::actingAs($user)
+        ->test('calendar.activity-detail-modal')
+        ->assertForbidden();
+});
+
+it('allows mounting the modals with activities.access', function () {
+    $user = User::factory()->create();
+    $user->givePermissionTo('activities.access');
+
+    Volt::actingAs($user)
+        ->test('calendar.activity-form-modal')
+        ->assertOk();
+
+    Volt::actingAs($user)
+        ->test('calendar.activity-detail-modal')
+        ->assertOk();
 });
 
 // ── Authorization — modal actions ──────────────────────────────────────────────

@@ -14,7 +14,12 @@ class UpdateListName
     {
         Gate::authorize('list-values.manage');
 
-        $listName->update(array_filter($data->toArray(), fn ($v) => $v !== null));
+        $attributes = collect($data->toArray())
+            ->except('list_name_id')
+            ->reject(fn ($value) => $value === null)
+            ->all();
+
+        $listName->update($attributes);
 
         event(new AuditableEvent($listName, 'list_name.updated'));
 

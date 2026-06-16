@@ -212,6 +212,13 @@ new #[Layout('components.layouts.auth')] class extends Component {
         description="{{ $useRecovery ? __('Enter one of your recovery codes to continue.') : __('Enter the authentication code from your app to continue.') }}"
     />
 
+    {{--
+        The `submitting` flag is a UX double-submit guard ONLY: it prevents the
+        6-digit auto-submit from firing the same request twice while one is already
+        in flight. It is NOT a security control. Brute-force protection is enforced
+        server-side by the RateLimiter in authenticate() (5 attempts per user+IP),
+        which cannot be bypassed by tampering with this client-side flag.
+    --}}
     <form
         wire:submit="authenticate"
         class="flex flex-col gap-5"

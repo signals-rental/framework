@@ -6,13 +6,16 @@ use App\Data\Activities\CreateActivityData;
 use App\Data\Activities\UpdateActivityData;
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
-use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
-use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\User;
+use App\Services\Activities\ActivityTypeList;
 use App\Services\Calendar\OwnerColorResolver;
+use App\Support\Timezone;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 
@@ -76,7 +79,7 @@ new class extends Component
 
         if ($starts_at !== null) {
             $this->startsAt = $starts_at;
-            $this->endsAt = \Illuminate\Support\Carbon::parse($starts_at)->addHour()->format('Y-m-d H:i');
+            $this->endsAt = Carbon::parse($starts_at)->addHour()->format('Y-m-d H:i');
         } elseif ($date !== null) {
             $start = substr((string) settings('scheduling.default_start_time'), 0, 5);
             $end = substr((string) settings('scheduling.default_end_time'), 0, 5);
@@ -171,7 +174,7 @@ new class extends Component
             return null;
         }
 
-        return app(\App\Support\Timezone::class)->parseUserInput($local)->format('Y-m-d H:i');
+        return app(Timezone::class)->parseUserInput($local)->format('Y-m-d H:i');
     }
 
     /**
@@ -218,7 +221,7 @@ new class extends Component
         $this->ownedBy = $activity->owned_by;
         $this->regardingType = Activity::shortRegardingType($activity->regarding_type);
         $this->regardingId = $activity->regarding_id;
-        $timezone = app(\App\Support\Timezone::class);
+        $timezone = app(Timezone::class);
         $this->startsAt = $activity->starts_at !== null ? $timezone->toLocal($activity->starts_at)->format('Y-m-d H:i') : null;
         $this->endsAt = $activity->ends_at !== null ? $timezone->toLocal($activity->ends_at)->format('Y-m-d H:i') : null;
         $this->participantIds = $activity->participants->pluck('member_id')->map(fn ($id): int => (int) $id)->all();
@@ -227,29 +230,20 @@ new class extends Component
     /**
      * The "Activity Type" list's active values, ordered for the type dropdown.
      *
-     * @return Collection<int, \App\Models\ListValue>
+     * @return Collection<int, ListValue>
      */
-    public function getActivityTypesProperty(): Collection
+    #[Computed]
+    public function activityTypes(): Collection
     {
-        return ListName::query()->where('name', 'Activity Type')->first()
-            ?->values()->where('is_active', true)->orderBy('sort_order')->get()
-            ?? collect();
+        return app(ActivityTypeList::class)->activeValues();
     }
 
     /**
      * The default type (Task) value id for new activities.
-     *
-     * Anchored on the stable `metadata.icon` key ('task') rather than the
-     * user-editable label, so the default survives an admin renaming the
-     * "Task" list value. Falls back to the first active value.
      */
     private function defaultTypeId(): ?int
     {
-        $task = $this->activityTypes->first(
-            fn ($type): bool => ($type->metadata['icon'] ?? null) === ActivityType::Task->icon()
-        );
-
-        return $task?->id ?? $this->activityTypes->first()?->id;
+        return app(ActivityTypeList::class)->defaultId();
     }
 
     /**
@@ -257,7 +251,8 @@ new class extends Component
      *
      * @return Collection<int, User>
      */
-    public function getStaffProperty(): Collection
+    #[Computed]
+    public function staff(): Collection
     {
         $staff = User::query()
             ->with('member')

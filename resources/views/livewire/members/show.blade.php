@@ -1,15 +1,14 @@
 <?php
 
-use App\Models\ActionLog;
+use App\Livewire\Concerns\HasAuditTimeline;
 use App\Models\Member;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
-    /** Number of recent audit-log entries shown on the activity timeline. */
-    private const TIMELINE_LIMIT = 15;
+new #[Layout('components.layouts.app')] class extends Component
+{
+    use HasAuditTimeline;
 
     public Member $member;
 
@@ -50,44 +49,24 @@ new #[Layout('components.layouts.app')] class extends Component {
         return [
             'relatedMembers' => $relatedMembers,
             'relatedCount' => $relatedMembers->count(),
-            'timeline' => $this->timelineEntries(),
+            'timeline' => $this->auditTimelineFor($this->member),
         ];
     }
 
     /**
-     * Most-recent audit-log entries for this member, shaped for the timeline.
+     * Member-specific timeline colours: archive/anonymise read as destructive
+     * (red), merges as a change (blue).
      *
-     * @return \Illuminate\Support\Collection<int, array{title: string, meta: string, color: ?string, body: ?string}>
+     * @return array<string, list<string>>
      */
-    private function timelineEntries(): \Illuminate\Support\Collection
+    protected function timelineColorMap(): array
     {
-        return ActionLog::query()
-            ->with('user')
-            ->forEntity($this->member->getMorphClass(), $this->member->id)
-            ->latest('created_at')
-            ->limit(self::TIMELINE_LIMIT)
-            ->get()
-            ->map(fn (ActionLog $log): array => [
-                'title' => Str::of($log->action)->replace(['.', '_'], ' ')->headline()->toString(),
-                'meta' => $log->created_at?->diffForHumans() ?? '',
-                'color' => $this->timelineColor($log->action),
-                'body' => $log->user?->name ? "by {$log->user->name}" : null,
-            ]);
+        return [
+            'green' => ['.created', '.restored'],
+            'red' => ['.deleted', '.archived', '.anonymised'],
+            'blue' => ['.updated', '.merged'],
+        ];
     }
-
-    /**
-     * Map an audit action to a timeline dot colour for at-a-glance scanning.
-     */
-    private function timelineColor(string $action): ?string
-    {
-        return match (true) {
-            Str::endsWith($action, ['.created', '.restored']) => 'green',
-            Str::endsWith($action, ['.deleted', '.archived', '.anonymised']) => 'red',
-            Str::endsWith($action, ['.updated', '.merged']) => 'blue',
-            default => null,
-        };
-    }
-
 }; ?>
 
 <section class="w-full">

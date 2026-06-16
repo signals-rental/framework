@@ -124,10 +124,24 @@ class ListNameController extends Controller
 
     /**
      * Update a list name.
+     *
+     * The bound model id is supplied explicitly to both the validation rules
+     * (so the unique rule ignores the current record) and the DTO, keeping
+     * UpdateListNameData independent of the HTTP request/route.
      */
     public function update(Request $request, ListName $listName): JsonResponse
     {
-        return $this->resourceUpdate($request, $listName);
+        $this->authorizeApi('list-values.manage', 'static-data:write');
+
+        $validated = $request->validate(UpdateListNameData::rules($listName->id));
+        $dto = UpdateListNameData::from([...$validated, 'list_name_id' => $listName->id]);
+
+        $result = (new UpdateListName)($listName, $dto);
+
+        return $this->respondWith(
+            $result->toArray(),
+            'list_name',
+        );
     }
 
     /**

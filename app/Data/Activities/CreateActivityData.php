@@ -6,7 +6,7 @@ use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
 use App\Enums\TimeStatus;
 use App\Models\Activity;
-use App\Models\ListName;
+use App\Services\Activities\ActivityTypeList;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Data;
@@ -54,15 +54,7 @@ class CreateActivityData extends Data
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],
             'priority' => ['sometimes', new Enum(ActivityPriority::class)],
-            'type_id' => [
-                'sometimes',
-                'nullable',
-                'integer',
-                Rule::exists('list_values', 'id')->where(
-                    'list_name_id',
-                    ListName::query()->where('name', 'Activity Type')->value('id'),
-                ),
-            ],
+            'type_id' => self::typeIdRules(),
             'status_id' => ['sometimes', new Enum(ActivityStatus::class)],
             'completed' => ['sometimes', 'boolean'],
             'time_status' => ['sometimes', new Enum(TimeStatus::class)],
@@ -71,5 +63,28 @@ class CreateActivityData extends Data
             'participants.*.mute' => ['sometimes', 'boolean'],
             'custom_fields' => ['sometimes', 'array'],
         ];
+    }
+
+    /**
+     * Validation rules for the `type_id` field.
+     *
+     * The `exists` rule constrains the value to the "Activity Type" list. When
+     * that list is unseeded (no list id), the `exists` rule is omitted so a
+     * supplied type_id is not wrongly rejected — the database foreign key on
+     * `activities.type_id` is the hard guard in that case.
+     *
+     * @return list<mixed>
+     */
+    private static function typeIdRules(): array
+    {
+        $rules = ['sometimes', 'nullable', 'integer'];
+
+        $listId = app(ActivityTypeList::class)->listId();
+
+        if ($listId !== null) {
+            $rules[] = Rule::exists('list_values', 'id')->where('list_name_id', $listId);
+        }
+
+        return $rules;
     }
 }

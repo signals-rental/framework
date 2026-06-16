@@ -15,13 +15,13 @@ class ExchangeRateFactory extends Factory
 
     public function definition(): array
     {
-        $rate = fake()->randomFloat(8, 0.5, 2.0);
+        $rate = (string) fake()->randomFloat(8, 0.5, 2.0);
 
         return [
             'source_currency_code' => 'GBP',
             'target_currency_code' => 'USD',
             'rate' => $rate,
-            'inverse_rate' => 1 / $rate,
+            'inverse_rate' => bcdiv('1', $rate, 8),
             'source' => 'manual',
             'effective_at' => now(),
             'expires_at' => null,
@@ -40,7 +40,7 @@ class ExchangeRateFactory extends Factory
                 'source_currency_code' => $from,
                 'target_currency_code' => $to,
                 'rate' => $resolvedRate,
-                'inverse_rate' => $inverse ?? (string) (1 / (float) $resolvedRate),
+                'inverse_rate' => $inverse ?? bcdiv('1', $resolvedRate, 8),
             ];
         });
     }

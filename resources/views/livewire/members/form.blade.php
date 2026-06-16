@@ -9,53 +9,81 @@ use App\Livewire\Concerns\LoadsCustomFieldValues;
 use App\Livewire\Concerns\ReKeysCustomFieldErrors;
 use App\Models\CustomField;
 use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\OrganisationTaxClass;
+use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     use LoadsCustomFieldValues;
     use ReKeysCustomFieldErrors;
+
     public ?int $memberId = null;
 
     // Basic info
     public string $name = '';
+
     public string $membershipType = 'contact';
+
     public bool $isActive = true;
+
     public string $description = '';
+
     public ?string $locale = null;
+
     public ?string $defaultCurrencyCode = null;
 
     // Resource fields
     public bool $bookable = false;
+
     public ?int $locationTypeId = null;
+
     public int $dayCost = 0;
+
     public int $hourCost = 0;
+
     public int $distanceCost = 0;
+
     public int $flatRateCost = 0;
 
     // Tax & legal
     public ?int $lawfulBasisTypeId = null;
+
     public ?int $saleTaxClassId = null;
+
     public ?int $purchaseTaxClassId = null;
 
     // Organisation membership fields
     public ?string $accountNumber = null;
+
     public ?string $taxNumber = null;
+
     public bool $isCash = false;
+
     public bool $isOnStop = false;
+
     public ?int $ratingId = null;
+
     public ?int $ownedBy = null;
+
     public ?int $priceCategoryId = null;
+
     public ?int $discountCategoryId = null;
+
     public ?int $invoiceTermId = null;
+
     public int $invoiceTermLength = 0;
 
     // Contact membership fields
     public ?string $title = null;
+
     public ?string $department = null;
 
     // Custom fields
@@ -64,7 +92,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function mount(?Member $member = null): void
     {
-        /** @var \App\Models\User|null $currentUser */
+        /** @var User|null $currentUser */
         $currentUser = auth()->user();
         $this->ownedBy = $currentUser?->member_id;
 
@@ -141,7 +169,7 @@ new #[Layout('components.layouts.app')] class extends Component {
         // Membership type cannot be changed after creation
         if ($member) {
             if ($member->membership_type->value !== $this->membershipType) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'membershipType' => ['Membership type cannot be changed after creation.'],
                 ]);
             }
@@ -196,17 +224,17 @@ new #[Layout('components.layouts.app')] class extends Component {
             } else {
                 $result = (new CreateMember)(CreateMemberData::from($payload));
             }
-        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            $this->redirect(route('members.show', $result->id), navigate: true);
+        } catch (ValidationException $e) {
             $this->reKeyCustomFieldErrors($e, $this->referenceData['customFields']->pluck('name')->all());
         }
-
-        $this->redirect(route('members.show', $result->id), navigate: true);
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, \App\Models\ListValue>
+     * @return Collection<int, ListValue>
      */
-    private function listValues(string $listName): \Illuminate\Support\Collection
+    private function listValues(string $listName): Collection
     {
         return ListName::query()
             ->where('name', $listName)

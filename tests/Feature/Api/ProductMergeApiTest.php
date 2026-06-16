@@ -87,4 +87,23 @@ describe('POST /api/v1/products/{product}/merge', function () {
 
         $this->assertDatabaseHas('products', ['id' => $secondary->id, 'deleted_at' => null]);
     });
+
+    it('denies a user with the token ability but without the products.edit permission', function () {
+        // Read Only grants only *.view / *.access permissions, so the user passes the
+        // products:write token-ability gate but fails the Gate::authorize('products.edit')
+        // check inside MergeProduct — the authoritative control.
+        $viewer = User::factory()->create();
+        $viewer->assignRole('Read Only');
+        $primary = Product::factory()->rental()->create();
+        $secondary = Product::factory()->rental()->create();
+        $token = $viewer->createToken('test', ['products:write'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/products/{$primary->id}/merge", [
+                'secondary_id' => $secondary->id,
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('products', ['id' => $secondary->id, 'deleted_at' => null]);
+    });
 });

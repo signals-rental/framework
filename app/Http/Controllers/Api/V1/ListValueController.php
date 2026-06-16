@@ -50,7 +50,7 @@ class ListValueController extends Controller
         $query = $this->applyFilters($query, $request);
         $query = $this->applySort($query, $request);
 
-        if (! $request->filled('sort')) {
+        if (! $this->hasExplicitSort($request)) {
             $query->orderBy('sort_order');
         }
 

@@ -102,6 +102,12 @@ new #[Layout('components.layouts.auth')] class extends Component {
      * are not the Owner), the password is never checked — they must use the SSO
      * buttons instead. Unknown emails fall through so the generic failure path
      * does not leak which addresses exist.
+     *
+     * The error message adapts to whether any SSO provider is actually available:
+     * the "use the Google or Microsoft buttons" guidance is only shown when those
+     * buttons render. If enforcement is on but no provider is enabled/configured
+     * the user has no self-service path, so they are directed to their administrator
+     * rather than to non-existent buttons.
      */
     protected function ensureSsoIsNotEnforced(): void
     {
@@ -115,8 +121,12 @@ new #[Layout('components.layouts.auth')] class extends Component {
             return;
         }
 
+        $message = empty(app(SsoService::class)->enabledProviders())
+            ? __('Your organisation requires single sign-on, but no sign-in provider is currently available. Please contact your administrator.')
+            : __('Your organisation requires single sign-on. Please use the Google or Microsoft buttons above.');
+
         throw ValidationException::withMessages([
-            'email' => __('Your organisation requires single sign-on. Please use the Google or Microsoft buttons above.'),
+            'email' => $message,
         ]);
     }
 

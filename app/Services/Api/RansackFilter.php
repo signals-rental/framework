@@ -4,11 +4,22 @@ namespace App\Services\Api;
 
 use App\Enums\CustomFieldType;
 use App\Models\CustomField;
+use App\Support\BackedEnumHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class RansackFilter
 {
+    /**
+     * Sentinel returned for an unrecognised value on an int-backed enum column.
+     *
+     * A non-numeric string can never equal a stored integer, so it yields an
+     * empty result set rather than over-matching. Without this, an unrecognised
+     * string would be DB-cast to `0` on int columns and erroneously match rows
+     * whose enum backing value is `0`.
+     */
+    private const INT_ENUM_NO_MATCH = '__signals_no_match__';
+
     /**
      * Predicates ordered longest-suffix-first to prevent partial matches.
      *
@@ -156,26 +167,26 @@ class RansackFilter
     /**
      * Resolve a single value to the canonical backing value of a backed enum,
      * matching case-insensitively against both backing values and case names.
-     * Returns the original value when no case-insensitive match is found, so
-     * unrecognised values still produce a (zero-result) query rather than an error.
+     *
+     * On no match: string-backed enums return the original value (so an
+     * unrecognised string still produces a zero-result query rather than an
+     * error). Int-backed enums instead return a non-numeric sentinel — without
+     * it, an unrecognised string would be DB-cast to `0` on the int column and
+     * over-match any rows whose enum backing value happens to be `0`.
      *
      * @param  class-string<\BackedEnum>  $enumClass
      */
     private function resolveEnumValue(string $enumClass, mixed $value): mixed
     {
-        if (! is_string($value) && ! is_int($value)) {
-            return $value;
-        }
+        $isIntBacked = (string) (new \ReflectionEnum($enumClass))->getBackingType() === 'int';
 
-        $needle = mb_strtolower((string) $value);
-
-        foreach ($enumClass::cases() as $case) {
-            if (mb_strtolower((string) $case->value) === $needle || mb_strtolower($case->name) === $needle) {
-                return $case->value;
-            }
-        }
-
-        return $value;
+        return BackedEnumHelper::coerce(
+            $enumClass,
+            $value,
+            $isIntBacked
+                ? fn (mixed $original): mixed => is_string($original) ? self::INT_ENUM_NO_MATCH : $original
+                : null,
+        );
     }
 
     /**

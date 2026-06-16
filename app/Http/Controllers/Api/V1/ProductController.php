@@ -202,7 +202,7 @@ class ProductController extends Controller
      * same `product_type`. Stock levels, accessories, attachments and custom fields
      * transfer to the primary, then the secondary is soft-deleted.
      */
-    #[ApiResponse(200, 'Primary product after merge', type: 'array{product: array{id: int, name: string, product_type: string, is_active: bool, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
+    #[ApiResponse(200, 'Primary product after merge', type: 'array{product: array{id: int, name: string, description: string|null, product_type: string, product_group_id: int|null, product_group_name: string|null, sku: string|null, barcode: string|null, is_active: bool, stock_method: int, allowed_stock_type: int, weight: string|null, replacement_charge: string, buffer_percent: string, post_rent_unavailability: int, accessory_only: bool, system: bool, discountable: bool, tag_list: list<string>|null, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
     public function merge(Request $request, Product $product): JsonResponse
     {
         $this->authorizeApi('products.edit', 'products:write');

@@ -12,6 +12,8 @@ use App\Settings\GeneralPreferencesSettings;
 use App\Settings\IntegrationSettings;
 use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
+use App\Settings\SsoSettings;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\ServiceProvider;
 
 class SettingsServiceProvider extends ServiceProvider
@@ -31,6 +33,7 @@ class SettingsServiceProvider extends ServiceProvider
             $registry->register(new IntegrationSettings);
             $registry->register(new SchedulingSettings);
             $registry->register(new SecuritySettings);
+            $registry->register(new SsoSettings);
 
             return $registry;
         });
@@ -42,7 +45,7 @@ class SettingsServiceProvider extends ServiceProvider
             try {
                 app(SettingsService::class)->load();
                 $this->configureMailFromSettings();
-            } catch (\Illuminate\Database\QueryException $e) {
+            } catch (QueryException $e) {
                 // Suppress "table not found" during migrations or testing
                 // PostgreSQL: SQLSTATE 42P01, SQLite: SQLSTATE HY000 with "no such table"
                 $isTableNotFound = $e->getCode() === '42P01'

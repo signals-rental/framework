@@ -151,23 +151,28 @@ new #[Layout('components.layouts.app')] #[Title('Integrations')] class extends C
     public function save(): void
     {
         $registry = app(SettingsRegistry::class);
+        // Geocoding/maps keys live in the `integrations` group; the SSO keys are
+        // persisted and read under their own `sso` group (see SsoSettings), so each
+        // set of rules/types is pulled from the group that actually owns it.
         $rules = $registry->rules('integrations');
         $types = $registry->types('integrations');
+        $ssoRules = $registry->rules('sso');
+        $ssoTypes = $registry->types('sso');
         $isCloud = $this->isCloud();
 
         $rulesToValidate = [
             'what3wordsApiKey' => $rules['what3words_api_key'],
             'googleMapsApiKey' => $rules['google_maps_api_key'],
-            'ssoGoogleEnabled' => $rules['sso.google_enabled'],
-            'ssoMicrosoftEnabled' => $rules['sso.microsoft_enabled'],
+            'ssoGoogleEnabled' => $ssoRules['google_enabled'],
+            'ssoMicrosoftEnabled' => $ssoRules['microsoft_enabled'],
         ];
 
         // Credential fields are only editable on self-hosted installs.
         if (! $isCloud) {
-            $rulesToValidate['ssoGoogleClientId'] = $rules['sso.google_client_id'];
-            $rulesToValidate['ssoGoogleClientSecret'] = $rules['sso.google_client_secret'];
-            $rulesToValidate['ssoMicrosoftClientId'] = $rules['sso.microsoft_client_id'];
-            $rulesToValidate['ssoMicrosoftClientSecret'] = $rules['sso.microsoft_client_secret'];
+            $rulesToValidate['ssoGoogleClientId'] = $ssoRules['google_client_id'];
+            $rulesToValidate['ssoGoogleClientSecret'] = $ssoRules['google_client_secret'];
+            $rulesToValidate['ssoMicrosoftClientId'] = $ssoRules['microsoft_client_id'];
+            $rulesToValidate['ssoMicrosoftClientSecret'] = $ssoRules['microsoft_client_secret'];
         }
 
         $validated = $this->validate($rulesToValidate);
@@ -175,24 +180,24 @@ new #[Layout('components.layouts.app')] #[Title('Integrations')] class extends C
         $toPersist = [
             'integrations.what3words_api_key' => ['value' => $validated['what3wordsApiKey'], 'type' => $types['what3words_api_key'] ?? 'string'],
             'integrations.google_maps_api_key' => ['value' => $validated['googleMapsApiKey'], 'type' => $types['google_maps_api_key'] ?? 'string'],
-            'sso.google_enabled' => ['value' => $validated['ssoGoogleEnabled'], 'type' => $types['sso.google_enabled']],
-            'sso.microsoft_enabled' => ['value' => $validated['ssoMicrosoftEnabled'], 'type' => $types['sso.microsoft_enabled']],
+            'sso.google_enabled' => ['value' => $validated['ssoGoogleEnabled'], 'type' => $ssoTypes['google_enabled']],
+            'sso.microsoft_enabled' => ['value' => $validated['ssoMicrosoftEnabled'], 'type' => $ssoTypes['microsoft_enabled']],
             // The allow-list is policy, not a credential — persisted on cloud and self-hosted alike.
-            'sso.allowed_email_domains' => ['value' => $this->normaliseAllowedEmailDomains($this->ssoAllowedEmailDomains), 'type' => $types['sso.allowed_email_domains']],
+            'sso.allowed_email_domains' => ['value' => $this->normaliseAllowedEmailDomains($this->ssoAllowedEmailDomains), 'type' => $ssoTypes['allowed_email_domains']],
         ];
 
         if (! $isCloud) {
-            $toPersist['sso.google_client_id'] = ['value' => $validated['ssoGoogleClientId'], 'type' => $types['sso.google_client_id']];
-            $toPersist['sso.microsoft_client_id'] = ['value' => $validated['ssoMicrosoftClientId'], 'type' => $types['sso.microsoft_client_id']];
+            $toPersist['sso.google_client_id'] = ['value' => $validated['ssoGoogleClientId'], 'type' => $ssoTypes['google_client_id']];
+            $toPersist['sso.microsoft_client_id'] = ['value' => $validated['ssoMicrosoftClientId'], 'type' => $ssoTypes['microsoft_client_id']];
 
             // Client secrets are write-only: only persist when a non-empty value was
             // entered. A blank input keeps the existing stored secret untouched.
             if ($validated['ssoGoogleClientSecret'] !== '') {
-                $toPersist['sso.google_client_secret'] = ['value' => $validated['ssoGoogleClientSecret'], 'type' => $types['sso.google_client_secret']];
+                $toPersist['sso.google_client_secret'] = ['value' => $validated['ssoGoogleClientSecret'], 'type' => $ssoTypes['google_client_secret']];
             }
 
             if ($validated['ssoMicrosoftClientSecret'] !== '') {
-                $toPersist['sso.microsoft_client_secret'] = ['value' => $validated['ssoMicrosoftClientSecret'], 'type' => $types['sso.microsoft_client_secret']];
+                $toPersist['sso.microsoft_client_secret'] = ['value' => $validated['ssoMicrosoftClientSecret'], 'type' => $ssoTypes['microsoft_client_secret']];
             }
         }
 
@@ -204,17 +209,6 @@ new #[Layout('components.layouts.app')] #[Title('Integrations')] class extends C
         $this->ssoAllowedEmailDomains = implode("\n", $this->storedAllowedEmailDomains());
 
         $this->dispatch('integration-settings-saved');
-    }
-
-    /**
-     * Expose view data. Cloud flag and per-provider SSO metadata are resolved via
-     * the `isCloud` / `ssoProviders` computed properties referenced in the markup.
-     *
-     * @return array<string, mixed>
-     */
-    public function with(): array
-    {
-        return [];
     }
 }; ?>
 

@@ -50,6 +50,22 @@ it('updates a list name', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('updates a list name when the explicit list_name_id is supplied (no HTTP context)', function () {
+    $listName = ListName::factory()->create(['name' => 'Pre-Rename']);
+
+    // The DTO now carries the id explicitly; the action must not attempt to
+    // persist list_name_id to the model, and the rename must still apply.
+    $data = UpdateListNameData::from([
+        'name' => 'Post-Rename',
+        'list_name_id' => $listName->id,
+    ]);
+
+    $result = (new UpdateListName)($listName, $data);
+
+    expect($result->name)->toBe('Post-Rename');
+    expect($listName->fresh()->name)->toBe('Post-Rename');
+});
+
 it('deletes a list name', function () {
     Event::fake([AuditableEvent::class]);
 

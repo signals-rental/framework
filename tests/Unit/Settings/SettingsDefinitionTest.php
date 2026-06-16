@@ -8,6 +8,7 @@ use App\Settings\IntegrationSettings;
 use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
 use App\Settings\SettingsDefinition;
+use App\Settings\SsoSettings;
 
 describe('SettingsDefinition (abstract base)', function () {
     it('returns empty array from base types() method', function () {
@@ -278,6 +279,62 @@ describe('IntegrationSettings', function () {
         expect($types)
             ->toHaveKey('what3words_api_key', 'encrypted')
             ->toHaveKey('google_maps_api_key', 'encrypted');
+    });
+
+    it('no longer carries sso keys — those live in the sso group', function () {
+        $definition = new IntegrationSettings;
+
+        // #228: sso.* keys were moved to the dedicated `sso` group so that
+        // settings('sso.*') resolves its registered defaults (the helper splits
+        // on the first dot, so the owning group must be `sso`).
+        expect($definition->defaults())->not->toHaveKey('sso.google_enabled');
+        expect($definition->rules())->not->toHaveKey('sso.google_enabled');
+        expect($definition->types())->not->toHaveKey('sso.google_enabled');
+    });
+});
+
+describe('SsoSettings', function () {
+    it('returns sso as the group name', function () {
+        $definition = new SsoSettings;
+
+        expect($definition->group())->toBe('sso');
+    });
+
+    it('provides un-prefixed defaults under the sso group', function () {
+        $definition = new SsoSettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)
+            ->toHaveKey('google_enabled', false)
+            ->toHaveKey('google_client_id', '')
+            ->toHaveKey('google_client_secret', '')
+            ->toHaveKey('microsoft_enabled', false)
+            ->toHaveKey('microsoft_client_id', '')
+            ->toHaveKey('microsoft_client_secret', '')
+            ->toHaveKey('allowed_email_domains', []);
+    });
+
+    it('provides validation rules for all settings', function () {
+        $definition = new SsoSettings;
+        $rules = $definition->rules();
+
+        expect($rules)
+            ->toHaveKey('google_enabled')
+            ->toHaveKey('google_client_id')
+            ->toHaveKey('microsoft_enabled')
+            ->toHaveKey('allowed_email_domains');
+    });
+
+    it('declares encrypted credential types and a plain json allow-list', function () {
+        $definition = new SsoSettings;
+        $types = $definition->types();
+
+        expect($types)
+            ->toHaveKey('google_enabled', 'boolean')
+            ->toHaveKey('google_client_id', 'encrypted')
+            ->toHaveKey('google_client_secret', 'encrypted')
+            ->toHaveKey('microsoft_client_secret', 'encrypted')
+            ->toHaveKey('allowed_email_domains', 'json');
     });
 });
 

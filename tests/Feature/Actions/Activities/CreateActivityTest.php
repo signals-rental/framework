@@ -9,6 +9,7 @@ use App\Models\ListName;
 use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\User;
+use App\Services\Activities\ActivityTypeList;
 use Database\Seeders\ListOfValuesSeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -149,4 +150,24 @@ it('defaults the type to Task when none is provided', function () {
 
     expect($result->type_id)->toBe(activityTypeId(ActivityType::Task))
         ->and($result->activity_type_name)->toBe('Task');
+});
+
+it('does not reject a supplied type_id when the Activity Type list is unseeded (PR-5)', function () {
+    $user = User::factory()->owner()->create();
+    $this->actingAs($user);
+
+    // Capture a still-valid list_value id, then drop the "Activity Type" list so
+    // its id resolves to null — the exists rule must be omitted in that state.
+    $typeId = activityTypeId(ActivityType::Task);
+    ListValue::query()->whereNotNull('id')->delete();
+    ListName::query()->where('name', 'Activity Type')->delete();
+    app(ActivityTypeList::class)->clearCache();
+
+    // Without the exists rule the value passes validation (the FK is the hard guard).
+    $dto = CreateActivityData::validateAndCreate([
+        'subject' => 'Type with unseeded list',
+        'type_id' => $typeId,
+    ]);
+
+    expect($dto->type_id)->toBe($typeId);
 });

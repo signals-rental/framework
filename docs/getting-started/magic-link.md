@@ -49,6 +49,23 @@ If a role has SSO enforcement enabled (configured in **Settings → Security →
 | **2FA not bypassed** | Users with 2FA enabled are redirected to the standard one-time-code challenge after a successful link consume |
 | **Rate-limited** | Two layers. The **request** step is throttled inside the action — up to 3 requests per email+IP and 10 per IP across all addresses within a 15-minute window, both of which silently no-op when tripped so they cannot leak account existence. The **consume** route is additionally rate-limited per IP via standard `throttle:6,1` middleware |
 
+## Deployment Behind a Proxy or Load Balancer
+
+> **Prerequisite for correct rate-limiting.** The request-step throttles are keyed on the client IP (`request()->ip()`). When Signals runs behind a reverse proxy, load balancer, or CDN, Laravel only resolves the **real client IP** if trusted-proxy support is configured — otherwise every request appears to come from the proxy's IP, which collapses the per-IP throttle across all users behind that proxy and weakens the anti-enumeration guarantees.
+
+Configure trusted proxies in `bootstrap/app.php`:
+
+```php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->trustProxies(
+        at: '*', // or the specific proxy / CIDR ranges you control
+        headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO,
+    );
+})
+```
+
+Restrict `at:` to the proxy addresses you actually operate rather than `'*'` where possible. The same prerequisite applies to every IP-based throttle in Signals — password-login lockout, the magic-link consume route, and SSO.
+
 ## Settings Reference
 
 | Setting key | Type | UI location |

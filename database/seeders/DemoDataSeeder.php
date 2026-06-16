@@ -325,8 +325,11 @@ class DemoDataSeeder extends Seeder
     /**
      * Seed a realistic spread of demo activities (tasks, calls, meetings,
      * emails, notes) across the demo members. Each record is tagged
-     * 'demo-data' so signals:clear-demo can remove them. Keyed on subject via
-     * firstOrCreate so re-runs are idempotent.
+     * 'demo-data' so signals:clear-demo can remove them. Re-runs are idempotent:
+     * each activity is skipped when a demo-tagged row with the same subject
+     * already exists. The existence check is scoped to the 'demo-data' tag (the
+     * same marker signals:clear-demo uses) so re-seeding never collides with a
+     * real user's activity that happens to share a subject.
      */
     private function createDemoActivities(): void
     {
@@ -378,7 +381,10 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($activities as $data) {
-            $existing = Activity::query()->where('subject', $data['subject'])->exists();
+            $existing = Activity::query()
+                ->whereJsonContains('tag_list', 'demo-data')
+                ->where('subject', $data['subject'])
+                ->exists();
 
             if ($existing) {
                 continue;

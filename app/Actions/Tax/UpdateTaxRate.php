@@ -19,12 +19,12 @@ class UpdateTaxRate
 
         event(new AuditableEvent($taxRate, 'tax_rate.updated'));
 
-        $fresh = $taxRate->fresh();
+        $data = TaxRateData::fromModel($taxRate->fresh());
 
         app(WebhookService::class)->dispatch('tax_rate.updated', [
-            'tax_rate' => TaxRateData::fromModel($fresh)->toArray(),
+            'tax_rate' => $data->toArray(),
         ]);
 
-        return TaxRateData::fromModel($fresh);
+        return $data;
     }
 }

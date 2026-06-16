@@ -112,6 +112,50 @@ describe('List Values API (nested)', function () {
             ->assertJsonPath('meta.total', 2);
     });
 
+    it('honours a q[s] Ransack sort as the primary ordering', function () {
+        $listName = ListName::factory()->create();
+        // Equal sort_order so the explicit name sort is the deciding factor —
+        // the relation's own sort_order order becomes a no-op tiebreak.
+        ListValue::factory()->for($listName)->create(['name' => 'Beta', 'sort_order' => 0]);
+        ListValue::factory()->for($listName)->create(['name' => 'Alpha', 'sort_order' => 0]);
+        $token = $this->owner->createToken('test', ['static-data:read'])->plainTextToken;
+
+        $names = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/list_names/{$listName->id}/list_values?q[s]=name%20asc")
+            ->assertOk()
+            ->json('list_values.*.name');
+
+        expect($names)->toBe(['Alpha', 'Beta']);
+    });
+
+    it('honours a q[s] descending Ransack sort', function () {
+        $listName = ListName::factory()->create();
+        ListValue::factory()->for($listName)->create(['name' => 'Alpha', 'sort_order' => 0]);
+        ListValue::factory()->for($listName)->create(['name' => 'Beta', 'sort_order' => 0]);
+        $token = $this->owner->createToken('test', ['static-data:read'])->plainTextToken;
+
+        $names = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/list_names/{$listName->id}/list_values?q[s]=name%20desc")
+            ->assertOk()
+            ->json('list_values.*.name');
+
+        expect($names)->toBe(['Beta', 'Alpha']);
+    });
+
+    it('honours the dedicated sort parameter', function () {
+        $listName = ListName::factory()->create();
+        ListValue::factory()->for($listName)->create(['name' => 'Beta', 'sort_order' => 0]);
+        ListValue::factory()->for($listName)->create(['name' => 'Alpha', 'sort_order' => 0]);
+        $token = $this->owner->createToken('test', ['static-data:read'])->plainTextToken;
+
+        $names = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/list_names/{$listName->id}/list_values?sort=name")
+            ->assertOk()
+            ->json('list_values.*.name');
+
+        expect($names)->toBe(['Alpha', 'Beta']);
+    });
+
     it('creates a value for a list name', function () {
         $listName = ListName::factory()->create();
         $token = $this->owner->createToken('test', ['static-data:write'])->plainTextToken;

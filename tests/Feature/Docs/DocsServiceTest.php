@@ -9,7 +9,7 @@ test('getNavigation returns sections with pages', function () {
     expect($nav)->toHaveKey('sections')
         ->and($nav['sections'])->toBeArray()->toHaveCount(4)
         ->and($nav['sections'][0])->toHaveKeys(['title', 'slug', 'pages'])
-        ->and($nav['sections'][0]['pages'])->toBeArray()->toHaveCount(5)
+        ->and($nav['sections'][0]['pages'])->toBeArray()->toHaveCount(7)
         ->and($nav['sections'][0]['pages'][0])->toHaveKeys(['title', 'slug']);
 });
 

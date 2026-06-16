@@ -107,8 +107,9 @@ it('saves sso toggles only and ignores key fields on cloud', function () {
 
     expect(settings('sso.google_enabled'))->toBeTrue();
     expect(settings('sso.microsoft_enabled'))->toBeFalse();
-    // Credential fields are never written on cloud (managed via env), so nothing is persisted.
-    expect(settings('sso.google_client_id'))->toBeNull();
+    // Credential fields are never written on cloud (managed via env), so nothing is
+    // persisted — the read falls back to the registered SsoSettings default ('').
+    expect(settings('sso.google_client_id'))->toBe('');
     expect(Setting::query()->where('group', 'sso')->where('key', 'google_client_id')->exists())->toBeFalse();
 });
 

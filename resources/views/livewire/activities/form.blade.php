@@ -6,44 +6,61 @@ use App\Data\Activities\CreateActivityData;
 use App\Data\Activities\UpdateActivityData;
 use App\Enums\ActivityPriority;
 use App\Enums\ActivityStatus;
-use App\Enums\ActivityType;
 use App\Enums\TimeStatus;
 use App\Livewire\Concerns\LoadsCustomFieldValues;
 use App\Livewire\Concerns\ReKeysCustomFieldErrors;
 use App\Models\Activity;
 use App\Models\CustomField;
-use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\User;
-use Illuminate\Support\Collection;
+use App\Services\Activities\ActivityTypeList;
 use App\Services\Api\RansackFilter;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
     use LoadsCustomFieldValues;
     use ReKeysCustomFieldErrors;
 
     public ?int $activityId = null;
+
     public string $subject = '';
+
     public string $description = '';
+
     public string $location = '';
+
     public ?int $typeId = null;
+
     public int $statusId = 2001;
+
     public int $priority = 1;
+
     public int $timeStatus = 0;
+
     public ?int $ownedBy = null;
+
     public ?string $regardingType = null;
+
     public ?int $regardingId = null;
+
     public ?string $startsAt = null;
+
     public ?string $endsAt = null;
 
     public string $regardingSearch = '';
+
     public string $regardingSelectedName = '';
+
     public string $ownerSearch = '';
+
     public string $ownerSelectedName = '';
 
     /** @var array<string, mixed> */
@@ -91,29 +108,20 @@ new #[Layout('components.layouts.app')] class extends Component {
     /**
      * The "Activity Type" list's active values, ordered for the type dropdown.
      *
-     * @return Collection<int, \App\Models\ListValue>
+     * @return Collection<int, ListValue>
      */
-    public function getActivityTypesProperty(): Collection
+    #[Computed]
+    public function activityTypes(): Collection
     {
-        return ListName::query()->where('name', 'Activity Type')->first()
-            ?->values()->where('is_active', true)->orderBy('sort_order')->get()
-            ?? collect();
+        return app(ActivityTypeList::class)->activeValues();
     }
 
     /**
      * The default type (Task) value id for new activities.
-     *
-     * Anchored on the stable `metadata.icon` key ('task') rather than the
-     * user-editable label, so the default survives an admin renaming the
-     * "Task" list value. Falls back to the first active value.
      */
     private function defaultTypeId(): ?int
     {
-        $task = $this->activityTypes->first(
-            fn ($type): bool => ($type->metadata['icon'] ?? null) === ActivityType::Task->icon()
-        );
-
-        return $task?->id ?? $this->activityTypes->first()?->id;
+        return app(ActivityTypeList::class)->defaultId();
     }
 
     /**
@@ -140,18 +148,18 @@ new #[Layout('components.layouts.app')] class extends Component {
         return match ($this->regardingType) {
             'Member' => Member::query()
                 ->where('is_active', true)
-                ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->regardingSearch) . '%')
+                ->where('name', 'ilike', '%'.RansackFilter::escapeLike($this->regardingSearch).'%')
                 ->orderBy('name')
                 ->limit(15)
                 ->get(['id', 'name']),
             'Product' => Product::query()
                 ->where('is_active', true)
-                ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->regardingSearch) . '%')
+                ->where('name', 'ilike', '%'.RansackFilter::escapeLike($this->regardingSearch).'%')
                 ->orderBy('name')
                 ->limit(15)
                 ->get(['id', 'name']),
             'StockLevel' => StockLevel::query()
-                ->where('item_name', 'ilike', '%' . RansackFilter::escapeLike($this->regardingSearch) . '%')
+                ->where('item_name', 'ilike', '%'.RansackFilter::escapeLike($this->regardingSearch).'%')
                 ->orderBy('item_name')
                 ->limit(15)
                 ->get(['id', 'item_name as name']),
@@ -192,7 +200,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         return User::query()
             ->where('is_active', true)
-            ->where('name', 'ilike', '%' . RansackFilter::escapeLike($this->ownerSearch) . '%')
+            ->where('name', 'ilike', '%'.RansackFilter::escapeLike($this->ownerSearch).'%')
             ->orderBy('name')
             ->limit(15)
             ->get(['id', 'name']);
@@ -247,11 +255,11 @@ new #[Layout('components.layouts.app')] class extends Component {
             } else {
                 $result = (new CreateActivity)(CreateActivityData::from($payload));
             }
-        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            $this->redirect(route('activities.show', $result->id), navigate: true);
+        } catch (ValidationException $e) {
             $this->reKeyCustomFieldErrors($e, $this->customFields->pluck('name')->all());
         }
-
-        $this->redirect(route('activities.show', $result->id), navigate: true);
     }
 
     /**
@@ -500,12 +508,9 @@ new #[Layout('components.layouts.app')] class extends Component {
                     </x-signals.form-section>
 
                     @if($groupedCustomFields->isNotEmpty())
-                        <div>
-                            <h2 style="font-family: var(--font-display); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding-bottom: 4px; border-bottom: 1px solid var(--card-border);">Custom Fields</h2>
-                            <div class="mt-4">
-                                <x-signals.custom-fields-editor :groupedCustomFields="$groupedCustomFields" />
-                            </div>
-                        </div>
+                        <x-signals.form-section title="Custom Fields">
+                            <x-signals.custom-fields-editor :groupedCustomFields="$groupedCustomFields" />
+                        </x-signals.form-section>
                     @endif
                 </div>
             </div>

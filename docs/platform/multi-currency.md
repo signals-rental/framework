@@ -68,6 +68,21 @@ The moving parts (all managed under [Tax Classes](/docs/platform/tax-classes)):
 
 Given an organisation tax class and a product tax class, the engine selects the **highest-priority active tax rule** for that pair. If no exact rule matches, it falls back to the rule for the **default** organisation and product tax classes. If no rule (or no active rate) applies, the result is zero tax. Tax is calculated on the net amount in **minor units** using `bcmath`, then rounded to the currency's minor unit per line.
 
+### Exclusive vs Inclusive Calculation
+
+`TaxCalculator` resolves the rule and rate once, then offers two calculation modes that share the same rounding boundary. Both return a `TaxResult` carrying the resolved net, tax, and gross amounts (all in minor units), plus the rate name, percentage, rate ID, and rule ID.
+
+| Mode | Method | Input | Computes |
+|------|--------|-------|----------|
+| **Exclusive** (tax-additive) | `calculate()` | a **net** amount | tax on top, so `gross = net + tax` |
+| **Inclusive** (tax-from-gross) | `calculateInclusive()` | a **gross** amount | the embedded tax, so `net = gross − tax` |
+
+**Exclusive** mode treats the supplied amount as tax-exclusive. It computes `tax = net × rate%` (lossless intermediate, rounded once to the minor unit), then `gross = net + tax`. Use it when a price is quoted *before* tax — the normal case for B2B catalogue prices and rate cards.
+
+**Inclusive** mode treats the supplied amount as tax-inclusive. It derives `net = round(gross ÷ (1 + rate%))` and takes `tax = gross − net` as the remainder. Use it when a price already *includes* tax — common for consumer-facing (B2C) display prices, point-of-sale entry, and tax-inclusive imports.
+
+Because inclusive mode rounds the net once and then takes the tax as the remainder, the **`net + tax == gross` guarantee holds exactly** — there is no double-rounding drift, and inclusive extraction is the lossless inverse of the exclusive addition. Both modes use the same round-half-away-from-zero strategy at the single currency minor-unit boundary, and both fall back to a zero-tax result when no taxable rule applies.
+
 ## Deferred to Phase 3 / 4
 
 Phase 2 delivers the engines above as standalone, tested services (`CurrencyService`, `TaxCalculator`) and their supporting reference data, settings, and API endpoints. What Phase 2 deliberately does **not** include is the wiring of these engines into transactional line items:

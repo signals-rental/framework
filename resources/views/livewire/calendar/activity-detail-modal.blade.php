@@ -4,6 +4,10 @@ use App\Actions\Activities\CompleteActivity;
 use App\Actions\Activities\DeleteActivity;
 use App\Data\Activities\ActivityData;
 use App\Models\Activity;
+use App\Models\Member;
+use App\Services\Calendar\OwnerColorResolver;
+use App\Services\FileService;
+use Illuminate\Support\Str;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 
@@ -68,7 +72,7 @@ new class extends Component
             return null;
         }
 
-        $activity = Activity::with(['owner', 'type', 'regarding', 'participants.member'])->find($this->activityId);
+        $activity = Activity::with(['owner.member', 'type', 'regarding', 'participants.member'])->find($this->activityId);
 
         return $activity ? ActivityData::fromModel($activity) : null;
     }
@@ -95,27 +99,13 @@ new class extends Component
             ->map(function ($p) {
                 $user = $p->member?->user;
                 $name = $user?->name ?? $p->member?->name ?? 'Unknown';
-                $initials = \Illuminate\Support\Str::of($name)->explode(' ')->take(2)->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
-                $color = $user !== null ? str_replace('s-avatar-', '', app(\App\Services\Calendar\OwnerColorResolver::class)->for($user->id)) : 'zinc';
+                $initials = Str::of($name)->explode(' ')->take(2)->map(fn ($w) => Str::substr($w, 0, 1))->implode('');
+                $color = $user !== null ? str_replace('s-avatar-', '', app(OwnerColorResolver::class)->for($user->id)) : 'zinc';
 
-                return ['name' => $name, 'initials' => $initials, 'color' => $color, 'src' => app(\App\Services\FileService::class)->signedUrlOrNull($p->member?->icon_thumb_url)];
+                return ['name' => $name, 'initials' => $initials, 'color' => $color, 'src' => app(FileService::class)->signedUrlOrNull($p->member?->icon_thumb_url)];
             })
             ->values()
             ->all();
-    }
-
-    /**
-     * The owner's avatar photo (signed thumbnail path) if one exists.
-     */
-    public function getOwnerSrcProperty(): ?string
-    {
-        $ownerId = $this->activity?->owner?->id;
-
-        if ($ownerId === null) {
-            return null;
-        }
-
-        return app(\App\Services\FileService::class)->signedUrlOrNull(\App\Models\User::with('member')->find($ownerId)?->member?->icon_thumb_url);
     }
 
     /**
@@ -131,20 +121,20 @@ new class extends Component
             return null;
         }
 
-        $member = \App\Models\Member::find($this->activity->regarding_id);
+        $member = Member::find($this->activity->regarding_id);
 
         if ($member === null) {
             return null;
         }
 
         $name = (string) $member->name;
-        $initials = \Illuminate\Support\Str::of($name)->explode(' ')->take(2)
-            ->map(fn ($w) => \Illuminate\Support\Str::substr($w, 0, 1))->implode('');
+        $initials = Str::of($name)->explode(' ')->take(2)
+            ->map(fn ($w) => Str::substr($w, 0, 1))->implode('');
 
         return [
             'name' => $name,
             'initials' => $initials,
-            'src' => app(\App\Services\FileService::class)->signedUrlOrNull($member->icon_thumb_url),
+            'src' => app(FileService::class)->signedUrlOrNull($member->icon_thumb_url),
             'url' => route('members.show', $member->id),
         ];
     }
@@ -157,7 +147,7 @@ new class extends Component
         return [
             'activity' => $this->activity,
             'participantNames' => $this->participantNames,
-            'ownerSrc' => $this->ownerSrc,
+            'ownerSrc' => $this->activity?->owner_thumb_url,
             'regardingMember' => $this->regardingMember,
             'canComplete' => auth()->user()?->can('activities.complete') ?? false,
             'canDelete' => auth()->user()?->can('activities.delete') ?? false,

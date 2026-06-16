@@ -42,6 +42,7 @@ new #[Layout('components.layouts.app')] #[Title('List Name')] class extends Comp
             $data = [
                 'name' => $this->name,
                 'description' => $this->description ?: null,
+                'list_name_id' => $listName->id,
             ];
 
             if (! $this->hasValues) {

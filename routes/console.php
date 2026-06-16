@@ -17,3 +17,4 @@ Artisan::command('inspire', function () {
 
 Schedule::call(fn () => Cache::put('scheduler:last-run', now(), 300))->everyMinute();
 Schedule::command('action-log:prune')->dailyAt('02:00');
+Schedule::command('model:prune')->daily();

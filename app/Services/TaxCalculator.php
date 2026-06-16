@@ -143,7 +143,7 @@ class TaxCalculator
      */
     private function roundMinorUnits(string $rawMinorUnits): int
     {
-        return (int) bcadd($rawMinorUnits, $rawMinorUnits[0] === '-' ? '-0.5' : '0.5', 0);
+        return (int) bcadd($rawMinorUnits, str_starts_with($rawMinorUnits, '-') ? '-0.5' : '0.5', 0);
     }
 
     /**
@@ -185,15 +185,18 @@ class TaxCalculator
 
     /**
      * Build a zero-tax result when no rule applies.
+     *
+     * `$amountMinorUnits` is passed through as both net and gross since tax = 0,
+     * so the exclusive (net) and inclusive (gross) callers can share this path.
      */
-    private function zeroTax(int $netMinorUnits, string $currencyCode): TaxResult
+    private function zeroTax(int $amountMinorUnits, string $currencyCode): TaxResult
     {
         return new TaxResult(
             taxRateName: 'No Tax',
             ratePercentage: '0.0000',
-            netAmount: $netMinorUnits,
+            netAmount: $amountMinorUnits,
             taxAmount: 0,
-            grossAmount: $netMinorUnits,
+            grossAmount: $amountMinorUnits,
             currencyCode: $currencyCode,
         );
     }

@@ -45,6 +45,44 @@ it('creates a custom field', function () {
     Event::assertDispatched(AuditableEvent::class);
 });
 
+it('rejects creating a custom field with a name already used in the same module', function () {
+    // #223: a duplicate create must fail validation (422), not raise an uncaught
+    // QueryException from the ['name', 'module_type'] unique index (500) — the same
+    // guard the update path already has.
+    CustomField::factory()->string()->forModule('Member')->create(['name' => 'existing_field']);
+
+    $data = CreateCustomFieldData::from([
+        'name' => 'existing_field',
+        'module_type' => 'Member',
+        'field_type' => CustomFieldType::String->value,
+    ]);
+
+    try {
+        (new CreateCustomField)($data);
+        $this->fail('Expected a ValidationException for the duplicate create.');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('name');
+    }
+
+    // No second row was created.
+    expect(CustomField::query()->where('name', 'existing_field')->where('module_type', 'Member')->count())->toBe(1);
+});
+
+it('allows creating a custom field with a name used in a different module', function () {
+    // The unique index is scoped to module_type, so the same name may be created
+    // under another module without conflict.
+    CustomField::factory()->string()->forModule('Product')->create(['name' => 'shared_name']);
+
+    $result = (new CreateCustomField)(CreateCustomFieldData::from([
+        'name' => 'shared_name',
+        'module_type' => 'Member',
+        'field_type' => CustomFieldType::String->value,
+    ]));
+
+    expect($result->name)->toBe('shared_name');
+    expect($result->module_type)->toBe('Member');
+});
+
 it('updates a custom field', function () {
     Event::fake([AuditableEvent::class]);
 
@@ -157,7 +195,7 @@ it('rejects renaming a custom field to a name already used in the same module', 
     // The field must be untouched after the failed rename.
     $field->refresh();
     expect($field->name)->toBe('original_field');
-})->throws(ValidationException::class);
+});
 
 it('allows renaming a custom field to a name used in a different module', function () {
     // The unique index is scoped to module_type, so the same name may exist

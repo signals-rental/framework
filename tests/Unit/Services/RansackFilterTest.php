@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\ProductRate;
+use App\Models\StockTransaction;
 use App\Models\User;
 use App\Services\Api\RansackFilter;
 use Tests\TestCase;
@@ -599,4 +601,103 @@ it('ignores filter key that is only a predicate suffix with no field name', func
     );
 
     expect($query->toRawSql())->toBe($baseSql);
+});
+
+// ─── Backed-enum coercion: string-backed enum columns ───────────
+
+it('coerces a string-backed enum value to its canonical backing value (case-insensitive)', function () {
+    // ProductRate::transaction_type casts to the string-backed RateTransactionType.
+    $query = $this->filter->apply(
+        ProductRate::query(),
+        ['transaction_type_eq' => 'ReNtAl'],
+        ['transaction_type'],
+    );
+
+    expect($query->toRawSql())->toContain('"transaction_type" = \'rental\'');
+});
+
+it('leaves an unrecognised string on a string-backed enum column untouched (zero-result, not error)', function () {
+    $query = $this->filter->apply(
+        ProductRate::query(),
+        ['transaction_type_eq' => 'lease'],
+        ['transaction_type'],
+    );
+
+    // Unknown value passes through verbatim so the query simply matches nothing.
+    expect($query->toRawSql())->toContain('"transaction_type" = \'lease\'');
+});
+
+// ─── Backed-enum coercion: int-backed enum columns (PR-12) ──────
+
+it('coerces an int-backed enum case name to its integer backing value', function () {
+    // StockTransaction::transaction_type casts to the int-backed TransactionType.
+    $query = $this->filter->apply(
+        StockTransaction::query(),
+        ['transaction_type_eq' => 'Opening'],
+        ['transaction_type'],
+    );
+
+    // TransactionType::Opening->value === 1
+    expect($query->toRawSql())->toContain('"transaction_type" = 1');
+});
+
+it('coerces an int-backed enum numeric backing value supplied as a string', function () {
+    $query = $this->filter->apply(
+        StockTransaction::query(),
+        ['transaction_type_eq' => '7'],
+        ['transaction_type'],
+    );
+
+    // '7' matches TransactionType::Sell->value (7).
+    expect($query->toRawSql())->toContain('"transaction_type" = 7');
+});
+
+it('does not over-match int-backed enum rows for an unrecognised string (PR-12 regression)', function () {
+    $query = $this->filter->apply(
+        StockTransaction::query(),
+        ['transaction_type_eq' => 'not-a-type'],
+        ['transaction_type'],
+    );
+
+    $sql = $query->toRawSql();
+
+    // Regression: an unrecognised string must NOT be DB-cast to 0 (which would
+    // over-match). It resolves to a non-numeric sentinel that can never equal a
+    // stored integer, yielding an empty result set.
+    expect($sql)->toContain('__signals_no_match__');
+    expect($sql)->not->toContain('"transaction_type" = 0');
+    expect($sql)->not->toContain('"transaction_type" = \'0\'');
+});
+
+it('does not over-match int-backed enum rows for an unrecognised value in an in filter (PR-12 regression)', function () {
+    $query = $this->filter->apply(
+        StockTransaction::query(),
+        ['transaction_type_in' => 'Opening,not-a-type'],
+        ['transaction_type'],
+    );
+
+    $sql = $query->toRawSql();
+
+    // The valid name resolves to its int; the unrecognised one becomes the
+    // sentinel rather than collapsing to 0.
+    expect($sql)
+        ->toContain('__signals_no_match__')
+        ->toContain('1');
+    expect($sql)->not->toContain('in (0,');
+    expect($sql)->not->toContain(', 0)');
+});
+
+it('passes an int-backed enum integer that matches no case through untouched', function () {
+    // An explicit integer with no matching case is a legitimate (if empty)
+    // query — it is NOT replaced with the sentinel, since no 0-cast hazard exists.
+    $query = $this->filter->apply(
+        StockTransaction::query(),
+        ['transaction_type_eq' => 99],
+        ['transaction_type'],
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)->toContain('"transaction_type" = 99');
+    expect($sql)->not->toContain('__signals_no_match__');
 });

@@ -53,6 +53,15 @@ class ConsumeMagicLink
             throw new InvalidMagicLinkException;
         }
 
+        // Defence-in-depth: assert the resolved user is the one the token was
+        // minted for. Tokens are user-scoped by construction (the relation is
+        // loaded from $token->user_id), so this can never fail today — but the
+        // explicit check makes the invariant load-bearing, so a future change to
+        // how the user is resolved cannot silently authenticate the wrong account.
+        if ($user->getKey() !== $token->user_id) {
+            throw new InvalidMagicLinkException;
+        }
+
         // Atomically claim the token: only one caller can flip an unconsumed,
         // unexpired row to consumed. A zero-row result means a concurrent click
         // (or expiry between the read and the claim) already took it — invalid.

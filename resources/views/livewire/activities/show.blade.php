@@ -1,19 +1,22 @@
 <?php
 
+use App\Actions\Activities\CompleteActivity;
+use App\Actions\Activities\DeleteActivity;
+use App\Livewire\Concerns\HasAuditTimeline;
 use App\Livewire\Concerns\HasFileActions;
 use App\Models\Activity;
-use App\Models\ActionLog;
 use App\Models\CustomField;
+use App\Models\Member;
+use App\Services\FileService;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.app')] class extends Component
+{
+    use HasAuditTimeline;
     use HasFileActions;
-
-    /** Number of recent audit-log entries shown on the activity timeline. */
-    private const TIMELINE_LIMIT = 15;
 
     public Activity $activity;
 
@@ -36,13 +39,13 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     public function completeActivity(): void
     {
-        (new \App\Actions\Activities\CompleteActivity)($this->activity);
+        (new CompleteActivity)($this->activity);
         $this->activity->refresh();
     }
 
     public function deleteActivity(): void
     {
-        (new \App\Actions\Activities\DeleteActivity)($this->activity);
+        (new DeleteActivity)($this->activity);
         $this->redirect(route('activities.index'), navigate: true);
     }
 
@@ -64,7 +67,7 @@ new #[Layout('components.layouts.app')] class extends Component {
             return null;
         }
 
-        $member = \App\Models\Member::find($this->activity->regarding_id);
+        $member = Member::find($this->activity->regarding_id);
 
         if ($member === null) {
             return null;
@@ -77,43 +80,24 @@ new #[Layout('components.layouts.app')] class extends Component {
         return [
             'name' => $name,
             'initials' => $initials,
-            'src' => app(\App\Services\FileService::class)->signedUrlOrNull($member->icon_thumb_url),
+            'src' => app(FileService::class)->signedUrlOrNull($member->icon_thumb_url),
             'url' => route('members.show', $member->id),
         ];
     }
 
     /**
-     * Most-recent audit-log entries for this activity, shaped for the timeline.
+     * Activity-specific timeline colours: completions read as positive (green),
+     * cancellations as destructive (red).
      *
-     * @return \Illuminate\Support\Collection<int, array{title: string, meta: string, color: ?string, body: ?string}>
+     * @return array<string, list<string>>
      */
-    private function timelineEntries(): \Illuminate\Support\Collection
+    protected function timelineColorMap(): array
     {
-        return ActionLog::query()
-            ->with('user')
-            ->forEntity($this->activity->getMorphClass(), $this->activity->id)
-            ->latest('created_at')
-            ->limit(self::TIMELINE_LIMIT)
-            ->get()
-            ->map(fn (ActionLog $log): array => [
-                'title' => Str::of($log->action)->replace(['.', '_'], ' ')->headline()->toString(),
-                'meta' => $log->created_at?->diffForHumans() ?? '',
-                'color' => $this->timelineColor($log->action),
-                'body' => $log->user?->name ? "by {$log->user->name}" : null,
-            ]);
-    }
-
-    /**
-     * Map an audit action to a timeline dot colour for at-a-glance scanning.
-     */
-    private function timelineColor(string $action): ?string
-    {
-        return match (true) {
-            Str::endsWith($action, ['.created', '.restored', '.completed']) => 'green',
-            Str::endsWith($action, ['.deleted', '.cancelled']) => 'red',
-            Str::endsWith($action, ['.updated']) => 'blue',
-            default => null,
-        };
+        return [
+            'green' => ['.created', '.restored', '.completed'],
+            'red' => ['.deleted', '.cancelled'],
+            'blue' => ['.updated'],
+        ];
     }
 
     /**
@@ -135,7 +119,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 
         return [
             'regardingMember' => $this->regardingMember,
-            'timeline' => $this->timelineEntries(),
+            'timeline' => $this->auditTimelineFor($this->activity),
             'groupedCustomFields' => $fields->groupBy(fn (CustomField $f) => $f->group?->name ?? 'General'),
             'customFieldValues' => $values,
             ...$this->fileData(),

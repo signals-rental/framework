@@ -75,6 +75,29 @@ describe('GET stock_transactions (Ransack filtering)', function () {
             ->assertJsonCount(2, 'stock_transactions');
     });
 
+    it('honours a q[s] sort instead of the transaction_at fallback', function () {
+        $early = StockTransaction::factory()->buy()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+            'transaction_at' => now()->subDays(2),
+        ]);
+        $late = StockTransaction::factory()->buy()->create([
+            'stock_level_id' => $this->stockLevel->id,
+            'store_id' => $this->store->id,
+            'transaction_at' => now(),
+        ]);
+        $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
+
+        // Default ordering is transaction_at DESC; an explicit ASC sort must win
+        // (the hasExplicitSort guard suppresses the fallback orderBy).
+        $ids = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/stock_levels/{$this->stockLevel->id}/stock_transactions?q[s]=transaction_at%20asc")
+            ->assertOk()
+            ->json('stock_transactions.*.id');
+
+        expect($ids)->toBe([$early->id, $late->id]);
+    });
+
     it('filters by the manual flag with the _eq predicate', function () {
         // Buy is manual; Opening (system type) is not manual.
         StockTransaction::factory()->buy()->create([

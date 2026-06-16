@@ -25,7 +25,7 @@ class CalendarEventData extends Data
         public ?string $starts_at,
         public ?string $ends_at,
         public bool $all_day,
-        public int $type_id,
+        public ?int $type_id,
         public string $type_name,
         public string $type_icon,
         public int $status_id,
@@ -88,7 +88,9 @@ class CalendarEventData extends Data
         $regardingNameRaw = $regarding?->getAttribute('name');
         $regardingName = is_string($regardingNameRaw) ? $regardingNameRaw : null;
 
-        $typeId = (int) $activity->type_id;
+        // Preserve a NULL type_id (mirrors ActivityData's ?int contract) rather
+        // than coercing it to 0; the typeName/icon fallback still applies.
+        $typeId = $activity->type_id !== null ? (int) $activity->type_id : null;
         $typeName = '';
         $typeIcon = 'task';
         if ($type !== null) {

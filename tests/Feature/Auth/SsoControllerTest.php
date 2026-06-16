@@ -52,6 +52,15 @@ function mockSso(string $provider, bool $available, ?SocialiteUser $socialiteUse
     $service->shouldReceive('driver')->with($provider)->andReturn($driver);
 
     app()->instance(SsoService::class, $service);
+
+    // The router caches the resolved controller instance on the Route object for the
+    // lifetime of the test application, so a controller built during an earlier request
+    // keeps its original constructor-injected SsoService. Flush the cached controllers on
+    // the SSO routes so the next request rebuilds the controller with this fresh mock —
+    // without this, a second mockSso() call in the same test is silently ignored.
+    foreach (['sso.redirect', 'sso.callback'] as $name) {
+        app('router')->getRoutes()->getByName($name)?->flushController();
+    }
 }
 
 // ─── redirect() ──────────────────────────────────────────────────
