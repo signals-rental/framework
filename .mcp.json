@@ -19,6 +19,9 @@
         "nightwatch": {
             "type": "http",
             "url": "https://nightwatch.laravel.com/mcp"
+        },
+        "solo": {
+            "command": "/Applications/Solo.app/Contents/MacOS/mcp"
         }
     }
 }
