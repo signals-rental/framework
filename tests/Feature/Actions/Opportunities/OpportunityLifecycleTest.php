@@ -316,7 +316,7 @@ it('rolls back the event and the projection atomically when a projection fails',
     // writes to. The committed event row would already be flushed inside the
     // commitVerbs() transaction, so the whole transaction must roll back —
     // leaving neither an event row nor a projected row.
-    Schema::drop('opportunities');
+    Schema::rename('opportunities', 'opportunities_tmp_missing');
 
     $threw = false;
 
@@ -329,10 +329,11 @@ it('rolls back the event and the projection atomically when a projection fails',
     expect($threw)->toBeTrue()
         ->and(VerbEvent::query()->count())->toBe(0);
 
-    // Recreate the projection table (the migration row still exists, so we run
-    // the migration class directly) and confirm the in-memory Verbs state was
-    // reset cleanly — a fresh create still succeeds as the very first event.
-    (require base_path('database/migrations/2026_06_18_065517_create_opportunities_table.php'))->up();
+    // Restore the projection table with its FULL current schema. Renaming it back
+    // (rather than re-running the base migration) keeps this test correct as later
+    // migrations add columns, and confirms the in-memory Verbs state was reset
+    // cleanly — a fresh create still succeeds as the very first event.
+    Schema::rename('opportunities_tmp_missing', 'opportunities');
 
     $result = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Recovered']));
 
