@@ -70,6 +70,16 @@ class ProductFactory extends Factory
         ]);
     }
 
+    /**
+     * A product excluded from the availability engine.
+     */
+    public function notTracked(): static
+    {
+        return $this->state(fn () => [
+            'track_availability' => false,
+        ]);
+    }
+
     public function withGroup(): static
     {
         return $this->state(fn () => [

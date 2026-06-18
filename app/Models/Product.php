@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property StockMethod|null $stock_method
  * @property int $buffer_before_minutes
  * @property int $post_rent_unavailability
+ * @property bool $track_availability
  */
 class Product extends Model implements HasSchema
 {
@@ -44,6 +45,7 @@ class Product extends Model implements HasSchema
         'buffer_percent',
         'buffer_before_minutes',
         'post_rent_unavailability',
+        'track_availability',
         'is_active',
         'accessory_only',
         'system',
@@ -80,6 +82,7 @@ class Product extends Model implements HasSchema
             'buffer_percent' => 'decimal:2',
             'buffer_before_minutes' => 'integer',
             'post_rent_unavailability' => 'integer',
+            'track_availability' => 'boolean',
         ];
     }
 

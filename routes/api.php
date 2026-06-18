@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AccessoryController;
 use App\Http\Controllers\Api\V1\ActionLogController;
 use App\Http\Controllers\Api\V1\ActivityController;
 use App\Http\Controllers\Api\V1\AttachmentController;
+use App\Http\Controllers\Api\V1\AvailabilityController;
 use App\Http\Controllers\Api\V1\CountryController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\CustomFieldController;
@@ -141,6 +142,10 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
 
     // Stock Levels
     Route::apiResource('stock_levels', StockLevelController::class)->names('api.v1.stock_levels');
+
+    // Availability (read-only: point query via ?date, range query via ?from&?to)
+    Route::get('availability', [AvailabilityController::class, 'index'])->name('api.v1.availability.index');
+    Route::get('products/{product}/availability', [AvailabilityController::class, 'showForProduct'])->name('api.v1.products.availability');
 
     // Stock Transactions (nested under products/stock_levels, matching RMS)
     Route::get('products/{product}/stock_levels/{stock_level}/stock_transactions', [StockTransactionController::class, 'index'])->name('api.v1.stock_transactions.index');

@@ -160,6 +160,31 @@ it('returns an empty manifest when documentation.json is not a json object', fun
     }
 });
 
+it('resolves the availability API documentation page', function () {
+    expect($this->service->pageExists('api', 'availability'))->toBeTrue();
+
+    $page = $this->service->getPage('api', 'availability');
+
+    expect($page)->not->toBeNull()
+        ->and($page['html'])->toContain('availability:read');
+});
+
+it('lists the availability page in the API navigation section', function () {
+    $nav = $this->service->getNavigation();
+
+    $apiSection = null;
+    foreach ($nav['sections'] as $section) {
+        if (($section['slug'] ?? null) === 'api') {
+            $apiSection = $section;
+            break;
+        }
+    }
+
+    $slugs = array_map(static fn (array $page): string => $page['slug'], $apiSection['pages']);
+
+    expect($slugs)->toContain('availability');
+});
+
 it('skips changelog entries lacking frontmatter and formats integer dates', function () {
     App::shouldReceive('environment')->with('local')->andReturn(true);
 

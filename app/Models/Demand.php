@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\DemandPhase;
+use App\Observers\DemandObserver;
 use Database\Factories\DemandFactory;
 use Illuminate\Contracts\Database\Query\Expression;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,6 +45,7 @@ use Illuminate\Support\Facades\DB;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
+#[ObservedBy(DemandObserver::class)]
 class Demand extends Model
 {
     /** @use HasFactory<DemandFactory> */

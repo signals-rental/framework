@@ -8,7 +8,10 @@ use App\Models\User;
 use App\Services\Activities\ActivityTypeList;
 use App\Services\Availability\DatabaseAvailabilityDataPresence;
 use App\Services\Availability\OpportunityItemDemandResolver;
+use App\Services\Availability\RecalculationPipeline;
 use App\Services\Availability\SettingsAvailabilityResolutionProvider;
+use App\Services\Availability\SlotCalculator;
+use App\Services\AvailabilityService;
 use App\Services\ColumnRegistryResolver;
 use App\Services\DemandSourceDefinition;
 use App\Services\DemandSourceRegistry;
@@ -59,6 +62,12 @@ class AppServiceProvider extends ServiceProvider
         // package rebinds these to tenant-/hosting-aware implementations.
         $this->app->bind(AvailabilityDataPresence::class, DatabaseAvailabilityDataPresence::class);
         $this->app->bind(AvailabilityResolutionProvider::class, SettingsAvailabilityResolutionProvider::class);
+
+        // Availability engine read/recalc services. The SlotCalculator reads the
+        // resolution live through its provider, so a singleton is safe.
+        $this->app->singleton(SlotCalculator::class);
+        $this->app->singleton(RecalculationPipeline::class);
+        $this->app->singleton(AvailabilityService::class);
 
         $this->app->singleton(PermissionRegistry::class, function (): PermissionRegistry {
             $registry = new PermissionRegistry;
