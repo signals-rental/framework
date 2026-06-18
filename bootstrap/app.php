@@ -1,8 +1,20 @@
 <?php
 
+use App\Http\Middleware\EnforceSessionTimeout;
+use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\EnsureModuleEnabled;
+use App\Http\Middleware\EnsureSetupComplete;
+use App\Http\Middleware\EnsureSetupRequired;
+use App\Http\Middleware\EnsureTwoFactorAuthenticated;
+use App\Http\Middleware\ResolveTenant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Thunk\Verbs\Exceptions\EventNotValid;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,18 +25,36 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->prepend(\App\Http\Middleware\ResolveTenant::class);
+        $middleware->prepend(ResolveTenant::class);
 
         $middleware->alias([
-            'admin' => \App\Http\Middleware\EnsureAdmin::class,
-            'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
-            'signals.setup-required' => \App\Http\Middleware\EnsureSetupRequired::class,
-            'signals.setup-complete' => \App\Http\Middleware\EnsureSetupComplete::class,
-            'signals.active-user' => \App\Http\Middleware\EnsureActiveUser::class,
-            'signals.session-timeout' => \App\Http\Middleware\EnforceSessionTimeout::class,
-            '2fa' => \App\Http\Middleware\EnsureTwoFactorAuthenticated::class,
+            'admin' => EnsureAdmin::class,
+            'module' => EnsureModuleEnabled::class,
+            'signals.setup-required' => EnsureSetupRequired::class,
+            'signals.setup-complete' => EnsureSetupComplete::class,
+            'signals.active-user' => EnsureActiveUser::class,
+            'signals.session-timeout' => EnforceSessionTimeout::class,
+            '2fa' => EnsureTwoFactorAuthenticated::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // A Verbs event guard (`validate()` → `assert()`) throws EventNotValid when
+        // a state-mutating event is fired against an invalid state — e.g. converting
+        // an Order back to a quotation. That is a client-input error, not a server
+        // fault, so map it to a 422 across every current and future event-sourced
+        // transition endpoint, in the project's standard validation JSON shape
+        // ({"message": ..., "errors": {...}}). The guard message is surfaced under
+        // the `state` key, since it always describes an invalid lifecycle position.
+        $exceptions->render(function (EventNotValid $e, Request $request): ?JsonResponse {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            $message = $e->getMessage();
+
+            return response()->json([
+                'message' => $message,
+                'errors' => ['state' => [$message]],
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        });
     })->create();

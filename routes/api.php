@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\MemberEmailController;
 use App\Http\Controllers\Api\V1\MemberLinkController;
 use App\Http\Controllers\Api\V1\MemberPhoneController;
 use App\Http\Controllers\Api\V1\MemberRelationshipController;
+use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OrganisationTaxClassController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductGroupController;
@@ -150,6 +151,12 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     // Activities
     Route::apiResource('activities', ActivityController::class)->names('api.v1.activities');
     Route::post('activities/{activity}/complete', [ActivityController::class, 'complete'])->name('api.v1.activities.complete');
+
+    // Opportunities (event-sourced lifecycle)
+    Route::post('opportunities/{opportunity}/convert_to_quotation', [OpportunityController::class, 'convertToQuotation'])->name('api.v1.opportunities.convert_to_quotation');
+    Route::post('opportunities/{opportunity}/convert_to_order', [OpportunityController::class, 'convertToOrder'])->name('api.v1.opportunities.convert_to_order');
+    Route::post('opportunities/{opportunity}/change_status', [OpportunityController::class, 'changeStatus'])->name('api.v1.opportunities.change_status');
+    Route::apiResource('opportunities', OpportunityController::class)->names('api.v1.opportunities');
 
     // Rate Definitions
     Route::post('rate_definitions/{rate_definition}/duplicate', [RateDefinitionController::class, 'duplicate'])->name('api.v1.rate_definitions.duplicate');

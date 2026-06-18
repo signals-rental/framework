@@ -65,6 +65,9 @@ class OpportunityState extends State
 
     public bool $is_invoiced = false;
 
+    /** True once the opportunity has been soft-deleted (archived) via OpportunityDeleted. */
+    public bool $is_deleted = false;
+
     public ?CarbonImmutable $last_event_at = null;
 
     public function stateAxis(): StateAxis

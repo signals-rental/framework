@@ -45,6 +45,7 @@
                 { "title": "Stock Levels", "slug": "stock-levels" },
                 { "title": "Stock Transactions", "slug": "stock-transactions" },
                 { "title": "Activities", "slug": "activities" },
+                { "title": "Opportunities", "slug": "opportunities" },
                 { "title": "Calendar Feeds", "slug": "calendar-feeds" },
                 { "title": "Product Groups", "slug": "product-groups" },
                 { "title": "Custom Views", "slug": "custom-views" },

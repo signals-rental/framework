@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Enums\OpportunityState;
 use App\Models\CustomView;
 use App\Views\ActivityColumnRegistry;
 use App\Views\MemberColumnRegistry;
+use App\Views\OpportunityColumnRegistry;
 use App\Views\ProductColumnRegistry;
 use App\Views\ProductGroupColumnRegistry;
 use App\Views\StockLevelColumnRegistry;
@@ -84,7 +86,22 @@ class ViewSeeder extends Seeder
             $this->systemView('All Product Groups', 'product_groups', $productGroupDefaultColumns, isDefault: true),
         ];
 
-        $allViews = array_merge($memberViews, $productViews, $stockLevelViews, $activityViews, $productGroupViews);
+        $opportunityDefaultColumns = (new OpportunityColumnRegistry)->defaultColumns();
+
+        $opportunityViews = [
+            $this->systemView('All Opportunities', 'opportunities', $opportunityDefaultColumns, isDefault: true, sortColumn: 'created_at', sortDirection: 'desc'),
+            $this->systemView('Drafts', 'opportunities', $opportunityDefaultColumns, filters: [
+                ['field' => 'state', 'predicate' => 'eq', 'value' => OpportunityState::Draft->value],
+            ], sortColumn: 'created_at', sortDirection: 'desc'),
+            $this->systemView('Quotations', 'opportunities', $opportunityDefaultColumns, filters: [
+                ['field' => 'state', 'predicate' => 'eq', 'value' => OpportunityState::Quotation->value],
+            ], sortColumn: 'created_at', sortDirection: 'desc'),
+            $this->systemView('Orders', 'opportunities', $opportunityDefaultColumns, filters: [
+                ['field' => 'state', 'predicate' => 'eq', 'value' => OpportunityState::Order->value],
+            ], sortColumn: 'created_at', sortDirection: 'desc'),
+        ];
+
+        $allViews = array_merge($memberViews, $productViews, $stockLevelViews, $activityViews, $productGroupViews, $opportunityViews);
 
         foreach ($allViews as $view) {
             CustomView::query()->updateOrCreate(

@@ -70,8 +70,8 @@ it('has no phantom module without a backing model', function () {
             ->toBeTrue("Registered custom-field module '{$modelClass}' is not an Eloquent model.");
     }
 
-    // The phantom entries from the old hardcoded dropdown must not reappear.
-    expect($this->registry->has('Opportunity'))->toBeFalse('Opportunity has no backing model yet and must not be a custom-field module.');
+    // Invoice still has no backing model yet and must not be a custom-field module.
+    // (Opportunity now has a backing Eloquent projection model and IS a module.)
     expect($this->registry->has('Invoice'))->toBeFalse('Invoice has no backing model yet and must not be a custom-field module.');
 });
 
@@ -104,6 +104,7 @@ it('contains the expected Phase-2 custom field modules with labels', function ()
         'StockLevel' => 'Stock Level',
         'Activity' => 'Activity',
         'Store' => 'Store',
+        'Opportunity' => 'Opportunity',
     ]);
 });
 

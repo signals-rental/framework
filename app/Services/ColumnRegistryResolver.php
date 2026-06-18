@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Views\ActivityColumnRegistry;
 use App\Views\ColumnRegistry;
 use App\Views\MemberColumnRegistry;
+use App\Views\OpportunityColumnRegistry;
 use App\Views\ProductColumnRegistry;
 use App\Views\ProductGroupColumnRegistry;
 use App\Views\ProductRateColumnRegistry;
@@ -30,6 +31,7 @@ class ColumnRegistryResolver
         'activities' => ActivityColumnRegistry::class,
         'rate_definitions' => RateDefinitionColumnRegistry::class,
         'product_rates' => ProductRateColumnRegistry::class,
+        'opportunities' => OpportunityColumnRegistry::class,
     ];
 
     /** @var array<string, ColumnRegistry> */

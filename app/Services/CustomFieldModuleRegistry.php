@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Activity;
 use App\Models\Member;
+use App\Models\Opportunity;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\StockLevel;
@@ -47,6 +48,7 @@ class CustomFieldModuleRegistry
         StockLevel::class => 'Stock Level',
         Activity::class => 'Activity',
         Store::class => 'Store',
+        Opportunity::class => 'Opportunity',
     ];
 
     /**
