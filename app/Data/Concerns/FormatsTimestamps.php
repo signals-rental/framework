@@ -13,4 +13,12 @@ trait FormatsTimestamps
     {
         return Carbon::instance($timestamp)->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
+
+    /**
+     * Format a nullable timestamp, passing null through unchanged.
+     */
+    protected static function formatNullableTimestamp(?\DateTimeInterface $timestamp): ?string
+    {
+        return $timestamp === null ? null : self::formatTimestamp($timestamp);
+    }
 }

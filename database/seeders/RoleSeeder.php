@@ -32,6 +32,9 @@ class RoleSeeder extends Seeder
             || str_starts_with($p, 'activities.')
             || str_starts_with($p, 'invoices.')
             || str_starts_with($p, 'members.')
+            // Sales see and resolve shortages, but the hard-block override
+            // (shortages.ignore) is reserved for management-tier roles.
+            || in_array($p, ['shortages.view', 'shortages.resolve'], true)
             || $p === 'products.access'
             || $p === 'products.view'
             || $p === 'reports.access'
@@ -40,7 +43,7 @@ class RoleSeeder extends Seeder
 
         $warehousePermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'stock.')
             || str_starts_with($p, 'products.')
-            || in_array($p, ['members.access', 'members.view', 'reports.access', 'reports.view'])
+            || in_array($p, ['members.access', 'members.view', 'reports.access', 'reports.view', 'shortages.view', 'shortages.resolve'], true)
         );
 
         // Custom-field management is configured under Settings > Customisation. Grant it

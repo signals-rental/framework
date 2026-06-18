@@ -49,6 +49,11 @@ class PermissionSeeder extends Seeder
             'opportunities.edit' => ['label' => 'Edit Opportunities', 'description' => 'Edit existing opportunities', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.view']],
             'opportunities.delete' => ['label' => 'Delete Opportunities', 'description' => 'Delete opportunities', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.edit']],
 
+            // Shortages (detection, resolution, and the confirmation-gate override)
+            'shortages.view' => ['label' => 'View Shortages', 'description' => 'View detected shortages and their resolutions', 'group' => 'Opportunities', 'sub_group' => 'Shortages', 'layer' => 'action', 'dependencies' => ['opportunities.view']],
+            'shortages.resolve' => ['label' => 'Resolve Shortages', 'description' => 'Apply resolutions and acknowledge shortages', 'group' => 'Opportunities', 'sub_group' => 'Shortages', 'layer' => 'action', 'dependencies' => ['shortages.view']],
+            'shortages.ignore' => ['label' => 'Ignore Shortages', 'description' => 'Override the store shortage policy to confirm an order despite unresolved shortages (can_ignore_shortages)', 'group' => 'Opportunities', 'sub_group' => 'Shortages', 'layer' => 'action', 'dependencies' => ['opportunities.edit']],
+
             // Activities
             'activities.access' => ['label' => 'Access Activities', 'description' => 'Access the activities area', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'area', 'dependencies' => []],
             'activities.view' => ['label' => 'View Activities', 'description' => 'View activity records', 'group' => 'Activities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['activities.access']],

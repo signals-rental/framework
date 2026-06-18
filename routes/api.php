@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\RateEngineMetaController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SchemaController;
 use App\Http\Controllers\Api\V1\SettingsController;
+use App\Http\Controllers\Api\V1\ShortageController;
 use App\Http\Controllers\Api\V1\StockLevelController;
 use App\Http\Controllers\Api\V1\StockTransactionController;
 use App\Http\Controllers\Api\V1\SystemController;
@@ -174,6 +175,12 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     // Manual deal-total override
     Route::post('opportunities/{opportunity}/deal_price', [OpportunityController::class, 'setDealPrice'])->name('api.v1.opportunities.deal_price.set');
     Route::delete('opportunities/{opportunity}/deal_price', [OpportunityController::class, 'clearDealPrice'])->name('api.v1.opportunities.deal_price.clear');
+    // Shortages (computed detection + non-PO resolution)
+    Route::get('opportunities/{opportunity}/shortages', [ShortageController::class, 'index'])->name('api.v1.opportunities.shortages.index');
+    Route::get('opportunities/{opportunity}/items/{item}/shortage_resolvers', [ShortageController::class, 'resolvers'])->name('api.v1.opportunities.shortage_resolvers');
+    Route::post('opportunities/{opportunity}/shortages/acknowledge', [ShortageController::class, 'acknowledge'])->name('api.v1.opportunities.shortages.acknowledge');
+    Route::post('shortage_resolutions', [ShortageController::class, 'resolve'])->name('api.v1.shortage_resolutions.store');
+
     Route::apiResource('opportunities', OpportunityController::class)->names('api.v1.opportunities');
 
     // Rate Definitions

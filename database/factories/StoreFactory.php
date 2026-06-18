@@ -2,10 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Enums\ShortagePolicy;
+use App\Models\Store;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Store>
+ * @extends Factory<Store>
  */
 class StoreFactory extends Factory
 {
@@ -34,6 +36,16 @@ class StoreFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_default' => true,
+        ]);
+    }
+
+    /**
+     * Set the store's shortage confirmation-gate policy.
+     */
+    public function shortagePolicy(ShortagePolicy $policy): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'shortage_policy' => $policy->value,
         ]);
     }
 }

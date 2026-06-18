@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Contracts\HasSchema;
+use App\Enums\ShortagePolicy;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
 use Database\Factories\StoreFactory;
@@ -11,6 +12,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property ShortagePolicy $shortage_policy
+ */
 class Store extends Model implements HasSchema
 {
     /** @use HasFactory<StoreFactory> */
@@ -29,6 +33,7 @@ class Store extends Model implements HasSchema
         'email',
         'timezone',
         'is_default',
+        'shortage_policy',
         'tag_list',
     ];
 
@@ -39,8 +44,18 @@ class Store extends Model implements HasSchema
     {
         return [
             'is_default' => 'boolean',
+            'shortage_policy' => ShortagePolicy::class,
             'tag_list' => 'array',
         ];
+    }
+
+    /**
+     * The store's shortage confirmation-gate policy, falling back to the
+     * framework default when the column is unset (legacy rows).
+     */
+    public function shortagePolicy(): ShortagePolicy
+    {
+        return $this->shortage_policy ?? ShortagePolicy::default();
     }
 
     public static function defineSchema(SchemaBuilder $builder): void

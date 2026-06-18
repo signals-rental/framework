@@ -12,6 +12,7 @@ use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\Availability\SlotCalculator;
+use App\Services\Shortages\ShortageDetector;
 use BadMethodCallException;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -183,17 +184,77 @@ class AvailabilityService
     }
 
     /**
+     * The quantity of a product free for an opportunity line item over its whole
+     * `[$from, $to)` window — the worst (most-constrained) slot — while excluding
+     * that line item's OWN active demand so it is never counted short against its
+     * own booking.
+     *
+     * This is the figure the shortage detector compares the line's requested
+     * quantity against (shortage-resolution-sub-hires.md §2.1). Bulk and
+     * serialised both reduce to "units free for others to claim, plus the units
+     * this item itself already holds" — i.e. how many units this item could
+     * fulfil. Computed live from demands, mirroring {@see checkAvailability()}.
+     *
+     * @param  string  $excludeSourceType  demand source_type to exclude (e.g. `opportunity_item`)
+     * @param  int  $excludeSourceId  demand source_id to exclude (the line item id)
+     */
+    public function availableForItem(
+        int $productId,
+        int $storeId,
+        Carbon $from,
+        Carbon $to,
+        string $excludeSourceType,
+        int $excludeSourceId,
+    ): int {
+        $product = Product::query()->find($productId);
+
+        if ($product === null) {
+            return 0;
+        }
+
+        $timezone = $this->storeTimezone($storeId);
+        $totalStock = $this->pipeline->totalStock($product, $storeId);
+
+        /** @var Collection<int, Demand> $demands */
+        $demands = Demand::query()
+            ->where('product_id', $productId)
+            ->where('store_id', $storeId)
+            ->active()
+            ->overlapping($from, $to)
+            ->where(static function ($query) use ($excludeSourceType, $excludeSourceId): void {
+                // Exclude this item's own demand: everything else competes for stock.
+                $query->where('source_type', '!=', $excludeSourceType)
+                    ->orWhere('source_id', '!=', $excludeSourceId);
+            })
+            ->get();
+
+        $worst = $totalStock;
+
+        foreach ($this->slotCalculator->generateSlots($from, $to, $timezone) as $slotStart) {
+            $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
+            [$demanded] = $this->sumDemandIn($demands, $slotStart, $slotEnd);
+
+            $worst = min($worst, $totalStock - $demanded);
+        }
+
+        return $worst;
+    }
+
+    /**
      * Products in a store/range whose availability is negative.
      *
-     * Deferred to M3 (shortage detection + resolution). Declared so the
-     * AvailabilityService surface matches the design and callers fail loudly
-     * rather than silently no-op.
+     * Reserved for the store-wide proactive shortage sweep (the listener path in
+     * shortage-resolution-sub-hires.md §2.4). Opportunity-scoped detection — the
+     * confirmation gate and the per-opportunity API badge — flows through
+     * {@see ShortageDetector} and {@see availableForItem()}
+     * instead. This store-wide variant lands with the proactive monitor; until
+     * then it fails loudly rather than silently no-op.
      *
      * @return never
      */
     public function getShortages(int $storeId, Carbon $from, Carbon $to): mixed
     {
-        throw new BadMethodCallException('Shortage queries are not implemented until M3.');
+        throw new BadMethodCallException('Store-wide shortage sweeps are not implemented yet; use ShortageDetector for opportunity-scoped detection.');
     }
 
     /**

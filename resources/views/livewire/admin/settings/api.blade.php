@@ -40,6 +40,8 @@ new #[Layout('components.layouts.app')] #[Title('API')] class extends Component 
         'activities:write' => 'Write activities',
         'opportunities:read' => 'Read opportunities',
         'opportunities:write' => 'Write opportunities',
+        'shortages:read' => 'Read shortages & resolutions',
+        'shortages:write' => 'Write shortage resolutions',
         'rates:read' => 'Read rate definitions & product rates',
         'rates:write' => 'Write rate definitions & product rates',
         'schema:read' => 'Read schema / field metadata',

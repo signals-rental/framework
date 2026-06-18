@@ -25,6 +25,16 @@ use App\Services\RateEngine\Strategies\FixedStrategy;
 use App\Services\RateEngine\Strategies\HybridStrategy;
 use App\Services\RateEngine\Strategies\PeriodStrategy;
 use App\Services\SchemaRegistry;
+use App\Services\Shortages\CostApportionmentRegistry;
+use App\Services\Shortages\NullCostApportionmentStrategy;
+use App\Services\Shortages\Resolvers\DateShiftResolver;
+use App\Services\Shortages\Resolvers\PartialFulfilmentResolver;
+use App\Services\Shortages\Resolvers\QuoteReallocationResolver;
+use App\Services\Shortages\Resolvers\SubstitutionResolver;
+use App\Services\Shortages\Resolvers\WaitlistResolver;
+use App\Services\Shortages\Resolvers\WarehouseTransferResolver;
+use App\Services\Shortages\ShortageResolverDefinition;
+use App\Services\Shortages\ShortageResolverRegistry;
 use App\Services\TaxCalculator;
 use App\Support\Formatter;
 use App\Support\Timezone;
@@ -106,6 +116,32 @@ class AppServiceProvider extends ServiceProvider
 
             $registry->registerModifier(new MultiplierModifier);
             $registry->registerModifier(new FactorModifier);
+
+            return $registry;
+        });
+
+        // Shortage resolvers — core registers the built-in non-PO resolvers;
+        // plugins register their own (and the sub-hire/external-sourcing
+        // resolvers land in Phase 4) through the same interface.
+        $this->app->singleton(ShortageResolverRegistry::class, function (): ShortageResolverRegistry {
+            $registry = new ShortageResolverRegistry;
+
+            $registry->register(new ShortageResolverDefinition('reallocate', QuoteReallocationResolver::class));
+            $registry->register(new ShortageResolverDefinition('substitute', SubstitutionResolver::class));
+            $registry->register(new ShortageResolverDefinition('transfer', WarehouseTransferResolver::class));
+            $registry->register(new ShortageResolverDefinition('date_shift', DateShiftResolver::class));
+            $registry->register(new ShortageResolverDefinition('partial', PartialFulfilmentResolver::class));
+            $registry->register(new ShortageResolverDefinition('waitlist', WaitlistResolver::class));
+
+            return $registry;
+        });
+
+        // Cost apportionment — STUB for later sub-hire (Phase 4). Ships the no-op
+        // strategy only; virtual stock and plugins register the real strategies.
+        $this->app->singleton(CostApportionmentRegistry::class, function (): CostApportionmentRegistry {
+            $registry = new CostApportionmentRegistry;
+
+            $registry->register(new NullCostApportionmentStrategy);
 
             return $registry;
         });

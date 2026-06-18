@@ -8,9 +8,8 @@ use App\Models\AvailabilityEvent;
  * The kinds of event recorded in the `availability_events` log.
  *
  * Demand lifecycle changes, recalculations, stock changes and overdue
- * extensions are wired today (M2 + M3). Shortage event types are defined here so
- * the log schema and downstream consumers are stable, but they are emitted by
- * the shortage-detection milestone (M3 line items / shortages).
+ * extensions are wired today (M2 + M3). Shortage detection/clear and resolution
+ * events are emitted by the shortage subsystem (M3-5 Track C).
  *
  * @see AvailabilityEvent
  */
@@ -37,9 +36,18 @@ enum AvailabilityEventType: string
     /** A demand was extended to the sentinel because it became overdue. */
     case DemandOverdue = 'demand_overdue';
 
-    /** Available quantity dropped below zero. */
+    /** A line item's requested quantity exceeds available stock. */
     case ShortageDetected = 'shortage_detected';
 
-    /** Available quantity returned to zero or above. */
+    /** A previously-detected shortage ceased to exist (stock freed, dates/quantity changed). */
     case ShortageResolved = 'shortage_resolved';
+
+    /** A resolution record was created against a shortage. */
+    case ShortageResolutionCreated = 'shortage_resolution_created';
+
+    /** A shortage resolution was confirmed. */
+    case ShortageResolutionConfirmed = 'shortage_resolution_confirmed';
+
+    /** A shortage resolution was cancelled. */
+    case ShortageResolutionCancelled = 'shortage_resolution_cancelled';
 }
