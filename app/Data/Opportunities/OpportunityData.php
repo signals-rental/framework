@@ -7,6 +7,7 @@ use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\OpportunityState;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityItem;
 use App\Models\Store;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Data;
@@ -60,6 +61,8 @@ class OpportunityData extends Data
         public Lazy|EntityReferenceData|null $venue = null,
         public Lazy|EntityReferenceData|null $store = null,
         public Lazy|EntityReferenceData|null $owner = null,
+        /** @var Lazy|array<int, OpportunityItemData> */
+        public Lazy|array $items = [],
     ) {}
 
     public static function fromModel(Opportunity $opportunity): self
@@ -108,6 +111,13 @@ class OpportunityData extends Data
             venue: Lazy::whenLoaded('venue', $opportunity, fn (): ?EntityReferenceData => self::reference($opportunity->venue)),
             store: Lazy::whenLoaded('store', $opportunity, fn (): ?EntityReferenceData => self::reference($opportunity->store)),
             owner: Lazy::whenLoaded('owner', $opportunity, fn (): ?EntityReferenceData => self::reference($opportunity->owner)),
+            items: Lazy::whenLoaded(
+                'items',
+                $opportunity,
+                fn (): array => $opportunity->items->map(
+                    fn (OpportunityItem $item): OpportunityItemData => OpportunityItemData::fromModel($item)
+                )->all(),
+            ),
         );
     }
 

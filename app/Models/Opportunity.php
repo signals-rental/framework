@@ -13,6 +13,7 @@ use Database\Factories\OpportunityFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -161,5 +162,15 @@ class Opportunity extends Model implements HasSchema
     public function owner(): BelongsTo
     {
         return $this->belongsTo(Member::class, 'owned_by');
+    }
+
+    /**
+     * Line items belonging to this opportunity, in display order.
+     *
+     * @return HasMany<OpportunityItem, $this>
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(OpportunityItem::class, 'opportunity_id')->orderBy('sort_order');
     }
 }

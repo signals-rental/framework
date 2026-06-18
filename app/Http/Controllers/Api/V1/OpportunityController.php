@@ -74,6 +74,8 @@ class OpportunityController extends Controller
         'venue',
         'store',
         'owner',
+        'items',
+        'items.assets',
         'customFieldValues',
     ];
 

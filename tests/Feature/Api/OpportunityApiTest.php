@@ -9,6 +9,9 @@ use App\Enums\OpportunityStatus;
 use App\Models\CustomView;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityItem;
+use App\Models\OpportunityItemAsset;
+use App\Models\StockLevel;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -167,6 +170,50 @@ describe('GET /api/v1/opportunities', function () {
 
     it('rejects an unauthenticated request', function () {
         $this->getJson('/api/v1/opportunities')->assertUnauthorized();
+    });
+});
+
+describe('GET /api/v1/opportunities/{id}?include=items.assets', function () {
+    it('returns the nested items + assets structure with money as decimal strings', function () {
+        $opportunity = Opportunity::factory()->create();
+        $item = OpportunityItem::factory()->for($opportunity)->create([
+            'name' => 'PA Stack',
+            'unit_price' => 7500,
+            'total' => 15000,
+            'quantity' => 2,
+        ]);
+        $stockLevel = StockLevel::factory()->serialised()->create(['item_name' => 'Speaker #1']);
+        OpportunityItemAsset::factory()
+            ->for($item, 'item')
+            ->create(['stock_level_id' => $stockLevel->id]);
+
+        $token = readToken($this->owner);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/opportunities/{$opportunity->id}?include=items.assets")
+            ->assertOk()
+            ->assertJsonPath('opportunity.items.0.name', 'PA Stack')
+            ->assertJsonPath('opportunity.items.0.unit_price', '75.00')
+            ->assertJsonPath('opportunity.items.0.total', '150.00')
+            ->assertJsonPath('opportunity.items.0.quantity', '2.00')
+            ->assertJsonPath('opportunity.items.0.charge_period_label', 'Day')
+            ->assertJsonPath('opportunity.items.0.transaction_type_label', 'Rental')
+            ->assertJsonPath('opportunity.items.0.assets.0.stock_level_id', $stockLevel->id)
+            ->assertJsonPath('opportunity.items.0.assets.0.status_label', 'Allocated');
+
+        expect($response->json('opportunity.items.0.assets'))->toHaveCount(1);
+    });
+
+    it('omits items when not requested via include', function () {
+        $opportunity = Opportunity::factory()->create();
+        OpportunityItem::factory()->for($opportunity)->create();
+        $token = readToken($this->owner);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/opportunities/{$opportunity->id}")
+            ->assertOk();
+
+        expect($response->json('opportunity'))->not->toHaveKey('items');
     });
 });
 
