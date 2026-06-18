@@ -4,6 +4,7 @@ namespace App\Data\Opportunities;
 
 use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
+use App\Enums\DemandPhase;
 use App\Enums\OpportunityState;
 use App\Models\Member;
 use App\Models\Opportunity;
@@ -18,8 +19,9 @@ use Spatie\LaravelData\Lazy;
  *
  * Money totals are emitted as decimal strings (RMS format). Dates are ISO-8601
  * UTC. The two-axis state model is exposed both as raw RMS integers and as
- * human-readable labels, alongside the availability phase the current status
- * implies. Relationships are lazy — only present when eager-loaded.
+ * human-readable labels, alongside the availability demand phase the current
+ * status implies (the {@see DemandPhase} value). Relationships are
+ * lazy — only present when eager-loaded.
  */
 class OpportunityData extends Data
 {

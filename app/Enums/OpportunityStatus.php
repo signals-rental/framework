@@ -17,10 +17,11 @@ use ValueError;
  *    `opportunities.status`.
  *  - {@see state()} returns the owning {@see OpportunityState}.
  *  - {@see fromStateAndStatus()} rebuilds the enum from the two columns.
- *  - {@see phase()} maps to the availability demand phase (consumed by Track B).
+ *  - {@see phase()} maps to the availability {@see DemandPhase} (consumed by
+ *    Track B — the availability/demand engine).
  *
  * @see OpportunityState
- * @see AvailabilityPhase
+ * @see DemandPhase
  */
 enum OpportunityStatus: int
 {
@@ -89,27 +90,41 @@ enum OpportunityStatus: int
     }
 
     /**
-     * The availability demand phase this status places on the engine.
+     * The availability {@see DemandPhase} this status places on the engine.
+     *
+     * Mapping follows the opportunity-status → demand-phase table in the
+     * availability engine plan:
+     *
+     *  - Draft / provisional / postponed quotes → {@see DemandPhase::Draft}
+     *    (inactive; the booking exists but does not consume stock).
+     *  - Reserved quotes and active (confirmed, not-yet-dispatched) orders →
+     *    {@see DemandPhase::Committed} (active).
+     *  - Dispatched / on-hire orders → {@see DemandPhase::Operational} (active).
+     *  - Returned / checked / completed orders → {@see DemandPhase::Closed}
+     *    (inactive after turnaround).
+     *  - Cancelled orders and lost / dead quotes → {@see DemandPhase::Void}
+     *    (inactive immediately, no turnaround).
      */
-    public function phase(): AvailabilityPhase
+    public function phase(): DemandPhase
     {
         return match ($this) {
             self::DraftOpen,
             self::QuotationProvisional,
-            self::QuotationLost,
-            self::QuotationDead,
-            self::QuotationPostponed,
-            self::OrderComplete,
-            self::OrderCancelled => AvailabilityPhase::None,
+            self::QuotationPostponed => DemandPhase::Draft,
 
-            self::QuotationReserved => AvailabilityPhase::Soft,
-
-            self::OrderActive,
-            self::OrderReturned,
-            self::OrderChecked => AvailabilityPhase::Confirmed,
+            self::QuotationReserved,
+            self::OrderActive => DemandPhase::Committed,
 
             self::OrderDispatched,
-            self::OrderOnHire => AvailabilityPhase::OnHire,
+            self::OrderOnHire => DemandPhase::Operational,
+
+            self::OrderReturned,
+            self::OrderChecked,
+            self::OrderComplete => DemandPhase::Closed,
+
+            self::QuotationLost,
+            self::QuotationDead,
+            self::OrderCancelled => DemandPhase::Void,
         };
     }
 

@@ -27,6 +27,7 @@ class Store extends Model implements HasSchema
         'country_id',
         'phone',
         'email',
+        'timezone',
         'is_default',
         'tag_list',
     ];
@@ -55,6 +56,7 @@ class Store extends Model implements HasSchema
             ->filterable();
         $builder->string('phone')->label('Phone');
         $builder->string('email')->label('Email');
+        $builder->string('timezone')->label('Timezone')->filterable();
         $builder->boolean('is_default')->label('Default Store')->filterable()->sortable();
         $builder->datetime('created_at')->label('Created')->sortable();
         $builder->datetime('updated_at')->label('Updated')->sortable();

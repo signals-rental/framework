@@ -58,6 +58,36 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        /*
+        | Dedicated PostgreSQL connection for the `@group pgsql` test lane.
+        |
+        | The default test suite runs on SQLite `:memory:` (see phpunit.xml),
+        | where PostgreSQL-only features — `tstzrange`, GiST indexes, and the
+        | serialised-asset exclusion constraint — cannot be exercised. Tests
+        | tagged `pgsql` run against this connection instead so those guarantees
+        | are validated against real Postgres.
+        |
+        | It deliberately uses its OWN database name (NOT `DB_DATABASE`, which is
+        | `:memory:` under the test env) and its own env vars so it is fully
+        | independent of the default connection. It falls back to the local dev
+        | Postgres (127.0.0.1:5432). When Postgres is unreachable the tagged tests
+        | skip cleanly, leaving the SQLite suite unaffected.
+        */
+        'pgsql_testing' => [
+            'driver' => 'pgsql',
+            'url' => env('PGSQL_TESTING_URL'),
+            'host' => env('PGSQL_TESTING_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('PGSQL_TESTING_PORT', env('DB_PORT', '5432')),
+            'database' => env('PGSQL_TESTING_DATABASE', 'signals_pgsql_testing'),
+            'username' => env('PGSQL_TESTING_USERNAME', env('DB_USERNAME', 'postgres')),
+            'password' => env('PGSQL_TESTING_PASSWORD', env('DB_PASSWORD', 'secret')),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
     ],
 
     /*

@@ -8,7 +8,7 @@ use App\Actions\Opportunities\UpdateOpportunity;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
-use App\Enums\AvailabilityPhase;
+use App\Enums\DemandPhase;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
@@ -41,7 +41,7 @@ it('creates an opportunity as a draft and projects the row', function () {
         ->and($result->status)->toBe(OpportunityStatus::DraftOpen->statusValue())
         ->and($result->state_label)->toBe('Draft')
         ->and($result->status_label)->toBe('Open')
-        ->and($result->availability_phase)->toBe(AvailabilityPhase::None->value);
+        ->and($result->availability_phase)->toBe(DemandPhase::Draft->value);
 
     $this->assertDatabaseHas('opportunities', [
         'id' => $result->id,
@@ -80,7 +80,7 @@ it('converts a quotation to an order', function () {
     expect($result->state)->toBe(OpportunityState::Order->value)
         ->and($result->status)->toBe(OpportunityStatus::OrderActive->statusValue())
         ->and($result->status_label)->toBe('Active')
-        ->and($result->availability_phase)->toBe(AvailabilityPhase::Confirmed->value);
+        ->and($result->availability_phase)->toBe(DemandPhase::Committed->value);
 });
 
 it('rejects quoting an opportunity that is not a draft', function () {
@@ -116,7 +116,7 @@ it('changes status within a state and projects it', function () {
 
     expect($result->status)->toBe(OpportunityStatus::QuotationReserved->statusValue())
         ->and($result->status_label)->toBe('Reserved')
-        ->and($result->availability_phase)->toBe(AvailabilityPhase::Soft->value);
+        ->and($result->availability_phase)->toBe(DemandPhase::Committed->value);
 
     $this->assertDatabaseHas('opportunities', [
         'id' => $created->id,

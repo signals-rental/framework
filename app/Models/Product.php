@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property StockMethod|null $stock_method
+ * @property int $buffer_before_minutes
+ * @property int $post_rent_unavailability
  */
 class Product extends Model implements HasSchema
 {
@@ -40,6 +42,7 @@ class Product extends Model implements HasSchema
         'sku',
         'replacement_charge',
         'buffer_percent',
+        'buffer_before_minutes',
         'post_rent_unavailability',
         'is_active',
         'accessory_only',
@@ -75,6 +78,8 @@ class Product extends Model implements HasSchema
             'tag_list' => 'array',
             'weight' => 'decimal:4',
             'buffer_percent' => 'decimal:2',
+            'buffer_before_minutes' => 'integer',
+            'post_rent_unavailability' => 'integer',
         ];
     }
 
@@ -94,6 +99,7 @@ class Product extends Model implements HasSchema
         $builder->decimal('weight')->label('Weight')->sortable();
         $builder->integer('replacement_charge')->label('Replacement Charge')->sortable();
         $builder->decimal('buffer_percent')->label('Buffer %')->sortable();
+        $builder->integer('buffer_before_minutes')->label('Buffer Before (minutes)');
         $builder->integer('post_rent_unavailability')->label('Post-Rent Unavailability');
         $builder->relation('product_group_id')->label('Product Group')
             ->relation('productGroup', 'belongsTo', ProductGroup::class, 'name')

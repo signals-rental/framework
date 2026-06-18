@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\AvailabilityPhase;
+use App\Enums\DemandPhase;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 
@@ -29,17 +29,31 @@ it('rebuilds a status from the two persisted columns', function () {
         ->toBe(OpportunityStatus::OrderActive);
 });
 
-it('maps statuses to their availability phase', function (OpportunityStatus $status, AvailabilityPhase $phase) {
+it('maps statuses to their demand phase', function (OpportunityStatus $status, DemandPhase $phase) {
     expect($status->phase())->toBe($phase);
 })->with([
-    'draft → none' => [OpportunityStatus::DraftOpen, AvailabilityPhase::None],
-    'provisional → none' => [OpportunityStatus::QuotationProvisional, AvailabilityPhase::None],
-    'reserved → soft' => [OpportunityStatus::QuotationReserved, AvailabilityPhase::Soft],
-    'active → confirmed' => [OpportunityStatus::OrderActive, AvailabilityPhase::Confirmed],
-    'dispatched → on hire' => [OpportunityStatus::OrderDispatched, AvailabilityPhase::OnHire],
-    'on hire → on hire' => [OpportunityStatus::OrderOnHire, AvailabilityPhase::OnHire],
-    'lost → none' => [OpportunityStatus::QuotationLost, AvailabilityPhase::None],
+    'draft → draft' => [OpportunityStatus::DraftOpen, DemandPhase::Draft],
+    'provisional → draft' => [OpportunityStatus::QuotationProvisional, DemandPhase::Draft],
+    'postponed → draft' => [OpportunityStatus::QuotationPostponed, DemandPhase::Draft],
+    'reserved → committed' => [OpportunityStatus::QuotationReserved, DemandPhase::Committed],
+    'active → committed' => [OpportunityStatus::OrderActive, DemandPhase::Committed],
+    'dispatched → operational' => [OpportunityStatus::OrderDispatched, DemandPhase::Operational],
+    'on hire → operational' => [OpportunityStatus::OrderOnHire, DemandPhase::Operational],
+    'returned → closed' => [OpportunityStatus::OrderReturned, DemandPhase::Closed],
+    'checked → closed' => [OpportunityStatus::OrderChecked, DemandPhase::Closed],
+    'complete → closed' => [OpportunityStatus::OrderComplete, DemandPhase::Closed],
+    'cancelled → void' => [OpportunityStatus::OrderCancelled, DemandPhase::Void],
+    'lost → void' => [OpportunityStatus::QuotationLost, DemandPhase::Void],
+    'dead → void' => [OpportunityStatus::QuotationDead, DemandPhase::Void],
 ]);
+
+it('reports which demand phases are active', function () {
+    expect(DemandPhase::Committed->isActive())->toBeTrue()
+        ->and(DemandPhase::Operational->isActive())->toBeTrue()
+        ->and(DemandPhase::Draft->isActive())->toBeFalse()
+        ->and(DemandPhase::Closed->isActive())->toBeFalse()
+        ->and(DemandPhase::Void->isActive())->toBeFalse();
+});
 
 it('reports closed statuses', function () {
     expect(OpportunityStatus::QuotationLost->isClosed())->toBeTrue()

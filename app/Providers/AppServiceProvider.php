@@ -7,8 +7,11 @@ use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Models\User;
 use App\Services\Activities\ActivityTypeList;
 use App\Services\Availability\DatabaseAvailabilityDataPresence;
+use App\Services\Availability\OpportunityItemDemandResolver;
 use App\Services\Availability\SettingsAvailabilityResolutionProvider;
 use App\Services\ColumnRegistryResolver;
+use App\Services\DemandSourceDefinition;
+use App\Services\DemandSourceRegistry;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
@@ -67,6 +70,20 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationRegistry::class, function (): NotificationRegistry {
             $registry = new NotificationRegistry;
             $registry->registerMany(NotificationTypeSeeder::types());
+
+            return $registry;
+        });
+
+        $this->app->singleton(DemandSourceRegistry::class, function (): DemandSourceRegistry {
+            $registry = new DemandSourceRegistry;
+
+            $registry->register(new DemandSourceDefinition(
+                type: 'opportunity_item',
+                displayName: 'Bookings',
+                resolverClass: OpportunityItemDemandResolver::class,
+                colour: '#3B82F6',
+                icon: 'calendar',
+            ));
 
             return $registry;
         });

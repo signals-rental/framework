@@ -37,6 +37,16 @@ pest()->extend(TestCase::class)
     ->in('Feature');
 
 /*
+| The PostgreSQL lane (tests/Pgsql) runs against a real Postgres connection and
+| manages its own schema + per-test transaction via the UsesPostgres trait, so
+| it must NOT use the sqlite-targeted RefreshDatabase trait. It is bound to the
+| base TestCase only and tagged `pgsql` so it skips cleanly when Postgres is
+| unreachable (and so the default suite can exclude it).
+*/
+pest()->extend(TestCase::class)
+    ->in('Pgsql');
+
+/*
 |--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
