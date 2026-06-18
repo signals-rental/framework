@@ -48,4 +48,22 @@ return [
 
     'max_slots_per_recalculation' => (int) env('AVAILABILITY_MAX_SLOTS_PER_RECALCULATION', 50000),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Suppress Stock-Change Recalculation
+    |--------------------------------------------------------------------------
+    |
+    | When true, the StockLevelObserver does NOT trigger a synchronous
+    | availability recalculation on stock-level writes. Intended as an escape
+    | hatch for bulk operations — seeders and large imports — that would
+    | otherwise fan out one full-horizon recalc per stock row (a "recalc storm").
+    |
+    | Toggle it around such operations with config(['availability...' => true]),
+    | then run a single bounded recalculation afterwards. Demand-driven recalcs
+    | (the DemandObserver) are unaffected; only stock-change triggers are gated.
+    |
+    */
+
+    'suppress_stock_recalc' => (bool) env('AVAILABILITY_SUPPRESS_STOCK_RECALC', false),
+
 ];

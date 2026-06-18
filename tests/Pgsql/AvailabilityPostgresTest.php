@@ -3,6 +3,7 @@
 use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Enums\AvailabilityResolution;
 use App\Enums\DemandPhase;
+use App\Models\AvailabilityDailySummary;
 use App\Models\AvailabilitySnapshot;
 use App\Models\Demand;
 use App\Models\Product;
@@ -205,4 +206,92 @@ it('recalculates end-to-end under the bigint advisory lock', function () {
     expect($snapshot->total_stock)->toBe(5)
         ->and($snapshot->total_demanded)->toBe(2)
         ->and($snapshot->available)->toBe(3);
+});
+
+it('finds available serialised assets via the native tstzrange overlap', function () {
+    $product = Product::factory()->serialised()->create();
+    $free = StockLevel::factory()->serialised()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+    ]);
+    $busy = StockLevel::factory()->serialised()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+    ]);
+
+    // The busy asset carries a real tstzrange period overlapping the request.
+    Demand::factory()
+        ->serialised()
+        ->phase(DemandPhase::Committed)
+        ->window(Carbon::parse('2026-10-01T00:00:00Z'), Carbon::parse('2026-10-05T00:00:00Z'))
+        ->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'asset_id' => $busy->id,
+            'quantity' => 1,
+        ]);
+
+    $service = app(AvailabilityService::class);
+
+    $assets = $service->getAvailableAssets(
+        $product->id,
+        $this->store->id,
+        Carbon::parse('2026-10-02T00:00:00Z'),
+        Carbon::parse('2026-10-04T00:00:00Z'),
+    );
+
+    expect($assets->pluck('id')->all())->toBe([$free->id])
+        ->and($service->checkAssetAvailable(
+            $busy->id,
+            Carbon::parse('2026-10-02T00:00:00Z'),
+            Carbon::parse('2026-10-04T00:00:00Z'),
+        ))->toBeFalse()
+        ->and($service->checkAssetAvailable(
+            $free->id,
+            Carbon::parse('2026-10-02T00:00:00Z'),
+            Carbon::parse('2026-10-04T00:00:00Z'),
+        ))->toBeTrue();
+});
+
+it('rolls half-daily slots up into a daily summary against real Postgres', function () {
+    $this->app->bind(AvailabilityResolutionProvider::class, fn () => new class implements AvailabilityResolutionProvider
+    {
+        public function resolve(): AvailabilityResolution
+        {
+            return AvailabilityResolution::HalfDaily;
+        }
+    });
+
+    $product = Product::factory()->bulk()->create();
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'quantity_held' => 9,
+    ]);
+
+    // Demand on the afternoon/evening half-day slots only, so intra-day min/max differ.
+    Demand::factory()
+        ->phase(DemandPhase::Committed)
+        ->window(Carbon::parse('2026-11-01T13:00:00Z'), Carbon::parse('2026-11-01T23:00:00Z'))
+        ->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 3,
+        ]);
+
+    app(RecalculationPipeline::class)->recalculate(
+        $product->id,
+        $this->store->id,
+        Carbon::parse('2026-11-01T00:00:00Z'),
+        Carbon::parse('2026-11-02T00:00:00Z'),
+    );
+
+    $summary = AvailabilityDailySummary::query()
+        ->forProductStore($product->id, $this->store->id)
+        ->first();
+
+    expect($summary)->not->toBeNull()
+        ->and($summary->max_available)->toBe(9)
+        ->and($summary->min_available)->toBe(6)
+        ->and($summary->has_shortage)->toBeFalse();
 });

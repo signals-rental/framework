@@ -8,6 +8,7 @@ use App\Data\Availability\AvailabilitySlotData;
 use App\Models\AvailabilitySnapshot;
 use App\Models\Demand;
 use App\Models\Product;
+use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\Availability\SlotCalculator;
@@ -120,6 +121,65 @@ class AvailabilityService
         }
 
         return true;
+    }
+
+    /**
+     * The serialised stock-level "assets" of a product at a store that are free
+     * for the entire `[$from, $to)` window — i.e. no active demand claims that
+     * specific asset over a window overlapping the request.
+     *
+     * Each serialised stock level is one physical unit; an asset is free iff no
+     * active `demands` row carries its `asset_id` with an overlapping period. The
+     * overlap reuses {@see Demand::scopeOverlapping()} (the native `tstzrange &&`
+     * path on PostgreSQL — backed by `idx_demands_asset_period` and the
+     * `excl_demands_asset_period` exclusion constraint — and the degraded scalar
+     * path on SQLite).
+     *
+     * Bulk products have no discrete assets, so an empty collection is returned
+     * for them — callers wanting bulk availability use the quantity-based reads
+     * ({@see getAvailability()} / {@see checkAvailability()}).
+     *
+     * @return Collection<int, StockLevel>
+     */
+    public function getAvailableAssets(int $productId, int $storeId, Carbon $from, Carbon $to): Collection
+    {
+        // Correlated active-demand subquery: an asset is excluded when any active
+        // demand claims it over a period overlapping the request. Built as an
+        // Eloquent Demand query so `active()` and the driver-aware `overlapping()`
+        // scope (native tstzrange && on Postgres, scalar on SQLite) apply.
+        $conflicting = Demand::query()
+            ->whereColumn('demands.asset_id', 'stock_levels.id')
+            ->active()
+            ->overlapping($from, $to);
+
+        /** @var Collection<int, StockLevel> $assets */
+        $assets = StockLevel::query()
+            ->forProduct($productId)
+            ->forStore($storeId)
+            ->serialized()
+            ->whereNotExists($conflicting->getQuery())
+            ->orderBy('id')
+            ->get();
+
+        return $assets;
+    }
+
+    /**
+     * Whether a specific serialised asset (stock level) is free for the entire
+     * `[$from, $to)` window: true when no active demand claims it over an
+     * overlapping period. Returns false if the stock level does not exist.
+     */
+    public function checkAssetAvailable(int $stockLevelId, Carbon $from, Carbon $to): bool
+    {
+        if (! StockLevel::query()->whereKey($stockLevelId)->exists()) {
+            return false;
+        }
+
+        return ! Demand::query()
+            ->where('asset_id', $stockLevelId)
+            ->active()
+            ->overlapping($from, $to)
+            ->exists();
     }
 
     /**

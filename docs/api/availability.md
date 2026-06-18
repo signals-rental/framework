@@ -19,6 +19,7 @@ The endpoint serves a **two-tier read strategy**:
 |--------|-----|-------------|
 | GET | `/api/v1/availability` | Availability for a product at a store |
 | GET | `/api/v1/products/{product}/availability` | Availability for a specific product |
+| GET | `/api/v1/products/{product}/available-assets` | Serialised assets of a product free across a window |
 
 ## Authentication
 
@@ -102,6 +103,49 @@ GET /api/v1/availability?product_id=5&store_id=1&from=2026-07-01&to=2026-07-04
 oldest snapshot recalculation time in the range (`null` when no snapshots exist
 yet for the range).
 
+## Available Assets (serialised products)
+
+For products tracked as **serialised** (one physical unit per stock level), list
+the specific assets that are free for an entire window — i.e. no active demand
+claims that asset over a period overlapping `[from, to)`. A bulk product has no
+discrete assets and returns an empty collection; use the point/range endpoints
+above for quantity-based reads.
+
+```
+GET /api/v1/products/5/available-assets?store_id=1&from=2026-07-02&to=2026-07-04
+```
+
+### Query Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `store_id` | Yes | The store to query. |
+| `from` | Yes | Window start (ISO). |
+| `to` | Yes | Window end (ISO), on or after `from`. |
+
+### Response
+
+```json
+{
+    "available_assets": [
+        {
+            "id": 42,
+            "item_name": "Shure SM58",
+            "asset_number": "A-0042",
+            "serial_number": "SN-000042",
+            "barcode": null,
+            "location": "Bay 3"
+        }
+    ],
+    "meta": { "total": 1, "per_page": 1, "page": 1 }
+}
+```
+
+The overlap is evaluated against the demand period: on PostgreSQL via the native
+`tstzrange &&` operator (backed by the `idx_demands_asset_period` GiST index and
+the `excl_demands_asset_period` exclusion constraint), and via a scalar
+comparison on the SQLite test connection.
+
 ## Error Cases
 
 | Status | Condition |
@@ -109,3 +153,4 @@ yet for the range).
 | 401 | No valid Sanctum token |
 | 403 | Token lacks `availability:read`, or user lacks `availability.view` |
 | 422 | Missing `store_id`/`product_id`, no `date` or `from`+`to`, or `date` combined with `from`/`to` |
+| 422 | Available-assets: missing `store_id`, `from`, or `to` |

@@ -7,8 +7,10 @@ use App\Enums\AllowedStockType;
 use App\Enums\StockCategory;
 use App\Enums\StockMethod;
 use App\Models\Traits\HasCustomFields;
+use App\Observers\StockLevelObserver;
 use App\Services\SchemaBuilder;
 use Database\Factories\StockLevelFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +27,7 @@ use Illuminate\Validation\ValidationException;
  * the audit history) rather than soft-deleting the row. Hard-deleting a stock
  * level is reserved for correcting data-entry mistakes.
  */
+#[ObservedBy(StockLevelObserver::class)]
 class StockLevel extends Model implements HasSchema
 {
     /** @use HasFactory<StockLevelFactory> */

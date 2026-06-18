@@ -146,6 +146,8 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     // Availability (read-only: point query via ?date, range query via ?from&?to)
     Route::get('availability', [AvailabilityController::class, 'index'])->name('api.v1.availability.index');
     Route::get('products/{product}/availability', [AvailabilityController::class, 'showForProduct'])->name('api.v1.products.availability');
+    // Serialised assets of a product free across ?from&?to at ?store_id.
+    Route::get('products/{product}/available-assets', [AvailabilityController::class, 'availableAssets'])->name('api.v1.products.available_assets');
 
     // Stock Transactions (nested under products/stock_levels, matching RMS)
     Route::get('products/{product}/stock_levels/{stock_level}/stock_transactions', [StockTransactionController::class, 'index'])->name('api.v1.stock_transactions.index');

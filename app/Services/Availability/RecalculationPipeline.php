@@ -4,6 +4,7 @@ namespace App\Services\Availability;
 
 use App\Enums\AvailabilityEventType;
 use App\Enums\StockCategory;
+use App\Models\AvailabilityDailySummary;
 use App\Models\AvailabilityEvent;
 use App\Models\AvailabilitySnapshot;
 use App\Models\Demand;
@@ -80,6 +81,12 @@ class RecalculationPipeline
 
             $now = Carbon::now('UTC');
 
+            // Per-slot `available` captured for the daily rollup below. Keyed by
+            // the slot start (UTC) so the rollup can re-derive the local calendar
+            // day each slot belongs to.
+            /** @var list<array{0: Carbon, 1: int}> $slotAvailability */
+            $slotAvailability = [];
+
             foreach ($slots as $slotStart) {
                 $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
 
@@ -94,7 +101,11 @@ class RecalculationPipeline
                     $breakdown,
                     $now,
                 );
+
+                $slotAvailability[] = [$slotStart, $totalStock - $demanded];
             }
+
+            $this->rollUpDailySummaries($productId, $storeId, $slotAvailability, $timezone, $now);
 
             $this->logRecalculated($productId, $storeId, $from, $to, count($slots));
         };
@@ -267,6 +278,91 @@ class RecalculationPipeline
                 'calculated_at' => $calculatedAt,
             ],
         );
+    }
+
+    /**
+     * Roll the freshly-computed slot availabilities up into daily summaries.
+     *
+     * Slots are grouped by the calendar day they fall on in the store's local
+     * timezone (the same basis the SlotCalculator uses to align slot starts), and
+     * each day's summary records the worst (`min_available`) and best
+     * (`max_available`) availability across its slots, plus a `has_shortage` flag
+     * when the minimum dipped below zero.
+     *
+     * Resolution-agnostic by design: under Daily resolution there is exactly one
+     * slot per day, so the rollup is a 1:1 copy; under HalfDaily/Hourly several
+     * slots collapse into the day's min/max. Populating the summary at every
+     * resolution gives calendar/grid consumers one uniform read surface. Only the
+     * days actually touched by this recalculation are upserted, preserving the
+     * pipeline's bounded blast radius.
+     *
+     * @param  list<array{0: Carbon, 1: int}>  $slotAvailability  [slotStart (UTC), available]
+     */
+    private function rollUpDailySummaries(
+        int $productId,
+        int $storeId,
+        array $slotAvailability,
+        ?string $timezone,
+        Carbon $calculatedAt,
+    ): void {
+        if ($slotAvailability === []) {
+            return;
+        }
+
+        $tz = $this->normaliseTimezone($timezone);
+
+        /** @var array<string, array{min: int, max: int}> $byDay */
+        $byDay = [];
+
+        foreach ($slotAvailability as [$slotStart, $available]) {
+            // The local calendar day this slot belongs to. Hourly slots are pinned
+            // to UTC by the SlotCalculator, but grouping by the store-local day is
+            // still the correct calendar bucket for a day summary.
+            $day = $slotStart->copy()->setTimezone($tz)->toDateString();
+
+            if (! isset($byDay[$day])) {
+                $byDay[$day] = ['min' => $available, 'max' => $available];
+
+                continue;
+            }
+
+            $byDay[$day]['min'] = min($byDay[$day]['min'], $available);
+            $byDay[$day]['max'] = max($byDay[$day]['max'], $available);
+        }
+
+        foreach ($byDay as $day => $bounds) {
+            // Match on the day at midnight so the lookup value matches the stored,
+            // `date`-cast representation (`Y-m-d 00:00:00`) — a bare `Y-m-d`
+            // string would miss the existing row and force a duplicate insert.
+            AvailabilityDailySummary::query()->updateOrCreate(
+                [
+                    'product_id' => $productId,
+                    'store_id' => $storeId,
+                    'date' => Carbon::parse($day)->startOfDay(),
+                ],
+                [
+                    'min_available' => $bounds['min'],
+                    'max_available' => $bounds['max'],
+                    'has_shortage' => $bounds['min'] < 0,
+                    'calculated_at' => $calculatedAt,
+                ],
+            );
+        }
+    }
+
+    /**
+     * Resolve the timezone to use for day-boundary grouping, defaulting to the
+     * application timezone when the store has none. Mirrors
+     * {@see SlotCalculator}'s normalisation so summaries bucket on the same local
+     * calendar day the slots were aligned to.
+     */
+    private function normaliseTimezone(?string $timezone): string
+    {
+        if ($timezone === null || trim($timezone) === '') {
+            return (string) config('app.timezone', 'UTC');
+        }
+
+        return $timezone;
     }
 
     /**

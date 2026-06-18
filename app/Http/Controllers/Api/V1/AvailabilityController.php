@@ -68,6 +68,43 @@ class AvailabilityController extends Controller
     }
 
     /**
+     * List the serialised assets (stock levels) of a product at a store that are
+     * free for the entire `[from, to)` window — no active demand overlaps them.
+     *
+     * Bulk products have no discrete assets and return an empty collection; use
+     * the point/range availability endpoints for quantity-based reads.
+     */
+    #[ApiResponse(200, 'Available serialised assets', type: 'array{available_assets: list<array{id: int, item_name: string|null, asset_number: string|null, serial_number: string|null, barcode: string|null, location: string|null}>, meta: array{total: int, per_page: int, page: int}}')]
+    public function availableAssets(Request $request, Product $product): JsonResponse
+    {
+        $this->authorizeAvailability($request);
+
+        $validated = $request->validate([
+            'store_id' => ['required', 'integer', 'exists:stores,id'],
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
+        ]);
+
+        $assets = app(AvailabilityService::class)->getAvailableAssets(
+            $product->id,
+            (int) $validated['store_id'],
+            Carbon::parse((string) $validated['from']),
+            Carbon::parse((string) $validated['to']),
+        );
+
+        $items = $assets->map(static fn ($asset): array => [
+            'id' => $asset->id,
+            'item_name' => $asset->item_name,
+            'asset_number' => $asset->asset_number,
+            'serial_number' => $asset->serial_number,
+            'barcode' => $asset->barcode,
+            'location' => $asset->location,
+        ])->all();
+
+        return $this->respondWithCollection($items, 'available_assets');
+    }
+
+    /**
      * Resolve the appropriate point/range response.
      */
     private function respond(int $productId, int $storeId, ?string $date, ?string $from, ?string $to): JsonResponse

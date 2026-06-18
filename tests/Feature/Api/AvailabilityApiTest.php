@@ -114,3 +114,55 @@ describe('GET /api/v1/products/{product}/availability', function () {
             ->and($response->json('availability.available'))->toBe(6);
     });
 });
+
+describe('GET /api/v1/products/{product}/available-assets', function () {
+    it('lists serialised assets free across the window, excluding demanded ones', function () {
+        $token = $this->owner->createToken('test', ['availability:read'])->plainTextToken;
+
+        $product = Product::factory()->serialised()->create();
+        $free = StockLevel::factory()->serialised()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+        $busy = StockLevel::factory()->serialised()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        Demand::factory()
+            ->serialised()
+            ->phase(DemandPhase::Committed)
+            ->window(Carbon::parse('2026-07-01T00:00:00Z'), Carbon::parse('2026-07-05T00:00:00Z'))
+            ->create([
+                'product_id' => $product->id,
+                'store_id' => $this->store->id,
+                'asset_id' => $busy->id,
+                'quantity' => 1,
+            ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$product->id}/available-assets?store_id={$this->store->id}&from=2026-07-02&to=2026-07-04")
+            ->assertOk();
+
+        expect($response->json('available_assets'))->toHaveCount(1)
+            ->and($response->json('available_assets.0.id'))->toBe($free->id)
+            ->and($response->json('meta.total'))->toBe(1);
+    });
+
+    it('requires the availability:read ability', function () {
+        $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/available-assets?store_id={$this->store->id}&from=2026-07-02&to=2026-07-04")
+            ->assertForbidden();
+    });
+
+    it('validates that store_id, from and to are present', function () {
+        $token = $this->owner->createToken('test', ['availability:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$this->product->id}/available-assets")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['store_id', 'from', 'to']);
+    });
+});

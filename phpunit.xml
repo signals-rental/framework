@@ -29,6 +29,15 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
+        <!--
+            Stock-level writes trigger a synchronous, full-horizon availability
+            recalculation in production (StockLevelObserver). Suppress it by
+            default in the suite — like the null broadcast / sync queue drivers
+            above — so the dozens of tests that create stock fixtures are not each
+            charged a horizon-wide recalc. Tests that exercise the stock-change
+            backfill re-enable it with config(['availability.suppress_stock_recalc' => false]).
+        -->
+        <env name="AVAILABILITY_SUPPRESS_STOCK_RECALC" value="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
