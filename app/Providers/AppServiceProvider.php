@@ -37,6 +37,8 @@ use Illuminate\Validation\Rules\Password;
 use Laravel\Sanctum\PersonalAccessToken;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\MicrosoftExtendSocialite;
+use Thunk\Verbs\Lifecycle\MetadataManager;
+use Thunk\Verbs\Metadata;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -90,9 +92,37 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->registerBladeDirectives();
         $this->registerSocialiteProviders();
+        $this->registerVerbsMetadata();
 
         // LogAction is auto-discovered by Laravel via its handle(AuditableEvent) type-hint.
         // Manual registration removed to prevent duplicate listener execution.
+    }
+
+    /**
+     * Stamp every Verbs event with the firing actor's context at fire time.
+     *
+     * The callback runs once per event when it is first fired (reading live
+     * auth()/request()), and the resulting metadata is serialised into the
+     * verb_events.metadata column at commit. That persisted column is the
+     * durable source of actor truth: the audit bridge reads it back (raw, by
+     * event id) when projecting, so the ORIGINAL actor is preserved across
+     * Verbs::replay() even under console/replay where auth()/request() are null.
+     * Tenant-ignorant by design: actor context only, no business logic.
+     */
+    protected function registerVerbsMetadata(): void
+    {
+        app(MetadataManager::class)->createMetadataUsing(function (Metadata $metadata): array {
+            $request = app()->runningInConsole() ? null : request();
+
+            // Returning an iterable lets the MetadataManager merge() it onto the
+            // event's Metadata, sidestepping direct writes to Metadata's magic
+            // (undeclared) properties.
+            return [
+                'user_id' => auth()->id(),
+                'ip_address' => $request?->ip(),
+                'user_agent' => $request?->userAgent(),
+            ];
+        });
     }
 
     /**

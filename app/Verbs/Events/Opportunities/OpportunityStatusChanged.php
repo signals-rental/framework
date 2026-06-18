@@ -4,6 +4,7 @@ namespace App\Verbs\Events\Opportunities;
 
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
+use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\States\OpportunityState;
 use Carbon\CarbonImmutable;
 use Thunk\Verbs\Attributes\Autodiscovery\StateId;
@@ -19,6 +20,8 @@ use Thunk\Verbs\Event;
  */
 class OpportunityStatusChanged extends Event
 {
+    use RecordsOpportunityAudit;
+
     public function __construct(
         #[StateId(OpportunityState::class)]
         public int $opportunity_id,
@@ -43,8 +46,23 @@ class OpportunityStatusChanged extends Event
 
     public function handle(OpportunityState $state): void
     {
+        // Capture the prior status as a raw integer BEFORE the projection update.
+        $oldRow = Opportunity::query()->where('state_id', $state->id)->first();
+        $oldValues = $oldRow !== null
+            ? ['status' => (int) $oldRow->getRawOriginal('status')]
+            : null;
+
         Opportunity::query()
             ->where('state_id', $state->id)
             ->update(['status' => $state->status]);
+
+        $opportunity = Opportunity::query()->where('state_id', $state->id)->firstOrFail();
+
+        $this->recordAudit(
+            $opportunity,
+            'opportunity.status_changed',
+            newValues: ['status' => $state->status],
+            oldValues: $oldValues,
+        );
     }
 }

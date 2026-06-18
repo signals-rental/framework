@@ -5,6 +5,7 @@ namespace App\Verbs\Events\Opportunities;
 use App\Enums\OpportunityState as StateAxis;
 use App\Models\Opportunity;
 use App\Services\SequenceAllocator;
+use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\States\OpportunityState;
 use Carbon\CarbonImmutable;
 use Thunk\Verbs\Attributes\Autodiscovery\StateId;
@@ -25,6 +26,8 @@ use Thunk\Verbs\Event;
  */
 class OpportunityCreated extends Event
 {
+    use RecordsOpportunityAudit;
+
     public function __construct(
         public int $opportunity_id,
         #[StateId(OpportunityState::class)]
@@ -63,7 +66,7 @@ class OpportunityCreated extends Event
 
     public function handle(OpportunityState $state): void
     {
-        Opportunity::query()->updateOrCreate(
+        $opportunity = Opportunity::query()->updateOrCreate(
             ['id' => $state->opportunity_id],
             [
                 'state_id' => $state->id,
@@ -81,6 +84,29 @@ class OpportunityCreated extends Event
                 'ends_at' => $state->ends_at,
                 'charge_total' => $state->charge_total,
             ],
+        );
+
+        // Genesis: no prior values. Capture the projected header snapshot as the
+        // new values, sourcing state/status as raw integers from the State object
+        // (the model casts `state` to an enum) so the JSON column stays stable
+        // and identical across replay.
+        $this->recordAudit(
+            $opportunity,
+            'opportunity.created',
+            newValues: [
+                'subject' => $state->subject,
+                'state' => $state->state,
+                'status' => $state->status,
+                'member_id' => $state->member_id,
+                'store_id' => $state->store_id,
+                'owned_by' => $state->owned_by,
+                'venue_id' => $state->venue_id,
+                'reference' => $state->reference,
+                'description' => $state->description,
+                'external_description' => $state->external_description,
+                'charge_total' => $state->charge_total,
+            ],
+            oldValues: null,
         );
     }
 }

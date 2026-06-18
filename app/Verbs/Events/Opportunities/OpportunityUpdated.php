@@ -3,6 +3,7 @@
 namespace App\Verbs\Events\Opportunities;
 
 use App\Models\Opportunity;
+use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\States\OpportunityState;
 use Carbon\CarbonImmutable;
 use Thunk\Verbs\Attributes\Autodiscovery\StateId;
@@ -18,6 +19,8 @@ use Thunk\Verbs\Event;
  */
 class OpportunityUpdated extends Event
 {
+    use RecordsOpportunityAudit;
+
     public function __construct(
         #[StateId(OpportunityState::class)]
         public int $opportunity_id,
@@ -88,6 +91,15 @@ class OpportunityUpdated extends Event
 
     public function handle(OpportunityState $state): void
     {
+        // Capture prior values of only the fields this event actually changes
+        // (payload non-null), BEFORE the projection update. Dates normalise to
+        // ISO 8601 strings so old/new stay comparable and JSON-stable.
+        $changedFields = $this->changedFields();
+        $oldRow = Opportunity::query()->where('state_id', $state->id)->first();
+        $oldValues = $oldRow !== null
+            ? $this->snapshotFrom($changedFields, fn (string $field): mixed => $this->normalise($oldRow->getAttribute($field)))
+            : null;
+
         Opportunity::query()
             ->where('state_id', $state->id)
             ->update([
@@ -102,5 +114,65 @@ class OpportunityUpdated extends Event
                 'starts_at' => $state->starts_at,
                 'ends_at' => $state->ends_at,
             ]);
+
+        $opportunity = Opportunity::query()->where('state_id', $state->id)->firstOrFail();
+
+        $newValues = $this->snapshotFrom($changedFields, fn (string $field): mixed => $this->normalise($state->{$field}));
+
+        $this->recordAudit(
+            $opportunity,
+            'opportunity.updated',
+            newValues: $newValues,
+            oldValues: $oldValues,
+        );
+    }
+
+    /**
+     * The header fields this update actually touched — those whose payload was
+     * provided (non-null), mirroring apply()'s partial-update rule.
+     *
+     * @return list<string>
+     */
+    protected function changedFields(): array
+    {
+        $candidates = [
+            'subject', 'member_id', 'venue_id', 'store_id', 'owned_by',
+            'reference', 'description', 'external_description', 'starts_at', 'ends_at',
+        ];
+
+        return array_values(array_filter(
+            $candidates,
+            fn (string $field): bool => $this->{$field} !== null,
+        ));
+    }
+
+    /**
+     * Build a {field => value} snapshot for the given fields using the resolver.
+     *
+     * @param  list<string>  $fields
+     * @param  callable(string): mixed  $resolve
+     * @return array<string, mixed>
+     */
+    protected function snapshotFrom(array $fields, callable $resolve): array
+    {
+        $snapshot = [];
+
+        foreach ($fields as $field) {
+            $snapshot[$field] = $resolve($field);
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * Normalise a value for JSON-stable audit storage — dates to ISO 8601.
+     */
+    protected function normalise(mixed $value): mixed
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format(\DateTimeInterface::ATOM);
+        }
+
+        return $value;
     }
 }

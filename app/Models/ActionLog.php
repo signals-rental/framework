@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\ActionLogFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ActionLog extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\ActionLogFactory> */
+    /** @use HasFactory<ActionLogFactory> */
     use HasFactory;
 
     public const UPDATED_AT = null;
@@ -27,6 +28,7 @@ class ActionLog extends Model implements HasSchema
         'ip_address',
         'user_agent',
         'metadata',
+        'verb_event_id',
     ];
 
     /**
@@ -38,6 +40,7 @@ class ActionLog extends Model implements HasSchema
             'old_values' => 'array',
             'new_values' => 'array',
             'metadata' => 'array',
+            'verb_event_id' => 'integer',
         ];
     }
 
