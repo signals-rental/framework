@@ -2,6 +2,10 @@
 
 namespace App\Settings;
 
+use App\Services\SettingsService;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
 abstract class SettingsDefinition
 {
     /**
@@ -19,7 +23,7 @@ abstract class SettingsDefinition
     /**
      * Validation rules for settings in this group.
      *
-     * @return array<string, array<int, string|\Illuminate\Validation\Rule>>
+     * @return array<string, array<int, string|Rule>>
      */
     abstract public function rules(): array;
 
@@ -32,5 +36,24 @@ abstract class SettingsDefinition
     public function types(): array
     {
         return [];
+    }
+
+    /**
+     * Guard a pending update against group-specific invariants before it is
+     * written.
+     *
+     * Runs after validation passes and before any value is persisted. The
+     * default is a no-op so existing settings groups are unaffected. Override to
+     * enforce write-time rules (e.g. immutability once dependent data exists),
+     * throwing {@see ValidationException} to surface a 422
+     * with field-scoped errors.
+     *
+     * @param  array<string, mixed>  $input  The validated, schema-filtered keys being written.
+     *
+     * @throws ValidationException
+     */
+    public function guard(array $input, SettingsService $settings): void
+    {
+        // No-op by default.
     }
 }

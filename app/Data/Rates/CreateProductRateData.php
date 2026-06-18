@@ -2,8 +2,10 @@
 
 namespace App\Data\Rates;
 
+use App\Data\Casts\MoneyInput;
 use App\Enums\RateTransactionType;
 use Illuminate\Validation\Rules\Enum;
+use Spatie\LaravelData\Attributes\WithCast;
 use Spatie\LaravelData\Data;
 
 class CreateProductRateData extends Data
@@ -12,6 +14,7 @@ class CreateProductRateData extends Data
         public int $product_id,
         public int $rate_definition_id,
         public RateTransactionType $transaction_type,
+        #[WithCast(MoneyInput::class)]
         public int $price,
         public string $currency,
         public ?int $store_id = null,
@@ -29,7 +32,7 @@ class CreateProductRateData extends Data
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'rate_definition_id' => ['required', 'integer', 'exists:rate_definitions,id'],
             'transaction_type' => ['required', new Enum(RateTransactionType::class)],
-            'price' => ['required', 'integer', 'min:0'],
+            'price' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
             'store_id' => ['sometimes', 'nullable', 'integer', 'exists:stores,id'],
             'valid_from' => ['sometimes', 'nullable', 'date'],

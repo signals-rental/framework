@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Api\Controller;
+use App\Services\Api\WebhookService;
 use App\Services\SettingsRegistry;
 use App\Services\SettingsService;
+use App\Settings\SettingsDefinition;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class SettingsController extends Controller
@@ -80,7 +83,7 @@ class SettingsController extends Controller
         /** @var array<string, mixed> $rawInput */
         $rawInput = $request->input('settings', []);
 
-        /** @var \App\Settings\SettingsDefinition $definition */
+        /** @var SettingsDefinition $definition */
         $definition = $this->registry->get($group);
 
         $allRules = $definition->rules();
@@ -101,6 +104,16 @@ class SettingsController extends Controller
             );
         }
 
+        try {
+            $definition->guard($input, $this->settings);
+        } catch (ValidationException $e) {
+            return $this->respondWithError(
+                'The given data was invalid.',
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                $e->errors(),
+            );
+        }
+
         $types = $definition->types();
 
         foreach ($input as $key => $value) {
@@ -108,7 +121,7 @@ class SettingsController extends Controller
             $this->settings->set("{$group}.{$key}", $value, $type);
         }
 
-        app(\App\Services\Api\WebhookService::class)->dispatch('settings.updated', [
+        app(WebhookService::class)->dispatch('settings.updated', [
             'group' => $group,
             'settings' => $this->settings->group($group),
         ]);

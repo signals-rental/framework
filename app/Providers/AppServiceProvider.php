@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Contracts\Availability\AvailabilityDataPresence;
+use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Models\User;
 use App\Services\Activities\ActivityTypeList;
+use App\Services\Availability\DatabaseAvailabilityDataPresence;
+use App\Services\Availability\SettingsAvailabilityResolutionProvider;
 use App\Services\ColumnRegistryResolver;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
@@ -45,6 +49,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TaxCalculator::class);
         $this->app->singleton(ColumnRegistryResolver::class);
         $this->app->singleton(ActivityTypeList::class);
+
+        // Availability seams — tenant-ignorant OSS defaults. The commercial Cloud
+        // package rebinds these to tenant-/hosting-aware implementations.
+        $this->app->bind(AvailabilityDataPresence::class, DatabaseAvailabilityDataPresence::class);
+        $this->app->bind(AvailabilityResolutionProvider::class, SettingsAvailabilityResolutionProvider::class);
 
         $this->app->singleton(PermissionRegistry::class, function (): PermissionRegistry {
             $registry = new PermissionRegistry;
