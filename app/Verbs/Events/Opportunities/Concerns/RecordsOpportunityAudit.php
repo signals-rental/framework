@@ -34,6 +34,16 @@ use Thunk\Verbs\Models\VerbEvent;
 trait RecordsOpportunityAudit
 {
     /**
+     * Memoized actor context resolved from the persisted verb_events.metadata
+     * row. Cached on the event instance so a commit that fires several audit
+     * records does not re-query verb_events per call. The value originates from
+     * the persisted metadata (not live auth()), so it stays replay-correct.
+     *
+     * @var array{user_id: int|null, ip_address: string|null, user_agent: string|null}|null
+     */
+    private ?array $resolvedAuditActor = null;
+
+    /**
      * Dispatch an AuditableEvent for the just-projected opportunity row.
      *
      * @param  array<string, mixed>|null  $newValues
@@ -56,12 +66,19 @@ trait RecordsOpportunityAudit
     }
 
     /**
-     * Resolve the firing actor from the persisted verb_events.metadata column.
+     * Resolve the firing actor from the persisted verb_events.metadata column,
+     * memoizing the result on the event instance so multiple audit records in a
+     * single commit share one query. The cached value is read from persisted
+     * metadata, so it remains correct across replay.
      *
      * @return array{user_id: int|null, ip_address: string|null, user_agent: string|null}
      */
     protected function auditActor(): array
     {
+        if ($this->resolvedAuditActor !== null) {
+            return $this->resolvedAuditActor;
+        }
+
         /** @var array<string, mixed> $metadata */
         $metadata = VerbEvent::query()->whereKey($this->id)->value('metadata') ?? [];
 
@@ -69,7 +86,7 @@ trait RecordsOpportunityAudit
         $ipAddress = $metadata['ip_address'] ?? null;
         $userAgent = $metadata['user_agent'] ?? null;
 
-        return [
+        return $this->resolvedAuditActor = [
             'user_id' => $userId !== null ? (int) $userId : null,
             'ip_address' => $ipAddress !== null ? (string) $ipAddress : null,
             'user_agent' => $userAgent !== null ? (string) $userAgent : null,

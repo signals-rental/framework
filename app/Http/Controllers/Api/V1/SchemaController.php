@@ -20,6 +20,7 @@ use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\ProductRate;
 use App\Models\RateDefinition;
+use App\Models\ShortageResolution;
 use App\Models\StockLevel;
 use App\Models\StockTransaction;
 use App\Models\Store;
@@ -64,6 +65,7 @@ class SchemaController extends Controller
         'rate_definitions' => RateDefinition::class,
         'product_rates' => ProductRate::class,
         'opportunities' => Opportunity::class,
+        'shortage_resolutions' => ShortageResolution::class,
     ];
 
     /**

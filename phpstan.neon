@@ -17,9 +17,14 @@ parameters:
             paths:
                 - app/Models/Traits/HasCostVisibility.php
                 - app/Models/Traits/HasStoreScoping.php
+                - tests/Concerns/UsesPostgres.php
         -
             identifier: argument.templateType
             message: '#Unable to resolve the template type TComponent in call to method Livewire\\LivewireManager::test\(\)#'
+            path: tests/
+        -
+            identifier: argument.templateType
+            message: '#Unable to resolve the template type T(Key|Value) in call to function collect#'
             path: tests/
         -
             identifier: argument.templateType

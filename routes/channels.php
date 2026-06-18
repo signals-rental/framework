@@ -9,16 +9,25 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 
 /*
 |--------------------------------------------------------------------------
-| Availability (per-store)
+| Availability
 |--------------------------------------------------------------------------
 |
-| AvailabilityChanged broadcasts on a private per-store channel so a
-| calendar/grid UI scoped to a store receives live recalculation nudges.
-| Any authenticated user may subscribe in the single-tenant OSF; the
-| commercial store-scoping layer narrows this to the user's stores by
-| replacing the predicate below.
+| AvailabilityChanged broadcasts on three private channels (availability-engine.md
+| §"Real-Time Updates"): the specific product/store channel a Gantt/calendar
+| binds to, the store-wide channel, and the global shortages channel. Any
+| authenticated user may subscribe in the single-tenant OSF; the commercial
+| store-scoping layer narrows the store-bound channels to the user's stores by
+| replacing the predicates below.
 */
+
+Broadcast::channel('availability.product.{productId}.store.{storeId}', function (User $user, int $productId, int $storeId): bool {
+    return $user->exists && $productId > 0 && $storeId > 0;
+});
 
 Broadcast::channel('availability.store.{storeId}', function (User $user, int $storeId): bool {
     return $user->exists && $storeId > 0;
+});
+
+Broadcast::channel('availability.shortages', function (User $user): bool {
+    return $user->exists;
 });

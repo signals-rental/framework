@@ -44,8 +44,9 @@ class RecalculationPipeline
      * Recalculate snapshots for the product/store over the half-open window
      * `[$from, $to)`. No-op for products that do not track availability.
      *
-     * The window is first clamped to the rolling snapshot horizon (config
-     * `availability.snapshot_horizon`) so an indefinite/sentinel-dated demand
+     * The window is first clamped to the rolling snapshot horizon (settings
+     * `availability.snapshot_horizon_past_days` / `_future_days`) so an
+     * indefinite/sentinel-dated demand
      * cannot force the pipeline to materialise an unbounded number of slots in a
      * single synchronous request. Slots outside the horizon are still served
      * correctly by the on-the-fly point query
@@ -56,6 +57,18 @@ class RecalculationPipeline
      * On PostgreSQL the work is serialised per product/store with a
      * transaction-scoped advisory lock so concurrent recalculations cannot
      * interleave their upserts. On SQLite the lock is a no-op.
+     *
+     * The advisory-locked transaction wrapper is only opened when this method is
+     * called OUTSIDE any existing transaction (`transactionLevel() === 0`). When a
+     * caller already owns a transaction — a wrapping action, or the pgsql test
+     * harness which wraps each test in `beginTransaction()` — the work runs
+     * directly: the outer transaction already isolates the upserts, and opening a
+     * nested savepoint plus a `pg_advisory_xact_lock` would be both redundant and
+     * harmful. A transaction-scoped advisory lock taken inside an outer
+     * transaction is not released until that OUTER transaction commits, so it
+     * would linger and contend (it deadlocks/hangs the pgsql test lane). Letting
+     * the caller own the transaction avoids both the nested savepoint and the
+     * lingering lock.
      *
      * Returns a {@see RecalculationResult} describing the window actually
      * materialised and the slot count, so the queued
@@ -81,7 +94,9 @@ class RecalculationPipeline
         $connection = (new AvailabilitySnapshot)->getConnection();
         $usesPostgres = $connection->getDriverName() === 'pgsql';
 
-        $work = function () use ($product, $productId, $storeId, $from, $to): int {
+        // The closure returns [slotCount, hasShortage]: hasShortage is true when
+        // any materialised slot dipped below zero availability.
+        $work = function () use ($product, $productId, $storeId, $from, $to): array {
             $timezone = $this->storeTimezone($storeId);
 
             $totalStock = $this->totalStock($product, $storeId);
@@ -96,10 +111,14 @@ class RecalculationPipeline
             /** @var list<array{0: Carbon, 1: int}> $slotAvailability */
             $slotAvailability = [];
 
+            $hasShortage = false;
+
             foreach ($slots as $slotStart) {
                 $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
 
                 [$demanded, $breakdown] = $this->demandForSlot($demands, $slotStart, $slotEnd);
+
+                $available = $totalStock - $demanded;
 
                 $this->upsertSnapshot(
                     $productId,
@@ -111,17 +130,26 @@ class RecalculationPipeline
                     $now,
                 );
 
-                $slotAvailability[] = [$slotStart, $totalStock - $demanded];
+                $slotAvailability[] = [$slotStart, $available];
+
+                if ($available < 0) {
+                    $hasShortage = true;
+                }
             }
 
             $this->rollUpDailySummaries($productId, $storeId, $slotAvailability, $timezone, $now);
 
             $this->logRecalculated($productId, $storeId, $from, $to, count($slots));
 
-            return count($slots);
+            return [count($slots), $hasShortage];
         };
 
-        if ($usesPostgres) {
+        // Only open the advisory-locked transaction wrapper at the top level. If a
+        // caller already owns a transaction the work runs directly: the outer
+        // transaction isolates the upserts, and a nested savepoint + a
+        // transaction-scoped advisory lock would be redundant and would linger
+        // until the OUTER transaction commits (contention/deadlock).
+        if ($usesPostgres && $connection->transactionLevel() === 0) {
             // Serialise per product/store across concurrent recalculations. The
             // advisory lock is released automatically at transaction end.
             //
@@ -130,7 +158,8 @@ class RecalculationPipeline
             // (pg_advisory_xact_lock(product_id, store_id)) would overflow once
             // a BIGSERIAL id exceeds ~2.1B, so we hash a composite string into
             // one int8 key instead.
-            $slotCount = $connection->transaction(function () use ($connection, $productId, $storeId, $work): int {
+            /** @var array{0: int, 1: bool} $outcome */
+            $outcome = $connection->transaction(function () use ($connection, $productId, $storeId, $work): array {
                 $connection->statement(
                     'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
                     [$productId.':'.$storeId],
@@ -139,10 +168,12 @@ class RecalculationPipeline
                 return $work();
             });
 
-            return new RecalculationResult($productId, $storeId, $from, $to, $slotCount);
+            return new RecalculationResult($productId, $storeId, $from, $to, $outcome[0], $outcome[1]);
         }
 
-        return new RecalculationResult($productId, $storeId, $from, $to, $work());
+        [$slotCount, $hasShortage] = $work();
+
+        return new RecalculationResult($productId, $storeId, $from, $to, $slotCount, $hasShortage);
     }
 
     /**
@@ -158,8 +189,8 @@ class RecalculationPipeline
     {
         $now = Carbon::now('UTC');
 
-        $pastDays = (int) config('availability.snapshot_horizon.past_days', 90);
-        $futureDays = (int) config('availability.snapshot_horizon.future_days', 365);
+        $pastDays = (int) settings('availability.snapshot_horizon_past_days', 90);
+        $futureDays = (int) settings('availability.snapshot_horizon_future_days', 365);
 
         $earliest = $now->copy()->subDays(max(0, $pastDays))->startOfDay();
         $latest = $now->copy()->addDays(max(0, $futureDays))->endOfDay();
@@ -223,6 +254,11 @@ class RecalculationPipeline
      * and build the per-source breakdown. Bulk demands are netted against any
      * `metadata.returned_quantity`.
      *
+     * Overlap is tested against the demand's BUFFERED bounds (turnaround/prep
+     * baked in) — the same window the fetch overlaps on — so snapshots and daily
+     * summaries reflect a unit being occupied through its prep/turnaround slots,
+     * matching the Postgres `period &&` fetch on every driver.
+     *
      * @param  Collection<int, Demand>  $demands
      * @return array{0: int, 1: array<string, int>}
      */
@@ -232,9 +268,9 @@ class RecalculationPipeline
         $breakdown = [];
 
         foreach ($demands as $demand) {
-            // Half-open overlap: the demand touches the slot if it starts before
-            // the slot ends and ends after the slot starts.
-            if (! ($demand->starts_at->lessThan($slotEnd) && $demand->ends_at->greaterThan($slotStart))) {
+            // Half-open overlap: the demand touches the slot if its buffered
+            // window starts before the slot ends and ends after the slot starts.
+            if (! ($demand->bufferedStartsAt()->lessThan($slotEnd) && $demand->bufferedEndsAt()->greaterThan($slotStart))) {
                 continue;
             }
 

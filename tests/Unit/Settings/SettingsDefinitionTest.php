@@ -1,14 +1,44 @@
 <?php
 
+use App\Enums\AvailabilityResolution;
+use App\Enums\DemandDateSource;
 use App\Settings\ActionLogSettings;
 use App\Settings\ApiSettings;
+use App\Settings\AvailabilitySettings;
 use App\Settings\EmailSettings;
 use App\Settings\GeneralPreferencesSettings;
 use App\Settings\IntegrationSettings;
+use App\Settings\OpportunitySettings;
 use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
 use App\Settings\SettingsDefinition;
 use App\Settings\SsoSettings;
+
+/**
+ * Flatten a rules array (mixing string rules and rule objects) into a single
+ * lower-cased string for structure-only assertions. The Unit lane does not boot
+ * the validator container, so we assert a rule's serialised form rather than
+ * executing it. Rule objects such as Enum/In implement Stringable and expose
+ * their allowed values in that string form.
+ *
+ * @param  array<int, mixed>  $rules
+ */
+function stringifyRules(array $rules): string
+{
+    return collect($rules)
+        ->map(function (mixed $rule): string {
+            if (is_string($rule)) {
+                return $rule;
+            }
+
+            if (is_object($rule) && method_exists($rule, '__toString')) {
+                return (string) $rule;
+            }
+
+            return '';
+        })
+        ->implode('|');
+}
 
 describe('SettingsDefinition (abstract base)', function () {
     it('returns empty array from base types() method', function () {
@@ -335,6 +365,125 @@ describe('SsoSettings', function () {
             ->toHaveKey('google_client_secret', 'encrypted')
             ->toHaveKey('microsoft_client_secret', 'encrypted')
             ->toHaveKey('allowed_email_domains', 'json');
+    });
+});
+
+describe('AvailabilitySettings', function () {
+    it('returns availability as the group name', function () {
+        $definition = new AvailabilitySettings;
+
+        expect($definition->group())->toBe('availability');
+    });
+
+    it('provides defaults for the resolution, demand date source, and snapshot horizon', function () {
+        $definition = new AvailabilitySettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)
+            ->toHaveKey('resolution', AvailabilityResolution::Daily->value)
+            ->toHaveKey('demand_date_source', DemandDateSource::Operational->value)
+            ->toHaveKey('snapshot_horizon_past_days', 90)
+            ->toHaveKey('snapshot_horizon_future_days', 365);
+    });
+
+    it('declares string and integer types for the new keys', function () {
+        $definition = new AvailabilitySettings;
+        $types = $definition->types();
+
+        expect($types)
+            ->toHaveKey('resolution', 'string')
+            ->toHaveKey('demand_date_source', 'string')
+            ->toHaveKey('snapshot_horizon_past_days', 'integer')
+            ->toHaveKey('snapshot_horizon_future_days', 'integer');
+    });
+
+    it('provides validation rules for all settings', function () {
+        $definition = new AvailabilitySettings;
+        $rules = $definition->rules();
+
+        expect($rules)
+            ->toHaveKey('resolution')
+            ->toHaveKey('demand_date_source')
+            ->toHaveKey('snapshot_horizon_past_days')
+            ->toHaveKey('snapshot_horizon_future_days');
+
+        expect($rules['demand_date_source'])->toContain('required');
+        expect($rules['snapshot_horizon_past_days'])->toContain('integer');
+    });
+
+    it('constrains demand_date_source to the DemandDateSource enum', function () {
+        $rules = (new AvailabilitySettings)->rules();
+
+        // The enum rule restricts the value to operational|charge. The Unit lane
+        // does not boot the validator container, so assert the rule object's
+        // string form (structure-only) rather than running validation.
+        $stringified = stringifyRules($rules['demand_date_source']);
+
+        expect($stringified)->toContain('operational');
+        expect($stringified)->toContain('charge');
+    });
+
+    it('constrains the snapshot horizon to non-negative integers', function () {
+        $rules = (new AvailabilitySettings)->rules();
+
+        expect($rules['snapshot_horizon_past_days'])->toContain('integer')->toContain('min:0');
+        expect($rules['snapshot_horizon_future_days'])->toContain('integer')->toContain('min:0');
+    });
+});
+
+describe('OpportunitySettings', function () {
+    it('returns opportunities as the group name', function () {
+        $definition = new OpportunitySettings;
+
+        expect($definition->group())->toBe('opportunities');
+    });
+
+    it('provides defaults for number_pad and number_scope', function () {
+        $definition = new OpportunitySettings;
+        $defaults = $definition->defaults();
+
+        expect($defaults)
+            ->toHaveKey('number_pad', 10)
+            ->toHaveKey('number_scope', 'store');
+    });
+
+    it('declares integer and string types', function () {
+        $definition = new OpportunitySettings;
+        $types = $definition->types();
+
+        expect($types)
+            ->toHaveKey('number_pad', 'integer')
+            ->toHaveKey('number_scope', 'string');
+    });
+
+    it('provides validation rules for all settings', function () {
+        $definition = new OpportunitySettings;
+        $rules = $definition->rules();
+
+        expect($rules)
+            ->toHaveKey('number_pad')
+            ->toHaveKey('number_scope');
+
+        expect($rules['number_pad'])->toContain('required');
+        expect($rules['number_pad'])->toContain('integer');
+    });
+
+    it('constrains number_scope to store or global', function () {
+        $rules = (new OpportunitySettings)->rules();
+
+        // The `in` rule restricts the value to store|global. Assert the rule
+        // object's string form (structure-only; the Unit lane does not boot the
+        // validator container).
+        $stringified = stringifyRules($rules['number_scope']);
+
+        expect($stringified)->toContain('store');
+        expect($stringified)->toContain('global');
+    });
+
+    it('bounds number_pad to a sensible width', function () {
+        $rules = (new OpportunitySettings)->rules();
+
+        expect($rules['number_pad'])->toContain('integer')->toContain('min:0')->toContain('max:20');
     });
 });
 

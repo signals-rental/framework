@@ -50,6 +50,34 @@ it('scopes the running number per store', function () {
         ->and(Opportunity::query()->whereKey($a2->id)->value('number'))->toBe('0000000002');
 });
 
+it('honours an overridden number_pad width from settings', function () {
+    settings()->set('opportunities.number_pad', 4, 'integer');
+
+    $store = Store::factory()->create();
+
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Padded', 'store_id' => $store->id,
+    ]));
+
+    // Width follows the setting (4) rather than the default (10).
+    expect(Opportunity::query()->whereKey($created->id)->value('number'))->toBe('0001');
+});
+
+it('shares one sequence across stores when number_scope is global', function () {
+    settings()->set('opportunities.number_scope', 'global');
+
+    $storeA = Store::factory()->create();
+    $storeB = Store::factory()->create();
+
+    $a = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'A', 'store_id' => $storeA->id]));
+    $b = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'B', 'store_id' => $storeB->id]));
+
+    // Global scope: the second opportunity continues the same running number even
+    // though it belongs to a different store.
+    expect(Opportunity::query()->whereKey($a->id)->value('number'))->toBe('0000000001')
+        ->and(Opportunity::query()->whereKey($b->id)->value('number'))->toBe('0000000002');
+});
+
 it('reproduces the same number on replay', function () {
     $store = Store::factory()->create();
 

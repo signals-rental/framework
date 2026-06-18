@@ -3,12 +3,14 @@
 namespace Database\Seeders;
 
 use App\Enums\OpportunityState;
+use App\Enums\ShortageResolutionStatus;
 use App\Models\CustomView;
 use App\Views\ActivityColumnRegistry;
 use App\Views\MemberColumnRegistry;
 use App\Views\OpportunityColumnRegistry;
 use App\Views\ProductColumnRegistry;
 use App\Views\ProductGroupColumnRegistry;
+use App\Views\ShortageResolutionColumnRegistry;
 use App\Views\StockLevelColumnRegistry;
 use Illuminate\Database\Seeder;
 
@@ -101,7 +103,19 @@ class ViewSeeder extends Seeder
             ], sortColumn: 'created_at', sortDirection: 'desc'),
         ];
 
-        $allViews = array_merge($memberViews, $productViews, $stockLevelViews, $activityViews, $productGroupViews, $opportunityViews);
+        $shortageResolutionDefaultColumns = (new ShortageResolutionColumnRegistry)->defaultColumns();
+
+        $shortageResolutionViews = [
+            $this->systemView('All Shortage Resolutions', 'shortage_resolutions', $shortageResolutionDefaultColumns, isDefault: true, sortColumn: 'created_at', sortDirection: 'desc'),
+            $this->systemView('Pending Resolutions', 'shortage_resolutions', $shortageResolutionDefaultColumns, filters: [
+                ['field' => 'status', 'predicate' => 'eq', 'value' => ShortageResolutionStatus::Pending->value],
+            ], sortColumn: 'created_at', sortDirection: 'desc'),
+            $this->systemView('Confirmed Resolutions', 'shortage_resolutions', $shortageResolutionDefaultColumns, filters: [
+                ['field' => 'status', 'predicate' => 'eq', 'value' => ShortageResolutionStatus::Confirmed->value],
+            ], sortColumn: 'created_at', sortDirection: 'desc'),
+        ];
+
+        $allViews = array_merge($memberViews, $productViews, $stockLevelViews, $activityViews, $productGroupViews, $opportunityViews, $shortageResolutionViews);
 
         foreach ($allViews as $view) {
             CustomView::query()->updateOrCreate(

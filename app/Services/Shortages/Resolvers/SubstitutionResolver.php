@@ -21,6 +21,13 @@ use Illuminate\Support\Facades\Schema;
  */
 class SubstitutionResolver extends AbstractShortageResolver
 {
+    /**
+     * Memoised existence of the `product_substitutions` table for this
+     * resolver instance's lifetime. Resolved once (a single
+     * `information_schema` hit) rather than on every shortage-detection cycle.
+     */
+    private ?bool $substitutionsTableExists = null;
+
     public function key(): string
     {
         return 'substitute';
@@ -47,7 +54,18 @@ class SubstitutionResolver extends AbstractShortageResolver
      */
     public function canResolve(Shortage $shortage): bool
     {
-        return $shortage->remainingShortfall() > 0 && Schema::hasTable('product_substitutions');
+        return $shortage->remainingShortfall() > 0 && $this->substitutionsTableExists();
+    }
+
+    /**
+     * Whether the `product_substitutions` table exists, memoised for the life of
+     * this resolver instance so a single detection pass (or a request resolving
+     * the resolver once from the container) performs at most one
+     * `information_schema` lookup instead of one per shortage.
+     */
+    private function substitutionsTableExists(): bool
+    {
+        return $this->substitutionsTableExists ??= Schema::hasTable('product_substitutions');
     }
 
     /**

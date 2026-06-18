@@ -124,10 +124,8 @@ describe('GET shortage resolvers', function () {
             ->getJson("/api/v1/opportunities/{$this->opportunity->id}/items/{$this->item->id}/shortage_resolvers")
             ->assertOk();
 
-        $keys = collect($response->json('resolvers'))->pluck('resolver_key')->all();
-
-        expect($keys)->toContain('partial')
-            ->and($keys)->toContain('waitlist');
+        $response->assertJsonFragment(['resolver_key' => 'partial'])
+            ->assertJsonFragment(['resolver_key' => 'waitlist']);
     });
 
     it('404s for an item that does not belong to the opportunity', function () {

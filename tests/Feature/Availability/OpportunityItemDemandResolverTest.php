@@ -150,6 +150,128 @@ it('bakes product buffers and inherits opportunity dates into the period', funct
         ->and($demand->ends_at->toIso8601String())->toBe('2026-08-05T17:00:00+00:00');
 });
 
+it('persists buffered bounds reflecting the product buffers', function () {
+    $product = Product::factory()->create([
+        'stock_method' => StockMethod::Bulk->value,
+        'buffer_before_minutes' => 120,
+        'post_rent_unavailability' => 240,
+    ]);
+    $store = Store::factory()->create();
+
+    $item = makeDemandItem(OpportunityStatus::OrderActive, $product, $store, [
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+
+    demandResolver()->syncDemands($item);
+
+    $demand = Demand::query()->where('source_id', $item->id)->first();
+
+    // Raw dates unbuffered; buffered bounds widened by the product buffers.
+    expect($demand->starts_at->toIso8601String())->toBe('2026-08-01T09:00:00+00:00')
+        ->and($demand->ends_at->toIso8601String())->toBe('2026-08-05T17:00:00+00:00')
+        ->and($demand->buffered_starts_at->toIso8601String())->toBe('2026-08-01T07:00:00+00:00')
+        ->and($demand->buffered_ends_at->toIso8601String())->toBe('2026-08-05T21:00:00+00:00')
+        ->and($demand->bufferedStartsAt()->toIso8601String())->toBe('2026-08-01T07:00:00+00:00')
+        ->and($demand->bufferedEndsAt()->toIso8601String())->toBe('2026-08-05T21:00:00+00:00');
+});
+
+it('does not apply turnaround buffers for non-occupying phases (Draft/Void)', function () {
+    $product = Product::factory()->create([
+        'stock_method' => StockMethod::Bulk->value,
+        'buffer_before_minutes' => 120,
+        'post_rent_unavailability' => 240,
+    ]);
+    $store = Store::factory()->create();
+
+    // DraftOpen → Draft phase → no turnaround buffer applied.
+    $item = makeDemandItem(OpportunityStatus::DraftOpen, $product, $store, [
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+
+    demandResolver()->syncDemands($item);
+
+    $demand = Demand::query()->where('source_id', $item->id)->first();
+
+    // Buffered bounds equal the raw dates — buffers suppressed for the phase.
+    expect($demand->buffered_starts_at->toIso8601String())->toBe('2026-08-01T09:00:00+00:00')
+        ->and($demand->buffered_ends_at->toIso8601String())->toBe('2026-08-05T17:00:00+00:00');
+});
+
+it('uses the opportunity charge window when demand_date_source is charge', function () {
+    settings()->set('availability.demand_date_source', 'charge');
+
+    $product = Product::factory()->create([
+        'stock_method' => StockMethod::Bulk->value,
+        'buffer_before_minutes' => 0,
+        'post_rent_unavailability' => 0,
+    ]);
+    $store = Store::factory()->create();
+
+    $opportunity = Opportunity::factory()->create([
+        'state' => OpportunityStatus::OrderActive->state()->value,
+        'status' => OpportunityStatus::OrderActive->statusValue(),
+        'store_id' => $store->id,
+        'starts_at' => Carbon::parse('2026-08-01T09:00:00Z'),
+        'ends_at' => Carbon::parse('2026-08-05T17:00:00Z'),
+        'charge_starts_at' => Carbon::parse('2026-08-02T00:00:00Z'),
+        'charge_ends_at' => Carbon::parse('2026-08-04T00:00:00Z'),
+    ]);
+
+    $item = OpportunityItem::factory()->for($opportunity)->create([
+        'item_type' => Product::class,
+        'item_id' => $product->id,
+        'quantity' => 1,
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+
+    demandResolver()->syncDemands($item);
+
+    $demand = Demand::query()->where('source_id', $item->id)->first();
+
+    // The demand window follows the charge dates, not the operational dates.
+    expect($demand->starts_at->toIso8601String())->toBe('2026-08-02T00:00:00+00:00')
+        ->and($demand->ends_at->toIso8601String())->toBe('2026-08-04T00:00:00+00:00');
+});
+
+it('falls back to operational dates when charge bounds are unset under the charge source', function () {
+    settings()->set('availability.demand_date_source', 'charge');
+
+    $product = Product::factory()->create([
+        'stock_method' => StockMethod::Bulk->value,
+        'buffer_before_minutes' => 0,
+        'post_rent_unavailability' => 0,
+    ]);
+    $store = Store::factory()->create();
+
+    $opportunity = Opportunity::factory()->create([
+        'state' => OpportunityStatus::OrderActive->state()->value,
+        'status' => OpportunityStatus::OrderActive->statusValue(),
+        'store_id' => $store->id,
+        'starts_at' => Carbon::parse('2026-08-01T09:00:00Z'),
+        'ends_at' => Carbon::parse('2026-08-05T17:00:00Z'),
+        'charge_starts_at' => null,
+        'charge_ends_at' => null,
+    ]);
+
+    $item = OpportunityItem::factory()->for($opportunity)->create([
+        'item_type' => Product::class,
+        'item_id' => $product->id,
+        'quantity' => 1,
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+
+    demandResolver()->syncDemands($item);
+
+    $demand = Demand::query()->where('source_id', $item->id)->first();
+
+    expect($demand->starts_at->toIso8601String())->toBe('2026-08-01T09:00:00+00:00')
+        ->and($demand->ends_at->toIso8601String())->toBe('2026-08-05T17:00:00+00:00');
+});
+
 it('treats an open-ended item as indefinite via the sentinel', function () {
     $product = Product::factory()->create(['stock_method' => StockMethod::Bulk->value]);
     $store = Store::factory()->create();

@@ -22,12 +22,14 @@ use App\Data\Opportunities\SetDealPriceData;
 use App\Data\Opportunities\SetItemDiscountData;
 use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
+use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Validation\ValidationException;
 use Thunk\Verbs\Exceptions\EventNotValid;
 
 beforeEach(function () {
@@ -63,6 +65,32 @@ function addManualItem(Opportunity $opportunity, array $overrides = []): Opportu
 
     return $opportunity->items()->latest('id')->firstOrFail();
 }
+
+it('rejects a sub-rental transaction type until Phase 4', function () {
+    // validateAndCreate() runs the DTO rules (plain from() skips validation). The
+    // closure rule rejects sub-rental with the explicit Phase-4 message.
+    try {
+        AddOpportunityItemData::validateAndCreate([
+            'name' => 'Sub-hired rig',
+            'quantity' => '1',
+            'transaction_type' => LineItemTransactionType::SubRental->value,
+        ]);
+        $this->fail('Expected a ValidationException for a sub-rental transaction type.');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('transaction_type')
+            ->and($e->errors()['transaction_type'][0])->toBe('Sub-rental line items are not available until Phase 4.');
+    }
+
+    // The other transaction types remain valid.
+    foreach ([LineItemTransactionType::Rental, LineItemTransactionType::Sale, LineItemTransactionType::Service] as $type) {
+        $dto = AddOpportunityItemData::validateAndCreate([
+            'name' => 'Allowed',
+            'quantity' => '1',
+            'transaction_type' => $type->value,
+        ]);
+        expect($dto->transaction_type)->toBe($type->value);
+    }
+});
 
 it('adds a line item, projects the row, and rolls totals up to the parent', function () {
     $opportunity = makeOpportunity();

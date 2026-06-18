@@ -118,10 +118,8 @@ describe('recalculate', function () {
     });
 
     it('bounds the snapshot count for an indefinite (sentinel-dated) demand to the rolling horizon', function () {
-        config([
-            'availability.snapshot_horizon.past_days' => 90,
-            'availability.snapshot_horizon.future_days' => 365,
-        ]);
+        settings()->set('availability.snapshot_horizon_past_days', 90, 'integer');
+        settings()->set('availability.snapshot_horizon_future_days', 365, 'integer');
 
         Carbon::setTestNow(Carbon::parse('2026-06-18T00:00:00Z'));
 

@@ -94,11 +94,17 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         $metadata = $this->buildMetadata($item);
 
         [$startsAt, $endsAt] = $this->resolveDates($item);
+
+        // Turnaround/prep buffers only widen the window for phases that
+        // physically occupy (or have just occupied) a unit; Draft/Void release
+        // immediately with no buffer (availability-engine.md §"Turnaround Time").
+        $appliesTurnaround = $phase->appliesTurnaround();
+
         [$bufferedStart, $bufferedEnd] = Demand::bufferedPeriod(
             $startsAt,
             $endsAt,
-            (int) ($product->buffer_before_minutes ?? 0),
-            (int) ($product->post_rent_unavailability ?? 0),
+            $appliesTurnaround ? (int) ($product->buffer_before_minutes ?? 0) : 0,
+            $appliesTurnaround ? (int) ($product->post_rent_unavailability ?? 0) : 0,
         );
 
         $allocatedAssetIds = $this->allocatedAssetIds($item);
@@ -176,6 +182,12 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             'quantity' => $quantity,
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
+            // Snapshot the buffered window on every driver so per-slot PHP
+            // attribution and the SQLite overlap path agree with the Postgres
+            // `period &&` fetch. Snapshotted (not recomputed on read) for
+            // replay-stability.
+            'buffered_starts_at' => $bufferedStart,
+            'buffered_ends_at' => $bufferedEnd,
             'source_type' => $this->sourceType(),
             'source_id' => $sourceId,
             'phase' => $phase->value,
@@ -206,19 +218,53 @@ class OpportunityItemDemandResolver implements DemandResolverContract
      * opportunity's dates when the item's own dates are null. A missing end is
      * treated as indefinite (the sentinel).
      *
+     * The date pair is selected by the `availability.demand_date_source` setting
+     * (availability-engine.md §"Configurable Availability Window"):
+     *
+     *  - `operational` (default) — the line item's `starts_at` / `ends_at`,
+     *    inheriting the opportunity's operational dates when null.
+     *  - `charge` — the opportunity's billing window
+     *    (`charge_starts_at` / `charge_ends_at`). Line items carry no charge-date
+     *    fields yet, so the charge window is taken from the opportunity directly
+     *    and falls back to the operational window when a charge bound is unset.
+     *    (Item-level charge dates land with the dispatch/return model — see M5.)
+     *
      * @return array{0: Carbon, 1: Carbon} [startsAt, endsAt]
      */
     protected function resolveDates(OpportunityItem $item): array
     {
         $opportunity = $item->opportunity;
 
-        $startsAt = $item->starts_at ?? $opportunity->starts_at ?? Carbon::now();
-        $endsAt = $item->ends_at ?? $opportunity->ends_at ?? Demand::sentinel();
+        $operationalStart = $item->starts_at ?? $opportunity->starts_at ?? Carbon::now();
+        $operationalEnd = $item->ends_at ?? $opportunity->ends_at ?? Demand::sentinel();
+
+        if ($this->demandDateSource() === 'charge') {
+            // Item-level charge dates do not exist yet; the charge window is the
+            // opportunity's billing period, falling back to operational dates
+            // when a charge bound is unset.
+            // charge-date item fields pending — see M5.
+            $startsAt = $opportunity->charge_starts_at ?? $operationalStart;
+            $endsAt = $opportunity->charge_ends_at ?? $operationalEnd;
+
+            return [Carbon::parse($startsAt), Carbon::parse($endsAt)];
+        }
 
         return [
-            Carbon::parse($startsAt),
-            Carbon::parse($endsAt),
+            Carbon::parse($operationalStart),
+            Carbon::parse($operationalEnd),
         ];
+    }
+
+    /**
+     * The configured demand date source — `operational` (default) or `charge`,
+     * read from the `availability.demand_date_source` system setting. Any
+     * unrecognised value falls back to `operational`.
+     */
+    protected function demandDateSource(): string
+    {
+        $source = (string) settings('availability.demand_date_source', 'operational');
+
+        return $source === 'charge' ? 'charge' : 'operational';
     }
 
     /**

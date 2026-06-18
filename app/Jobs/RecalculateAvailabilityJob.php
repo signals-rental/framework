@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 
@@ -79,6 +80,27 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
+     * Prevent two recomputes for the SAME product/store from running
+     * concurrently (a debounced dispatch can clear the {@see ShouldBeUnique} lock
+     * and enqueue a second job while the first is still mid-recalc).
+     * {@see WithoutOverlapping} keyed on `product_id:store_id` serialises them;
+     * `dontRelease()` drops the colliding attempt rather than re-queueing it,
+     * since the running job already reads the current demand/stock state. The
+     * Postgres advisory lock guards cross-process interleaving at the DB layer;
+     * this guards the worker layer.
+     *
+     * @return list<object>
+     */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping($this->productId.':'.$this->storeId))
+                ->dontRelease()
+                ->expireAfter($this->timeout + 60),
+        ];
+    }
+
+    /**
      * Recalculate the rolling snapshot horizon for the product/store, then
      * broadcast the change. No-ops (untracked product, empty horizon) skip the
      * broadcast.
@@ -87,8 +109,8 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
     {
         $now = Carbon::now('UTC');
 
-        $pastDays = (int) config('availability.snapshot_horizon.past_days', 90);
-        $futureDays = (int) config('availability.snapshot_horizon.future_days', 365);
+        $pastDays = (int) settings('availability.snapshot_horizon_past_days', 90);
+        $futureDays = (int) settings('availability.snapshot_horizon_future_days', 365);
 
         $from = $now->copy()->subDays(max(0, $pastDays))->startOfDay();
         $to = $now->copy()->addDays(max(0, $futureDays))->endOfDay();
@@ -105,6 +127,7 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
             $result->from?->toIso8601String(),
             $result->to?->toIso8601String(),
             $result->slots,
+            $result->hasShortage,
         );
     }
 }

@@ -10,6 +10,7 @@ use App\Views\ProductColumnRegistry;
 use App\Views\ProductGroupColumnRegistry;
 use App\Views\ProductRateColumnRegistry;
 use App\Views\RateDefinitionColumnRegistry;
+use App\Views\ShortageResolutionColumnRegistry;
 use App\Views\StockLevelColumnRegistry;
 use Illuminate\Validation\ValidationException;
 
@@ -32,6 +33,7 @@ class ColumnRegistryResolver
         'rate_definitions' => RateDefinitionColumnRegistry::class,
         'product_rates' => ProductRateColumnRegistry::class,
         'opportunities' => OpportunityColumnRegistry::class,
+        'shortage_resolutions' => ShortageResolutionColumnRegistry::class,
     ];
 
     /** @var array<string, ColumnRegistry> */

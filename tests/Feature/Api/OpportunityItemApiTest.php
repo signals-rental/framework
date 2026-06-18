@@ -4,6 +4,7 @@ use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Enums\LineItemTransactionType;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\User;
@@ -93,6 +94,24 @@ describe('POST /api/v1/opportunities/{id}/items', function () {
             ->postJson("/api/v1/opportunities/{$opportunity->id}/items", ['quantity' => '1'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['name']);
+    });
+
+    it('rejects a sub-rental transaction type until Phase 4', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $token = itemWriteToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/items", [
+                'name' => 'Sub-hired rig',
+                'quantity' => '1',
+                'transaction_type' => LineItemTransactionType::SubRental->value,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['transaction_type'])
+            ->assertJsonPath('errors.transaction_type.0', 'Sub-rental line items are not available until Phase 4.');
+
+        // No line item was created — the guard rejected before firing the event.
+        expect($opportunity->items()->count())->toBe(0);
     });
 
     it('requires the opportunities:write ability', function () {

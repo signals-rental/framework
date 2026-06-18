@@ -5,6 +5,7 @@ namespace App\Data\Opportunities;
 use App\Data\Casts\MoneyInput;
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Attributes\WithCast;
 use Spatie\LaravelData\Data;
@@ -51,7 +52,22 @@ class AddOpportunityItemData extends Data
             'item_type' => ['sometimes', 'nullable', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'quantity' => ['sometimes', 'numeric', 'min:0'],
-            'transaction_type' => ['sometimes', 'integer', new Enum(LineItemTransactionType::class)],
+            // Sub-rental is a Phase 4 deliverable with no creation path yet, so it
+            // is rejected at the input boundary (its totals bucket is stubbed 0).
+            // A closure carries the Phase-4 message inline so it surfaces whether
+            // the rules run via the controller's $request->validate() or the DTO's
+            // own validateAndCreate() — neither consults the messages() method for
+            // this attribute here.
+            'transaction_type' => [
+                'sometimes',
+                'integer',
+                Rule::enum(LineItemTransactionType::class),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ((int) $value === LineItemTransactionType::SubRental->value) {
+                        $fail('Sub-rental line items are not available until Phase 4.');
+                    }
+                },
+            ],
             'charge_period' => ['sometimes', 'integer', new Enum(ChargePeriod::class)],
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],

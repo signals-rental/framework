@@ -12,6 +12,7 @@ use App\Enums\LineItemTransactionType;
 use App\Enums\RateTransactionType;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityItem;
 use App\Models\OrganisationTaxClass;
 use App\Models\Product;
 use App\Models\ProductRate;
@@ -21,6 +22,7 @@ use App\Models\Store;
 use App\Models\TaxRate;
 use App\Models\TaxRule;
 use App\Models\User;
+use App\Services\Opportunities\OpportunityTotalsCalculator;
 use App\Services\RateEngine\RateCalculator;
 use App\ValueObjects\CalculationContext;
 use Database\Seeders\PermissionSeeder;
@@ -258,6 +260,26 @@ it('taxes a mixed-tax-class basket per group with final rounding, not a blended 
         ->and($opportunity->tax_total)->toBe($expectedTax)
         ->and($opportunity->charge_including_tax_total)->toBe($expectedNet + $expectedTax)
         ->and($opportunity->charge_total)->toBe($expectedNet); // headline is NET
+});
+
+it('throws rather than silently substituting now() when a line item reaches the calculator dateless', function () {
+    // INVARIANT GUARD: every real item carries a concrete window baked at fire-time
+    // (proved by the dateless-replay test below). Should that invariant ever break —
+    // a dateless item row reaching the calculator — the totals must NOT fall back to
+    // a non-deterministic now() (which would make the total irreproducible on
+    // replay); the calculator throws loudly instead. Manufacture the broken state
+    // directly: a dateless opportunity with a dateless factory item.
+    $opportunity = Opportunity::factory()->create([
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+    $item = OpportunityItem::factory()->for($opportunity)->create([
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+
+    expect(fn () => app(OpportunityTotalsCalculator::class)->recalculateItem($item))
+        ->toThrow(LogicException::class);
 });
 
 it('reproduces identical rate-priced totals on replay for a fully dateless opportunity', function () {

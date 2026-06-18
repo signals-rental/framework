@@ -4,6 +4,7 @@ namespace App\Settings;
 
 use App\Contracts\Availability\AvailabilityDataPresence;
 use App\Enums\AvailabilityResolution;
+use App\Enums\DemandDateSource;
 use App\Services\SettingsService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +20,9 @@ class AvailabilitySettings extends SettingsDefinition
     {
         return [
             'resolution' => AvailabilityResolution::Daily->value,
+            'demand_date_source' => DemandDateSource::Operational->value,
+            'snapshot_horizon_past_days' => 90,
+            'snapshot_horizon_future_days' => 365,
         ];
     }
 
@@ -26,6 +30,9 @@ class AvailabilitySettings extends SettingsDefinition
     {
         return [
             'resolution' => ['required', 'string', Rule::enum(AvailabilityResolution::class)],
+            'demand_date_source' => ['required', 'string', Rule::enum(DemandDateSource::class)],
+            'snapshot_horizon_past_days' => ['required', 'integer', 'min:0'],
+            'snapshot_horizon_future_days' => ['required', 'integer', 'min:0'],
         ];
     }
 
@@ -33,6 +40,9 @@ class AvailabilitySettings extends SettingsDefinition
     {
         return [
             'resolution' => 'string',
+            'demand_date_source' => 'string',
+            'snapshot_horizon_past_days' => 'integer',
+            'snapshot_horizon_future_days' => 'integer',
         ];
     }
 

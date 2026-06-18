@@ -4,33 +4,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Rolling Snapshot Horizon
-    |--------------------------------------------------------------------------
-    |
-    | The synchronous availability recalculation pipeline materialises one
-    | `availability_snapshots` row per product/store/slot. An indefinite demand
-    | (sentinel end date 2199-01-01) would otherwise force the pipeline to
-    | generate tens of thousands — up to millions — of slots in a single request.
-    |
-    | These bounds define the rolling window the pipeline is allowed to
-    | materialise around "now": snapshots are kept for `past_days` behind and
-    | `future_days` ahead. Recalc requests are clamped to this window before any
-    | slots are generated. Slots beyond the horizon are still served correctly by
-    | the on-the-fly point query (AvailabilityService::getAvailability), which
-    | reads the authoritative `demands` table and never depends on snapshots.
-    |
-    | Mirrors the rolling window described in framework-plans/availability-engine.md
-    | (default 90 days past / 365 days future).
-    |
-    */
-
-    'snapshot_horizon' => [
-        'past_days' => (int) env('AVAILABILITY_SNAPSHOT_PAST_DAYS', 90),
-        'future_days' => (int) env('AVAILABILITY_SNAPSHOT_FUTURE_DAYS', 365),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Maximum Slots Per Recalculation
     |--------------------------------------------------------------------------
     |

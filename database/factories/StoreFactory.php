@@ -26,6 +26,7 @@ class StoreFactory extends Factory
             'postcode' => fake()->postcode(),
             'country_code' => fake()->countryCode(),
             'is_default' => false,
+            'is_virtual' => false,
         ];
     }
 
@@ -46,6 +47,28 @@ class StoreFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'shortage_policy' => $policy->value,
+        ]);
+    }
+
+    /**
+     * Flag the store as virtual (vehicle, job site, sub-hire holding location).
+     */
+    public function virtual(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_virtual' => true,
+        ]);
+    }
+
+    /**
+     * Set the store's per-day-of-week operating hours.
+     *
+     * @param  array<string, mixed>  $hours
+     */
+    public function operatingHours(array $hours): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'operating_hours' => $hours,
         ]);
     }
 }

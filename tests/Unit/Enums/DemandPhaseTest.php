@@ -20,6 +20,16 @@ it('marks only committed and operational phases active', function (DemandPhase $
     'void is inactive' => [DemandPhase::Void, false],
 ]);
 
+it('applies a turnaround buffer only for phases that physically occupy stock', function (DemandPhase $phase, bool $applies) {
+    expect($phase->appliesTurnaround())->toBe($applies);
+})->with([
+    'draft applies no turnaround' => [DemandPhase::Draft, false],
+    'committed applies turnaround' => [DemandPhase::Committed, true],
+    'operational applies turnaround' => [DemandPhase::Operational, true],
+    'closed applies turnaround' => [DemandPhase::Closed, true],
+    'void applies no turnaround' => [DemandPhase::Void, false],
+]);
+
 it('exposes a human label for each phase', function () {
     expect(DemandPhase::Draft->label())->toBe('Draft')
         ->and(DemandPhase::Committed->label())->toBe('Committed')

@@ -15,12 +15,25 @@ use Illuminate\Queue\SerializesModels;
  * Broadcast over Reverb when a product/store's availability read model has been
  * refreshed by a {@see RecalculationPipeline} run.
  *
- * Emitted from {@see RecalculateAvailabilityJob} after the recompute
- * commits, on a per-store private channel (`availability.store.{storeId}`), so a
- * calendar/grid UI scoped to a store receives a live nudge to re-fetch the
- * affected product's slots. The payload is intentionally a light summary — the
- * client re-reads the snapshot/range endpoints for authoritative numbers rather
- * than trusting a pushed value.
+ * Emitted from {@see RecalculateAvailabilityJob} after the recompute commits, on
+ * the availability channels from availability-engine.md §"Real-Time Updates":
+ *
+ *  - `availability.product.{productId}.store.{storeId}` — the most specific
+ *    channel a Gantt/calendar bound to one product at one store subscribes to.
+ *  - `availability.store.{storeId}` — any product changing at the store.
+ *  - `availability.shortages` — global shortage alerts; only carries a meaningful
+ *    signal when {@see $hasShortage} is true, but every recalc broadcasts here so
+ *    a dashboard can clear a previously-flagged shortage too.
+ *
+ * The plan also lists `availability.opportunity.{opportunityId}`, but this event
+ * carries only product/store/window context — it is fired from the product/store
+ * recalc job and has no opportunity association — so that channel is deliberately
+ * OMITTED here. An opportunity-scoped availability broadcast belongs on an
+ * opportunity-aware event (a future shortage/opportunity recalc), not on this
+ * product/store recompute notification.
+ *
+ * The payload is a light summary — the client re-reads the snapshot/range
+ * endpoints for authoritative numbers rather than trusting a pushed value.
  *
  * Replay-safety: this event is never fired during a `Verbs::replay()`. It is
  * dispatched only from the recalc job, and the observers that enqueue that job do
@@ -38,6 +51,7 @@ class AvailabilityChanged implements ShouldBroadcast
      * @param  string|null  $from  ISO-8601 start of the refreshed window, when known.
      * @param  string|null  $to  ISO-8601 end of the refreshed window, when known.
      * @param  int|null  $slots  Number of snapshot slots refreshed, when known.
+     * @param  bool  $hasShortage  Whether any refreshed slot dipped below zero.
      */
     public function __construct(
         public int $productId,
@@ -45,18 +59,21 @@ class AvailabilityChanged implements ShouldBroadcast
         public ?string $from = null,
         public ?string $to = null,
         public ?int $slots = null,
+        public bool $hasShortage = false,
     ) {}
 
     /**
-     * The private channel this event broadcasts on, scoped per store so a
-     * store-bound consumer only receives changes relevant to it.
+     * The private channels this event broadcasts on: the specific product/store
+     * channel, the store-wide channel, and the global shortages channel.
      *
      * @return list<Channel>
      */
     public function broadcastOn(): array
     {
         return [
+            new PrivateChannel('availability.product.'.$this->productId.'.store.'.$this->storeId),
             new PrivateChannel('availability.store.'.$this->storeId),
+            new PrivateChannel('availability.shortages'),
         ];
     }
 
@@ -81,6 +98,7 @@ class AvailabilityChanged implements ShouldBroadcast
             'from' => $this->from,
             'to' => $this->to,
             'slots' => $this->slots,
+            'has_shortage' => $this->hasShortage,
         ];
     }
 }

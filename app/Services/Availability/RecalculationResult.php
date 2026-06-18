@@ -8,11 +8,13 @@ use Illuminate\Support\Carbon;
 /**
  * The outcome of a single {@see RecalculationPipeline::recalculate()} run.
  *
- * Carries the (clamped) window that was actually materialised and the number of
- * slots written, so callers — chiefly {@see RecalculateAvailabilityJob}
- * — can build a broadcast/audit summary without re-querying. A `slots` of zero
- * means the pipeline no-opped (product not tracked, or the requested window lay
- * entirely outside the rolling horizon).
+ * Carries the (clamped) window that was actually materialised, the number of
+ * slots written, and whether any materialised slot dipped below zero
+ * availability (a shortage), so callers — chiefly
+ * {@see RecalculateAvailabilityJob} — can build a broadcast/audit summary
+ * without re-querying. A `slots` of zero means the pipeline no-opped (product
+ * not tracked, or the requested window lay entirely outside the rolling
+ * horizon).
  */
 final readonly class RecalculationResult
 {
@@ -22,6 +24,7 @@ final readonly class RecalculationResult
         public ?Carbon $from,
         public ?Carbon $to,
         public int $slots,
+        public bool $hasShortage = false,
     ) {}
 
     /**
@@ -29,7 +32,7 @@ final readonly class RecalculationResult
      */
     public static function skipped(int $productId, int $storeId): self
     {
-        return new self($productId, $storeId, null, null, 0);
+        return new self($productId, $storeId, null, null, 0, false);
     }
 
     /**

@@ -16,8 +16,9 @@ use App\Services\SequenceAllocator;
  *
  * The sequence is store-scoped by default (one running number per store, matching
  * RMS behaviour where an opportunity is scoped to a single store); a null store or
- * the 'global' scope falls back to a single shared sequence. The pad width comes
- * from `signals.opportunities.number_pad`.
+ * the 'global' scope falls back to a single shared sequence. The pad width and
+ * scope come from the `opportunities.number_pad` / `opportunities.number_scope`
+ * system settings, read here at fire-time only (never on replay).
  */
 class OpportunityNumberGenerator
 {
@@ -32,7 +33,7 @@ class OpportunityNumberGenerator
     {
         $value = $this->allocator->next($this->sequenceKey($storeId));
 
-        $pad = (int) config('signals.opportunities.number_pad', 10);
+        $pad = (int) settings('opportunities.number_pad', 10);
 
         return str_pad((string) $value, $pad, '0', STR_PAD_LEFT);
     }
@@ -43,7 +44,7 @@ class OpportunityNumberGenerator
      */
     private function sequenceKey(?int $storeId): string
     {
-        $scope = config('signals.opportunities.number_scope', 'store');
+        $scope = settings('opportunities.number_scope', 'store');
 
         if ($scope === 'store' && $storeId !== null) {
             return "opportunity_number:store:{$storeId}";

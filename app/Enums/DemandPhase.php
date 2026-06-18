@@ -54,6 +54,36 @@ enum DemandPhase: string
         };
     }
 
+    /**
+     * Whether a demand in this phase physically occupies stock such that a
+     * turnaround (post-rent) buffer should be applied to its unavailable window.
+     *
+     * True for the phases that hold a physical unit — {@see DemandPhase::Committed}
+     * and {@see DemandPhase::Operational} (the active phases), and
+     * {@see DemandPhase::Closed} (the item has returned but the product's
+     * turnaround/cleaning window still occupies it). The buffer is only meaningful
+     * while the unit is, or has just been, physically present.
+     *
+     * False for {@see DemandPhase::Draft} (provisional — never reserved a unit) and
+     * {@see DemandPhase::Void} (cancelled/rejected — releases immediately with no
+     * turnaround, per availability-engine.md §"Turnaround Time": "Turnaround does
+     * not apply when a demand enters the Void phase").
+     *
+     * The plan's reference enum lists only `Closed` here because that is the phase
+     * transition that *extends* the period at return time; Signals applies the
+     * same buffer at creation for the active phases too (so the period always
+     * reflects the full unavailable window — availability-engine.md §"Turnaround
+     * Time": buffers "baked into the demand's period range at creation time"),
+     * hence Committed/Operational also apply it.
+     */
+    public function appliesTurnaround(): bool
+    {
+        return match ($this) {
+            self::Committed, self::Operational, self::Closed => true,
+            self::Draft, self::Void => false,
+        };
+    }
+
     public function label(): string
     {
         return match ($this) {

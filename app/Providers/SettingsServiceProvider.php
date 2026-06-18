@@ -11,6 +11,7 @@ use App\Settings\CompanySettings;
 use App\Settings\EmailSettings;
 use App\Settings\GeneralPreferencesSettings;
 use App\Settings\IntegrationSettings;
+use App\Settings\OpportunitySettings;
 use App\Settings\SchedulingSettings;
 use App\Settings\SecuritySettings;
 use App\Settings\SsoSettings;
@@ -33,6 +34,7 @@ class SettingsServiceProvider extends ServiceProvider
             $registry->register(new EmailSettings);
             $registry->register(new GeneralPreferencesSettings);
             $registry->register(new IntegrationSettings);
+            $registry->register(new OpportunitySettings);
             $registry->register(new SchedulingSettings);
             $registry->register(new SecuritySettings);
             $registry->register(new SsoSettings);

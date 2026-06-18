@@ -214,7 +214,11 @@ class OpportunityTotalsCalculator
             match ($item->transaction_type) {
                 LineItemTransactionType::Sale => $sale += $lineNet,
                 LineItemTransactionType::Service => $service += $lineNet,
-                default => $rental += $lineNet, // Rental + SubRental
+                // Rental only — SubRental is rejected at the input boundary
+                // ({@see AddOpportunityItemData}), so no line ever reaches this
+                // branch as SubRental, keeping the `sub_rental_charge_total => 0`
+                // stub below correct until the Phase 4 sub-hire path exists.
+                default => $rental += $lineNet,
             };
         }
 
@@ -267,7 +271,8 @@ class OpportunityTotalsCalculator
             'rental_charge_total' => $rental,
             'sale_charge_total' => $sale,
             'service_charge_total' => $service,
-            // Sub-hire is a Phase 4 deliverable — no source populates this yet.
+            // Sub-hire is a Phase 4 deliverable — no source populates this yet, and
+            // SubRental line items are rejected at the input boundary, so 0 is safe.
             'sub_rental_charge_total' => 0,
             'transit_charge_total' => $transit,
             'loss_damage_charge_total' => $lossDamage,
@@ -418,7 +423,9 @@ class OpportunityTotalsCalculator
      * captured now() and passes concrete dates into the ItemAdded / ItemDatesChanged
      * payload). This method therefore never needs a now() fallback — a dateless
      * rate-priced line already carries a concrete window on its projection row, so
-     * replay reproduces identical totals.
+     * replay reproduces identical totals. A missing date is therefore an invariant
+     * violation, surfaced as a LogicException rather than silently substituting a
+     * non-deterministic now() (which would make the total irreproducible on replay).
      *
      * @return array{0: Carbon, 1: Carbon}
      */
@@ -427,10 +434,16 @@ class OpportunityTotalsCalculator
         $start = $item->starts_at ?? $opportunity->starts_at;
         $end = $item->ends_at ?? $opportunity->ends_at;
 
-        $start = $start !== null ? Carbon::parse($start) : Carbon::now();
-        $end = $end !== null ? Carbon::parse($end) : $start->copy()->addDay();
+        if ($start === null || $end === null) {
+            throw new \LogicException(sprintf(
+                'Opportunity item %s has no resolvable hire window: dates are baked into the firing event '.
+                'at fire-time, so a dateless projection row is an invariant violation that would make the '.
+                'total non-deterministic on replay.',
+                $item->getKey() ?? '(unsaved)',
+            ));
+        }
 
-        return [$start, $end];
+        return [Carbon::parse($start), Carbon::parse($end)];
     }
 
     private function resolveProduct(OpportunityItem $item): ?Product

@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
 use App\Enums\ShortageResolutionStatus;
 use App\Enums\ShortageResolutionType;
+use App\Services\SchemaBuilder;
 use Database\Factories\ShortageResolutionFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,7 +42,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  */
-class ShortageResolution extends Model
+class ShortageResolution extends Model implements HasSchema
 {
     /** @use HasFactory<ShortageResolutionFactory> */
     use HasFactory, SoftDeletes;
@@ -134,5 +136,27 @@ class ShortageResolution extends Model
             'items',
             static fn (Builder $items): Builder => $items->where('opportunity_item_id', $opportunityItemId),
         );
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('resolver_key')->label('Resolver')->filterable()->sortable()->groupable();
+        $builder->string('resolution_type')->label('Type')->filterable()->sortable()->groupable();
+        $builder->string('status')->label('Status')->filterable()->sortable()->groupable();
+        $builder->integer('quantity_resolved')->label('Quantity Resolved')->sortable();
+        $builder->integer('cost')->label('Cost')->sortable();
+        $builder->json('metadata')->label('Metadata');
+        $builder->relation('resolved_by')->label('Resolved By')
+            ->relation('resolver', 'belongsTo', User::class, 'name')
+            ->filterable();
+        $builder->relation('confirmed_by')->label('Confirmed By')
+            ->relation('confirmer', 'belongsTo', User::class, 'name')
+            ->filterable();
+        $builder->datetime('confirmed_at')->label('Confirmed')->sortable()->filterable();
+        $builder->datetime('fulfilled_at')->label('Fulfilled')->sortable()->filterable();
+        $builder->datetime('cancelled_at')->label('Cancelled')->sortable()->filterable();
+        $builder->string('cancellation_reason')->label('Cancellation Reason')->searchable();
+        $builder->text('notes')->label('Notes')->searchable();
+        $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 }

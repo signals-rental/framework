@@ -18,7 +18,7 @@ describe('GET /api/v1/schema', function () {
                 'exchange_rates', 'emails', 'phones', 'links', 'attachments',
                 'users', 'action_logs', 'webhooks', 'custom_views', 'tax_rates', 'tax_rules',
                 'products', 'product_groups', 'stock_levels', 'stock_transactions', 'activities',
-                'rate_definitions', 'product_rates', 'opportunities',
+                'rate_definitions', 'product_rates', 'opportunities', 'shortage_resolutions',
             ])))]);
     });
 });
@@ -83,6 +83,15 @@ describe('GET /api/v1/schema/{model}', function () {
             ->assertOk()
             ->assertJsonStructure(['model', 'model_class', 'fields'])
             ->assertJsonFragment(['model' => 'stock_transactions', 'model_class' => 'StockTransaction']);
+    });
+
+    it('returns schema for shortage_resolutions (M3 Track C / CL4)', function () {
+        $this->getJson('/api/v1/schema/shortage_resolutions')
+            ->assertOk()
+            ->assertJsonStructure(['model', 'model_class', 'fields'])
+            ->assertJsonFragment(['model' => 'shortage_resolutions', 'model_class' => 'ShortageResolution'])
+            ->assertJsonPath('fields.status.filterable', true)
+            ->assertJsonPath('fields.quantity_resolved.type', 'integer');
     });
 
     it('resolves a singular model name to its plural schema (D3)', function () {

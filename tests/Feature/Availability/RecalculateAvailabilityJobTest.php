@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Availability\RecalculationPipeline;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
@@ -125,6 +126,22 @@ describe('debounce / uniqueness', function () {
 
         Queue::assertPushed(RecalculateAvailabilityJob::class, 2);
     });
+
+    it('serialises concurrent runs with a WithoutOverlapping middleware keyed on product/store', function () {
+        $job = new RecalculateAvailabilityJob(7, 3);
+
+        $middleware = collect($job->middleware());
+
+        $overlapping = $middleware->first(
+            fn (object $m): bool => $m instanceof WithoutOverlapping,
+        );
+
+        expect($overlapping)->not->toBeNull();
+
+        // The lock key embeds the product/store so distinct pairs don't block.
+        $reflection = new ReflectionProperty(WithoutOverlapping::class, 'key');
+        expect($reflection->getValue($overlapping))->toBe('7:3');
+    });
 });
 
 describe('handle', function () {
@@ -165,7 +182,56 @@ describe('handle', function () {
             ->and($demandedSlot->available)->toBe(6);
     });
 
-    it('broadcasts AvailabilityChanged on the per-store private channel after a recompute', function () {
+    it('bounds the recompute window to the snapshot horizon read from settings', function () {
+        Queue::fake();
+
+        // Tighten the future horizon to 5 days (default is 365). Now is pinned to
+        // 2026-06-18 by the suite's beforeEach.
+        settings()->set('availability.snapshot_horizon_future_days', 5, 'integer');
+        settings()->set('availability.snapshot_horizon_past_days', 5, 'integer');
+
+        $product = Product::factory()->bulk()->create();
+        StockLevel::factory()->bulk()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity_held' => 10,
+        ]);
+
+        // A demand 30 days out — inside the default 365-day horizon but OUTSIDE
+        // the tightened 5-day window.
+        $farSlot = Carbon::parse('2026-07-18T00:00:00Z');
+        Demand::factory()
+            ->phase(DemandPhase::Committed)
+            ->window($farSlot, $farSlot->copy()->addDay())
+            ->create([
+                'product_id' => $product->id,
+                'store_id' => $this->store->id,
+                'quantity' => 2,
+            ]);
+
+        (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
+            app(RecalculationPipeline::class)
+        );
+
+        // The far slot lies beyond the settings-driven horizon, so no snapshot is
+        // materialised for it — proving handle() honours the overridden setting.
+        $far = AvailabilitySnapshot::query()
+            ->forProductStore($product->id, $this->store->id)
+            ->where('slot_start', $farSlot)
+            ->first();
+
+        // ...but a slot inside the 5-day window is materialised.
+        $nearSlot = Carbon::parse('2026-06-20T00:00:00Z');
+        $near = AvailabilitySnapshot::query()
+            ->forProductStore($product->id, $this->store->id)
+            ->where('slot_start', $nearSlot)
+            ->first();
+
+        expect($far)->toBeNull()
+            ->and($near)->not->toBeNull();
+    });
+
+    it('broadcasts AvailabilityChanged on the product/store, store, and shortages channels after a recompute', function () {
         Queue::fake();
         Event::fake([AvailabilityChanged::class]);
 
@@ -181,12 +247,46 @@ describe('handle', function () {
         );
 
         Event::assertDispatched(AvailabilityChanged::class, function (AvailabilityChanged $event) use ($product) {
-            $channels = $event->broadcastOn();
+            $names = collect($event->broadcastOn())->map(fn ($c) => $c->name)->all();
 
             return $event->productId === $product->id
                 && $event->storeId === $this->store->id
                 && $event->slots > 0
-                && $channels[0]->name === 'private-availability.store.'.$this->store->id;
+                && $event->hasShortage === false
+                && in_array('private-availability.product.'.$product->id.'.store.'.$this->store->id, $names, true)
+                && in_array('private-availability.store.'.$this->store->id, $names, true)
+                && in_array('private-availability.shortages', $names, true);
+        });
+    });
+
+    it('flags has_shortage on the broadcast and payload when a slot goes negative', function () {
+        Queue::fake();
+        Event::fake([AvailabilityChanged::class]);
+
+        $product = Product::factory()->bulk()->create();
+        StockLevel::factory()->bulk()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity_held' => 1,
+        ]);
+
+        // 4 units demanded against 1 in stock → the slot dips below zero.
+        Demand::factory()
+            ->phase(DemandPhase::Committed)
+            ->window(Carbon::parse('2026-06-20T00:00:00Z'), Carbon::parse('2026-06-21T00:00:00Z'))
+            ->create([
+                'product_id' => $product->id,
+                'store_id' => $this->store->id,
+                'quantity' => 4,
+            ]);
+
+        (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
+            app(RecalculationPipeline::class)
+        );
+
+        Event::assertDispatched(AvailabilityChanged::class, function (AvailabilityChanged $event): bool {
+            return $event->hasShortage === true
+                && ($event->broadcastWith()['has_shortage'] ?? null) === true;
         });
     });
 

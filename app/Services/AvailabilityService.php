@@ -327,6 +327,11 @@ class AvailabilityService
     /**
      * Sum the demand in a pre-fetched collection overlapping a slot.
      *
+     * Per-slot attribution uses the demand's BUFFERED bounds (turnaround/prep
+     * baked in) — the same window the fetch overlaps on — so a unit is correctly
+     * counted as occupied during its own prep/turnaround slots, matching the
+     * Postgres `period &&` fetch on every driver.
+     *
      * @param  Collection<int, Demand>  $demands
      * @return array{0: int, 1: array<string, int>}
      */
@@ -336,7 +341,7 @@ class AvailabilityService
         $breakdown = [];
 
         foreach ($demands as $demand) {
-            if (! ($demand->starts_at->lessThan($slotEnd) && $demand->ends_at->greaterThan($slotStart))) {
+            if (! ($demand->bufferedStartsAt()->lessThan($slotEnd) && $demand->bufferedEndsAt()->greaterThan($slotStart))) {
                 continue;
             }
 

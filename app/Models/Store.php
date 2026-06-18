@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property ShortagePolicy $shortage_policy
+ * @property array<string, mixed>|null $operating_hours
+ * @property bool $is_virtual
  */
 class Store extends Model implements HasSchema
 {
@@ -32,6 +34,8 @@ class Store extends Model implements HasSchema
         'phone',
         'email',
         'timezone',
+        'operating_hours',
+        'is_virtual',
         'is_default',
         'shortage_policy',
         'tag_list',
@@ -44,6 +48,8 @@ class Store extends Model implements HasSchema
     {
         return [
             'is_default' => 'boolean',
+            'is_virtual' => 'boolean',
+            'operating_hours' => 'array',
             'shortage_policy' => ShortagePolicy::class,
             'tag_list' => 'array',
         ];

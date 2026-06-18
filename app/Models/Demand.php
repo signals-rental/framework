@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\DemandPhase;
 use App\Observers\DemandObserver;
+use Carbon\CarbonInterface;
 use Database\Factories\DemandFactory;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -29,6 +30,15 @@ use Illuminate\Support\Facades\DB;
  * `ends_at` retain the original pre-buffer dates. The `period` column is absent
  * on the SQLite test connection — see the create migration.
  *
+ * The same buffered window is ALSO snapshotted into the `buffered_starts_at` /
+ * `buffered_ends_at` columns on every driver, so the per-slot PHP attribution
+ * loops and the SQLite scalar overlap path are buffer-aware (and agree with the
+ * Postgres `period &&` fetch). They are written from {@see bufferedPeriod()} at
+ * demand-write time and read back via {@see bufferedStartsAt()} /
+ * {@see bufferedEndsAt()}, which fall back to the raw dates when null
+ * (zero-buffer / legacy rows). Snapshotted (never recomputed from live config)
+ * so a Verbs replay never diverges when product buffers change.
+ *
  * @property int $id
  * @property int $product_id
  * @property int $store_id
@@ -36,6 +46,8 @@ use Illuminate\Support\Facades\DB;
  * @property int $quantity
  * @property Carbon $starts_at
  * @property Carbon $ends_at
+ * @property Carbon|null $buffered_starts_at
+ * @property Carbon|null $buffered_ends_at
  * @property string $source_type
  * @property int $source_id
  * @property DemandPhase $phase
@@ -67,6 +79,8 @@ class Demand extends Model
         'quantity',
         'starts_at',
         'ends_at',
+        'buffered_starts_at',
+        'buffered_ends_at',
         'source_type',
         'source_id',
         'phase',
@@ -84,6 +98,8 @@ class Demand extends Model
             'quantity' => 'integer',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'buffered_starts_at' => 'datetime',
+            'buffered_ends_at' => 'datetime',
             'phase' => DemandPhase::class,
             'is_active' => 'boolean',
             'priority' => 'integer',
@@ -144,8 +160,15 @@ class Demand extends Model
      * On PostgreSQL this uses the native `tstzrange` overlap operator (`&&`)
      * against the buffered `period` column. On other drivers (SQLite test
      * suite, which has no `period` column) it falls back to a scalar overlap on
-     * `starts_at` / `ends_at`: a half-open `[start, end)` comparison so demands
-     * are considered overlapping when one starts strictly before the other ends.
+     * the BUFFERED bounds: a half-open `[start, end)` comparison so demands are
+     * considered overlapping when one starts strictly before the other ends.
+     *
+     * The scalar branch uses `COALESCE(buffered_starts_at, starts_at)` /
+     * `COALESCE(buffered_ends_at, ends_at)` so it matches the buffered window
+     * Postgres queries via `period &&` — fetch and per-slot attribution then
+     * agree on every driver, even across a demand's prep/turnaround window.
+     * Zero-buffer and legacy rows (null buffered columns) fall back to the raw
+     * dates, preserving the previous behaviour.
      *
      * @param  Builder<Demand>  $query
      * @return Builder<Demand>
@@ -163,8 +186,28 @@ class Demand extends Model
         }
 
         return $query
-            ->where('starts_at', '<', $end)
-            ->where('ends_at', '>', $start);
+            ->whereRaw('COALESCE(buffered_starts_at, starts_at) < ?', [$end])
+            ->whereRaw('COALESCE(buffered_ends_at, ends_at) > ?', [$start]);
+    }
+
+    /**
+     * The buffered (turnaround-inclusive) start of this demand's unavailable
+     * window, falling back to the raw {@see $starts_at} when no buffered bound is
+     * stored (zero-buffer or legacy rows).
+     */
+    public function bufferedStartsAt(): CarbonInterface
+    {
+        return $this->buffered_starts_at ?? $this->starts_at;
+    }
+
+    /**
+     * The buffered (turnaround-inclusive) end of this demand's unavailable
+     * window, falling back to the raw {@see $ends_at} when no buffered bound is
+     * stored (zero-buffer or legacy rows).
+     */
+    public function bufferedEndsAt(): CarbonInterface
+    {
+        return $this->buffered_ends_at ?? $this->ends_at;
     }
 
     /**
@@ -214,6 +257,11 @@ class Demand extends Model
      * pushed later by the turnaround (after) buffer. Buffers are clamped to a
      * floor of zero. The end is left at the sentinel untouched when indefinite —
      * extending the sentinel further is meaningless.
+     *
+     * The same boundaries are persisted into the `buffered_starts_at` /
+     * `buffered_ends_at` columns (read back via {@see bufferedStartsAt()} /
+     * {@see bufferedEndsAt()}) so the per-slot PHP attribution and the SQLite
+     * scalar overlap path are buffer-aware on every driver.
      *
      * @return array{0: Carbon, 1: Carbon} [bufferedStart, bufferedEnd]
      */

@@ -11,13 +11,16 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\Shortages\Resolvers\PartialFulfilmentResolver;
 use App\Services\Shortages\Resolvers\QuoteReallocationResolver;
+use App\Services\Shortages\Resolvers\SubstitutionResolver;
 use App\Services\Shortages\Resolvers\WaitlistResolver;
 use App\Services\Shortages\Resolvers\WarehouseTransferResolver;
 use App\Services\Shortages\ShortageResolverRegistry;
+use App\ValueObjects\ResolutionOption;
 use App\ValueObjects\Shortage;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -129,6 +132,59 @@ it('records the waitlist resolution as monitoring', function () {
         'id' => $result->resolution->id,
         'resolver_key' => 'waitlist',
         'status' => ShortageResolutionStatus::Monitoring->value,
+    ]);
+});
+
+it('keeps the substitute resolver dormant while the product_substitutions table is absent', function () {
+    // The product_substitutions table is a future domain — it does not exist yet.
+    expect(Schema::hasTable('product_substitutions'))->toBeFalse();
+
+    $resolver = app(SubstitutionResolver::class);
+
+    expect($resolver->canResolve(bulkShortage()))->toBeFalse()
+        ->and($resolver->getOptions(bulkShortage()))->toBe([]);
+});
+
+it('checks the product_substitutions table at most once across repeated canResolve calls', function () {
+    $spy = Schema::spy();
+    Schema::shouldReceive('hasTable')->with('product_substitutions')->andReturn(false);
+
+    $resolver = app(SubstitutionResolver::class);
+
+    // Many detection cycles share one resolver instance — only one schema lookup.
+    $resolver->canResolve(bulkShortage());
+    $resolver->canResolve(bulkShortage());
+    $resolver->canResolve(bulkShortage());
+
+    $spy->shouldHaveReceived('hasTable')->with('product_substitutions')->once();
+});
+
+it('still records substitution intent as pending when applied directly', function () {
+    $shortage = bulkShortage();
+    $resolver = app(SubstitutionResolver::class);
+
+    $option = new ResolutionOption(
+        resolverKey: 'substitute',
+        type: ShortageResolutionType::Substitute,
+        label: 'Substitute',
+        description: 'Substitute an alternative product',
+        quantityResolved: $shortage->remainingShortfall(),
+        isPartial: false,
+        autoExecutable: false,
+        metadata: ['substitute_product_id' => 999],
+    );
+
+    $result = $resolver->apply($shortage, $option);
+
+    expect($result->status)->toBe(ShortageResolutionStatus::Pending)
+        ->and($result->resolution->metadata['pending_dependency'])->toBe('product_substitutions')
+        ->and($result->resolution->metadata['substitute_product_id'])->toBe(999);
+
+    $this->assertDatabaseHas('shortage_resolutions', [
+        'id' => $result->resolution->id,
+        'resolver_key' => 'substitute',
+        'resolution_type' => ShortageResolutionType::Substitute->value,
+        'status' => ShortageResolutionStatus::Pending->value,
     ]);
 });
 

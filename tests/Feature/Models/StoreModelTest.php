@@ -20,6 +20,33 @@ it('casts is_default to boolean', function () {
     expect($store->is_default)->toBeTrue();
 });
 
+it('defaults is_virtual to false and casts it to boolean', function () {
+    $store = Store::factory()->create();
+
+    expect($store->is_virtual)->toBeFalse();
+
+    $virtual = Store::factory()->virtual()->create();
+
+    expect($virtual->fresh()->is_virtual)->toBeTrue();
+});
+
+it('casts operating_hours to an array', function () {
+    $hours = [
+        'monday' => ['open' => '09:00', 'close' => '17:00'],
+        'sunday' => null,
+    ];
+
+    $store = Store::factory()->operatingHours($hours)->create();
+
+    expect($store->fresh()->operating_hours)->toBe($hours);
+});
+
+it('leaves operating_hours null by default (24/7)', function () {
+    $store = Store::factory()->create();
+
+    expect($store->fresh()->operating_hours)->toBeNull();
+});
+
 it('scopes to default store', function () {
     Store::factory()->create(['is_default' => false, 'name' => 'Secondary']);
     Store::factory()->create(['is_default' => true, 'name' => 'Main']);
