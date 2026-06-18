@@ -38,6 +38,7 @@ use Illuminate\Support\Carbon;
  * @property int $unit_price
  * @property ChargePeriod $charge_period
  * @property int $total
+ * @property string|null $currency_code
  * @property string|null $discount_percent
  * @property string|null $tax_rate
  * @property LineItemTransactionType $transaction_type
@@ -78,6 +79,7 @@ class OpportunityItem extends Model
         'unit_price',
         'charge_period',
         'total',
+        'currency_code',
         'discount_percent',
         'tax_rate',
         'transaction_type',

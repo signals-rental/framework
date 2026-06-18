@@ -42,6 +42,8 @@ class CreateOpportunity
                 starts_at: $data->starts_at,
                 ends_at: $data->ends_at,
                 charge_total: $data->charge_total,
+                currency_code: $data->currency,
+                prices_include_tax: $data->prices_include_tax,
             );
 
             return $opportunityId;

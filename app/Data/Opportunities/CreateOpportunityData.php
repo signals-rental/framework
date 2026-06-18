@@ -21,6 +21,7 @@ class CreateOpportunityData extends Data
         public ?string $starts_at = null,
         public ?string $ends_at = null,
         public string $currency = 'GBP',
+        public bool $prices_include_tax = false,
         /**
          * Initial charge total in minor units. Accepts an int (already minor
          * units) or a decimal string/float (major units converted against
@@ -48,6 +49,7 @@ class CreateOpportunityData extends Data
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],
             'currency' => ['sometimes', 'string', 'size:3'],
+            'prices_include_tax' => ['sometimes', 'boolean'],
             'charge_total' => ['sometimes', 'numeric'],
         ];
     }

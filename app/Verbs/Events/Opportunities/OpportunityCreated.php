@@ -43,6 +43,8 @@ class OpportunityCreated extends Event
         public ?string $starts_at = null,
         public ?string $ends_at = null,
         public int $charge_total = 0,
+        public ?string $currency_code = null,
+        public bool $prices_include_tax = false,
     ) {}
 
     public function apply(OpportunityState $state): void
@@ -61,6 +63,9 @@ class OpportunityCreated extends Event
         $state->starts_at = $this->starts_at !== null ? CarbonImmutable::parse($this->starts_at) : null;
         $state->ends_at = $this->ends_at !== null ? CarbonImmutable::parse($this->ends_at) : null;
         $state->charge_total = $this->charge_total;
+        $state->currency_code = $this->currency_code ?? settings('company.base_currency', 'GBP');
+        $state->exchange_rate = '1';
+        $state->prices_include_tax = $this->prices_include_tax;
         $state->last_event_at = CarbonImmutable::now();
     }
 
@@ -83,6 +88,9 @@ class OpportunityCreated extends Event
                 'starts_at' => $state->starts_at,
                 'ends_at' => $state->ends_at,
                 'charge_total' => $state->charge_total,
+                'currency_code' => $state->currency_code,
+                'exchange_rate' => $state->exchange_rate,
+                'prices_include_tax' => $state->prices_include_tax,
             ],
         );
 

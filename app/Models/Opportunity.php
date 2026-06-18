@@ -29,6 +29,11 @@ use Illuminate\Support\Carbon;
  * @property int $state_id
  * @property OpportunityState $state
  * @property int $status
+ * @property string|null $currency_code
+ * @property string $exchange_rate
+ * @property int $charge_total
+ * @property int|null $deal_total
+ * @property bool $prices_include_tax
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
  * @property Carbon|null $charge_starts_at
@@ -69,7 +74,10 @@ class Opportunity extends Model implements HasSchema
         'ends_at',
         'charge_starts_at',
         'charge_ends_at',
+        'currency_code',
+        'exchange_rate',
         'charge_total',
+        'deal_total',
         'rental_charge_total',
         'sale_charge_total',
         'service_charge_total',
@@ -92,6 +100,7 @@ class Opportunity extends Model implements HasSchema
             'ends_at' => 'datetime',
             'charge_starts_at' => 'datetime',
             'charge_ends_at' => 'datetime',
+            'exchange_rate' => 'decimal:10',
             'prices_include_tax' => 'boolean',
             'invoiced' => 'boolean',
             'tag_list' => 'array',

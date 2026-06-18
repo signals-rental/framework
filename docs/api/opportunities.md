@@ -158,3 +158,108 @@ Returns the updated opportunity under the `opportunity` key.
 | 403 | Token lacks `opportunities:read`/`opportunities:write`, or the user lacks the permission |
 | 404 | Opportunity not found (or soft-deleted) |
 | 422 | Validation failure, or an invalid state/status transition |
+
+## Opportunity Items
+
+Line items are the priced rows of an opportunity. Every write below flows through the
+event-sourced lifecycle: the rate engine resolves the per-unit price and duration-aware
+subtotal, the line discount is applied to the **net** (before tax), and the tax engine
+computes line-level tax. The opportunity's totals (`charge_excluding_tax_total`,
+`tax_total`, `charge_including_tax_total`, the per-type `rental`/`sale`/`service`
+totals, and the headline `charge_total`) are recomputed and rolled up automatically.
+
+Every item endpoint returns the **parent opportunity** (under the `opportunity` key)
+with its refreshed totals — include `?include=items` (or `items.assets`) when reading
+to see the line rows themselves.
+
+Optional lines (`is_optional = true`) still claim availability but are **excluded** from
+all charge totals.
+
+### Add Line Item
+
+```
+POST /api/v1/opportunities/{id}/items
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the line |
+| `item_id` | integer | No | Catalogue item id (product) the line refers to |
+| `item_type` | string | No | Polymorphic type (`Product` / FQCN) — pairs with `item_id` |
+| `description` | string | No | Line description |
+| `quantity` | numeric | No | Quantity (default `1`) |
+| `transaction_type` | integer | No | `0` Rental, `1` Sale, `2` Service, `3` Sub-rental |
+| `charge_period` | integer | No | `0` Hour, `1` Day, `2` Week, `3` Month, `4` Fixed |
+| `starts_at` / `ends_at` | datetime | No | Per-item hire window (inherits the opportunity's dates when null) |
+| `is_optional` | boolean | No | Exclude from charge totals (default `false`) |
+| `unit_price` | money | No | Manual unit-price override (int = minor units, decimal string/float = major units against `currency`). Omit to price from the rate engine |
+| `currency` | string | No | Currency scale for `unit_price` (default base currency) |
+| `discount_percent` | numeric | No | Line discount percentage (applied before tax) |
+| `sort_order` | integer | No | Display ordering |
+| `notes` | string | No | Free-form notes |
+| `custom_fields` | object | No | Inline line-item custom-field map |
+
+Returns the opportunity with refreshed totals under the `opportunity` key (`201 Created`).
+
+### Update Line Item
+
+```
+PATCH /api/v1/opportunities/{id}/items/{item}
+```
+
+Accepts any subset of the fields below; each provided field dispatches its own
+lifecycle event in turn (quantity → price → discount → dates → optional → substitution).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `quantity` | numeric | New quantity (resyncs availability demand) |
+| `unit_price` | money | Manual unit-price override; send `null` to clear it and revert to rate pricing |
+| `currency` | string | Currency scale for `unit_price` |
+| `discount_percent` | numeric | Line discount percentage; send `null` to clear |
+| `starts_at` / `ends_at` | datetime | Per-item hire window (resyncs availability demand) |
+| `is_optional` | boolean | Toggle whether the line counts toward totals |
+| `item_id` / `item_type` | integer / string | Substitute the catalogue reference (re-prices, resyncs demand) |
+| `name` | string | New display name (with a substitution) |
+
+Returns the opportunity with refreshed totals.
+
+### Remove Line Item
+
+```
+DELETE /api/v1/opportunities/{id}/items/{item}
+```
+
+Releases the line's availability demand, removes the row, and rolls the totals back
+down. Returns the opportunity with refreshed totals (`200 OK`).
+
+### Set Deal Price
+
+```
+POST /api/v1/opportunities/{id}/deal_price
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `deal_total` | money | Yes | Manual deal total (int = minor units, decimal string/float = major units) |
+| `currency` | string | No | Currency scale for `deal_total` |
+
+Replaces the engine-computed headline `charge_total` with the manual override. The
+per-type and tax totals continue to reflect the line items. Returns the opportunity.
+
+### Clear Deal Price
+
+```
+DELETE /api/v1/opportunities/{id}/deal_price
+```
+
+Clears the manual override, reverting `charge_total` to the engine-computed gross total.
+Returns the opportunity.
+
+### Error Cases
+
+| Status | Condition |
+|--------|-----------|
+| 401 | No valid Sanctum token |
+| 403 | Token lacks `opportunities:write`, or the user lacks the `opportunities.edit` permission |
+| 404 | Opportunity not found, or the line item does not belong to the opportunity |
+| 422 | Validation failure, or a write against a closed/terminal opportunity |

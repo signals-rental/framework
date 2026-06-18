@@ -2,14 +2,32 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\ChangeItemDates;
+use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ChangeOpportunityStatus;
+use App\Actions\Opportunities\ClearDealPrice;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\DeleteOpportunity;
+use App\Actions\Opportunities\OverrideItemPrice;
+use App\Actions\Opportunities\RemoveOpportunityItem;
+use App\Actions\Opportunities\SetDealPrice;
+use App\Actions\Opportunities\SetItemDiscount;
+use App\Actions\Opportunities\SubstituteItem;
+use App\Actions\Opportunities\ToggleItemOptional;
 use App\Actions\Opportunities\UpdateOpportunity;
+use App\Data\Opportunities\AddOpportunityItemData;
+use App\Data\Opportunities\ChangeItemDatesData;
+use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
+use App\Data\Opportunities\OverrideItemPriceData;
+use App\Data\Opportunities\SetDealPriceData;
+use App\Data\Opportunities\SetItemDiscountData;
+use App\Data\Opportunities\SubstituteItemData;
+use App\Data\Opportunities\ToggleItemOptionalData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Enums\OpportunityStatus;
 use App\Http\Controllers\Api\Controller;
@@ -17,10 +35,12 @@ use App\Http\Traits\FiltersQueries;
 use App\Http\Traits\ResourceActions;
 use App\Models\CustomView;
 use App\Models\Opportunity;
+use App\Models\OpportunityItem;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * API surface for the event-sourced opportunity lifecycle.
@@ -297,6 +317,134 @@ class OpportunityController extends Controller
         $result = (new ChangeOpportunityStatus)($opportunity, $status);
 
         return $this->respondWithIncludes($request, $result, $opportunity);
+    }
+
+    /**
+     * Add a line item to an opportunity.
+     *
+     * The item is priced by the rate + tax engines and the opportunity totals are
+     * recomputed; the response returns the opportunity with its refreshed totals.
+     */
+    #[ApiResponse(201, 'Line item added')]
+    public function storeItem(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = AddOpportunityItemData::from($request->validate(AddOpportunityItemData::rules()));
+
+        (new AddOpportunityItem)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id, Response::HTTP_CREATED);
+    }
+
+    /**
+     * Update a line item.
+     *
+     * Accepts any subset of `quantity`, `unit_price` (null clears the override),
+     * `discount_percent`, `starts_at`/`ends_at`, `is_optional`, and `item_id`/
+     * `item_type`/`name` (substitution); each provided field dispatches its own
+     * lifecycle event in turn. The response returns the opportunity with its
+     * refreshed totals.
+     */
+    #[ApiResponse(200, 'Line item updated')]
+    public function updateItem(Request $request, Opportunity $opportunity, OpportunityItem $item): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertItemBelongsToOpportunity($item, $opportunity);
+
+        if ($request->has('quantity')) {
+            (new ChangeItemQuantity)($item, ChangeItemQuantityData::from($request->validate(ChangeItemQuantityData::rules())));
+        }
+
+        if ($request->has('unit_price')) {
+            (new OverrideItemPrice)($item, OverrideItemPriceData::from($request->validate(OverrideItemPriceData::rules())));
+        }
+
+        if ($request->has('discount_percent')) {
+            (new SetItemDiscount)($item, SetItemDiscountData::from($request->validate(SetItemDiscountData::rules())));
+        }
+
+        if ($request->has('starts_at') || $request->has('ends_at')) {
+            (new ChangeItemDates)($item, ChangeItemDatesData::from($request->validate(ChangeItemDatesData::rules())));
+        }
+
+        if ($request->has('is_optional')) {
+            (new ToggleItemOptional)($item, ToggleItemOptionalData::from($request->validate(ToggleItemOptionalData::rules())));
+        }
+
+        if ($request->has('item_id') || $request->has('item_type')) {
+            (new SubstituteItem)($item, SubstituteItemData::from($request->validate(SubstituteItemData::rules())));
+        }
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Remove a line item from an opportunity.
+     */
+    #[ApiResponse(200, 'Line item removed')]
+    public function destroyItem(Opportunity $opportunity, OpportunityItem $item): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertItemBelongsToOpportunity($item, $opportunity);
+
+        (new RemoveOpportunityItem)($item);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Set a manual deal-total override on an opportunity, replacing the
+     * engine-computed headline `charge_total`.
+     */
+    #[ApiResponse(200, 'Deal price set')]
+    public function setDealPrice(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = SetDealPriceData::from($request->validate(SetDealPriceData::rules()));
+
+        (new SetDealPrice)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Clear a manual deal-total override, reverting `charge_total` to the
+     * engine-computed gross total.
+     */
+    #[ApiResponse(200, 'Deal price cleared')]
+    public function clearDealPrice(Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        (new ClearDealPrice)($opportunity);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Guard that a line item belongs to the bound opportunity (else 404).
+     */
+    private function assertItemBelongsToOpportunity(OpportunityItem $item, Opportunity $opportunity): void
+    {
+        abort_unless($item->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
+    }
+
+    /**
+     * Re-read the opportunity projection with its items and serialise it.
+     */
+    private function respondWithFreshOpportunity(int $opportunityId, int $status = Response::HTTP_OK): JsonResponse
+    {
+        $fresh = Opportunity::query()->whereKey($opportunityId)->with('items')->firstOrFail();
+
+        return $this->respondWith(
+            OpportunityData::fromModel($fresh)->toArray(),
+            'opportunity',
+            $status,
+        );
     }
 
     /**

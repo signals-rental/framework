@@ -60,8 +60,39 @@ class OpportunityState extends State
 
     public int $item_count = 0;
 
-    /** Charge total in integer minor units (pence/cents/fils). */
+    /** Document currency (ISO 4217), snapshotted at creation. */
+    public ?string $currency_code = null;
+
+    /** Exchange-rate snapshot at creation time, as a decimal string. */
+    public string $exchange_rate = '1';
+
+    /** Headline charge total in integer minor units (pence/cents/fils). */
     public int $charge_total = 0;
+
+    /**
+     * Optional manual deal-total override in integer minor units; null = use the
+     * engine-computed total. When set, it replaces {@see $charge_total}.
+     */
+    public ?int $deal_total = null;
+
+    /** Per-transaction-type charge totals (minor units, optional lines excluded). */
+    public int $rental_charge_total = 0;
+
+    public int $sale_charge_total = 0;
+
+    public int $service_charge_total = 0;
+
+    /** Net (tax-exclusive) charge total in minor units. */
+    public int $charge_excluding_tax_total = 0;
+
+    /** Total tax in minor units (summed per line). */
+    public int $tax_total = 0;
+
+    /** Gross (tax-inclusive) charge total in minor units. */
+    public int $charge_including_tax_total = 0;
+
+    /** Whether stored line prices are tax-inclusive. */
+    public bool $prices_include_tax = false;
 
     public bool $is_invoiced = false;
 
