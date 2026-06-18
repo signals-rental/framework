@@ -66,4 +66,48 @@ return [
 
     'suppress_stock_recalc' => (bool) env('AVAILABILITY_SUPPRESS_STOCK_RECALC', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Asynchronous Recalculation
+    |--------------------------------------------------------------------------
+    |
+    | In M3-4 the demand/stock observers no longer recompute snapshots inline.
+    | They dispatch a RecalculateAvailabilityJob carrying the affected
+    | product/store; the job runs the RecalculationPipeline over the rolling
+    | horizon on a Horizon-managed queue. Point queries
+    | (AvailabilityService::getAvailability) stay exact — they read `demands`
+    | live — so only the snapshot/range/calendar read model becomes
+    | eventually-consistent.
+    |
+    | `queue`            — the named queue the recalc job is pushed onto.
+    | `debounce_seconds` — the ShouldBeUnique lock window. A burst of demand or
+    |                      stock changes for the SAME product/store within this
+    |                      window coalesces into a single recompute, since each
+    |                      dispatch shares the unique id "availability:{p}:{s}".
+    |
+    */
+
+    'recalc' => [
+        'queue' => env('AVAILABILITY_RECALC_QUEUE', 'availability'),
+        'debounce_seconds' => (int) env('AVAILABILITY_RECALC_DEBOUNCE_SECONDS', 2),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Overdue Demand Detection
+    |--------------------------------------------------------------------------
+    |
+    | The DetectOverdueDemands scheduled command extends still-active demands
+    | whose scheduled `ends_at` has passed (and is not already the sentinel) out
+    | to the sentinel "no known end" date, so availability keeps reflecting the
+    | unreturned stock until an actual return is recorded. `batch_size` bounds
+    | how many overdue demands a single run processes — the command is
+    | idempotent and safe to re-run, so any remainder is picked up next run.
+    |
+    */
+
+    'overdue' => [
+        'batch_size' => (int) env('AVAILABILITY_OVERDUE_BATCH_SIZE', 500),
+    ],
+
 ];

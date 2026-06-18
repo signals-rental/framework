@@ -3,19 +3,19 @@
 namespace App\Observers;
 
 use App\Enums\AvailabilityEventType;
+use App\Jobs\RecalculateAvailabilityJob;
 use App\Models\AvailabilityEvent;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Services\Availability\RecalculationPipeline;
-use Illuminate\Support\Carbon;
 
 /**
  * Keeps availability snapshots consistent when on-hand stock changes.
  *
  * Stock is plain Eloquent (not event-sourced), so there is no replay concern: a
  * create/update/delete that changes the sellable on-hand quantity for a
- * product/store immediately recalculates that product/store over the rolling
- * snapshot horizon and appends a `stock_changed` availability event.
+ * product/store enqueues a {@see RecalculateAvailabilityJob} for that
+ * product/store and appends a `stock_changed` availability event.
  *
  * This closes the M2-review range-read gap two ways:
  *
@@ -25,16 +25,20 @@ use Illuminate\Support\Carbon;
  *  2. Adjusting stock (write-off, count, purchase) re-derives `available` so the
  *     snapshot read model tracks the new on-hand quantity.
  *
- * The trigger is **synchronous** in M3-3 (debounced/queued dispatch is M3-4) and
- * scoped to the affected product/store only — never a full rebuild. A
- * `quantity_held`-only change still recalculates, because the totals shift.
+ * The trigger is **asynchronous/debounced** in M3-4: the job — not the observer —
+ * runs the {@see RecalculationPipeline} over the
+ * rolling horizon, on a Horizon-managed queue, coalescing a burst of stock
+ * writes for the same product/store into a single recompute. A
+ * `quantity_held`-only change still enqueues, because the totals shift.
  *
  * **Recalc-storm guard:** bulk operations (seeders, imports) that write many
- * stock rows can set `availability.suppress_stock_recalc` to skip the per-row
- * recalc and run a single bounded recalculation afterwards.
+ * stock rows can set `availability.suppress_stock_recalc` to skip enqueuing the
+ * per-row recompute and run a single bounded recalculation afterwards. The flag
+ * stays meaningful even with a `sync` queue (the suite default): under `sync` a
+ * dispatched job runs inline, so suppressing dispatch is what prevents the storm.
  *
- * The pipeline writes only snapshots, daily summaries and availability events —
- * never stock levels — so there is no observer recursion.
+ * The job writes only snapshots, daily summaries and availability events — never
+ * stock levels — so there is no observer recursion.
  */
 class StockLevelObserver
 {
@@ -53,13 +57,9 @@ class StockLevelObserver
         'ends_at',
     ];
 
-    public function __construct(
-        private readonly RecalculationPipeline $pipeline,
-    ) {}
-
     public function created(StockLevel $stockLevel): void
     {
-        $this->recalculate((int) $stockLevel->product_id, (int) $stockLevel->store_id);
+        $this->dispatchRecalculation((int) $stockLevel->product_id, (int) $stockLevel->store_id);
         $this->log($stockLevel, 'created');
     }
 
@@ -74,10 +74,10 @@ class StockLevelObserver
         $originalProduct = (int) ($stockLevel->getOriginal('product_id') ?? $stockLevel->product_id);
         $originalStore = (int) ($stockLevel->getOriginal('store_id') ?? $stockLevel->store_id);
 
-        $this->recalculate($originalProduct, $originalStore);
+        $this->dispatchRecalculation($originalProduct, $originalStore);
 
         if ($originalProduct !== (int) $stockLevel->product_id || $originalStore !== (int) $stockLevel->store_id) {
-            $this->recalculate((int) $stockLevel->product_id, (int) $stockLevel->store_id);
+            $this->dispatchRecalculation((int) $stockLevel->product_id, (int) $stockLevel->store_id);
         }
 
         $this->log($stockLevel, 'updated');
@@ -85,7 +85,7 @@ class StockLevelObserver
 
     public function deleted(StockLevel $stockLevel): void
     {
-        $this->recalculate((int) $stockLevel->product_id, (int) $stockLevel->store_id);
+        $this->dispatchRecalculation((int) $stockLevel->product_id, (int) $stockLevel->store_id);
         $this->log($stockLevel, 'deleted');
     }
 
@@ -98,12 +98,13 @@ class StockLevelObserver
     }
 
     /**
-     * Recalculate the product/store over the full rolling snapshot horizon so
-     * the new on-hand quantity is reflected across the whole materialised window.
-     * The pipeline itself clamps the window to the configured horizon and no-ops
-     * for products that do not track availability.
+     * Enqueue a debounced availability recompute for the product/store. The job
+     * recomputes the full rolling horizon and no-ops for products that do not
+     * track availability, so the only guards needed here are the bulk-seed
+     * suppression flag and a cheap "is this product tracked?" pre-check that
+     * avoids enqueuing obviously pointless work.
      */
-    private function recalculate(int $productId, int $storeId): void
+    private function dispatchRecalculation(int $productId, int $storeId): void
     {
         if ($this->suppressed()) {
             return;
@@ -113,14 +114,7 @@ class StockLevelObserver
             return;
         }
 
-        $now = Carbon::now('UTC');
-        $pastDays = (int) config('availability.snapshot_horizon.past_days', 90);
-        $futureDays = (int) config('availability.snapshot_horizon.future_days', 365);
-
-        $from = $now->copy()->subDays(max(0, $pastDays))->startOfDay();
-        $to = $now->copy()->addDays(max(0, $futureDays))->endOfDay();
-
-        $this->pipeline->recalculate($productId, $storeId, $from, $to);
+        RecalculateAvailabilityJob::dispatch($productId, $storeId);
     }
 
     /**
@@ -134,7 +128,7 @@ class StockLevelObserver
     /**
      * Append a `stock_changed` availability event describing the adjustment.
      * Always logged (even when suppressed/un-tracked) so the audit trail records
-     * the stock movement regardless of whether snapshots were refreshed.
+     * the stock movement regardless of whether a recompute was enqueued.
      */
     private function log(StockLevel $stockLevel, string $change): void
     {

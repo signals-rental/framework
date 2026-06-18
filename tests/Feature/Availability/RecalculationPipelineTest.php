@@ -13,6 +13,7 @@ use App\Models\Store;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\AvailabilityService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     $this->app->bind(AvailabilityResolutionProvider::class, fn () => new class implements AvailabilityResolutionProvider
@@ -29,6 +30,11 @@ beforeEach(function () {
 
 describe('recalculate', function () {
     it('writes snapshots with correct stock, demand, availability and breakdown', function () {
+        // Fake the queue so the async observer-dispatched RecalculateAvailabilityJob
+        // (which would recompute the WHOLE rolling horizon) does not run; this test
+        // exercises the pipeline directly over a narrow window in isolation.
+        Queue::fake();
+
         $product = Product::factory()->bulk()->create();
         StockLevel::factory()->bulk()->create([
             'product_id' => $product->id,
@@ -36,8 +42,8 @@ describe('recalculate', function () {
             'quantity_held' => 8,
         ]);
 
-        // The factory create() fires the observer, which already recalculates;
-        // calling the pipeline directly here proves the computation independently.
+        // Calling the pipeline directly proves the computation independently of
+        // the (now async/debounced) observer trigger.
         Demand::factory()
             ->phase(DemandPhase::Committed)
             ->window(Carbon::parse('2026-05-01T00:00:00Z'), Carbon::parse('2026-05-03T00:00:00Z'))
@@ -191,7 +197,21 @@ describe('recalculate', function () {
 });
 
 describe('DemandObserver keeps snapshots fresh', function () {
-    it('creates snapshots synchronously when a demand is created', function () {
+    // The observer now dispatches a RecalculateAvailabilityJob instead of
+    // recalculating inline. Under the suite's `sync` queue the job runs
+    // immediately, but it recomputes the WHOLE rolling horizon for the
+    // product/store — so these tests assert on the snapshot covering the
+    // demand's own day (pinned with setTestNow so the window is inside the
+    // horizon) rather than on `first()`, which is now the earliest horizon slot.
+    beforeEach(function () {
+        Carbon::setTestNow(Carbon::parse('2026-06-18T00:00:00Z'));
+    });
+
+    afterEach(function () {
+        Carbon::setTestNow();
+    });
+
+    it('creates snapshots via the dispatched job when a demand is created', function () {
         $product = Product::factory()->bulk()->create();
         StockLevel::factory()->bulk()->create([
             'product_id' => $product->id,
@@ -201,7 +221,7 @@ describe('DemandObserver keeps snapshots fresh', function () {
 
         Demand::factory()
             ->phase(DemandPhase::Committed)
-            ->window(Carbon::parse('2026-06-01T00:00:00Z'), Carbon::parse('2026-06-02T00:00:00Z'))
+            ->window(Carbon::parse('2026-06-20T00:00:00Z'), Carbon::parse('2026-06-21T00:00:00Z'))
             ->create([
                 'product_id' => $product->id,
                 'store_id' => $this->store->id,
@@ -210,6 +230,7 @@ describe('DemandObserver keeps snapshots fresh', function () {
 
         $snapshot = AvailabilitySnapshot::query()
             ->forProductStore($product->id, $this->store->id)
+            ->where('slot_start', Carbon::parse('2026-06-20T00:00:00Z'))
             ->first();
 
         expect($snapshot)->not->toBeNull()
@@ -227,18 +248,19 @@ describe('DemandObserver keeps snapshots fresh', function () {
 
         $demand = Demand::factory()
             ->phase(DemandPhase::Committed)
-            ->window(Carbon::parse('2026-06-01T00:00:00Z'), Carbon::parse('2026-06-02T00:00:00Z'))
+            ->window(Carbon::parse('2026-06-20T00:00:00Z'), Carbon::parse('2026-06-21T00:00:00Z'))
             ->create([
                 'product_id' => $product->id,
                 'store_id' => $this->store->id,
                 'quantity' => 4,
             ]);
 
-        // Release it — observer fires updated() and recalculates.
+        // Release it — observer fires updated() and dispatches a recalc.
         $demand->update(['phase' => DemandPhase::Void, 'is_active' => false]);
 
         $snapshot = AvailabilitySnapshot::query()
             ->forProductStore($product->id, $this->store->id)
+            ->where('slot_start', Carbon::parse('2026-06-20T00:00:00Z'))
             ->first();
 
         expect($snapshot->total_demanded)->toBe(0)

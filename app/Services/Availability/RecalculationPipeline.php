@@ -4,6 +4,7 @@ namespace App\Services\Availability;
 
 use App\Enums\AvailabilityEventType;
 use App\Enums\StockCategory;
+use App\Jobs\RecalculateAvailabilityJob;
 use App\Models\AvailabilityDailySummary;
 use App\Models\AvailabilityEvent;
 use App\Models\AvailabilitySnapshot;
@@ -18,17 +19,20 @@ use Illuminate\Support\Carbon;
 /**
  * Recomputes availability snapshots for a product/store over a date range.
  *
- * This is the M2 **synchronous** pipeline: it gathers stock and active demands,
- * computes per-slot availability via the {@see SlotCalculator}, upserts the
- * affected `availability_snapshots` rows, and appends an
- * `availability_recalculated` event. It is invoked synchronously by the
- * {@see DemandObserver} whenever demands change.
+ * The pipeline gathers stock and active demands, computes per-slot availability
+ * via the {@see SlotCalculator}, upserts the affected `availability_snapshots`
+ * rows, rolls up daily summaries, and appends an `availability_recalculated`
+ * event. The computation itself is unchanged from M2; what changed in M3-4 is
+ * the *trigger*: the {@see DemandObserver} and {@see StockLevelObserver} now
+ * enqueue a debounced {@see RecalculateAvailabilityJob} that invokes
+ * this pipeline on a Horizon-managed queue, rather than calling it inline.
  *
- * Deferred to M3 (intentionally NOT built here): async/queued recalculation,
- * debouncing, daily-summary rollups, shortage detection events, stock-change
- * triggers, and Reverb/webhook broadcast. The pipeline accepts a bounded
- * `(product, store, from, to)` blast radius so a single demand change never
- * forces a full rebuild.
+ * The pipeline accepts a bounded `(product, store, from, to)` blast radius so a
+ * single change never forces a full rebuild, and remains directly callable
+ * (synchronously) — the job is a thin debounced wrapper over it.
+ *
+ * Deferred to later milestones (intentionally NOT built here): shortage
+ * detection events and webhook broadcast.
  */
 class RecalculationPipeline
 {
@@ -52,13 +56,18 @@ class RecalculationPipeline
      * On PostgreSQL the work is serialised per product/store with a
      * transaction-scoped advisory lock so concurrent recalculations cannot
      * interleave their upserts. On SQLite the lock is a no-op.
+     *
+     * Returns a {@see RecalculationResult} describing the window actually
+     * materialised and the slot count, so the queued
+     * {@see RecalculateAvailabilityJob} can build a broadcast summary
+     * without re-querying. A skipped (no-op) run returns a zero-slot result.
      */
-    public function recalculate(int $productId, int $storeId, Carbon $from, Carbon $to): void
+    public function recalculate(int $productId, int $storeId, Carbon $from, Carbon $to): RecalculationResult
     {
         $product = Product::query()->find($productId);
 
         if ($product === null || ! $product->track_availability) {
-            return;
+            return RecalculationResult::skipped($productId, $storeId);
         }
 
         [$from, $to] = $this->clampToHorizon($from, $to);
@@ -66,13 +75,13 @@ class RecalculationPipeline
         // The entire requested window lies outside the rolling horizon — there
         // is nothing to materialise; point queries cover it on the fly.
         if (! $from->lessThan($to)) {
-            return;
+            return RecalculationResult::skipped($productId, $storeId);
         }
 
         $connection = (new AvailabilitySnapshot)->getConnection();
         $usesPostgres = $connection->getDriverName() === 'pgsql';
 
-        $work = function () use ($product, $productId, $storeId, $from, $to): void {
+        $work = function () use ($product, $productId, $storeId, $from, $to): int {
             $timezone = $this->storeTimezone($storeId);
 
             $totalStock = $this->totalStock($product, $storeId);
@@ -108,6 +117,8 @@ class RecalculationPipeline
             $this->rollUpDailySummaries($productId, $storeId, $slotAvailability, $timezone, $now);
 
             $this->logRecalculated($productId, $storeId, $from, $to, count($slots));
+
+            return count($slots);
         };
 
         if ($usesPostgres) {
@@ -119,18 +130,19 @@ class RecalculationPipeline
             // (pg_advisory_xact_lock(product_id, store_id)) would overflow once
             // a BIGSERIAL id exceeds ~2.1B, so we hash a composite string into
             // one int8 key instead.
-            $connection->transaction(function () use ($connection, $productId, $storeId, $work): void {
+            $slotCount = $connection->transaction(function () use ($connection, $productId, $storeId, $work): int {
                 $connection->statement(
                     'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
                     [$productId.':'.$storeId],
                 );
-                $work();
+
+                return $work();
             });
 
-            return;
+            return new RecalculationResult($productId, $storeId, $from, $to, $slotCount);
         }
 
-        $work();
+        return new RecalculationResult($productId, $storeId, $from, $to, $work());
     }
 
     /**

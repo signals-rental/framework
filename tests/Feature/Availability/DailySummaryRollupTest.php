@@ -10,6 +10,7 @@ use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Availability\RecalculationPipeline;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
 
 /**
  * Binds a fixed availability resolution for the test body.
@@ -28,6 +29,12 @@ function useResolution(AvailabilityResolution $resolution): void
 }
 
 beforeEach(function () {
+    // These tests drive the RecalculationPipeline DIRECTLY over a narrow window
+    // to assert the daily-summary rollup. Fake the queue so the demand observer's
+    // async RecalculateAvailabilityJob (which would recompute the whole rolling
+    // horizon and obscure `first()`) does not run.
+    Queue::fake();
+
     $this->store = Store::factory()->create(['timezone' => 'UTC']);
 });
 

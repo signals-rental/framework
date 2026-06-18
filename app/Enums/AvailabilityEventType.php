@@ -7,10 +7,10 @@ use App\Models\AvailabilityEvent;
 /**
  * The kinds of event recorded in the `availability_events` log.
  *
- * Only the subset relevant to M2 is wired today: demand lifecycle changes and
- * recalculations. Stock and shortage event types are defined here so the log
- * schema and downstream consumers are stable, but they are emitted in later
- * milestones (stock-level wiring and shortage detection land in M3+).
+ * Demand lifecycle changes, recalculations, stock changes and overdue
+ * extensions are wired today (M2 + M3). Shortage event types are defined here so
+ * the log schema and downstream consumers are stable, but they are emitted by
+ * the shortage-detection milestone (M3 line items / shortages).
  *
  * @see AvailabilityEvent
  */
@@ -33,6 +33,9 @@ enum AvailabilityEventType: string
 
     /** Snapshots were refreshed for a product/store/range. */
     case AvailabilityRecalculated = 'availability_recalculated';
+
+    /** A demand was extended to the sentinel because it became overdue. */
+    case DemandOverdue = 'demand_overdue';
 
     /** Available quantity dropped below zero. */
     case ShortageDetected = 'shortage_detected';

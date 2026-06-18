@@ -3,36 +3,43 @@
 namespace App\Observers;
 
 use App\Enums\AvailabilityEventType;
+use App\Jobs\RecalculateAvailabilityJob;
 use App\Models\AvailabilityEvent;
 use App\Models\Demand;
-use App\Models\Product;
 use App\Services\Availability\RecalculationPipeline;
 use Illuminate\Support\Carbon;
+use Thunk\Verbs\Facades\Verbs;
 
 /**
  * Keeps availability snapshots consistent when demands change.
  *
- * M2 wiring is **synchronous**: every demand create/update/delete immediately
- * recalculates the affected product/store/period through the
- * {@see RecalculationPipeline} and appends a lifecycle event
- * (`demand_created` / `demand_released`). M3 makes this async/debounced — the
- * trigger point stays here.
+ * M3-4 wiring is **asynchronous/debounced**: every demand create/update/delete
+ * appends a lifecycle event (`demand_created` / `demand_updated` /
+ * `demand_released`) and then enqueues a {@see RecalculateAvailabilityJob} for
+ * the affected product/store. The job — not the observer — runs the
+ * {@see RecalculationPipeline} over the rolling
+ * horizon, on a Horizon-managed queue, coalescing a burst of changes for the
+ * same product/store into a single recompute.
  *
- * The blast radius is the union of the demand's old and new windows (with the
- * product's buffers baked in), so a period change recalculates both the slots
- * it left and the slots it entered. The pipeline writes only snapshots and
- * availability events — never demands — so there is no observer recursion.
+ * Because the job recomputes the *whole* rolling horizon for the product/store
+ * (reading the current demand state when it runs), the observer no longer needs
+ * to compute a per-change blast window — a period move is covered automatically.
+ *
+ * **Replay-safety.** Demand sync is wrapped in `Verbs::unlessReplaying()`
+ * upstream, so no demand rows are written during a `Verbs::replay()` and this
+ * observer never fires there. As belt-and-suspenders the dispatch path also
+ * short-circuits when Verbs is replaying, so even a direct demand write during
+ * replay would not enqueue a recompute.
+ *
+ * The job writes only snapshots and availability events — never demands — so
+ * there is no observer recursion.
  */
 class DemandObserver
 {
-    public function __construct(
-        private readonly RecalculationPipeline $pipeline,
-    ) {}
-
     public function created(Demand $demand): void
     {
         $this->log($demand, AvailabilityEventType::DemandCreated);
-        $this->recalculate($demand);
+        $this->dispatchRecalculation($demand);
     }
 
     public function updated(Demand $demand): void
@@ -46,69 +53,27 @@ class DemandObserver
             $becameInactive ? AvailabilityEventType::DemandReleased : AvailabilityEventType::DemandUpdated,
         );
 
-        $this->recalculate($demand);
+        $this->dispatchRecalculation($demand);
     }
 
     public function deleted(Demand $demand): void
     {
         $this->log($demand, AvailabilityEventType::DemandReleased);
-        $this->recalculate($demand);
+        $this->dispatchRecalculation($demand);
     }
 
     /**
-     * Recalculate snapshots across the union of the demand's previous and
-     * current buffered windows.
+     * Enqueue a debounced availability recompute for the demand's product/store.
+     * Skipped during a Verbs replay so rebuilding the event store never fans out
+     * recomputes or broadcasts.
      */
-    private function recalculate(Demand $demand): void
+    private function dispatchRecalculation(Demand $demand): void
     {
-        $product = Product::query()->find($demand->product_id);
-
-        if ($product === null) {
+        if (Verbs::isReplaying()) {
             return;
         }
 
-        [$from, $to] = $this->affectedWindow($demand, $product);
-
-        $this->pipeline->recalculate($demand->product_id, $demand->store_id, $from, $to);
-    }
-
-    /**
-     * The half-open window to recalculate: the union of the original (pre-save)
-     * and current buffered demand periods, so slot coverage spans any move.
-     *
-     * @return array{0: Carbon, 1: Carbon}
-     */
-    private function affectedWindow(Demand $demand, Product $product): array
-    {
-        $bufferBefore = (int) ($product->buffer_before_minutes ?? 0);
-        $bufferAfter = (int) ($product->post_rent_unavailability ?? 0);
-
-        [$currentStart, $currentEnd] = Demand::bufferedPeriod(
-            Carbon::parse($demand->starts_at),
-            Carbon::parse($demand->ends_at),
-            $bufferBefore,
-            $bufferAfter,
-        );
-
-        $earliestStart = $currentStart;
-        $latestEnd = $currentEnd;
-
-        $originalStart = $demand->getOriginal('starts_at');
-        $originalEnd = $demand->getOriginal('ends_at');
-
-        if ($originalStart !== null && $originalEnd !== null) {
-            [$previousStart, $previousEnd] = Demand::bufferedPeriod(
-                Carbon::parse($originalStart),
-                Carbon::parse($originalEnd),
-                $bufferBefore,
-                $bufferAfter,
-            );
-
-            $earliestStart = $previousStart->lessThan($earliestStart) ? $previousStart : $earliestStart;
-            $latestEnd = $previousEnd->greaterThan($latestEnd) ? $previousEnd : $latestEnd;
-        }
-
-        return [$earliestStart, $latestEnd];
+        RecalculateAvailabilityJob::dispatch((int) $demand->product_id, (int) $demand->store_id);
     }
 
     /**
