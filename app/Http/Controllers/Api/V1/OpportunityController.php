@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Opportunities\AddOpportunityCost;
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
@@ -12,12 +13,15 @@ use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\DeleteOpportunity;
 use App\Actions\Opportunities\OverrideItemPrice;
+use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\SetDealPrice;
 use App\Actions\Opportunities\SetItemDiscount;
 use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
 use App\Actions\Opportunities\UpdateOpportunity;
+use App\Actions\Opportunities\UpdateOpportunityCost;
+use App\Data\Opportunities\AddOpportunityCostData;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\ChangeItemQuantityData;
@@ -28,6 +32,7 @@ use App\Data\Opportunities\SetDealPriceData;
 use App\Data\Opportunities\SetItemDiscountData;
 use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
+use App\Data\Opportunities\UpdateOpportunityCostData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Enums\OpportunityStatus;
 use App\Http\Controllers\Api\Controller;
@@ -35,6 +40,7 @@ use App\Http\Traits\FiltersQueries;
 use App\Http\Traits\ResourceActions;
 use App\Models\CustomView;
 use App\Models\Opportunity;
+use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -96,6 +102,7 @@ class OpportunityController extends Controller
         'owner',
         'items',
         'items.assets',
+        'costs',
         'customFieldValues',
     ];
 
@@ -396,6 +403,63 @@ class OpportunityController extends Controller
     }
 
     /**
+     * Add an ad-hoc cost (delivery, labour, surcharge, etc.) to an opportunity.
+     *
+     * The cost is taxed (matching the line-item inclusive/exclusive handling) and
+     * the opportunity totals are recomputed — its net is routed into the transit /
+     * loss-damage / service bucket by cost type. The response returns the
+     * opportunity with its refreshed totals.
+     */
+    #[ApiResponse(201, 'Cost added')]
+    public function storeCost(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = AddOpportunityCostData::from($request->validate(AddOpportunityCostData::rules()));
+
+        (new AddOpportunityCost)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id, Response::HTTP_CREATED);
+    }
+
+    /**
+     * Update an opportunity cost.
+     *
+     * Accepts any subset of `description`, `cost_type`, `transaction_type`,
+     * `amount`, `quantity`, `is_optional`, `sort_order`, and `notes`; omitted
+     * fields are left untouched. The response returns the opportunity with its
+     * refreshed totals.
+     */
+    #[ApiResponse(200, 'Cost updated')]
+    public function updateCost(Request $request, Opportunity $opportunity, OpportunityCost $cost): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertCostBelongsToOpportunity($cost, $opportunity);
+
+        $data = UpdateOpportunityCostData::from($request->validate(UpdateOpportunityCostData::rules()));
+
+        (new UpdateOpportunityCost)($cost, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Remove an ad-hoc cost from an opportunity.
+     */
+    #[ApiResponse(200, 'Cost removed')]
+    public function destroyCost(Opportunity $opportunity, OpportunityCost $cost): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertCostBelongsToOpportunity($cost, $opportunity);
+
+        (new RemoveOpportunityCost)($cost);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
      * Set a manual deal-total override on an opportunity, replacing the
      * engine-computed headline `charge_total`.
      */
@@ -434,11 +498,19 @@ class OpportunityController extends Controller
     }
 
     /**
-     * Re-read the opportunity projection with its items and serialise it.
+     * Guard that a cost belongs to the bound opportunity (else 404).
+     */
+    private function assertCostBelongsToOpportunity(OpportunityCost $cost, Opportunity $opportunity): void
+    {
+        abort_unless($cost->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
+    }
+
+    /**
+     * Re-read the opportunity projection with its items + costs and serialise it.
      */
     private function respondWithFreshOpportunity(int $opportunityId, int $status = Response::HTTP_OK): JsonResponse
     {
-        $fresh = Opportunity::query()->whereKey($opportunityId)->with('items')->firstOrFail();
+        $fresh = Opportunity::query()->whereKey($opportunityId)->with(['items', 'costs'])->firstOrFail();
 
         return $this->respondWith(
             OpportunityData::fromModel($fresh)->toArray(),

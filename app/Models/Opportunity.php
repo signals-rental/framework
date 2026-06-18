@@ -33,6 +33,15 @@ use Illuminate\Support\Carbon;
  * @property string $exchange_rate
  * @property int $charge_total
  * @property int|null $deal_total
+ * @property int $rental_charge_total
+ * @property int $sale_charge_total
+ * @property int $service_charge_total
+ * @property int $sub_rental_charge_total
+ * @property int $transit_charge_total
+ * @property int $loss_damage_charge_total
+ * @property int $charge_excluding_tax_total
+ * @property int $charge_including_tax_total
+ * @property int $tax_total
  * @property bool $prices_include_tax
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
@@ -81,6 +90,9 @@ class Opportunity extends Model implements HasSchema
         'rental_charge_total',
         'sale_charge_total',
         'service_charge_total',
+        'sub_rental_charge_total',
+        'transit_charge_total',
+        'loss_damage_charge_total',
         'charge_excluding_tax_total',
         'charge_including_tax_total',
         'tax_total',
@@ -181,5 +193,16 @@ class Opportunity extends Model implements HasSchema
     public function items(): HasMany
     {
         return $this->hasMany(OpportunityItem::class, 'opportunity_id')->orderBy('sort_order');
+    }
+
+    /**
+     * Ad-hoc costs (delivery, labour, surcharges, etc.) belonging to this
+     * opportunity, in display order.
+     *
+     * @return HasMany<OpportunityCost, $this>
+     */
+    public function costs(): HasMany
+    {
+        return $this->hasMany(OpportunityCost::class, 'opportunity_id')->orderBy('sort_order');
     }
 }

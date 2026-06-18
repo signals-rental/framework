@@ -3,10 +3,13 @@
 namespace App\Services\Opportunities;
 
 use App\Enums\LineItemTransactionType;
+use App\Enums\OpportunityCostType;
 use App\Enums\RateTransactionType;
 use App\Models\Opportunity;
+use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
 use App\Models\Product;
+use App\Models\ProductTaxClass;
 use App\Services\RateEngine\RateCalculator;
 use App\Services\RateEngine\RateResolver;
 use App\Services\TaxCalculator;
@@ -106,17 +109,66 @@ class OpportunityTotalsCalculator
     }
 
     /**
-     * Reload the opportunity's non-removed items, sum the per-type charge totals
-     * (optional lines excluded), compute line-level tax, and persist all seven
-     * totals plus the item count onto the projection row.
+     * Recompute and persist the resolved `tax_rate` for a single cost. Does NOT
+     * touch the parent — call {@see rollUp()} afterwards.
+     *
+     * Costs are NOT priced by the rate engine — the operator-supplied `amount`
+     * stands as the per-unit charge. Only the tax rate is resolved here (against
+     * the opportunity member's tax class + the default product tax class, since a
+     * cost has no product), so the projected `tax_rate` matches what the rollup
+     * applies and an invoice would show.
+     */
+    public function recalculateCost(OpportunityCost $cost): void
+    {
+        $opportunity = $cost->opportunity()->first();
+
+        if ($opportunity === null) {
+            return;
+        }
+
+        $currency = $opportunity->currency_code ?? 'GBP';
+
+        $taxResult = $opportunity->prices_include_tax
+            ? $this->taxCalculator->calculateInclusive(
+                $this->costLineTotal($cost),
+                $currency,
+                $opportunity->member?->sale_tax_class_id,
+                $this->defaultProductTaxClassId(),
+            )
+            : $this->taxCalculator->calculate(
+                $this->costLineTotal($cost),
+                $currency,
+                $opportunity->member?->sale_tax_class_id,
+                $this->defaultProductTaxClassId(),
+            );
+
+        $cost->forceFill([
+            'tax_rate' => $taxResult->ratePercentage,
+            'currency_code' => $currency,
+        ])->saveQuietly();
+    }
+
+    /**
+     * Reload the opportunity's non-removed items AND costs, sum the per-type charge
+     * totals (optional lines/costs excluded), compute line-level tax, and persist
+     * all the RMS charge totals onto the projection row.
+     *
+     * Items are priced by the rate + tax engines (their net is read from the stored
+     * `opportunity_items.total`); costs carry their own `amount` and are taxed but
+     * never rate-priced. Cost net is routed by cost type into the transit /
+     * loss-damage / service buckets, and ALL non-optional costs (and items) feed
+     * the tax-exclusive / tax / tax-inclusive / charge headline totals.
      */
     public function rollUp(Opportunity $opportunity): void
     {
         $items = $opportunity->items()->get();
+        $costs = $opportunity->costs()->get();
 
         $rental = 0;
         $sale = 0;
         $service = 0;
+        $transit = 0;
+        $lossDamage = 0;
         $excludingTax = 0;
         $taxTotal = 0;
         $includingTax = 0;
@@ -153,6 +205,36 @@ class OpportunityTotalsCalculator
             };
         }
 
+        $defaultProductTaxClassId = $this->defaultProductTaxClassId();
+
+        foreach ($costs as $cost) {
+            if ($cost->is_optional) {
+                continue;
+            }
+
+            $costTotal = $this->costLineTotal($cost);
+
+            $taxResult = $pricesIncludeTax
+                ? $this->taxCalculator->calculateInclusive($costTotal, $currency, $orgTaxClassId, $defaultProductTaxClassId)
+                : $this->taxCalculator->calculate($costTotal, $currency, $orgTaxClassId, $defaultProductTaxClassId);
+
+            $costNet = $pricesIncludeTax ? $taxResult->netAmount : $costTotal;
+            $costGross = $pricesIncludeTax ? $costTotal : $taxResult->grossAmount;
+
+            $excludingTax += $costNet;
+            $taxTotal += $taxResult->taxAmount;
+            $includingTax += $costGross;
+
+            // Route the cost net into the RMS category bucket; delivery feeds the
+            // transit total, loss/damage feeds its own total, everything else the
+            // general service total.
+            match ($cost->cost_type) {
+                OpportunityCostType::Delivery => $transit += $costNet,
+                OpportunityCostType::LossDamage => $lossDamage += $costNet,
+                default => $service += $costNet,
+            };
+        }
+
         // A manual deal-total override replaces the computed headline; otherwise
         // the headline is the gross (tax-inclusive) total.
         $chargeTotal = $opportunity->deal_total ?? $includingTax;
@@ -161,11 +243,37 @@ class OpportunityTotalsCalculator
             'rental_charge_total' => $rental,
             'sale_charge_total' => $sale,
             'service_charge_total' => $service,
+            // Sub-hire is a Phase 4 deliverable — no source populates this yet.
+            'sub_rental_charge_total' => 0,
+            'transit_charge_total' => $transit,
+            'loss_damage_charge_total' => $lossDamage,
             'charge_excluding_tax_total' => $excludingTax,
             'tax_total' => $taxTotal,
             'charge_including_tax_total' => $includingTax,
             'charge_total' => $chargeTotal,
         ])->saveQuietly();
+    }
+
+    /**
+     * The cost's stored line value in minor units: amount * round(quantity). In
+     * inclusive mode this is the gross; in exclusive mode the net — mirroring the
+     * line-item `total` convention.
+     */
+    private function costLineTotal(OpportunityCost $cost): int
+    {
+        $quantityUnits = max(0, (int) round((float) $cost->quantity));
+
+        return $cost->amount * $quantityUnits;
+    }
+
+    /**
+     * Resolve the id of the default product tax class (costs have no product, so
+     * they tax against the default class). Null when no default is configured,
+     * which yields zero-tax — the same outcome as an untaxed line.
+     */
+    private function defaultProductTaxClassId(): ?int
+    {
+        return ProductTaxClass::query()->where('is_default', true)->value('id');
     }
 
     /**

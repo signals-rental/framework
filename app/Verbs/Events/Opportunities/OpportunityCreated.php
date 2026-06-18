@@ -33,6 +33,7 @@ class OpportunityCreated extends Event
         #[StateId(OpportunityState::class)]
         public ?int $state_id = null,
         public ?string $subject = null,
+        public ?string $number = null,
         public ?int $member_id = null,
         public ?int $store_id = null,
         public ?int $owned_by = null,
@@ -53,6 +54,7 @@ class OpportunityCreated extends Event
         $state->state = StateAxis::Draft->value;
         $state->status = StateAxis::Draft->defaultStatus()->statusValue();
         $state->subject = $this->subject;
+        $state->number = $this->number;
         $state->member_id = $this->member_id;
         $state->store_id = $this->store_id;
         $state->owned_by = $this->owned_by;
@@ -76,6 +78,7 @@ class OpportunityCreated extends Event
             [
                 'state_id' => $state->id,
                 'subject' => $state->subject,
+                'number' => $state->number,
                 'state' => $state->state,
                 'status' => $state->status,
                 'member_id' => $state->member_id,
@@ -103,6 +106,7 @@ class OpportunityCreated extends Event
             'opportunity.created',
             newValues: [
                 'subject' => $state->subject,
+                'number' => $state->number,
                 'state' => $state->state,
                 'status' => $state->status,
                 'member_id' => $state->member_id,

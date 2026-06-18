@@ -6,6 +6,7 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
 use App\Models\Opportunity;
+use App\Services\Opportunities\OpportunityNumberGenerator;
 use App\Services\SequenceAllocator;
 use App\Verbs\Events\Opportunities\OpportunityCreated;
 use Illuminate\Support\Facades\Gate;
@@ -29,8 +30,14 @@ class CreateOpportunity
             // its baked-in opportunity_id and never calls this action.
             $opportunityId = app(SequenceAllocator::class)->next('opportunities');
 
+            // Allocate the zero-padded RMS number at fire-time and bake it into
+            // the event so replay reproduces the identical number (same
+            // replay-stability principle as the projection id).
+            $number = app(OpportunityNumberGenerator::class)->next($data->store_id);
+
             OpportunityCreated::fire(
                 opportunity_id: $opportunityId,
+                number: $number,
                 subject: $data->subject,
                 member_id: $data->member_id,
                 store_id: $data->store_id,

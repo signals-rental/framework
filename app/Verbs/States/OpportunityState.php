@@ -36,6 +36,9 @@ class OpportunityState extends State
 
     public ?string $subject = null;
 
+    /** Zero-padded RMS reference number, allocated at create time. */
+    public ?string $number = null;
+
     public ?int $member_id = null;
 
     public ?int $venue_id = null;

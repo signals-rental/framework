@@ -8,6 +8,7 @@ use App\Enums\DemandPhase;
 use App\Enums\OpportunityState;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
 use App\Models\Store;
 use Illuminate\Support\Carbon;
@@ -54,6 +55,9 @@ class OpportunityData extends Data
         public string $rental_charge_total,
         public string $sale_charge_total,
         public string $service_charge_total,
+        public string $sub_rental_charge_total,
+        public string $transit_charge_total,
+        public string $loss_damage_charge_total,
         public string $charge_excluding_tax_total,
         public string $charge_including_tax_total,
         public string $tax_total,
@@ -68,6 +72,8 @@ class OpportunityData extends Data
         public Lazy|EntityReferenceData|null $owner = null,
         /** @var Lazy|array<int, OpportunityItemData> */
         public Lazy|array $items = [],
+        /** @var Lazy|array<int, OpportunityCostData> */
+        public Lazy|array $costs = [],
     ) {}
 
     public static function fromModel(Opportunity $opportunity): self
@@ -107,6 +113,9 @@ class OpportunityData extends Data
             rental_charge_total: $opportunity->formatMoneyCost('rental_charge_total'),
             sale_charge_total: $opportunity->formatMoneyCost('sale_charge_total'),
             service_charge_total: $opportunity->formatMoneyCost('service_charge_total'),
+            sub_rental_charge_total: $opportunity->formatMoneyCost('sub_rental_charge_total'),
+            transit_charge_total: $opportunity->formatMoneyCost('transit_charge_total'),
+            loss_damage_charge_total: $opportunity->formatMoneyCost('loss_damage_charge_total'),
             charge_excluding_tax_total: $opportunity->formatMoneyCost('charge_excluding_tax_total'),
             charge_including_tax_total: $opportunity->formatMoneyCost('charge_including_tax_total'),
             tax_total: $opportunity->formatMoneyCost('tax_total'),
@@ -124,6 +133,13 @@ class OpportunityData extends Data
                 $opportunity,
                 fn (): array => $opportunity->items->map(
                     fn (OpportunityItem $item): OpportunityItemData => OpportunityItemData::fromModel($item)
+                )->all(),
+            ),
+            costs: Lazy::whenLoaded(
+                'costs',
+                $opportunity,
+                fn (): array => $opportunity->costs->map(
+                    fn (OpportunityCost $cost): OpportunityCostData => OpportunityCostData::fromModel($cost)
                 )->all(),
             ),
         );

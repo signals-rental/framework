@@ -16,6 +16,14 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 | POST | `/api/v1/opportunities/{id}/convert_to_quotation` | Convert a Draft into a Quotation |
 | POST | `/api/v1/opportunities/{id}/convert_to_order` | Convert a Quotation into an Order |
 | POST | `/api/v1/opportunities/{id}/change_status` | Move to another status within the current state |
+| POST | `/api/v1/opportunities/{id}/items` | Add a line item |
+| PATCH | `/api/v1/opportunities/{id}/items/{item}` | Update a line item |
+| DELETE | `/api/v1/opportunities/{id}/items/{item}` | Remove a line item |
+| POST | `/api/v1/opportunities/{id}/costs` | Add an ad-hoc cost |
+| PATCH | `/api/v1/opportunities/{id}/costs/{cost}` | Update a cost |
+| DELETE | `/api/v1/opportunities/{id}/costs/{cost}` | Remove a cost |
+| POST | `/api/v1/opportunities/{id}/deal_price` | Set a manual deal-total override |
+| DELETE | `/api/v1/opportunities/{id}/deal_price` | Clear the deal-total override |
 
 ## Authentication
 
@@ -57,7 +65,7 @@ Ransack-compatible `q[field_predicate]=value` parameters:
 
 ### Includes
 
-Eager-load relationships with `?include=member,venue,store,owner`.
+Eager-load relationships with `?include=member,venue,store,owner,items,items.assets,costs`.
 
 ### Custom Views
 
@@ -85,7 +93,7 @@ Returns the opportunity under the `opportunity` key. Supports `?include=`.
 POST /api/v1/opportunities
 ```
 
-Creates the opportunity as a **Draft / Open**. Money is supplied as a decimal string or minor-unit integer and returned as a decimal string.
+Creates the opportunity as a **Draft / Open**. A zero-padded RMS `number` (e.g. `"0000000042"`) is auto-generated from a per-store running sequence and returned in the response. Money is supplied as a decimal string or minor-unit integer and returned as a decimal string.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -232,6 +240,82 @@ DELETE /api/v1/opportunities/{id}/items/{item}
 Releases the line's availability demand, removes the row, and rolls the totals back
 down. Returns the opportunity with refreshed totals (`200 OK`).
 
+## Opportunity Costs
+
+Costs are ad-hoc charges that sit alongside the priced line items — delivery, crew
+labour, surcharges, insurance, loss/damage recovery, etc. Unlike line items they are
+**not** priced by the rate engine: each carries its own `amount` (per unit). Costs are
+taxed exactly like line items (inclusive/exclusive, line-level rounding) and rolled into
+the opportunity totals.
+
+Each cost's net is routed into an RMS category bucket by `cost_type`:
+
+| `cost_type` | Value | Total bucket |
+|-------------|-------|--------------|
+| Delivery | `0` | `transit_charge_total` |
+| Labour | `1` | `service_charge_total` |
+| Surcharge | `2` | `service_charge_total` |
+| Insurance | `3` | `service_charge_total` |
+| Loss / Damage | `4` | `loss_damage_charge_total` |
+| Miscellaneous | `5` | `service_charge_total` |
+
+Regardless of type, every non-optional cost also feeds `charge_excluding_tax_total`,
+`tax_total`, `charge_including_tax_total`, and the headline `charge_total`. Optional
+costs (`is_optional = true`) are excluded from all totals. Every cost endpoint returns
+the **parent opportunity** (under the `opportunity` key) with its refreshed totals;
+include `?include=costs` when reading to see the cost rows.
+
+### Add Cost
+
+```
+POST /api/v1/opportunities/{id}/costs
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `description` | string | Yes | Cost description |
+| `cost_type` | integer | No | `0` Delivery, `1` Labour, `2` Surcharge, `3` Insurance, `4` Loss/Damage, `5` Misc (default `5`) |
+| `transaction_type` | integer | No | `0` Rental, `1` Sale, `2` Service, `3` Sub-rental (default `2` Service) |
+| `amount` | money | No | Per-unit charge (int = minor units, decimal string/float = major units against `currency`) |
+| `currency` | string | No | Currency scale for `amount` (default base currency) |
+| `quantity` | numeric | No | Quantity (default `1`) |
+| `is_optional` | boolean | No | Exclude from charge totals (default `false`) |
+| `sort_order` | integer | No | Display ordering |
+| `notes` | string | No | Free-form notes |
+
+Returns the opportunity with refreshed totals under the `opportunity` key (`201 Created`).
+
+### Update Cost
+
+```
+PATCH /api/v1/opportunities/{id}/costs/{cost}
+```
+
+Accepts any subset of the fields below; omitted fields are left untouched.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | string | New description |
+| `cost_type` | integer | New cost type |
+| `transaction_type` | integer | New transaction type |
+| `amount` | money | New per-unit charge |
+| `currency` | string | Currency scale for `amount` |
+| `quantity` | numeric | New quantity |
+| `is_optional` | boolean | Toggle whether the cost counts toward totals |
+| `sort_order` | integer | Display ordering |
+| `notes` | string | Free-form notes |
+
+Returns the opportunity with refreshed totals.
+
+### Remove Cost
+
+```
+DELETE /api/v1/opportunities/{id}/costs/{cost}
+```
+
+Removes the cost row and rolls the totals back down. Returns the opportunity with
+refreshed totals (`200 OK`).
+
 ### Set Deal Price
 
 ```
@@ -261,5 +345,5 @@ Returns the opportunity.
 |--------|-----------|
 | 401 | No valid Sanctum token |
 | 403 | Token lacks `opportunities:write`, or the user lacks the `opportunities.edit` permission |
-| 404 | Opportunity not found, or the line item does not belong to the opportunity |
+| 404 | Opportunity not found, or the line item / cost does not belong to the opportunity |
 | 422 | Validation failure, or a write against a closed/terminal opportunity |
