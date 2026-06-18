@@ -15,7 +15,7 @@ use Thunk\Verbs\Event;
  * quantity, optionality, sort order, notes), re-resolving its tax rate and rolling
  * the totals back up onto the parent.
  *
- * Every editable field is carried in the payload — the AddOpportunityCost action
+ * Every editable field is carried in the payload — the UpdateOpportunityCost action
  * merges the requested changes over the cost's current values BEFORE firing, so
  * the event payload is a complete snapshot and apply() stays a pure single-state
  * assignment (replay-stable, no cross-state reads).

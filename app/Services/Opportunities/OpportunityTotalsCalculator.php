@@ -20,6 +20,13 @@ use Illuminate\Support\Carbon;
  * Derives the priced totals for opportunity line items and rolls them up onto the
  * parent opportunity, using the shared rate + tax engines.
  *
+ * TAX MODEL (Ben's directive — "all totals ex-tax, taxes calculated finally"):
+ * every stored money total is NET (tax-exclusive). Tax is NEVER applied per-line
+ * during the build; it is computed in a single FINAL pass at rollup time by
+ * grouping the net amounts by their effective tax class and applying each group's
+ * rate once. The only with-tax figure stored is `charge_including_tax_total`,
+ * derived at the very end as `charge_total (net) + tax_total`.
+ *
  * A line's NET (tax-exclusive) total is resolved as:
  *
  *   1. resolve a per-unit price — a non-null manual override always wins; else
@@ -29,10 +36,24 @@ use Illuminate\Support\Carbon;
  *      base period and modifiers); for a manual/no-rate line the subtotal is
  *      `unit_price * round(quantity)`.
  *   3. apply the line discount (HALF_UP at the minor-unit boundary, BEFORE tax).
+ *   4. NET EXTRACTION when `prices_include_tax`: an input entered tax-inclusive has
+ *      its embedded tax stripped at this point ({@see TaxCalculator::calculateInclusive})
+ *      so the stored `opportunity_items.total` is always NET regardless of input
+ *      mode. The final rollup tax pass then re-derives tax additively on the net.
  *
- * The discounted net is stored on `opportunity_items.total`. Tax is computed
- * per-line (RMS line-level rounding) and summed at the opportunity level — never
- * on the aggregate — so the projected `tax_total` matches an invoice's.
+ * The discounted NET is stored on `opportunity_items.total`. The line's resolved
+ * `tax_rate` is recorded for display/reporting only — it is NOT used to store a
+ * taxed line total.
+ *
+ * GROUPED FINAL TAX: {@see rollUp()} buckets every non-optional line's and cost's
+ * net by its effective tax class — the opportunity member/organisation sale tax
+ * class combined with the item's product tax class (or the default product tax
+ * class for costs, which have no product). Each group's net is taxed once via
+ * {@see TaxCalculator::calculate()} and the results summed. This keeps a
+ * mixed-tax-class basket correct (each class rounds at its own boundary, matching
+ * an invoice) while remaining a SINGLE final calculation, not per-line-during-build.
+ * When an item has no resolvable product tax class it falls back to the default
+ * product tax class — the same fallback {@see TaxCalculator::resolveRule()} applies.
  *
  * Both methods are idempotent (they overwrite), so they are safe to run inside an
  * event handle() and reproduce identical totals on replay. They write projection
@@ -49,8 +70,8 @@ class OpportunityTotalsCalculator
 
     /**
      * Recompute and persist the priced fields (`unit_price`, `total`, `tax_rate`)
-     * for a single line item. Does NOT touch the parent — call {@see rollUp()}
-     * afterwards.
+     * for a single line item. The stored `total` is always NET. Does NOT touch the
+     * parent — call {@see rollUp()} afterwards.
      *
      * `$manualUnitPrice` is the event-sourced manual override (from
      * {@see OpportunityItemState::$manual_unit_price}). When non-null it always
@@ -84,26 +105,24 @@ class OpportunityTotalsCalculator
             $manualUnitPrice,
         );
 
-        $discountedNet = $this->applyDiscount($netSubtotal, $item->discount_percent);
+        $discounted = $this->applyDiscount($netSubtotal, $item->discount_percent);
 
-        $taxResult = $opportunity->prices_include_tax
-            ? $this->taxCalculator->calculateInclusive(
-                $discountedNet,
-                $currency,
-                $opportunity->member?->sale_tax_class_id,
-                $product?->tax_class_id,
-            )
-            : $this->taxCalculator->calculate(
-                $discountedNet,
-                $currency,
-                $opportunity->member?->sale_tax_class_id,
-                $product?->tax_class_id,
-            );
+        // When prices are entered tax-inclusive, strip the embedded tax so the
+        // STORED total is net; the final rollup tax pass re-derives tax additively.
+        $orgTaxClassId = $opportunity->member?->sale_tax_class_id;
+        $net = $opportunity->prices_include_tax
+            ? $this->taxCalculator->calculateInclusive($discounted, $currency, $orgTaxClassId, $product?->tax_class_id)->netAmount
+            : $discounted;
+
+        // The line tax_rate is recorded for display/reporting only.
+        $taxRate = $this->taxCalculator
+            ->calculate($net, $currency, $orgTaxClassId, $product?->tax_class_id)
+            ->ratePercentage;
 
         $item->forceFill([
             'unit_price' => $unitPrice,
-            'total' => $discountedNet,
-            'tax_rate' => $taxResult->ratePercentage,
+            'total' => $net,
+            'tax_rate' => $taxRate,
             'currency_code' => $currency,
         ])->saveQuietly();
     }
@@ -113,10 +132,11 @@ class OpportunityTotalsCalculator
      * touch the parent — call {@see rollUp()} afterwards.
      *
      * Costs are NOT priced by the rate engine — the operator-supplied `amount`
-     * stands as the per-unit charge. Only the tax rate is resolved here (against
-     * the opportunity member's tax class + the default product tax class, since a
-     * cost has no product), so the projected `tax_rate` matches what the rollup
-     * applies and an invoice would show.
+     * stands as the per-unit charge. Only the display `tax_rate` is resolved here
+     * (against the opportunity member's tax class + the default product tax class,
+     * since a cost has no product). The stored `amount` is the per-unit NET; the
+     * net rollup bucket is `amount * quantity` (with inclusive extraction applied
+     * at rollup time if `prices_include_tax`).
      */
     public function recalculateCost(OpportunityCost $cost): void
     {
@@ -128,36 +148,33 @@ class OpportunityTotalsCalculator
 
         $currency = $opportunity->currency_code ?? 'GBP';
 
-        $taxResult = $opportunity->prices_include_tax
-            ? $this->taxCalculator->calculateInclusive(
-                $this->costLineTotal($cost),
-                $currency,
-                $opportunity->member?->sale_tax_class_id,
-                $this->defaultProductTaxClassId(),
-            )
-            : $this->taxCalculator->calculate(
-                $this->costLineTotal($cost),
-                $currency,
-                $opportunity->member?->sale_tax_class_id,
-                $this->defaultProductTaxClassId(),
-            );
+        $taxRate = $this->taxCalculator->calculate(
+            $this->costNet($cost, $opportunity),
+            $currency,
+            $opportunity->member?->sale_tax_class_id,
+            $this->defaultProductTaxClassId(),
+        )->ratePercentage;
 
         $cost->forceFill([
-            'tax_rate' => $taxResult->ratePercentage,
+            'tax_rate' => $taxRate,
             'currency_code' => $currency,
         ])->saveQuietly();
     }
 
     /**
-     * Reload the opportunity's non-removed items AND costs, sum the per-type charge
-     * totals (optional lines/costs excluded), compute line-level tax, and persist
-     * all the RMS charge totals onto the projection row.
+     * Reload the opportunity's non-removed items AND costs, sum the per-type NET
+     * charge totals (optional lines/costs excluded), compute the tax in a single
+     * GROUPED FINAL pass, and persist all the RMS charge totals onto the
+     * projection row.
      *
-     * Items are priced by the rate + tax engines (their net is read from the stored
-     * `opportunity_items.total`); costs carry their own `amount` and are taxed but
-     * never rate-priced. Cost net is routed by cost type into the transit /
-     * loss-damage / service buckets, and ALL non-optional costs (and items) feed
-     * the tax-exclusive / tax / tax-inclusive / charge headline totals.
+     * All per-type and headline totals are NET. The net amounts are bucketed by
+     * effective tax class while they are summed; once every net total is known, the
+     * tax for each group is computed once and the results summed into `tax_total`.
+     * `charge_including_tax_total` is then `charge_total (net) + tax_total`.
+     *
+     * Items are priced by the rate engine (their NET is read from the stored
+     * `opportunity_items.total`); costs carry their own NET `amount`. Cost net is
+     * routed by cost type into the transit / loss-damage / service buckets.
      */
     public function rollUp(Opportunity $opportunity): void
     {
@@ -170,12 +187,17 @@ class OpportunityTotalsCalculator
         $transit = 0;
         $lossDamage = 0;
         $excludingTax = 0;
-        $taxTotal = 0;
-        $includingTax = 0;
 
-        $pricesIncludeTax = $opportunity->prices_include_tax;
-        $currency = $opportunity->currency_code ?? 'GBP';
         $orgTaxClassId = $opportunity->member?->sale_tax_class_id;
+
+        /**
+         * Net amounts bucketed by effective tax class, keyed by product tax class
+         * id (org class is constant for the opportunity). `0` = no resolvable
+         * product class (taxes via the default class fallback).
+         *
+         * @var array<int, int> $netByProductTaxClass
+         */
+        $netByProductTaxClass = [];
 
         foreach ($items as $item) {
             if ($item->is_optional) {
@@ -183,20 +205,11 @@ class OpportunityTotalsCalculator
             }
 
             $product = $this->resolveProduct($item);
-            $lineTotal = (int) $item->total;
-
-            $taxResult = $pricesIncludeTax
-                ? $this->taxCalculator->calculateInclusive($lineTotal, $currency, $orgTaxClassId, $product?->tax_class_id)
-                : $this->taxCalculator->calculate($lineTotal, $currency, $orgTaxClassId, $product?->tax_class_id);
-
-            // In inclusive mode the stored line total is the GROSS; net is the
-            // extracted component. In exclusive mode the stored total is the net.
-            $lineNet = $pricesIncludeTax ? $taxResult->netAmount : $lineTotal;
-            $lineGross = $pricesIncludeTax ? $lineTotal : $taxResult->grossAmount;
+            $lineNet = (int) $item->total;
 
             $excludingTax += $lineNet;
-            $taxTotal += $taxResult->taxAmount;
-            $includingTax += $lineGross;
+            $taxClassKey = $product !== null ? (int) $product->tax_class_id : 0;
+            $netByProductTaxClass[$taxClassKey] = ($netByProductTaxClass[$taxClassKey] ?? 0) + $lineNet;
 
             match ($item->transaction_type) {
                 LineItemTransactionType::Sale => $sale += $lineNet,
@@ -212,18 +225,11 @@ class OpportunityTotalsCalculator
                 continue;
             }
 
-            $costTotal = $this->costLineTotal($cost);
-
-            $taxResult = $pricesIncludeTax
-                ? $this->taxCalculator->calculateInclusive($costTotal, $currency, $orgTaxClassId, $defaultProductTaxClassId)
-                : $this->taxCalculator->calculate($costTotal, $currency, $orgTaxClassId, $defaultProductTaxClassId);
-
-            $costNet = $pricesIncludeTax ? $taxResult->netAmount : $costTotal;
-            $costGross = $pricesIncludeTax ? $costTotal : $taxResult->grossAmount;
+            $costNet = $this->costNet($cost, $opportunity);
 
             $excludingTax += $costNet;
-            $taxTotal += $taxResult->taxAmount;
-            $includingTax += $costGross;
+            $netByProductTaxClass[$defaultProductTaxClassId ?? 0]
+                = ($netByProductTaxClass[$defaultProductTaxClassId ?? 0] ?? 0) + $costNet;
 
             // Route the cost net into the RMS category bucket; delivery feeds the
             // transit total, loss/damage feeds its own total, everything else the
@@ -235,9 +241,27 @@ class OpportunityTotalsCalculator
             };
         }
 
-        // A manual deal-total override replaces the computed headline; otherwise
-        // the headline is the gross (tax-inclusive) total.
-        $chargeTotal = $opportunity->deal_total ?? $includingTax;
+        // A deal-total override is a NET override of the headline (Ben: the deal
+        // price is net of tax). The per-type component totals keep reflecting the
+        // real lines, but the net headline + final tax are computed on the deal
+        // using the opportunity's blended tax context (org class + default product
+        // class).
+        if ($opportunity->deal_total !== null) {
+            $netHeadline = (int) $opportunity->deal_total;
+            $taxTotal = $this->taxCalculator->calculate(
+                $netHeadline,
+                $opportunity->currency_code ?? 'GBP',
+                $orgTaxClassId,
+                $defaultProductTaxClassId,
+            )->taxAmount;
+        } else {
+            $netHeadline = $excludingTax;
+            $taxTotal = $this->groupedTaxTotal(
+                $netByProductTaxClass,
+                $opportunity->currency_code ?? 'GBP',
+                $orgTaxClassId,
+            );
+        }
 
         $opportunity->forceFill([
             'rental_charge_total' => $rental,
@@ -247,23 +271,59 @@ class OpportunityTotalsCalculator
             'sub_rental_charge_total' => 0,
             'transit_charge_total' => $transit,
             'loss_damage_charge_total' => $lossDamage,
-            'charge_excluding_tax_total' => $excludingTax,
+            // All headline totals are NET. charge_total == charge_excluding_tax_total.
+            'charge_excluding_tax_total' => $netHeadline,
             'tax_total' => $taxTotal,
-            'charge_including_tax_total' => $includingTax,
-            'charge_total' => $chargeTotal,
+            'charge_including_tax_total' => $netHeadline + $taxTotal,
+            'charge_total' => $netHeadline,
         ])->saveQuietly();
     }
 
     /**
-     * The cost's stored line value in minor units: amount * round(quantity). In
-     * inclusive mode this is the gross; in exclusive mode the net — mirroring the
-     * line-item `total` convention.
+     * Compute the total tax across all tax-class groups in a single final pass.
+     *
+     * Each group's net is taxed once via {@see TaxCalculator::calculate()} (which
+     * rounds at the currency minor-unit boundary per group, matching invoice
+     * line-level rounding for mixed-class baskets) and the per-group tax summed.
+     *
+     * @param  array<int, int>  $netByProductTaxClass  net minor units keyed by product tax class id (0 = default fallback)
      */
-    private function costLineTotal(OpportunityCost $cost): int
+    private function groupedTaxTotal(array $netByProductTaxClass, string $currency, ?int $orgTaxClassId): int
+    {
+        $taxTotal = 0;
+
+        foreach ($netByProductTaxClass as $productTaxClassId => $groupNet) {
+            $taxTotal += $this->taxCalculator->calculate(
+                $groupNet,
+                $currency,
+                $orgTaxClassId,
+                $productTaxClassId === 0 ? null : $productTaxClassId,
+            )->taxAmount;
+        }
+
+        return $taxTotal;
+    }
+
+    /**
+     * The cost's NET line value in minor units: amount * round(quantity), with the
+     * embedded tax stripped when prices are entered tax-inclusive so the bucket
+     * stays net.
+     */
+    private function costNet(OpportunityCost $cost, Opportunity $opportunity): int
     {
         $quantityUnits = max(0, (int) round((float) $cost->quantity));
+        $lineTotal = $cost->amount * $quantityUnits;
 
-        return $cost->amount * $quantityUnits;
+        if (! $opportunity->prices_include_tax) {
+            return $lineTotal;
+        }
+
+        return $this->taxCalculator->calculateInclusive(
+            $lineTotal,
+            $opportunity->currency_code ?? 'GBP',
+            $opportunity->member?->sale_tax_class_id,
+            $this->defaultProductTaxClassId(),
+        )->netAmount;
     }
 
     /**
@@ -351,16 +411,26 @@ class OpportunityTotalsCalculator
 
     /**
      * Resolve the line's effective rental window, inheriting the opportunity's
-     * dates when the item has none, falling back to now / now+ when both are null.
+     * dates when the item has none.
+     *
+     * NOTE: both the item and the opportunity dates are baked into the firing
+     * event at fire-time (the action resolves item ?? opportunity ?? a single
+     * captured now() and passes concrete dates into the ItemAdded / ItemDatesChanged
+     * payload). This method therefore never needs a now() fallback — a dateless
+     * rate-priced line already carries a concrete window on its projection row, so
+     * replay reproduces identical totals.
      *
      * @return array{0: Carbon, 1: Carbon}
      */
     private function effectiveDates(OpportunityItem $item, Opportunity $opportunity): array
     {
-        $start = $item->starts_at ?? $opportunity->starts_at ?? Carbon::now();
-        $end = $item->ends_at ?? $opportunity->ends_at ?? Carbon::parse($start)->copy()->addDay();
+        $start = $item->starts_at ?? $opportunity->starts_at;
+        $end = $item->ends_at ?? $opportunity->ends_at;
 
-        return [Carbon::parse($start), Carbon::parse($end)];
+        $start = $start !== null ? Carbon::parse($start) : Carbon::now();
+        $end = $end !== null ? Carbon::parse($end) : $start->copy()->addDay();
+
+        return [$start, $end];
     }
 
     private function resolveProduct(OpportunityItem $item): ?Product

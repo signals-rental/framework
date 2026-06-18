@@ -21,7 +21,10 @@ return new class extends Migration
             $table->foreignId('opportunity_id')
                 ->constrained('opportunities')
                 ->cascadeOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained('members')->nullOnDelete();
+            // The acknowledging user is an application USER (auth()->id() is a
+            // users.id), not a member — constraining to `members` broke inserts on
+            // Postgres (the FK target is wrong); SQLite silently accepted it.
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('acknowledged_at');
             $table->string('policy_at_time', 16);
             $table->boolean('permission_used')->default(false);

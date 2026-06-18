@@ -8,6 +8,7 @@ use App\Models\AvailabilityEvent;
 use App\Models\Demand;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
@@ -65,12 +66,19 @@ class DetectOverdueDemands extends Command
         foreach ($overdue as $demand) {
             $scheduledEnd = Carbon::parse($demand->ends_at)->toIso8601String();
 
-            // Extend the unavailable window to the sentinel. is_active and phase
-            // are unchanged — the item is still committed/operational, just late.
-            $demand->ends_at = $sentinel;
-            $demand->save();
+            // Extend the unavailable window to the sentinel and record the audit
+            // event ATOMICALLY: the extension and its `demand_overdue` log must
+            // commit together or not at all. saveQuietly() suppresses the
+            // DemandObserver's per-save recalc dispatch — we dispatch ONCE per
+            // product/store below (the observer's dispatch would otherwise fire a
+            // redundant, un-debounced enqueue in addition to ours). is_active and
+            // phase are unchanged — the item is still committed/operational, just late.
+            DB::transaction(function () use ($demand, $sentinel, $scheduledEnd): void {
+                $demand->ends_at = $sentinel;
+                $demand->saveQuietly();
 
-            $this->logOverdue($demand, $scheduledEnd);
+                $this->logOverdue($demand, $scheduledEnd);
+            });
 
             // De-duplicate recalc dispatches per product/store; the job itself is
             // also debounced, but collapsing here avoids redundant enqueues when a

@@ -15,7 +15,9 @@ use App\Services\Availability\SlotCalculator;
 use App\Services\Shortages\ShortageDetector;
 use BadMethodCallException;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 
 /**
@@ -144,25 +146,58 @@ class AvailabilityService
      */
     public function getAvailableAssets(int $productId, int $storeId, Carbon $from, Carbon $to): Collection
     {
+        /** @var Collection<int, StockLevel> $assets */
+        $assets = $this->availableAssetsQuery($productId, $storeId, $from, $to)->get();
+
+        return $assets;
+    }
+
+    /**
+     * The paginated free serialised assets of a product at a store for the
+     * `[$from, $to)` window — the {@see getAvailableAssets()} query paginated at
+     * the database level (real `LengthAwarePaginator`, not a sliced collection),
+     * so the API exposes genuine total/per_page/page metadata.
+     *
+     * @return LengthAwarePaginator<int, StockLevel>
+     */
+    public function paginateAvailableAssets(
+        int $productId,
+        int $storeId,
+        Carbon $from,
+        Carbon $to,
+        int $perPage = 50,
+        int $page = 1,
+    ): LengthAwarePaginator {
+        return $this->availableAssetsQuery($productId, $storeId, $from, $to)
+            ->paginate(perPage: $perPage, page: $page);
+    }
+
+    /**
+     * The shared query for free serialised assets over `[$from, $to)`.
+     *
+     * A serialised stock level is free iff no active demand claims its `asset_id`
+     * over an overlapping period. The conflict subquery reuses the driver-aware
+     * {@see Demand::scopeOverlapping()} (native `tstzrange &&` on Postgres, scalar
+     * on SQLite). Bulk products have no discrete assets, so the query naturally
+     * yields nothing for them.
+     *
+     * @return EloquentBuilder<StockLevel>
+     */
+    private function availableAssetsQuery(int $productId, int $storeId, Carbon $from, Carbon $to): EloquentBuilder
+    {
         // Correlated active-demand subquery: an asset is excluded when any active
-        // demand claims it over a period overlapping the request. Built as an
-        // Eloquent Demand query so `active()` and the driver-aware `overlapping()`
-        // scope (native tstzrange && on Postgres, scalar on SQLite) apply.
+        // demand claims it over a period overlapping the request.
         $conflicting = Demand::query()
             ->whereColumn('demands.asset_id', 'stock_levels.id')
             ->active()
             ->overlapping($from, $to);
 
-        /** @var Collection<int, StockLevel> $assets */
-        $assets = StockLevel::query()
+        return StockLevel::query()
             ->forProduct($productId)
             ->forStore($storeId)
             ->serialized()
             ->whereNotExists($conflicting->getQuery())
-            ->orderBy('id')
-            ->get();
-
-        return $assets;
+            ->orderBy('id');
     }
 
     /**

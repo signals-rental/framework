@@ -149,6 +149,32 @@ describe('GET /api/v1/products/{product}/available-assets', function () {
             ->and($response->json('meta.total'))->toBe(1);
     });
 
+    it('paginates the assets with real per_page/page/total meta', function () {
+        $token = $this->owner->createToken('test', ['availability:read'])->plainTextToken;
+
+        $product = Product::factory()->serialised()->create();
+        // Two free serialised assets, no demands → both available across the window.
+        StockLevel::factory()->serialised()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+        StockLevel::factory()->serialised()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/products/{$product->id}/available-assets?store_id={$this->store->id}&from=2026-07-02&to=2026-07-04&per_page=1")
+            ->assertOk();
+
+        // Real ->paginate(): per_page round-trips, total counts ALL matches, and
+        // only one row comes back on the page (not get()+faked meta).
+        expect($response->json('meta.per_page'))->toBe(1)
+            ->and($response->json('meta.page'))->toBe(1)
+            ->and($response->json('meta.total'))->toBeGreaterThanOrEqual(2)
+            ->and($response->json('available_assets'))->toHaveCount(1);
+    });
+
     it('requires the availability:read ability', function () {
         $token = $this->owner->createToken('test', ['stock:read'])->plainTextToken;
 

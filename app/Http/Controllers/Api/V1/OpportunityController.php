@@ -285,14 +285,20 @@ class OpportunityController extends Controller
      * Convert a Quotation into a confirmed Order.
      *
      * Fires the OpportunityConvertedToOrder event. Only valid from the Quotation
-     * state — an invalid transition yields a 422.
+     * state — an invalid transition yields a 422. An optional `shortage_notes` is
+     * recorded on the shortage acknowledgement when the confirmation gate requires
+     * one (Warn policy, or a Block relaxed by the ignore permission).
      */
     #[ApiResponse(200, 'Opportunity converted to order')]
     public function convertToOrder(Request $request, Opportunity $opportunity): JsonResponse
     {
         $this->authorizeApi('opportunities.edit', 'opportunities:write');
 
-        $result = (new ConvertToOrder)($opportunity);
+        $validated = $request->validate([
+            'shortage_notes' => ['nullable', 'string'],
+        ]);
+
+        $result = (new ConvertToOrder)($opportunity, $validated['shortage_notes'] ?? null);
 
         return $this->respondWithIncludes($request, $result, $opportunity);
     }

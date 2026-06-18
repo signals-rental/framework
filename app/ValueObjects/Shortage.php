@@ -3,6 +3,7 @@
 namespace App\ValueObjects;
 
 use App\Enums\StockMethod;
+use App\Models\Demand;
 use App\Services\Shortages\ShortageDetector;
 use Illuminate\Support\Carbon;
 
@@ -129,13 +130,20 @@ final readonly class Shortage
      * (shortage-resolution-sub-hires.md §7.3 `shortages_snapshot`). ISO-8601 UTC
      * dates so the snapshot is portable and replay-stable.
      *
+     * An open-ended window (the demand sentinel "no known end" date) is emitted as
+     * `ends_at: null` with `open_ended: true`, rather than leaking the internal
+     * {@see Demand::SENTINEL_DATE} far-future sentinel into the audit record.
+     *
      * @return array<string, mixed>
      */
     public function toSnapshot(): array
     {
+        $openEnded = $this->endsAt->equalTo(Carbon::parse(Demand::SENTINEL_DATE));
+
         return $this->toBadge() + [
             'starts_at' => $this->startsAt->utc()->toIso8601String(),
-            'ends_at' => $this->endsAt->utc()->toIso8601String(),
+            'ends_at' => $openEnded ? null : $this->endsAt->utc()->toIso8601String(),
+            'open_ended' => $openEnded,
             'store_id' => $this->storeId,
         ];
     }

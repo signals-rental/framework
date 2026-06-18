@@ -46,6 +46,7 @@ class WarehouseTransferResolver extends AbstractShortageResolver
 
     public function isAutoExecutable(): bool
     {
+        // TODO(M7): make configurable per relationship/warehouse-pair
         return false;
     }
 

@@ -207,7 +207,13 @@ return [
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 1,
-            'timeout' => 60,
+            // Must exceed the longest job timeout on these queues so the worker
+            // never reaps a job that is still within its own timeout budget. The
+            // availability recompute (RecalculateAvailabilityJob) sets a 120s
+            // timeout over the rolling snapshot horizon and does NOT retry
+            // ($tries=1), so a sub-job supervisor timeout would kill legitimate
+            // long recomputes mid-flight. 150 > 120 leaves headroom.
+            'timeout' => 150,
             'nice' => 0,
         ],
     ],

@@ -88,19 +88,23 @@ class ShortageResolution extends Model
     }
 
     /**
-     * @return BelongsTo<Member, $this>
+     * The application user (auth()->id()) who produced this resolution.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function resolver(): BelongsTo
     {
-        return $this->belongsTo(Member::class, 'resolved_by');
+        return $this->belongsTo(User::class, 'resolved_by');
     }
 
     /**
-     * @return BelongsTo<Member, $this>
+     * The application user (auth()->id()) who confirmed this resolution.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function confirmer(): BelongsTo
     {
-        return $this->belongsTo(Member::class, 'confirmed_by');
+        return $this->belongsTo(User::class, 'confirmed_by');
     }
 
     /**

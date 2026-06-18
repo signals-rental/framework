@@ -11,9 +11,12 @@ use Thunk\Verbs\Attributes\Autodiscovery\StateId;
 use Thunk\Verbs\Event;
 
 /**
- * Changes a line item's per-item hire window (null inherits the opportunity's
- * dates). Duration affects period-based pricing, so the line + parent totals are
- * recomputed; the availability demand window is resynced.
+ * Changes a line item's per-item hire window. The firing action pre-resolves the
+ * effective window (requested ?? opportunity ?? a single fire-time now()) and bakes
+ * CONCRETE dates into the payload, so this event carries an explicit window and the
+ * totals engine never derives a now()-based fallback in handle() — keeping replay
+ * totals identical. Duration affects period-based pricing, so the line + parent
+ * totals are recomputed; the availability demand window is resynced.
  */
 class ItemDatesChanged extends Event
 {

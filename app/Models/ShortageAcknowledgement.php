@@ -63,10 +63,12 @@ class ShortageAcknowledgement extends Model
     }
 
     /**
-     * @return BelongsTo<Member, $this>
+     * The application user (auth()->id()) who acknowledged the shortage.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(Member::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

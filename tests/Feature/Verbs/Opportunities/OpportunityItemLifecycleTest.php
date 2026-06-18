@@ -185,8 +185,9 @@ it('overrides the headline charge_total via a deal price and restores it on clea
     $opportunity->refresh();
     expect($opportunity->deal_total)->toBe(7500)
         ->and($opportunity->charge_total)->toBe(7500)
-        // Per-type / net totals still reflect the lines, not the override.
-        ->and($opportunity->charge_excluding_tax_total)->toBe(10000);
+        // The deal is a NET override of the headline — both charge_total AND
+        // charge_excluding_tax_total collapse to the deal price.
+        ->and($opportunity->charge_excluding_tax_total)->toBe(7500);
 
     (new ClearDealPrice)($opportunity->refresh());
 

@@ -49,7 +49,12 @@ class CreateOpportunity
                 starts_at: $data->starts_at,
                 ends_at: $data->ends_at,
                 charge_total: $data->charge_total,
-                currency_code: $data->currency,
+                // Resolve the currency HERE and bake it into the event, so the
+                // genesis apply() stays a pure, replay-deterministic state
+                // projection (no settings() / external read). The DTO defaults the
+                // currency to the company base currency, so a concrete value always
+                // reaches the event payload.
+                currency_code: $this->resolveCurrency($data->currency),
                 prices_include_tax: $data->prices_include_tax,
             );
 
@@ -59,5 +64,20 @@ class CreateOpportunity
         return OpportunityData::fromModel(
             Opportunity::query()->whereKey($opportunityId)->firstOrFail(),
         );
+    }
+
+    /**
+     * Resolve the opportunity currency at fire-time: the requested currency when
+     * one was supplied, else the company base-currency setting. Performed here (not
+     * in OpportunityCreated::apply()) so the genesis apply() stays a pure,
+     * replay-deterministic state projection with no settings() read.
+     */
+    private function resolveCurrency(?string $currency): string
+    {
+        if ($currency !== null && $currency !== '') {
+            return $currency;
+        }
+
+        return settings('company.base_currency', 'GBP');
     }
 }

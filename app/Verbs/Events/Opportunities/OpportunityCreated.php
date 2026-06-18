@@ -65,7 +65,11 @@ class OpportunityCreated extends Event
         $state->starts_at = $this->starts_at !== null ? CarbonImmutable::parse($this->starts_at) : null;
         $state->ends_at = $this->ends_at !== null ? CarbonImmutable::parse($this->ends_at) : null;
         $state->charge_total = $this->charge_total;
-        $state->currency_code = $this->currency_code ?? settings('company.base_currency', 'GBP');
+        // The currency is resolved at fire-time by the CreateOpportunity action
+        // (request currency ?? company base-currency setting) and baked into the
+        // payload, so apply() stays pure — no settings()/external read here, which
+        // keeps replay deterministic even if the company base currency later changes.
+        $state->currency_code = $this->currency_code ?? 'GBP';
         $state->exchange_rate = '1';
         $state->prices_include_tax = $this->prices_include_tax;
         $state->last_event_at = CarbonImmutable::now();

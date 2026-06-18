@@ -27,6 +27,7 @@ class ItemQuantityChanged extends Event
     public function validate(OpportunityItemState $state): void
     {
         $this->assertItemMutable($state);
+        // TODO(M5): guard dispatched/allocated assets
     }
 
     public function apply(OpportunityItemState $state): void

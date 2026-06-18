@@ -83,16 +83,20 @@ class AvailabilityController extends Controller
             'store_id' => ['required', 'integer', 'exists:stores,id'],
             'from' => ['required', 'date'],
             'to' => ['required', 'date', 'after_or_equal:from'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $assets = app(AvailabilityService::class)->getAvailableAssets(
+        $paginator = app(AvailabilityService::class)->paginateAvailableAssets(
             $product->id,
             (int) $validated['store_id'],
             Carbon::parse((string) $validated['from']),
             Carbon::parse((string) $validated['to']),
+            perPage: (int) ($validated['per_page'] ?? 50),
+            page: (int) ($validated['page'] ?? 1),
         );
 
-        $items = $assets->map(static fn ($asset): array => [
+        $items = $paginator->getCollection()->map(static fn ($asset): array => [
             'id' => $asset->id,
             'item_name' => $asset->item_name,
             'asset_number' => $asset->asset_number,
@@ -101,7 +105,7 @@ class AvailabilityController extends Controller
             'location' => $asset->location,
         ])->all();
 
-        return $this->respondWithCollection($items, 'available_assets');
+        return $this->respondWithCollection($items, 'available_assets', $paginator);
     }
 
     /**

@@ -26,8 +26,11 @@ return new class extends Migration
             $table->integer('quantity_resolved')->default(0);
             $table->integer('cost')->nullable();
             $table->jsonb('metadata')->nullable();
-            $table->foreignId('resolved_by')->nullable()->constrained('members')->nullOnDelete();
-            $table->foreignId('confirmed_by')->nullable()->constrained('members')->nullOnDelete();
+            // The resolver/confirmer are application USERS (auth()->id() is a
+            // users.id), not members — constraining to `members` broke inserts on
+            // Postgres (the FK target is wrong); SQLite silently accepted it.
+            $table->foreignId('resolved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('confirmed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('confirmed_at')->nullable();
             $table->timestampTz('fulfilled_at')->nullable();
             $table->timestampTz('cancelled_at')->nullable();

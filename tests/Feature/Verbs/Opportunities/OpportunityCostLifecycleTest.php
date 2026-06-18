@@ -108,7 +108,7 @@ it('taxes a cost on top in exclusive mode and rolls it into the totals', functio
     expect($opportunity->charge_excluding_tax_total)->toBe(10000)
         ->and($opportunity->tax_total)->toBe(2000)
         ->and($opportunity->charge_including_tax_total)->toBe(12000)
-        ->and($opportunity->charge_total)->toBe(12000)
+        ->and($opportunity->charge_total)->toBe(10000)
         ->and($opportunity->service_charge_total)->toBe(10000);
 });
 
@@ -237,8 +237,10 @@ it('combines items and costs into the charge total, and the deal-total override 
 
     $opportunity->refresh();
     expect($opportunity->charge_total)->toBe(20000)
-        // The component totals still reflect the real lines.
-        ->and($opportunity->charge_excluding_tax_total)->toBe(13000)
+        // The deal is a NET override of BOTH headline figures (charge_total AND
+        // charge_excluding_tax_total), but the per-type component total still
+        // reflects the real lines — proving the override only touches the headline.
+        ->and($opportunity->charge_excluding_tax_total)->toBe(20000)
         ->and($opportunity->transit_charge_total)->toBe(3000);
 });
 
