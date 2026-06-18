@@ -15,7 +15,9 @@ use App\Models\Opportunity;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Schema;
 use Thunk\Verbs\Facades\Verbs;
+use Thunk\Verbs\Models\VerbEvent;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -182,6 +184,27 @@ it('preserves the original actor across replay even when audit rows are rebuilt'
     expect($rebuilt)->toHaveCount(2)
         ->and($rebuilt->pluck('user_id')->unique()->all())->toBe([$userA->id])
         ->and($rebuilt->pluck('user_id')->all())->not->toContain($userB->id);
+});
+
+it('rolls back the whole event-sourced commit when the audit insert fails', function () {
+    // Force the audit insert inside the ES commit to fail by dropping the table
+    // it writes to. The audit row is written from handle(), which runs inside the
+    // commitVerbs() DB::transaction; the failure must propagate (NOT be swallowed)
+    // so the whole commit rolls back — leaving no verb_events row and no
+    // projected opportunity.
+    Schema::drop('action_logs');
+
+    $threw = false;
+
+    try {
+        (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Audit doomed']));
+    } catch (Throwable) {
+        $threw = true;
+    }
+
+    expect($threw)->toBeTrue()
+        ->and(VerbEvent::query()->count())->toBe(0)
+        ->and(Opportunity::query()->withTrashed()->count())->toBe(0);
 });
 
 it('keeps legacy non event-sourced audit byte-identical (no verb event id, live auth)', function () {

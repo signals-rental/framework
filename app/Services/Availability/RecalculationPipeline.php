@@ -39,6 +39,15 @@ class RecalculationPipeline
      * Recalculate snapshots for the product/store over the half-open window
      * `[$from, $to)`. No-op for products that do not track availability.
      *
+     * The window is first clamped to the rolling snapshot horizon (config
+     * `availability.snapshot_horizon`) so an indefinite/sentinel-dated demand
+     * cannot force the pipeline to materialise an unbounded number of slots in a
+     * single synchronous request. Slots outside the horizon are still served
+     * correctly by the on-the-fly point query
+     * ({@see AvailabilityService::getAvailability()}), which reads `demands`
+     * directly and never depends on snapshots — so clamping preserves
+     * correctness while bounding the write cost.
+     *
      * On PostgreSQL the work is serialised per product/store with a
      * transaction-scoped advisory lock so concurrent recalculations cannot
      * interleave their upserts. On SQLite the lock is a no-op.
@@ -48,6 +57,14 @@ class RecalculationPipeline
         $product = Product::query()->find($productId);
 
         if ($product === null || ! $product->track_availability) {
+            return;
+        }
+
+        [$from, $to] = $this->clampToHorizon($from, $to);
+
+        // The entire requested window lies outside the rolling horizon — there
+        // is nothing to materialise; point queries cover it on the fly.
+        if (! $from->lessThan($to)) {
             return;
         }
 
@@ -85,8 +102,17 @@ class RecalculationPipeline
         if ($usesPostgres) {
             // Serialise per product/store across concurrent recalculations. The
             // advisory lock is released automatically at transaction end.
+            //
+            // The lock key is a single bigint derived from product+store via
+            // hashtextextended(): the two-argument int4 form
+            // (pg_advisory_xact_lock(product_id, store_id)) would overflow once
+            // a BIGSERIAL id exceeds ~2.1B, so we hash a composite string into
+            // one int8 key instead.
             $connection->transaction(function () use ($connection, $productId, $storeId, $work): void {
-                $connection->statement('SELECT pg_advisory_xact_lock(?, ?)', [$productId, $storeId]);
+                $connection->statement(
+                    'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
+                    [$productId.':'.$storeId],
+                );
                 $work();
             });
 
@@ -94,6 +120,31 @@ class RecalculationPipeline
         }
 
         $work();
+    }
+
+    /**
+     * Clamp a recalculation window to the rolling snapshot horizon around now:
+     * `from` is pulled forward to no earlier than `now - past_days` and `to` is
+     * pushed back to no later than `now + future_days`. Returns the bounded
+     * half-open window; the result may be empty (from >= to) when the request
+     * lies entirely outside the horizon.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function clampToHorizon(Carbon $from, Carbon $to): array
+    {
+        $now = Carbon::now('UTC');
+
+        $pastDays = (int) config('availability.snapshot_horizon.past_days', 90);
+        $futureDays = (int) config('availability.snapshot_horizon.future_days', 365);
+
+        $earliest = $now->copy()->subDays(max(0, $pastDays))->startOfDay();
+        $latest = $now->copy()->addDays(max(0, $futureDays))->endOfDay();
+
+        $clampedFrom = $from->lessThan($earliest) ? $earliest->copy() : $from->copy();
+        $clampedTo = $to->greaterThan($latest) ? $latest->copy() : $to->copy();
+
+        return [$clampedFrom, $clampedTo];
     }
 
     /**

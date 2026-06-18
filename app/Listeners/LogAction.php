@@ -21,35 +21,41 @@ class LogAction
      * Legacy non event-sourced audit (verb_event_id null) keeps the original
      * behaviour exactly: live auth()->id() plus console-guarded request context,
      * inserted with create() so no verb_event_id key is set.
+     *
+     * Failure handling differs by branch on purpose. The event-sourced audit
+     * runs inside the firing event's handle(), which executes within the
+     * commitVerbs() DB::transaction; swallowing a failed audit insert there
+     * would break the all-or-nothing guarantee (and can leave a PG transaction
+     * aborted), so its exceptions PROPAGATE to roll the whole commit back. The
+     * legacy live-auth branch keeps the original swallow-and-report behaviour so
+     * a best-effort audit can never break an otherwise-successful operation.
      */
     public function handle(AuditableEvent $event): void
     {
+        if ($event->verbEventId !== null) {
+            // Event-sourced branch: let ALL failures propagate so the surrounding
+            // commitVerbs() transaction rolls back the event row AND the
+            // projection. No try/catch here — a swallowed failure would break the
+            // all-or-nothing guarantee.
+            ActionLog::firstOrCreate(
+                ['verb_event_id' => $event->verbEventId],
+                $this->attributes($event) + [
+                    'user_id' => $event->userId,
+                    'ip_address' => $event->ipAddress,
+                    'user_agent' => $event->userAgent,
+                ],
+            );
+
+            return;
+        }
+
+        // Legacy live-auth branch: best-effort audit. The full body (including
+        // attribute resolution) is guarded so a failed audit can never break an
+        // otherwise-successful operation — the original behaviour, preserved.
         try {
-            $attributes = [
-                'action' => $event->action,
-                'auditable_type' => $event->model->getMorphClass(),
-                'auditable_id' => $event->model->getKey(),
-                'old_values' => $event->oldValues,
-                'new_values' => $event->newValues,
-                'metadata' => $event->metadata,
-            ];
-
-            if ($event->verbEventId !== null) {
-                ActionLog::firstOrCreate(
-                    ['verb_event_id' => $event->verbEventId],
-                    $attributes + [
-                        'user_id' => $event->userId,
-                        'ip_address' => $event->ipAddress,
-                        'user_agent' => $event->userAgent,
-                    ],
-                );
-
-                return;
-            }
-
             $request = app()->runningInConsole() ? null : request();
 
-            ActionLog::create($attributes + [
+            ActionLog::create($this->attributes($event) + [
                 'user_id' => auth()->id(),
                 'ip_address' => $request?->ip(),
                 'user_agent' => $request?->userAgent(),
@@ -57,5 +63,22 @@ class LogAction
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * The shared, actor-independent audit attributes for the event.
+     *
+     * @return array<string, mixed>
+     */
+    private function attributes(AuditableEvent $event): array
+    {
+        return [
+            'action' => $event->action,
+            'auditable_type' => $event->model->getMorphClass(),
+            'auditable_id' => $event->model->getKey(),
+            'old_values' => $event->oldValues,
+            'new_values' => $event->newValues,
+            'metadata' => $event->metadata,
+        ];
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services\Availability;
 use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Enums\AvailabilityResolution;
 use Illuminate\Support\Carbon;
+use RuntimeException;
 
 /**
  * Computes availability slot boundaries for the active resolution and a store's
@@ -98,7 +99,17 @@ class SlotCalculator
      * window `[from, to)`. The first slot is the one containing `from`; slots
      * continue while their start is before `to`.
      *
+     * Belt-and-suspenders: the loop is bounded by
+     * `availability.max_slots_per_recalculation`. Callers are expected to clamp
+     * their windows to the rolling horizon (see {@see RecalculationPipeline}),
+     * but this hard ceiling guarantees no future caller can re-introduce an
+     * unbounded slot blow-up (e.g. an open-ended/sentinel-dated demand at hourly
+     * resolution). Exceeding it throws rather than silently truncating.
+     *
      * @return list<Carbon>
+     *
+     * @throws RuntimeException when the requested span would exceed the maximum
+     *                          slot count
      */
     public function generateSlots(Carbon $from, Carbon $to, ?string $timezone = null): array
     {
@@ -112,12 +123,31 @@ class SlotCalculator
             return [$cursor];
         }
 
+        $maxSlots = $this->maxSlots();
+
         while ($cursor->lessThan($end)) {
+            if (count($slots) >= $maxSlots) {
+                throw new RuntimeException(sprintf(
+                    'Availability slot generation exceeded the maximum of %d slots for the requested window. '.
+                    'The window must be clamped to the rolling snapshot horizon before generating slots.',
+                    $maxSlots,
+                ));
+            }
+
             $slots[] = $cursor;
             $cursor = $this->advance($cursor, $timezone);
         }
 
         return $slots;
+    }
+
+    /**
+     * The hard ceiling on slots a single generation may produce, read from
+     * config with a safe default.
+     */
+    private function maxSlots(): int
+    {
+        return max(1, (int) config('availability.max_slots_per_recalculation', 50000));
     }
 
     /**

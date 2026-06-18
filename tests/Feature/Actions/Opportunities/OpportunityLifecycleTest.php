@@ -134,6 +134,32 @@ it('rejects a status that does not belong to the current state', function () {
     );
 })->throws(EventNotValidForCurrentState::class);
 
+it('rejects changing status when the opportunity is closed/terminal', function () {
+    $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Lost then reopened']));
+    (new ConvertToQuotation)(Opportunity::findOrFail($created->id));
+    // Move into a terminal status (Lost).
+    (new ChangeOpportunityStatus)(Opportunity::findOrFail($created->id), OpportunityStatus::QuotationLost);
+
+    // Attempting to move it back to an active status must be rejected — a closed
+    // opportunity cannot re-consume stock via demand.
+    (new ChangeOpportunityStatus)(
+        Opportunity::findOrFail($created->id),
+        OpportunityStatus::QuotationReserved,
+    );
+})->throws(EventNotValidForCurrentState::class);
+
+it('still allows a status change for a non-terminal opportunity', function () {
+    $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Active still moves']));
+    (new ConvertToQuotation)(Opportunity::findOrFail($created->id));
+
+    $result = (new ChangeOpportunityStatus)(
+        Opportunity::findOrFail($created->id),
+        OpportunityStatus::QuotationReserved,
+    );
+
+    expect($result->status)->toBe(OpportunityStatus::QuotationReserved->statusValue());
+});
+
 it('updates editable header fields', function () {
     $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Original']));
 
@@ -152,6 +178,52 @@ it('updates editable header fields', function () {
         'id' => $created->id,
         'subject' => 'Updated subject',
         'reference' => 'NEW-REF',
+    ]);
+});
+
+it('clears a nullable field when an explicit null is provided', function () {
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Has a reference',
+        'reference' => 'PO-CLEAR-ME',
+        'description' => 'Internal note',
+    ]));
+
+    $result = (new UpdateOpportunity)(
+        Opportunity::findOrFail($created->id),
+        // Explicit null for reference clears the column; description is absent
+        // (not passed) so it must remain untouched.
+        UpdateOpportunityData::from(['reference' => null]),
+    );
+
+    expect($result->reference)->toBeNull()
+        ->and($result->description)->toBe('Internal note');
+
+    $this->assertDatabaseHas('opportunities', [
+        'id' => $created->id,
+        'reference' => null,
+        'description' => 'Internal note',
+    ]);
+});
+
+it('leaves a nullable field unchanged when its key is omitted', function () {
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Keep my reference',
+        'reference' => 'PO-KEEP',
+    ]));
+
+    // Update only the subject — reference must be left exactly as it was.
+    $result = (new UpdateOpportunity)(
+        Opportunity::findOrFail($created->id),
+        UpdateOpportunityData::from(['subject' => 'New subject']),
+    );
+
+    expect($result->subject)->toBe('New subject')
+        ->and($result->reference)->toBe('PO-KEEP');
+
+    $this->assertDatabaseHas('opportunities', [
+        'id' => $created->id,
+        'subject' => 'New subject',
+        'reference' => 'PO-KEEP',
     ]);
 });
 

@@ -10,9 +10,13 @@ use Thunk\Verbs\Attributes\Autodiscovery\StateId;
 use Thunk\Verbs\Event;
 
 /**
- * Updates editable scalar header fields on an opportunity. Any payload field
- * left null is treated as "unchanged" — partial updates only ever set the
- * fields the caller provided.
+ * Updates editable scalar header fields on an opportunity.
+ *
+ * Partial updates are driven by an explicit {@see $provided} set — the list of
+ * field names the caller actually supplied — rather than by treating null as
+ * "unchanged". This lets a client distinguish ABSENT (leave the column alone)
+ * from an EXPLICIT null (clear the column): only fields named in `$provided` are
+ * written, and a provided field carrying null clears its column.
  *
  * Guarded so closed/terminal opportunities (Complete, Cancelled, Lost, Dead)
  * cannot be edited.
@@ -21,9 +25,21 @@ class OpportunityUpdated extends Event
 {
     use RecordsOpportunityAudit;
 
+    /** The header fields this event may touch, in projection order. */
+    private const FIELDS = [
+        'subject', 'member_id', 'venue_id', 'store_id', 'owned_by',
+        'reference', 'description', 'external_description', 'starts_at', 'ends_at',
+    ];
+
+    /**
+     * @param  list<string>  $provided  Field names the caller explicitly supplied;
+     *                                  only these are applied (null clears them).
+     */
     public function __construct(
         #[StateId(OpportunityState::class)]
         public int $opportunity_id,
+        /** @var list<string> */
+        public array $provided = [],
         public ?string $subject = null,
         public ?int $member_id = null,
         public ?int $venue_id = null,
@@ -46,44 +62,13 @@ class OpportunityUpdated extends Event
 
     public function apply(OpportunityState $state): void
     {
-        if ($this->subject !== null) {
-            $state->subject = $this->subject;
-        }
-
-        if ($this->member_id !== null) {
-            $state->member_id = $this->member_id;
-        }
-
-        if ($this->venue_id !== null) {
-            $state->venue_id = $this->venue_id;
-        }
-
-        if ($this->store_id !== null) {
-            $state->store_id = $this->store_id;
-        }
-
-        if ($this->owned_by !== null) {
-            $state->owned_by = $this->owned_by;
-        }
-
-        if ($this->reference !== null) {
-            $state->reference = $this->reference;
-        }
-
-        if ($this->description !== null) {
-            $state->description = $this->description;
-        }
-
-        if ($this->external_description !== null) {
-            $state->external_description = $this->external_description;
-        }
-
-        if ($this->starts_at !== null) {
-            $state->starts_at = CarbonImmutable::parse($this->starts_at);
-        }
-
-        if ($this->ends_at !== null) {
-            $state->ends_at = CarbonImmutable::parse($this->ends_at);
+        foreach ($this->changedFields() as $field) {
+            $state->{$field} = match ($field) {
+                'starts_at', 'ends_at' => $this->{$field} !== null
+                    ? CarbonImmutable::parse($this->{$field})
+                    : null,
+                default => $this->{$field},
+            };
         }
 
         $state->last_event_at = CarbonImmutable::now();
@@ -91,9 +76,9 @@ class OpportunityUpdated extends Event
 
     public function handle(OpportunityState $state): void
     {
-        // Capture prior values of only the fields this event actually changes
-        // (payload non-null), BEFORE the projection update. Dates normalise to
-        // ISO 8601 strings so old/new stay comparable and JSON-stable.
+        // Capture prior values of only the fields this event actually changes,
+        // BEFORE the projection update. Dates normalise to ISO 8601 strings so
+        // old/new stay comparable and JSON-stable.
         $changedFields = $this->changedFields();
         $oldRow = Opportunity::query()->where('state_id', $state->id)->first();
         $oldValues = $oldRow !== null
@@ -128,21 +113,17 @@ class OpportunityUpdated extends Event
     }
 
     /**
-     * The header fields this update actually touched — those whose payload was
-     * provided (non-null), mirroring apply()'s partial-update rule.
+     * The header fields this update actually touched — those the caller
+     * explicitly provided, in projection order. A field listed here may carry
+     * null, which clears the column.
      *
      * @return list<string>
      */
     protected function changedFields(): array
     {
-        $candidates = [
-            'subject', 'member_id', 'venue_id', 'store_id', 'owned_by',
-            'reference', 'description', 'external_description', 'starts_at', 'ends_at',
-        ];
-
         return array_values(array_filter(
-            $candidates,
-            fn (string $field): bool => $this->{$field} !== null,
+            self::FIELDS,
+            fn (string $field): bool => in_array($field, $this->provided, true),
         ));
     }
 

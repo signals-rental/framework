@@ -133,3 +133,33 @@ describe('roundUpToSlot', function () {
         expect($rounded->toIso8601String())->toBe('2026-03-03T00:00:00+00:00');
     });
 });
+
+describe('slot-count safety ceiling', function () {
+    it('throws when a window would exceed the maximum slot count', function () {
+        config(['availability.max_slots_per_recalculation' => 10]);
+
+        $calc = slotCalculator(AvailabilityResolution::Daily);
+
+        // 30 daily slots requested against a ceiling of 10 — must throw rather
+        // than materialise an unbounded list (guards against a sentinel demand).
+        expect(fn () => $calc->generateSlots(
+            Carbon::parse('2026-03-01T00:00:00Z'),
+            Carbon::parse('2026-03-31T00:00:00Z'),
+            'UTC',
+        ))->toThrow(RuntimeException::class);
+    });
+
+    it('does not throw for a window within the ceiling', function () {
+        config(['availability.max_slots_per_recalculation' => 10]);
+
+        $calc = slotCalculator(AvailabilityResolution::Daily);
+
+        $slots = $calc->generateSlots(
+            Carbon::parse('2026-03-01T00:00:00Z'),
+            Carbon::parse('2026-03-06T00:00:00Z'),
+            'UTC',
+        );
+
+        expect($slots)->toHaveCount(5);
+    });
+});

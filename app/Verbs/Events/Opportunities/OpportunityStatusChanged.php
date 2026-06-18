@@ -15,8 +15,17 @@ use Thunk\Verbs\Event;
  * example Quotation/Provisional → Quotation/Reserved, or Order/Active →
  * Order/Cancelled.
  *
- * Guarded: the target status must belong to the opportunity's current state
- * (state transitions go through the dedicated convert events, not this one).
+ * Guarded on two generic rules:
+ *  - the opportunity's CURRENT status must not be terminal/closed (so a
+ *    Complete/Cancelled/Lost/Dead opportunity cannot be moved back to an active
+ *    status, which would re-consume stock via demand); and
+ *  - the TARGET status must belong to the opportunity's current state (state
+ *    transitions go through the dedicated convert events, not this one).
+ *
+ * The closed check uses only the generic {@see OpportunityStatus::isClosed()}
+ * property — there is deliberately NO per-status transition allow-list here, so
+ * custom/configurable statuses remain supported. The richer configurable
+ * per-transition business-rules engine is a later milestone.
  */
 class OpportunityStatusChanged extends Event
 {
@@ -30,6 +39,11 @@ class OpportunityStatusChanged extends Event
 
     public function validate(OpportunityState $state): void
     {
+        $this->assert(
+            ! $state->isClosed(),
+            'A closed opportunity cannot change status.',
+        );
+
         $target = OpportunityStatus::tryFrom($state->state * 100 + $this->to_status);
 
         $this->assert(

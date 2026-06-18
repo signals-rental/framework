@@ -11,6 +11,7 @@ use App\Models\Store;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\AvailabilityService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\UsesPostgres;
 
 /*
@@ -145,4 +146,63 @@ it('recalculates serialised availability against the asset exclusion model', fun
     expect($snapshot->total_stock)->toBe(2)
         ->and($snapshot->total_demanded)->toBe(1)
         ->and($snapshot->available)->toBe(1);
+});
+
+it('serialises recalculation with a bigint advisory lock that survives ids beyond int4', function () {
+    // The advisory lock key is hashtextextended(product:store, 0) — a single
+    // int8. The previous two-arg int4 form (pg_advisory_xact_lock(pid, sid))
+    // overflowed once a BIGSERIAL id passed ~2.1B. Prove the new hashed key
+    // accepts ids well beyond int4 without error.
+    $bigProductId = 3_000_000_000;
+    $bigStoreId = 4_000_000_001;
+
+    DB::connection('pgsql_testing')->transaction(function () use ($bigProductId, $bigStoreId) {
+        DB::connection('pgsql_testing')->statement(
+            'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
+            [$bigProductId.':'.$bigStoreId],
+        );
+    });
+
+    // The two-int4 form would have errored on these ids; reaching here is the
+    // assertion. Sanity-check the hash returns a stable bigint.
+    $row = DB::connection('pgsql_testing')->selectOne(
+        'SELECT hashtextextended(?, 0) AS key',
+        [$bigProductId.':'.$bigStoreId],
+    );
+
+    expect($row->key)->toBeInt();
+});
+
+it('recalculates end-to-end under the bigint advisory lock', function () {
+    $product = Product::factory()->bulk()->create();
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'quantity_held' => 5,
+    ]);
+
+    Demand::factory()
+        ->phase(DemandPhase::Committed)
+        ->window(Carbon::parse('2026-09-01T00:00:00Z'), Carbon::parse('2026-09-03T00:00:00Z'))
+        ->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 2,
+        ]);
+
+    app(RecalculationPipeline::class)->recalculate(
+        $product->id,
+        $this->store->id,
+        Carbon::parse('2026-09-01T00:00:00Z'),
+        Carbon::parse('2026-09-03T00:00:00Z'),
+    );
+
+    $snapshot = AvailabilitySnapshot::query()
+        ->forProductStore($product->id, $this->store->id)
+        ->orderBy('slot_start')
+        ->first();
+
+    expect($snapshot->total_stock)->toBe(5)
+        ->and($snapshot->total_demanded)->toBe(2)
+        ->and($snapshot->available)->toBe(3);
 });

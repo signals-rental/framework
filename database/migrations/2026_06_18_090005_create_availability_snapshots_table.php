@@ -55,10 +55,10 @@ return new class extends Migration
             $table->timestampsTz();
 
             // One snapshot per product/store/slot — the pipeline upserts on this.
+            // The unique constraint's backing index also serves single-product
+            // range queries (leading product_id, store_id, slot_start), so no
+            // separate plain index on the same columns is needed.
             $table->unique(['product_id', 'store_id', 'slot_start'], 'uq_snapshots_product_store_slot');
-
-            // Primary read path for single-product range queries.
-            $table->index(['product_id', 'store_id', 'slot_start'], 'idx_snapshots_product_store_slot');
 
             // Store-wide grid queries (all products in a store over a window).
             $table->index(['store_id', 'slot_start', 'product_id'], 'idx_snapshots_store_slot_product');
