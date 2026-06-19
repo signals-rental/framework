@@ -104,7 +104,19 @@ test('getSearchIndex returns entries with content for all pages and changelog', 
     $service = app(DocsService::class);
     $index = $service->getSearchIndex();
 
-    expect($index)->toBeArray()->toHaveCount(51)
+    // Derive the expected count from the manifest so adding a docs page (e.g.
+    // api/containers) doesn't require a hand-edit here: every non-blade markdown
+    // page across the navigation, plus one entry per changelog version.
+    $expectedPages = collect($service->getNavigation()['sections'])
+        ->flatMap(fn (array $section): array => array_map(
+            fn (array $page): array => [$section['slug'], $page['slug']],
+            $section['pages'],
+        ))
+        ->reject(fn (array $pair): bool => ($service->getPage($pair[0], $pair[1])['type'] ?? null) === 'blade')
+        ->count();
+    $expectedCount = $expectedPages + count($service->getChangelog());
+
+    expect($index)->toBeArray()->toHaveCount($expectedCount)
         ->and($index[0])->toHaveKeys(['title', 'section', 'url', 'content'])
         ->and($index[0]['title'])->toBe('Introduction')
         ->and($index[0]['section'])->toBe('Getting Started')

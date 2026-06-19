@@ -114,9 +114,19 @@ it('renders the Phase-2 module options in the create form', function () {
 });
 
 it('does not render phantom module options for non-existent models', function () {
+    // Module options are derived from CustomFieldModuleRegistry, whose source of
+    // truth is the set of models using the HasCustomFields trait. Models with no
+    // backing registry entry must never appear as options.
     Volt::test('admin.settings.custom-field-form')
-        ->assertDontSeeHtml('value="Opportunity"')
-        ->assertDontSeeHtml('value="Invoice"');
+        ->assertDontSeeHtml('value="Invoice"')
+        ->assertDontSeeHtml('value="NonExistentModel"');
+});
+
+it('renders module options for every custom-field-capable model', function () {
+    // Opportunity now uses HasCustomFields and is registered, so it is a
+    // legitimate module option (it used to be a phantom example).
+    Volt::test('admin.settings.custom-field-form')
+        ->assertSeeHtml('value="Opportunity"');
 });
 
 it('can create a field for a previously-missing module', function () {

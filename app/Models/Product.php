@@ -133,6 +133,15 @@ class Product extends Model implements HasSchema
         $builder->decimal('buffer_percent')->label('Buffer %')->sortable();
         $builder->integer('buffer_before_minutes')->label('Buffer Before (minutes)');
         $builder->integer('post_rent_unavailability')->label('Post-Rent Unavailability');
+        $builder->boolean('track_availability')->label('Track Availability')->filterable()->groupable();
+        $builder->boolean('is_kit')->label('Kit')->filterable()->groupable();
+        $builder->boolean('is_containerable')->label('Containerable')->filterable()->groupable();
+        $builder->enum('container_availability_mode')->label('Container Availability Mode')->filterable()->groupable();
+        $builder->enum('container_checkin_mode')->label('Container Check-in Mode')->filterable()->groupable();
+        $builder->integer('container_max_nesting_depth')->label('Container Max Nesting Depth')->sortable();
+        $builder->boolean('container_repack_on_return')->label('Repack on Return')->filterable();
+        $builder->boolean('is_warehouse_addable')->label('Warehouse Addable')->filterable()->groupable();
+        $builder->integer('warehouse_add_default_charge')->label('Warehouse Add Default Charge')->sortable();
         $builder->relation('product_group_id')->label('Product Group')
             ->relation('productGroup', 'belongsTo', ProductGroup::class, 'name')
             ->filterable();

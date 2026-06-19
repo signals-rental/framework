@@ -26,7 +26,10 @@ use Illuminate\Support\Str;
  * @var array<class-string, array<int, string>> $phase2Models
  */
 $phase2Models = [
-    Product::class => ['icon_url', 'icon_thumb_url'],
+    // container_template is a structural JSONB blob (slot composition config),
+    // not a queryable/filterable scalar — intentionally kept out of the schema,
+    // mirroring how other non-scalar structural columns are excluded.
+    Product::class => ['icon_url', 'icon_thumb_url', 'container_template'],
     ProductGroup::class => ['icon_url', 'icon_thumb_url'],
     StockLevel::class => [],
     StockTransaction::class => [],

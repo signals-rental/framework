@@ -34,7 +34,7 @@ it('maps statuses to their demand phase', function (OpportunityStatus $status, D
 })->with([
     'draft → draft' => [OpportunityStatus::DraftOpen, DemandPhase::Draft],
     'provisional → draft' => [OpportunityStatus::QuotationProvisional, DemandPhase::Draft],
-    'postponed → draft' => [OpportunityStatus::QuotationPostponed, DemandPhase::Draft],
+    'postponed → held' => [OpportunityStatus::QuotationPostponed, DemandPhase::Held],
     'reserved → committed' => [OpportunityStatus::QuotationReserved, DemandPhase::Committed],
     'active → committed' => [OpportunityStatus::OrderActive, DemandPhase::Committed],
     'dispatched → operational' => [OpportunityStatus::OrderDispatched, DemandPhase::Operational],
