@@ -5,11 +5,15 @@ namespace App\Services;
 use App\Data\Availability\AvailabilityData;
 use App\Data\Availability\AvailabilityRangeData;
 use App\Data\Availability\AvailabilitySlotData;
+use App\Data\Availability\OpportunityItemAvailabilityData;
 use App\Models\AvailabilitySnapshot;
 use App\Models\Demand;
+use App\Models\Opportunity;
+use App\Models\OpportunityItem;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
+use App\Services\Availability\OpportunityItemDemandResolver;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\Availability\SlotCalculator;
 use App\Services\Shortages\ShortageDetector;
@@ -19,6 +23,7 @@ use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
 
 /**
  * The read interface for the availability engine. Implements the two-tier read
@@ -38,6 +43,7 @@ class AvailabilityService
     public function __construct(
         private readonly SlotCalculator $slotCalculator,
         private readonly RecalculationPipeline $pipeline,
+        private readonly OpportunityItemDemandResolver $opportunityItemResolver,
     ) {}
 
     /**
@@ -88,6 +94,107 @@ class AvailabilityService
             ->min();
 
         return AvailabilityRangeData::make($productId, $storeId, $from, $to, $slots, $calculatedAt);
+    }
+
+    /**
+     * Range availability for a single product across several stores, read from
+     * snapshots and keyed by store id.
+     *
+     * Each store's window is materialised via {@see getAvailabilityRange()} (the
+     * snapshot read path). When `$storeIds` is empty the default-query stores are
+     * used ({@see Store::scopeInDefaultQueries()}) so virtual/secondary stores
+     * flagged out of default queries are excluded unless requested explicitly.
+     * The result preserves the resolved store order.
+     *
+     * @param  list<int>  $storeIds  explicit stores; empty = all default-query stores
+     * @return SupportCollection<int, AvailabilityRangeData> keyed by store id
+     */
+    public function getAvailabilityAcrossStores(
+        int $productId,
+        array $storeIds,
+        Carbon $from,
+        Carbon $to,
+    ): SupportCollection {
+        $resolvedStoreIds = $storeIds !== []
+            ? array_values(array_unique(array_map('intval', $storeIds)))
+            : Store::query()
+                ->inDefaultQueries()
+                ->orderBy('id')
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+
+        /** @var SupportCollection<int, AvailabilityRangeData> $byStore */
+        $byStore = new SupportCollection;
+
+        foreach ($resolvedStoreIds as $storeId) {
+            $byStore->put($storeId, $this->getAvailabilityRange($productId, $storeId, $from, $to));
+        }
+
+        return $byStore;
+    }
+
+    /**
+     * The availability picture for every product-backed line item on an
+     * opportunity — the per-line read surface for the quote/order screen.
+     *
+     * For each line that references a product, the line's resolved
+     * product/store/window/quantity (date-source-aware, honouring a line's
+     * `dispatch_store_id` override) is taken from the
+     * {@see OpportunityItemDemandResolver}, and the units free for that line are
+     * computed live via {@see availableForItem()} — the worst slot over the line's
+     * window with the line's OWN demand excluded. Lines that reference no product
+     * (services, ad-hoc lines) are skipped: they place no demand on stock.
+     *
+     * Returns an empty collection for an unknown opportunity. Computed live from
+     * `demands` (no snapshot dependency), so it always reflects the current state.
+     *
+     * @return SupportCollection<int, OpportunityItemAvailabilityData>
+     */
+    public function getOpportunityContext(int $opportunityId): SupportCollection
+    {
+        $opportunity = Opportunity::query()->with('items')->find($opportunityId);
+
+        if ($opportunity === null) {
+            return new SupportCollection;
+        }
+
+        /** @var SupportCollection<int, OpportunityItemAvailabilityData> $context */
+        $context = new SupportCollection;
+
+        $opportunity->items->each(function (OpportunityItem $item) use ($opportunity, $context): void {
+            // Bind the parent so the resolver reads the live opportunity (store,
+            // dates, status) without an extra query per line.
+            $item->setRelation('opportunity', $opportunity);
+
+            $resolved = $this->opportunityItemResolver->resolveContext($item);
+
+            // No product or no store — the line claims nothing against stock.
+            if ($resolved['product_id'] === null || $resolved['store_id'] === null) {
+                return;
+            }
+
+            $available = $this->availableForItem(
+                $resolved['product_id'],
+                $resolved['store_id'],
+                $resolved['from'],
+                $resolved['to'],
+                $this->opportunityItemResolver->sourceType(),
+                (int) $item->id,
+            );
+
+            $context->push(OpportunityItemAvailabilityData::make(
+                opportunityItemId: (int) $item->id,
+                productId: $resolved['product_id'],
+                storeId: $resolved['store_id'],
+                requestedQuantity: $resolved['quantity'],
+                availableForItem: $available,
+                from: $resolved['from'],
+                to: $resolved['to'],
+            ));
+        });
+
+        return $context;
     }
 
     /**

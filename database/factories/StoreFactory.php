@@ -51,6 +51,19 @@ class StoreFactory extends Factory
     }
 
     /**
+     * Enable shortage auto-resolution with an optional ordered resolver list.
+     *
+     * @param  list<string>|null  $preferredResolvers
+     */
+    public function autoResolveShortages(?array $preferredResolvers = null): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'shortage_auto_resolve_enabled' => true,
+            'shortage_preferred_resolvers' => $preferredResolvers,
+        ]);
+    }
+
+    /**
      * Flag the store as virtual (vehicle, job site, sub-hire holding location).
      */
     public function virtual(): static

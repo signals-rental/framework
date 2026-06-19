@@ -14,8 +14,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property ShortagePolicy $shortage_policy
+ * @property bool $shortage_auto_resolve_enabled
+ * @property list<string>|null $shortage_preferred_resolvers
  * @property array<string, mixed>|null $operating_hours
  * @property bool $is_virtual
+ * @property bool $include_in_default_queries
  */
 class Store extends Model implements HasSchema
 {
@@ -36,8 +39,11 @@ class Store extends Model implements HasSchema
         'timezone',
         'operating_hours',
         'is_virtual',
+        'include_in_default_queries',
         'is_default',
         'shortage_policy',
+        'shortage_auto_resolve_enabled',
+        'shortage_preferred_resolvers',
         'tag_list',
     ];
 
@@ -49,8 +55,11 @@ class Store extends Model implements HasSchema
         return [
             'is_default' => 'boolean',
             'is_virtual' => 'boolean',
+            'include_in_default_queries' => 'boolean',
             'operating_hours' => 'array',
             'shortage_policy' => ShortagePolicy::class,
+            'shortage_auto_resolve_enabled' => 'boolean',
+            'shortage_preferred_resolvers' => 'array',
             'tag_list' => 'array',
         ];
     }
@@ -62,6 +71,30 @@ class Store extends Model implements HasSchema
     public function shortagePolicy(): ShortagePolicy
     {
         return $this->shortage_policy ?? ShortagePolicy::default();
+    }
+
+    /**
+     * Whether the store runs the synchronous auto-resolution loop before the
+     * confirmation gate evaluates (shortage-resolution-sub-hires.md §7.5).
+     */
+    public function autoResolvesShortages(): bool
+    {
+        return (bool) $this->shortage_auto_resolve_enabled;
+    }
+
+    /**
+     * The ordered resolver keys the auto-resolution loop iterates. An empty list
+     * means "all registered resolvers in priority order" — the caller decides the
+     * fallback so the policy stays config-driven (never hardcoded keys).
+     *
+     * @return list<string>
+     */
+    public function preferredResolvers(): array
+    {
+        return array_values(array_filter(
+            $this->shortage_preferred_resolvers ?? [],
+            static fn (string $key): bool => $key !== '',
+        ));
     }
 
     public static function defineSchema(SchemaBuilder $builder): void
@@ -100,5 +133,21 @@ class Store extends Model implements HasSchema
     public function scopeDefault(Builder $query): Builder
     {
         return $query->where('is_default', true);
+    }
+
+    /**
+     * Scope to stores that participate in default availability queries.
+     *
+     * Virtual/secondary stores (vehicles, job sites, sub-hire holding locations)
+     * flagged `include_in_default_queries = false` are excluded — they remain
+     * addressable directly by id but never appear in store-spanning availability
+     * grids unless explicitly requested.
+     *
+     * @param  Builder<Store>  $query
+     * @return Builder<Store>
+     */
+    public function scopeInDefaultQueries(Builder $query): Builder
+    {
+        return $query->where('include_in_default_queries', true);
     }
 }

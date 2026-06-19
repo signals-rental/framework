@@ -4,10 +4,12 @@ namespace App\Providers;
 
 use App\Contracts\Availability\AvailabilityDataPresence;
 use App\Contracts\Availability\AvailabilityResolutionProvider;
+use App\Contracts\Availability\AvailabilityStrategyContract;
 use App\Models\User;
 use App\Services\Activities\ActivityTypeList;
 use App\Services\Availability\DatabaseAvailabilityDataPresence;
 use App\Services\Availability\OpportunityItemDemandResolver;
+use App\Services\Availability\PassThroughAvailabilityStrategy;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\Availability\SettingsAvailabilityResolutionProvider;
 use App\Services\Availability\SlotCalculator;
@@ -27,6 +29,7 @@ use App\Services\RateEngine\Strategies\PeriodStrategy;
 use App\Services\SchemaRegistry;
 use App\Services\Shortages\CostApportionmentRegistry;
 use App\Services\Shortages\NullCostApportionmentStrategy;
+use App\Services\Shortages\PipelineShortageEmitter;
 use App\Services\Shortages\Resolvers\DateShiftResolver;
 use App\Services\Shortages\Resolvers\PartialFulfilmentResolver;
 use App\Services\Shortages\Resolvers\QuoteReallocationResolver;
@@ -73,9 +76,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AvailabilityDataPresence::class, DatabaseAvailabilityDataPresence::class);
         $this->app->bind(AvailabilityResolutionProvider::class, SettingsAvailabilityResolutionProvider::class);
 
+        // Availability strategy hook seam — the OSS default is a pass-through
+        // no-op bracketing the recalculation per-slot calculation (steps 3 & 5).
+        // A plugin rebinds this to add buffer stock, sub-hire augmentation, etc.
+        $this->app->bind(AvailabilityStrategyContract::class, PassThroughAvailabilityStrategy::class);
+
         // Availability engine read/recalc services. The SlotCalculator reads the
         // resolution live through its provider, so a singleton is safe.
         $this->app->singleton(SlotCalculator::class);
+        $this->app->singleton(PipelineShortageEmitter::class);
         $this->app->singleton(RecalculationPipeline::class);
         $this->app->singleton(AvailabilityService::class);
 

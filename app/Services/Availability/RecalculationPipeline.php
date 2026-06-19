@@ -2,6 +2,7 @@
 
 namespace App\Services\Availability;
 
+use App\Contracts\Availability\AvailabilityStrategyContract;
 use App\Enums\AvailabilityEventType;
 use App\Enums\StockCategory;
 use App\Jobs\RecalculateAvailabilityJob;
@@ -13,8 +14,11 @@ use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Observers\DemandObserver;
+use App\Services\Shortages\PipelineShortageEmitter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
+use Thunk\Verbs\Facades\Verbs;
 
 /**
  * Recomputes availability snapshots for a product/store over a date range.
@@ -38,6 +42,8 @@ class RecalculationPipeline
 {
     public function __construct(
         private readonly SlotCalculator $slotCalculator,
+        private readonly AvailabilityStrategyContract $strategy,
+        private readonly PipelineShortageEmitter $shortageEmitter,
     ) {}
 
     /**
@@ -101,9 +107,45 @@ class RecalculationPipeline
 
             $totalStock = $this->totalStock($product, $storeId);
             $demands = $this->activeDemands($productId, $storeId, $from, $to);
+
+            // Step 3 — pre-calculation hook. The strategy may add synthetic
+            // demands, drop demands, or adjust quantities before per-slot summing.
+            // The OSS default returns the set unchanged.
+            $demands = $this->strategy->preCalculation($productId, $storeId, $from, $to, $demands);
+
             $slots = $this->slotCalculator->generateSlots($from, $to, $timezone);
 
             $now = Carbon::now('UTC');
+
+            // Compute each slot's availability into an ordered result set first, so
+            // the post-calculation hook can adjust the final numbers before any
+            // snapshot is written.
+            /** @var SupportCollection<int, array{slot_start: Carbon, total_stock: int, total_demanded: int, available: int, breakdown: array<string, int>}> $slotResults */
+            $slotResults = new SupportCollection;
+
+            foreach ($slots as $slotStart) {
+                $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
+
+                [$demanded, $breakdown] = $this->demandForSlot($demands, $slotStart, $slotEnd);
+
+                $slotResults->push([
+                    'slot_start' => $slotStart,
+                    'total_stock' => $totalStock,
+                    'total_demanded' => $demanded,
+                    'available' => $totalStock - $demanded,
+                    'breakdown' => $breakdown,
+                ]);
+            }
+
+            // Step 5 — post-calculation hook. The strategy may clamp/floor the
+            // final per-slot numbers (buffer-stock minimums, caps). The OSS
+            // default returns the results unchanged.
+            $slotResults = $this->strategy->postCalculation($productId, $storeId, $from, $to, $slotResults);
+
+            // Previous availability per slot (keyed by UTC slot-start ISO) so we
+            // can detect which slots CROSS into or out of negative availability on
+            // this recalc — step 7/8 shortage emission below.
+            $previousAvailability = $this->previousAvailability($productId, $storeId, $slotResults);
 
             // Per-slot `available` captured for the daily rollup below. Keyed by
             // the slot start (UTC) so the rollup can re-derive the local calendar
@@ -112,36 +154,68 @@ class RecalculationPipeline
             $slotAvailability = [];
 
             $hasShortage = false;
+            $slotCount = 0;
 
-            foreach ($slots as $slotStart) {
-                $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
+            // Did ANY slot newly dip below zero / newly recover this recalc?
+            $crossedIntoShortage = false;
+            $crossedOutOfShortage = false;
 
-                [$demanded, $breakdown] = $this->demandForSlot($demands, $slotStart, $slotEnd);
-
-                $available = $totalStock - $demanded;
-
+            foreach ($slotResults as $result) {
                 $this->upsertSnapshot(
                     $productId,
                     $storeId,
-                    $slotStart,
-                    $totalStock,
-                    $demanded,
-                    $breakdown,
+                    $result['slot_start'],
+                    $result['total_stock'],
+                    $result['total_demanded'],
+                    $result['available'],
+                    $result['breakdown'],
                     $now,
                 );
 
-                $slotAvailability[] = [$slotStart, $available];
+                $slotAvailability[] = [$result['slot_start'], $result['available']];
 
-                if ($available < 0) {
+                // A slot with no prior snapshot is treated as previously
+                // non-negative (zero stock pressure) so a brand-new negative slot
+                // counts as a crossing INTO shortage.
+                $key = $result['slot_start']->copy()->utc()->toIso8601String();
+                $previous = $previousAvailability[$key] ?? 0;
+                $current = $result['available'];
+
+                if ($previous >= 0 && $current < 0) {
+                    $crossedIntoShortage = true;
+                } elseif ($previous < 0 && $current >= 0) {
+                    $crossedOutOfShortage = true;
+                }
+
+                if ($current < 0) {
                     $hasShortage = true;
                 }
+
+                $slotCount++;
             }
 
             $this->rollUpDailySummaries($productId, $storeId, $slotAvailability, $timezone, $now);
 
-            $this->logRecalculated($productId, $storeId, $from, $to, count($slots));
+            $this->logRecalculated($productId, $storeId, $from, $to, $slotCount);
 
-            return [count($slots), $hasShortage];
+            // Steps 7/8 — fire product/store shortage events when a slot crossed a
+            // zero-availability boundary on this recalc (stock-write-induced
+            // shortages, not just opportunity-confirmation ones). This is the
+            // AUTHORITATIVE product/store emission point; the AvailabilityChanged
+            // listener emits at opportunity-item granularity instead, so the two
+            // never double-fire (see PipelineShortageEmitter). Skipped on replay.
+            if (! Verbs::isReplaying() && ($crossedIntoShortage || $crossedOutOfShortage)) {
+                $this->shortageEmitter->emitForRecalc(
+                    $productId,
+                    $storeId,
+                    $from,
+                    $to,
+                    $crossedIntoShortage,
+                    $crossedOutOfShortage,
+                );
+            }
+
+            return [$slotCount, $hasShortage];
         };
 
         // Only open the advisory-locked transaction wrapper at the top level. If a
@@ -259,10 +333,15 @@ class RecalculationPipeline
      * summaries reflect a unit being occupied through its prep/turnaround slots,
      * matching the Postgres `period &&` fetch on every driver.
      *
-     * @param  Collection<int, Demand>  $demands
+     * Accepts the base {@see SupportCollection} so the (possibly strategy-adjusted)
+     * demand set from {@see AvailabilityStrategyContract::preCalculation()} — which
+     * may no longer be an {@see Collection} (Eloquent) instance — is summed
+     * uniformly.
+     *
+     * @param  SupportCollection<int, Demand>  $demands
      * @return array{0: int, 1: array<string, int>}
      */
-    private function demandForSlot(Collection $demands, Carbon $slotStart, Carbon $slotEnd): array
+    private function demandForSlot(SupportCollection $demands, Carbon $slotStart, Carbon $slotEnd): array
     {
         $total = 0;
         $breakdown = [];
@@ -309,6 +388,7 @@ class RecalculationPipeline
         Carbon $slotStart,
         int $totalStock,
         int $totalDemanded,
+        int $available,
         array $breakdown,
         Carbon $calculatedAt,
     ): void {
@@ -321,7 +401,10 @@ class RecalculationPipeline
             [
                 'total_stock' => $totalStock,
                 'total_demanded' => $totalDemanded,
-                'available' => $totalStock - $totalDemanded,
+                // `available` is honoured as supplied so a post-calculation
+                // strategy hook's adjustment (buffer-stock floor, cap) is
+                // persisted, rather than re-derived from stock minus demand.
+                'available' => $available,
                 'demand_breakdown' => $breakdown,
                 'calculated_at' => $calculatedAt,
             ],
@@ -436,5 +519,40 @@ class RecalculationPipeline
     private function storeTimezone(int $storeId): ?string
     {
         return Store::query()->whereKey($storeId)->value('timezone');
+    }
+
+    /**
+     * Read the currently-stored availability for the slots about to be upserted,
+     * keyed by UTC slot-start ISO string, so the recalc can detect zero-crossings.
+     * Slots with no existing snapshot are simply absent from the map (callers
+     * treat absence as "previously non-negative").
+     *
+     * @param  SupportCollection<int, array{slot_start: Carbon, total_stock: int, total_demanded: int, available: int, breakdown: array<string, int>}>  $slotResults
+     * @return array<string, int>
+     */
+    private function previousAvailability(int $productId, int $storeId, SupportCollection $slotResults): array
+    {
+        if ($slotResults->isEmpty()) {
+            return [];
+        }
+
+        $slotStarts = $slotResults
+            ->map(static fn (array $result): Carbon => $result['slot_start'])
+            ->all();
+
+        /** @var array<string, int> $map */
+        $map = [];
+
+        AvailabilitySnapshot::query()
+            ->where('product_id', $productId)
+            ->where('store_id', $storeId)
+            ->whereIn('slot_start', $slotStarts)
+            ->get(['slot_start', 'available'])
+            ->each(function (AvailabilitySnapshot $snapshot) use (&$map): void {
+                $key = $snapshot->slot_start->copy()->utc()->toIso8601String();
+                $map[$key] = (int) $snapshot->available;
+            });
+
+        return $map;
     }
 }

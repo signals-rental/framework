@@ -44,6 +44,8 @@ use Illuminate\Support\Carbon;
  * @property LineItemTransactionType $transaction_type
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
+ * @property int|null $dispatch_store_id
+ * @property int|null $return_store_id
  * @property int $sort_order
  * @property bool $is_optional
  * @property array<string, mixed>|null $custom_fields
@@ -85,6 +87,8 @@ class OpportunityItem extends Model
         'transaction_type',
         'starts_at',
         'ends_at',
+        'dispatch_store_id',
+        'return_store_id',
         'sort_order',
         'is_optional',
         'custom_fields',
@@ -106,6 +110,8 @@ class OpportunityItem extends Model
             'transaction_type' => LineItemTransactionType::class,
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'dispatch_store_id' => 'integer',
+            'return_store_id' => 'integer',
             'sort_order' => 'integer',
             'is_optional' => 'boolean',
             'custom_fields' => 'array',
@@ -126,5 +132,27 @@ class OpportunityItem extends Model
     public function assets(): HasMany
     {
         return $this->hasMany(OpportunityItemAsset::class, 'opportunity_item_id');
+    }
+
+    /**
+     * The store this line dispatches from when it overrides the opportunity's
+     * primary store (null = inherit the opportunity's store).
+     *
+     * @return BelongsTo<Store, $this>
+     */
+    public function dispatchStore(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'dispatch_store_id');
+    }
+
+    /**
+     * The store this line is expected back at when it differs from where it went
+     * out (null = inherit the opportunity's store). Forward-looking for M5.
+     *
+     * @return BelongsTo<Store, $this>
+     */
+    public function returnStore(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'return_store_id');
     }
 }
