@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Availability\OpportunityItemDemandResolver;
+use App\Services\AvailabilityService;
 use Illuminate\Support\Carbon;
 
 /**
@@ -273,6 +274,10 @@ it('falls back to operational dates when charge bounds are unset under the charg
 });
 
 it('treats an open-ended item as indefinite via the sentinel', function () {
+    // Freeze "now" so the rolling-horizon clamp (and therefore the slot maths the
+    // demand sync triggers downstream) is deterministic regardless of wall-clock.
+    Carbon::setTestNow(Carbon::parse('2026-06-18T00:00:00Z'));
+
     $product = Product::factory()->create(['stock_method' => StockMethod::Bulk->value]);
     $store = Store::factory()->create();
 
@@ -289,11 +294,65 @@ it('treats an open-ended item as indefinite via the sentinel', function () {
         'ends_at' => null,
     ]);
 
+    // syncDemands fans out to the recalc job and proactive shortage detection,
+    // both of which slot the item's window. An indefinite (sentinel-ended) window
+    // must be clamped to the rolling horizon before slot generation, so this must
+    // NOT throw the SlotCalculator's 50000-slot safety cap.
     demandResolver()->syncDemands($item);
 
     $demand = Demand::query()->where('source_id', $item->id)->first();
 
     expect($demand->is_indefinite)->toBeTrue();
+
+    Carbon::setTestNow();
+});
+
+it('reads an indefinite item over a bounded, horizon-sized slot set without tripping the cap', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-18T00:00:00Z'));
+
+    $product = Product::factory()->create([
+        'stock_method' => StockMethod::Bulk->value,
+        'track_availability' => true,
+    ]);
+    $store = Store::factory()->create();
+
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $store->id,
+        'quantity_held' => 5,
+    ]);
+
+    $opportunity = Opportunity::factory()->order()->create([
+        'store_id' => $store->id,
+        'starts_at' => Carbon::parse('2026-08-01T09:00:00Z'),
+        'ends_at' => null,
+    ]);
+
+    $item = OpportunityItem::factory()->for($opportunity)->create([
+        'item_type' => Product::class,
+        'item_id' => $product->id,
+        'quantity' => 2,
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+
+    demandResolver()->syncDemands($item);
+
+    // The live read path slots the item's effective window — which ends at the
+    // 2199 sentinel. With the clamp in place this resolves to the worst horizon
+    // slot rather than throwing: 5 in stock, this item excluded → all 5 free.
+    $available = app(AvailabilityService::class)->availableForItem(
+        $product->id,
+        $store->id,
+        Carbon::parse('2026-08-01T09:00:00Z'),
+        Demand::sentinel(),
+        'opportunity_item',
+        (int) $item->id,
+    );
+
+    expect($available)->toBe(5);
+
+    Carbon::setTestNow();
 });
 
 it('is idempotent — re-syncing converges rather than duplicating', function () {

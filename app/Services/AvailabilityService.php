@@ -210,6 +210,13 @@ class AvailabilityService
             return false;
         }
 
+        // Clamp an open-ended / sentinel-dated window to the rolling snapshot
+        // horizon before generating slots — an indefinite demand otherwise spans
+        // tens of thousands of slots and trips the SlotCalculator safety cap. The
+        // demand set is fetched (and overlap-tested) against the ORIGINAL window so
+        // an indefinite demand is still seen across the whole clamped horizon.
+        [$slotFrom, $slotTo] = $this->clampToHorizon($from, $to);
+
         $timezone = $this->storeTimezone($storeId);
         $totalStock = $this->pipeline->totalStock($product, $storeId);
 
@@ -221,7 +228,7 @@ class AvailabilityService
             ->overlapping($from, $to)
             ->get();
 
-        foreach ($this->slotCalculator->generateSlots($from, $to, $timezone) as $slotStart) {
+        foreach ($this->slotCalculator->generateSlots($slotFrom, $slotTo, $timezone) as $slotStart) {
             $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
             [$demanded] = $this->sumDemandIn($demands, $slotStart, $slotEnd);
 
@@ -354,6 +361,13 @@ class AvailabilityService
             return 0;
         }
 
+        // Clamp an open-ended / sentinel-dated window to the rolling snapshot
+        // horizon before generating slots (see checkAvailability()). The competing
+        // demand set is still fetched against the ORIGINAL window so an indefinite
+        // demand is seen across every clamped horizon slot — the worst slot is
+        // therefore the correct answer for "units free for this item".
+        [$slotFrom, $slotTo] = $this->clampToHorizon($from, $to);
+
         $timezone = $this->storeTimezone($storeId);
         $totalStock = $this->pipeline->totalStock($product, $storeId);
 
@@ -372,7 +386,7 @@ class AvailabilityService
 
         $worst = $totalStock;
 
-        foreach ($this->slotCalculator->generateSlots($from, $to, $timezone) as $slotStart) {
+        foreach ($this->slotCalculator->generateSlots($slotFrom, $slotTo, $timezone) as $slotStart) {
             $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
             [$demanded] = $this->sumDemandIn($demands, $slotStart, $slotEnd);
 
@@ -464,6 +478,38 @@ class AvailabilityService
         }
 
         return [$total, $breakdown];
+    }
+
+    /**
+     * Clamp a live-read window to the rolling snapshot horizon before slot
+     * generation, delegating to the pipeline so the read and write paths share
+     * one horizon definition.
+     *
+     * An open-ended (sentinel-dated) demand window spans tens of thousands of
+     * slots; left unclamped it trips the {@see SlotCalculator} safety cap. Slot
+     * loops here only enumerate calendar slots — the competing demand set is
+     * fetched against the caller's ORIGINAL window, so an indefinite demand is
+     * still seen across every clamped slot and the worst-slot answer is unchanged.
+     *
+     * When the request lies entirely outside the horizon the clamp collapses
+     * (`from >= to`); callers fall back to slotting the single `from` slot, which
+     * the {@see SlotCalculator} handles, so the read never throws and never emits
+     * an empty slot set.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function clampToHorizon(Carbon $from, Carbon $to): array
+    {
+        [$clampedFrom, $clampedTo] = $this->pipeline->clampToHorizon($from, $to);
+
+        // A fully out-of-horizon window collapses to from >= to; keep the original
+        // `from` so the slot loop still evaluates the slot containing it rather
+        // than producing nothing.
+        if (! $clampedFrom->lessThan($clampedTo)) {
+            return [$from->copy(), $from->copy()];
+        }
+
+        return [$clampedFrom, $clampedTo];
     }
 
     /**

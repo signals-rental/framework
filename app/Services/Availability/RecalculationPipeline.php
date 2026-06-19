@@ -257,9 +257,14 @@ class RecalculationPipeline
      * half-open window; the result may be empty (from >= to) when the request
      * lies entirely outside the horizon.
      *
+     * Public so the live read path ({@see AvailabilityService}) clamps its
+     * slot-generation windows to the SAME rolling horizon — an indefinite
+     * (sentinel-dated) demand otherwise spans tens of thousands of slots and trips
+     * the {@see SlotCalculator} safety cap.
+     *
      * @return array{0: Carbon, 1: Carbon}
      */
-    private function clampToHorizon(Carbon $from, Carbon $to): array
+    public function clampToHorizon(Carbon $from, Carbon $to): array
     {
         $now = Carbon::now('UTC');
 
