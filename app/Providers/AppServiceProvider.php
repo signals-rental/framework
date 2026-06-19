@@ -7,6 +7,7 @@ use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Contracts\Availability\AvailabilityStrategyContract;
 use App\Models\User;
 use App\Services\Activities\ActivityTypeList;
+use App\Services\Availability\ContainerDemandResolver;
 use App\Services\Availability\DatabaseAvailabilityDataPresence;
 use App\Services\Availability\KitAvailabilityCalculator;
 use App\Services\Availability\OpportunityItemDemandResolver;
@@ -125,6 +126,18 @@ class AppServiceProvider extends ServiceProvider
                 resolverClass: OpportunityItemDemandResolver::class,
                 colour: '#3B82F6',
                 icon: 'calendar',
+            ));
+
+            // Container reservations: serialised items held indefinitely inside a
+            // kit/hybrid-fixed container, removing them from individual availability
+            // (serialised-containers.md §"Kit Mode — Contents Removed from
+            // Availability"). Created on pack, voided on unpack.
+            $registry->register(new DemandSourceDefinition(
+                type: 'container',
+                displayName: 'Containers',
+                resolverClass: ContainerDemandResolver::class,
+                colour: '#0EA5E9',
+                icon: 'cube',
             ));
 
             return $registry;

@@ -43,6 +43,8 @@ class RoleSeeder extends Seeder
 
         $warehousePermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'stock.')
             || str_starts_with($p, 'products.')
+            || str_starts_with($p, 'containers.')
+            || $p === 'availability.view'
             || in_array($p, ['members.access', 'members.view', 'reports.access', 'reports.view', 'shortages.view', 'shortages.resolve'], true)
         );
 

@@ -4,6 +4,7 @@ namespace App\Services\Availability;
 
 use App\Contracts\DemandResolverContract;
 use App\Enums\AssetAssignmentStatus;
+use App\Enums\ContainerAvailabilityMode;
 use App\Enums\DemandPhase;
 use App\Enums\KitComponentBinding;
 use App\Enums\StockMethod;
@@ -37,10 +38,13 @@ use InvalidArgumentException;
  * allocations yet — produce a single product-level demand (`asset_id` null,
  * quantity = line quantity).
  *
- * Catalogue (pool) kit lines explode instead: the kit product generates no demand
- * of its own; each pool component produces a demand against the COMPONENT product
- * at (line_qty × component_qty). Fixed (container-bound) components are a seam for
- * M5-3b. See {@see syncKitComponentDemands()}.
+ * Kit lines branch by kit type (availability-engine.md §"Kit Type Reference"):
+ * catalogue (pool) kits explode — the kit product generates no demand of its own
+ * and each POOL component produces a demand against the COMPONENT product at
+ * (line_qty × component_qty); serialised-permanent (container kit-mode) kits book
+ * the housing as a normal serialised/bulk unit (fixed components are held by their
+ * standing container demands, not re-exploded); hybrid kits do both — explode pool
+ * components AND claim the housing. See {@see syncKitComponentDemands()}.
  *
  * This resolver is a callable service. It is NOT wired to fire automatically on
  * item events (that wiring is M3); callers invoke {@see syncDemands()} /
@@ -153,12 +157,24 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         // converges (handles quantity changes, allocation changes, etc.).
         $this->purge($item);
 
-        // Catalogue (pool) kit line: the kit product itself generates NO demand —
-        // it has no stock of its own. Instead each pool component explodes into its
-        // own demand at (line_qty × component_qty), so the booking draws the
-        // components from general stock (availability-engine.md §"Non-Serialised
-        // Kits"). Fixed (container-bound) components are a seam for M5-3b.
-        if ($product->isKit()) {
+        $containerMode = $product->container_availability_mode;
+
+        // Kit line handling depends on the kit type (availability-engine.md
+        // §"Kit Type Reference"):
+        //
+        //  - Serialised-permanent (container_availability_mode = kit): the kit
+        //    CONTAINER product is the bookable entity — book it as a normal
+        //    serialised/bulk unit (fall through). Fixed components are already held
+        //    by their indefinite container demands, so they do NOT re-explode here.
+        //  - Hybrid (container_availability_mode = hybrid): the housing is booked as
+        //    a serialised unit AND each POOL component explodes into its own demand;
+        //    FIXED components stay container-held (not re-exploded). So we explode
+        //    the pool side here and ALSO fall through to claim the housing.
+        //  - Catalogue (pool) kit (no container mode): the kit product generates NO
+        //    demand of its own — every POOL component explodes at (line_qty ×
+        //    component_qty), drawing the components from general stock. Return after
+        //    exploding (no housing to claim).
+        if ($product->isKit() && $containerMode === null) {
             $this->syncKitComponentDemands(
                 $product,
                 $item,
@@ -173,6 +189,25 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             );
 
             return;
+        }
+
+        if ($containerMode === ContainerAvailabilityMode::Hybrid) {
+            // Pool components draw from general stock per dispatch — explode them.
+            // Fixed components are container-held (skipped inside the method via the
+            // binding filter). The housing itself is then claimed below as a normal
+            // serialised/bulk unit.
+            $this->syncKitComponentDemands(
+                $product,
+                $item,
+                $storeId,
+                $quantity,
+                $startsAt,
+                $endsAt,
+                $bufferedStart,
+                $bufferedEnd,
+                $phase,
+                $metadata,
+            );
         }
 
         if ($isSerialised) {
@@ -241,8 +276,11 @@ class OpportunityItemDemandResolver implements DemandResolverContract
      * reverse them as one set, and so a resync converges.
      *
      * FIXED-binding components are deliberately skipped here — they are
-     * container-bound and modelled in M5-3b. The branch is the seam: when M5-3b
-     * lands, fixed components route to container demands rather than exploding.
+     * permanently container-bound and held by their standing
+     * `source_type = 'container'` demands (created when the item is packed,
+     * {@see ContainerDemandResolver}), so they must NOT be re-exploded per booking.
+     * This is the filled M5-3b seam: fixed routes to container demands, pool
+     * explodes.
      *
      * @param  array<string, mixed>  $metadata
      */
@@ -269,8 +307,9 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             ->all();
 
         foreach ($components as $component) {
-            // SEAM (M5-3b): fixed components become container demands; for now the
-            // catalogue-kit chunk treats only pool components.
+            // Fixed components are container-held (their availability is removed via
+            // standing container demands), so they are never exploded per booking —
+            // only pool components draw from general stock here.
             if ($component->binding !== KitComponentBinding::Pool) {
                 continue;
             }

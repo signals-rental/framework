@@ -90,6 +90,10 @@ class PermissionSeeder extends Seeder
             'stock.transfer' => ['label' => 'Transfer Stock', 'description' => 'Transfer stock between stores', 'group' => 'Stock', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['stock.view']],
             'availability.view' => ['label' => 'View Availability', 'description' => 'View product availability and shortages', 'group' => 'Stock', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['stock.access']],
 
+            // Containers (the availability-relevant subset; the full pack/seal/dispatch/transfer set lands in Phase 4)
+            'containers.view' => ['label' => 'View Containers', 'description' => 'View container listings and contents', 'group' => 'Stock', 'sub_group' => 'Containers', 'layer' => 'action', 'dependencies' => ['stock.access']],
+            'containers.pack' => ['label' => 'Pack Containers', 'description' => 'Pack and unpack items in open containers', 'group' => 'Stock', 'sub_group' => 'Containers', 'layer' => 'action', 'dependencies' => ['containers.view']],
+
             // Reports
             'reports.access' => ['label' => 'Access Reports', 'description' => 'Access the reports area', 'group' => 'Reports', 'sub_group' => null, 'layer' => 'area', 'dependencies' => []],
             'reports.view' => ['label' => 'View Reports', 'description' => 'View reports', 'group' => 'Reports', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['reports.access']],

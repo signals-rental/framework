@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ContainerAvailabilityMode;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
 use App\Models\Product;
@@ -90,6 +91,22 @@ class ProductFactory extends Factory
         return $this->state(fn () => [
             'is_kit' => true,
             'track_availability' => false,
+        ]);
+    }
+
+    /**
+     * A containerable product: its serialised instances can act as a container
+     * housing. Defaults to kit availability mode (the bookable-kit case), serialised
+     * stock (a container is a physical asset). Pass an explicit mode for
+     * transport/hybrid.
+     */
+    public function containerable(ContainerAvailabilityMode $mode = ContainerAvailabilityMode::Kit): static
+    {
+        return $this->state(fn (): array => [
+            'stock_method' => StockMethod::Serialised,
+            'is_containerable' => true,
+            'container_availability_mode' => $mode->value,
+            'container_max_nesting_depth' => 2,
         ]);
     }
 

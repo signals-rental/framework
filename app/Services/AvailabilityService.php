@@ -64,10 +64,11 @@ class AvailabilityService
         $slotStart = $this->slotCalculator->alignToSlot($date, $timezone);
         $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
 
-        // Kit products are composed read-time from components — they have no stock
-        // or demand of their own. Compose the slot's availability via the kit
-        // calculator and surface it as a point reading.
-        if ($product->is_kit) {
+        // Composed products (catalogue kits AND serialised-permanent / hybrid
+        // container kits) are composed read-time — surface the kit calculator's
+        // reading as a point. Catalogue kits have no stock of their own; container
+        // kits compose from the housing's serialised availability.
+        if ($this->isComposedProduct($product)) {
             $range = $this->getKitAvailability($productId, $storeId, $slotStart, $slotEnd);
             $available = $range->min_available ?? 0;
 
@@ -88,14 +89,28 @@ class AvailabilityService
      */
     public function getAvailabilityRange(int $productId, int $storeId, Carbon $from, Carbon $to): AvailabilityRangeData
     {
-        // Kit products hold no snapshot rows — their availability is composed
-        // read-time from components. Route them to the kit calculator so a kit
-        // passed to the normal range read "just works" rather than returning an
-        // empty (and misleading) slot set.
-        if ($this->isKitProduct($productId)) {
+        // Composed products (catalogue kits AND serialised-permanent / hybrid
+        // container kits) are composed read-time. Route them to the kit calculator
+        // so the read "just works" rather than returning an empty slot set.
+        //
+        // NOTE: a container kit product STILL has real housing snapshot rows — the
+        // kit calculator reads those via {@see rawSnapshotRange()} (which bypasses
+        // this routing), so there is no recursion.
+        if ($this->isComposedProductId($productId)) {
             return $this->getKitAvailability($productId, $storeId, $from, $to);
         }
 
+        return $this->rawSnapshotRange($productId, $storeId, $from, $to);
+    }
+
+    /**
+     * The raw snapshot range read for a product — NEVER routed through the kit
+     * calculator. This is the housing-availability read the
+     * {@see KitAvailabilityCalculator} uses for container kits, so it must not
+     * recurse back into composed-product routing.
+     */
+    public function rawSnapshotRange(int $productId, int $storeId, Carbon $from, Carbon $to): AvailabilityRangeData
+    {
         /** @var Collection<int, AvailabilitySnapshot> $snapshots */
         $snapshots = AvailabilitySnapshot::query()
             ->forProductStore($productId, $storeId)
@@ -334,6 +349,56 @@ class AvailabilityService
     }
 
     /**
+     * Whether a kit's FIXED (container-bound) component is satisfiable for the
+     * `[$from, $to)` window — used by the {@see KitAvailabilityCalculator} to gate
+     * serialised-permanent / hybrid kit availability.
+     *
+     * A fixed component is held in the kit by its `source_type = 'container'`
+     * demand(s). It is "satisfied" when:
+     *  - at least `$requiredQuantity` units are held by ACTIVE container demands
+     *    overlapping the window (the component is physically present in the kit),
+     *    AND
+     *  - it carries no OTHER active (non-container) demand overlapping the window
+     *    (no individual booking conflict — serialised-containers.md §"Conflict
+     *    Handling").
+     *
+     * Returns false the moment either condition fails, so the calculator clamps
+     * the kit's availability to zero for the window.
+     */
+    public function fixedComponentSatisfied(
+        int $componentProductId,
+        int $storeId,
+        Carbon $from,
+        Carbon $to,
+        int $requiredQuantity,
+    ): bool {
+        /** @var Collection<int, Demand> $demands */
+        $demands = Demand::query()
+            ->where('product_id', $componentProductId)
+            ->where('store_id', $storeId)
+            ->active()
+            ->overlapping($from, $to)
+            ->get();
+
+        $containerHeld = 0;
+        $hasConflict = false;
+
+        foreach ($demands as $demand) {
+            if ($demand->source_type === 'container') {
+                $containerHeld += max(0, $demand->quantity);
+
+                continue;
+            }
+
+            // Any non-container active demand on a fixed component is a conflict —
+            // the component is booked away from the kit for this window.
+            $hasConflict = true;
+        }
+
+        return ! $hasConflict && $containerHeld >= max(1, $requiredQuantity);
+    }
+
+    /**
      * Whether a specific serialised asset (stock level) is free for the entire
      * `[$from, $to)` window: true when no active demand claims it over an
      * overlapping period. Returns false if the stock level does not exist.
@@ -447,13 +512,30 @@ class AvailabilityService
     }
 
     /**
-     * Whether a product is a catalogue kit (composed read-time from components).
-     * Prefers the denormalised `is_kit` flag; only products flagged as kits are
-     * routed to the kit calculator from the normal range read.
+     * Whether a product is composed read-time and must be routed to the kit
+     * calculator — either a catalogue kit (`is_kit`) or a serialised-permanent /
+     * hybrid container kit (`container_availability_mode` of kit/hybrid).
+     *
+     * Transport-mode containers are NOT composed: their contents stay individually
+     * available and the housing is read as a plain serialised product.
      */
-    private function isKitProduct(int $productId): bool
+    private function isComposedProduct(Product $product): bool
     {
-        return Product::query()->whereKey($productId)->where('is_kit', true)->exists();
+        if ($product->is_kit) {
+            return true;
+        }
+
+        return $product->container_availability_mode?->isBookableKit() ?? false;
+    }
+
+    /**
+     * {@see isComposedProduct()} by id.
+     */
+    private function isComposedProductId(int $productId): bool
+    {
+        $product = Product::query()->find($productId);
+
+        return $product !== null && $this->isComposedProduct($product);
     }
 
     /**

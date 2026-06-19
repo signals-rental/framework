@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Enums\AllowedStockType;
+use App\Enums\ContainerAvailabilityMode;
+use App\Enums\ContainerCheckinMode;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
 use App\Models\Traits\FormatsMoney;
@@ -25,6 +27,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $post_rent_unavailability
  * @property bool $track_availability
  * @property bool $is_kit
+ * @property bool $is_containerable
+ * @property array{slots?: list<array{product_id: int, quantity: int|float, binding?: string}>, max_items?: int}|null $container_template
+ * @property ContainerAvailabilityMode|null $container_availability_mode
+ * @property ContainerCheckinMode|null $container_checkin_mode
+ * @property int $container_max_nesting_depth
+ * @property bool $container_repack_on_return
+ * @property bool $is_warehouse_addable
+ * @property int|null $warehouse_add_default_charge
  */
 class Product extends Model implements HasSchema
 {
@@ -48,6 +58,14 @@ class Product extends Model implements HasSchema
         'post_rent_unavailability',
         'track_availability',
         'is_kit',
+        'is_containerable',
+        'container_template',
+        'container_availability_mode',
+        'container_checkin_mode',
+        'container_max_nesting_depth',
+        'container_repack_on_return',
+        'is_warehouse_addable',
+        'warehouse_add_default_charge',
         'is_active',
         'accessory_only',
         'system',
@@ -86,6 +104,14 @@ class Product extends Model implements HasSchema
             'post_rent_unavailability' => 'integer',
             'track_availability' => 'boolean',
             'is_kit' => 'boolean',
+            'is_containerable' => 'boolean',
+            'container_template' => 'array',
+            'container_availability_mode' => ContainerAvailabilityMode::class,
+            'container_checkin_mode' => ContainerCheckinMode::class,
+            'container_max_nesting_depth' => 'integer',
+            'container_repack_on_return' => 'boolean',
+            'is_warehouse_addable' => 'boolean',
+            'warehouse_add_default_charge' => 'integer',
         ];
     }
 
@@ -264,6 +290,16 @@ class Product extends Model implements HasSchema
     }
 
     /**
+     * Containers backed by serialised instances of this product.
+     *
+     * @return HasMany<Container, $this>
+     */
+    public function containers(): HasMany
+    {
+        return $this->hasMany(Container::class);
+    }
+
+    /**
      * Whether this product is a kit — composed of other products read-time rather
      * than demand-tracked directly. Prefers the denormalised `is_kit` flag and
      * falls back to composition existence so a freshly-built kit (flag not yet
@@ -276,6 +312,24 @@ class Product extends Model implements HasSchema
         }
 
         return $this->components()->exists();
+    }
+
+    /**
+     * Whether this product's serialised instances can act as a container housing.
+     */
+    public function isContainerable(): bool
+    {
+        return (bool) $this->is_containerable;
+    }
+
+    /**
+     * The product's container availability mode, defaulting to transport when
+     * unset (the conservative default — transport holds nothing back from
+     * availability).
+     */
+    public function containerMode(): ContainerAvailabilityMode
+    {
+        return $this->container_availability_mode ?? ContainerAvailabilityMode::Transport;
     }
 
     /**

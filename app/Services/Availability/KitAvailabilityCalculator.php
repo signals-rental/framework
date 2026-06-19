@@ -4,6 +4,7 @@ namespace App\Services\Availability;
 
 use App\Data\Availability\AvailabilityRangeData;
 use App\Data\Availability\AvailabilitySlotData;
+use App\Enums\ContainerAvailabilityMode;
 use App\Enums\KitComponentBinding;
 use App\Models\Product;
 use App\Models\SerialisedComponent;
@@ -28,9 +29,21 @@ use RuntimeException;
  * (other kits, standalone rentals, quarantines, …), avoiding an N×M demand query
  * explosion. A component that is itself a kit recurses (depth-limited).
  *
- * Only POOL components participate here. FIXED (container-bound) components are a
- * seam for M5-3b — they are skipped with a deliberate branch, never silently
- * folded into the pool calculation.
+ * Three kit types are computed here (availability-engine.md §"Kit Type
+ * Reference"), branched on the product's `container_availability_mode`:
+ *
+ *  - **Catalogue / pool kit** (no container mode) — the M5-3a MIN formula over
+ *    POOL components. FIXED components are not container-backed here, so they are
+ *    skipped (they have no demand of their own in a pure catalogue kit).
+ *  - **Serialised-permanent kit** (`container_availability_mode = kit`) — the kit
+ *    CONTAINER product is the bookable entity; its availability is the serialised
+ *    availability of the housing (is a kit container free for the window?). Fixed
+ *    components are held indefinitely by `source_type = 'container'` demands, so
+ *    they do not re-enter the per-booking calculation — but a fixed component
+ *    blocked by a NON-container demand makes the kit unfulfillable (clamps to 0).
+ *  - **Hybrid kit** (`container_availability_mode = hybrid`) — MIN(fixed-ok ?
+ *    housing-availability : 0, pool MIN): fixed slots checked via container
+ *    demands (housing availability), pool slots via the standard MIN formula.
  *
  * The service is resolved lazily through a closure so it is Octane-safe (never
  * captures a request-bound singleton in a constructor) and mockable in tests.
@@ -54,9 +67,169 @@ class KitAvailabilityCalculator
      */
     public function calculate(int $kitProductId, int $storeId, Carbon $from, Carbon $to): AvailabilityRangeData
     {
+        $product = Product::query()->find($kitProductId);
+        $mode = $product?->container_availability_mode;
+
+        // Serialised-permanent / hybrid container kits compute differently — the
+        // kit container product is the bookable entity. Catalogue (pool) kits fall
+        // through to the M5-3a composition.
+        if ($mode === ContainerAvailabilityMode::Kit) {
+            return $this->calculateSerialisedPermanent($kitProductId, $storeId, $from, $to);
+        }
+
+        if ($mode === ContainerAvailabilityMode::Hybrid) {
+            return $this->calculateHybrid($kitProductId, $storeId, $from, $to);
+        }
+
         $slots = $this->computeSlots($kitProductId, $storeId, $from, $to, 1, [$kitProductId]);
 
         return AvailabilityRangeData::make($kitProductId, $storeId, $from, $to, $slots, null);
+    }
+
+    /**
+     * Serialised-permanent (kit-mode container) availability over the range.
+     *
+     * The kit container product is the bookable entity: per slot the kit's
+     * availability is the housing's own serialised availability (free kit
+     * containers for that window), read from the housing's pre-calculated snapshot
+     * range. Fixed components are already held by their indefinite container
+     * demands and so do not re-enter the calc — but if a fixed component is blocked
+     * by a NON-container demand (e.g. it was individually booked before being
+     * packed), the kit is unfulfillable for that slot and clamps to 0.
+     */
+    private function calculateSerialisedPermanent(int $kitProductId, int $storeId, Carbon $from, Carbon $to): AvailabilityRangeData
+    {
+        $housing = $this->housingAvailabilityBySlot($kitProductId, $storeId, $from, $to);
+
+        // A fixed-component conflict (a non-container demand on a fixed member)
+        // makes the kit unfulfillable across the window — clamp every slot to 0.
+        $fixedConflicted = $this->hasFixedComponentConflict($kitProductId, $storeId, $from, $to);
+
+        $slots = [];
+
+        foreach ($housing as $slotKey => $available) {
+            $slots[] = new AvailabilitySlotData(
+                slot_start: $slotKey,
+                total_stock: 0,
+                total_demanded: 0,
+                available: $fixedConflicted ? 0 : max(0, $available),
+                demand_breakdown: [],
+            );
+        }
+
+        return AvailabilityRangeData::make($kitProductId, $storeId, $from, $to, $slots, null);
+    }
+
+    /**
+     * Hybrid container availability over the range:
+     *
+     *     kit_available(slot) = MIN(
+     *         fixed-ok ? housing_available(slot) : 0,    // fixed slots via container
+     *         pool_MIN(slot)                              // pool slots via M5-3a
+     *     )
+     *
+     * Fixed slots are held by container demands, so their constraint is the
+     * housing availability (gated to 0 by any fixed-component non-container
+     * conflict). Pool slots are drawn from general stock per dispatch and use the
+     * standard MIN(floor(component_available / qty)) composition.
+     */
+    private function calculateHybrid(int $kitProductId, int $storeId, Carbon $from, Carbon $to): AvailabilityRangeData
+    {
+        $housing = $this->housingAvailabilityBySlot($kitProductId, $storeId, $from, $to);
+        $fixedConflicted = $this->hasFixedComponentConflict($kitProductId, $storeId, $from, $to);
+
+        // Pool side: the M5-3a composition (only POOL components participate).
+        $poolSlots = $this->computeSlots($kitProductId, $storeId, $from, $to, 1, [$kitProductId]);
+
+        /** @var array<string, int> $poolBySlot */
+        $poolBySlot = [];
+
+        foreach ($poolSlots as $slot) {
+            $poolBySlot[$slot->slot_start] = $slot->available;
+        }
+
+        // The slot universe is the housing slots (the kit container drives the
+        // bookable window); each is constrained by the pool MIN when present.
+        $slots = [];
+
+        foreach ($housing as $slotKey => $housingAvailable) {
+            $fixedComponent = $fixedConflicted ? 0 : max(0, $housingAvailable);
+
+            // No pool constraint reported for this slot → pool does not limit it.
+            $poolComponent = array_key_exists($slotKey, $poolBySlot)
+                ? max(0, $poolBySlot[$slotKey])
+                : $fixedComponent;
+
+            $slots[] = new AvailabilitySlotData(
+                slot_start: $slotKey,
+                total_stock: 0,
+                total_demanded: 0,
+                available: min($fixedComponent, $poolComponent),
+                demand_breakdown: [],
+            );
+        }
+
+        return AvailabilityRangeData::make($kitProductId, $storeId, $from, $to, $slots, null);
+    }
+
+    /**
+     * The kit container housing's own serialised availability per slot, keyed by
+     * the slot's ISO start — read from the housing product's pre-calculated
+     * snapshot range (the kit container product is a normal serialised tracked
+     * product with snapshot rows).
+     *
+     * @return array<string, int>
+     */
+    private function housingAvailabilityBySlot(int $kitProductId, int $storeId, Carbon $from, Carbon $to): array
+    {
+        // Read the housing product's RAW snapshots — never the kit-routed read —
+        // so a container kit product does not recurse back into composed-product
+        // routing.
+        $range = ($this->availabilityService)()->rawSnapshotRange($kitProductId, $storeId, $from, $to);
+
+        $bySlot = [];
+
+        foreach ($range->slots as $slot) {
+            $bySlot[$slot->slot_start] = $slot->available;
+        }
+
+        return $bySlot;
+    }
+
+    /**
+     * Whether any FIXED-binding component of the kit is blocked by a demand that
+     * is NOT its own container demand — i.e. it was booked individually before
+     * (or instead of) being packed, so the kit cannot be fulfilled as a unit
+     * (serialised-containers.md §"Conflict Handling").
+     *
+     * Fixed components are normally held only by their `source_type = 'container'`
+     * demand; any OTHER active demand overlapping the window on the fixed
+     * component's product is a genuine conflict.
+     */
+    private function hasFixedComponentConflict(int $kitProductId, int $storeId, Carbon $from, Carbon $to): bool
+    {
+        $service = ($this->availabilityService)();
+
+        /** @var list<SerialisedComponent> $fixed */
+        $fixed = SerialisedComponent::query()
+            ->where('product_id', $kitProductId)
+            ->where('binding', KitComponentBinding::Fixed->value)
+            ->get()
+            ->all();
+
+        foreach ($fixed as $component) {
+            if (! $service->fixedComponentSatisfied(
+                $component->component_product_id,
+                $storeId,
+                $from,
+                $to,
+                (int) ceil((float) $component->quantity),
+            )) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
