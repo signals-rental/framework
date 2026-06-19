@@ -24,10 +24,11 @@ use InvalidArgumentException;
  * The primary demand source: each opportunity line item generates its own
  * demand(s). The line item's phase follows the parent opportunity's status via
  * the **ceiling principle** — the opportunity status sets the maximum phase its
- * items may occupy ({@see OpportunityStatus::phase()}). Granular per-item
- * operational state tracking (Prepping/Dispatched/Returned/…) lands with the
- * item-mutation events in M3; until then the phase derives purely from the
- * opportunity status.
+ * items may occupy ({@see OpportunityStatus::phase()}). Granular per-asset
+ * operational tracking (Allocated/Prepared/Dispatched/Returned) is wired in M5 via
+ * the per-asset assignment events: an allocated asset's demand window follows its
+ * actual dispatch/return milestones ({@see assetOperationalWindow()}), while the
+ * line-level phase still derives from the parent opportunity status.
  *
  * Demand period = the item's effective dates (its own dates, inheriting the
  * opportunity's when null) with the product's before/after buffers baked in. A
@@ -46,8 +47,10 @@ use InvalidArgumentException;
  * standing container demands, not re-exploded); hybrid kits do both — explode pool
  * components AND claim the housing. See {@see syncKitComponentDemands()}.
  *
- * This resolver is a callable service. It is NOT wired to fire automatically on
- * item events (that wiring is M3); callers invoke {@see syncDemands()} /
+ * This resolver is a callable service. Item-mutation and per-asset assignment
+ * events (M5) re-sync a line's demands through {@see syncDemands()} after a change;
+ * opportunity-level transitions re-sync every line via
+ * {@see resyncForOpportunity()}. Callers may also invoke {@see syncDemands()} /
  * {@see releaseDemands()} directly.
  */
 class OpportunityItemDemandResolver implements DemandResolverContract

@@ -87,6 +87,23 @@ class AssetAllocated extends Event
             'This asset is already allocated to the line item.',
         );
 
+        // Over-allocation count guard: the number of physical assets allocated to a
+        // line may not exceed its requested quantity. Counts the already-projected
+        // active allocations + this one. Within a SINGLE batch commit (quick_allocate
+        // fires N AssetAllocated events before any projects) in-flight siblings are
+        // not yet visible here, so the batch action enforces the running count too —
+        // see QuickAllocateAssets.
+        if ($item !== null) {
+            $existing = OpportunityItemAsset::query()
+                ->where('opportunity_item_id', $this->opportunity_item_id)
+                ->count();
+
+            $this->assert(
+                $existing + 1 <= (int) ceil((float) $item->quantity),
+                'Allocating this asset would exceed the line item\'s quantity.',
+            );
+        }
+
         // Over-allocation guard: the asset must be free for the line's window.
         if ($item !== null && $stockLevel !== null) {
             $this->assertAssetAvailableForItem($item, $this->stock_level_id);

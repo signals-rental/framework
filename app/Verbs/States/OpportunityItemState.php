@@ -77,9 +77,6 @@ class OpportunityItemState extends State
 
     public ?CarbonImmutable $ends_at = null;
 
-    /** Quantity allocated to physical assets, as a decimal string. */
-    public string $allocated_quantity = '0';
-
     /** Quantity physically dispatched, as a decimal string. */
     public string $dispatched_quantity = '0';
 

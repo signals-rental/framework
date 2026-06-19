@@ -28,6 +28,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $unpacked_at
  * @property ContainerItemUnpackReason|null $unpacked_reason
  * @property int|null $transferred_to_container_id
+ * @property int|null $auto_returned_from_opportunity_id
+ * @property int|null $returned_from_opportunity_id
  * @property string|null $position
  * @property string|null $notes
  * @property Carbon|null $created_at
@@ -48,6 +50,8 @@ class ContainerItem extends Model
         'unpacked_at',
         'unpacked_reason',
         'transferred_to_container_id',
+        'auto_returned_from_opportunity_id',
+        'returned_from_opportunity_id',
         'position',
         'notes',
     ];
@@ -61,6 +65,8 @@ class ContainerItem extends Model
             'packed_at' => 'datetime',
             'unpacked_at' => 'datetime',
             'unpacked_reason' => ContainerItemUnpackReason::class,
+            'auto_returned_from_opportunity_id' => 'integer',
+            'returned_from_opportunity_id' => 'integer',
         ];
     }
 

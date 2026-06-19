@@ -180,6 +180,8 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::delete('opportunities/{opportunity}/items/{item}', [OpportunityController::class, 'destroyItem'])->name('api.v1.opportunities.items.destroy');
     // Batch asset allocation (RMS quick_allocate).
     Route::post('opportunities/{opportunity}/quick_allocate', [OpportunityController::class, 'quickAllocate'])->name('api.v1.opportunities.quick_allocate');
+    // Batch asset preparation (RMS quick_prepare).
+    Route::post('opportunities/{opportunity}/quick_prepare', [OpportunityController::class, 'quickPrepare'])->name('api.v1.opportunities.quick_prepare');
     // Batch dispatch/return (RMS quick_book_out / quick_check_in).
     Route::post('opportunities/{opportunity}/quick_book_out', [OpportunityController::class, 'quickBookOut'])->name('api.v1.opportunities.quick_book_out');
     Route::post('opportunities/{opportunity}/quick_check_in', [OpportunityController::class, 'quickCheckIn'])->name('api.v1.opportunities.quick_check_in');

@@ -22,14 +22,15 @@ use Thunk\Verbs\Event;
  * trail (and any downstream listeners) can tell an automatic promotion apart from a
  * manual {@see OpportunityStatusChanged}.
  *
- * SCAFFOLD ONLY (M5-gated): there is intentionally NO firing path yet. The
- * asset-aggregate events that decide "all assets dispatched / returned" are an M5
- * deliverable and do not exist. This class is built ahead of them so M5 can wire the
- * trigger without re-touching the lifecycle core.
- *
- * // M5: fired by asset-aggregate promotion (e.g. AssetDispatched / AssetReturned
- * //     deciding the opportunity's last asset reached the milestone). No trigger
- * //     exists today — do NOT invent asset events here.
+ * FIRING PATH (M5-2, live): fired from
+ * {@see App\Verbs\Events\Opportunities\Concerns\PromotesOpportunityStatus::promoteOpportunityFromItems()},
+ * which runs in an asset/bulk fulfilment event's `fired()` hook. That hook
+ * re-derives the Order's aggregate sub-status from every line item's projected
+ * state (§7.6, the "lowest common denominator") and fires this event only when the
+ * derived status differs from the current one. Because it runs in `fired()` (after
+ * apply(), before commit, original request only — never on replay), the promotion
+ * is persisted as its own event and replays independently; the asset event never
+ * re-fires it during a replay.
  */
 class OpportunityStatusPromoted extends Event
 {

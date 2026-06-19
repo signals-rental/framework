@@ -46,7 +46,9 @@ class AvailabilitySettings extends SettingsDefinition
 
             // Operational tuning.
             'async_threshold_products' => 10,
-            'kit_nesting_max_depth' => 3,
+            // NB: kit nesting depth is an infra recursion-safety bound, not an
+            // admin-tunable runtime value — it lives in config('availability.
+            // kit_nesting_max_depth'), read directly by the KitAvailabilityCalculator.
             'recalculation_lock_timeout_ms' => 5000,
         ];
     }
@@ -69,7 +71,6 @@ class AvailabilitySettings extends SettingsDefinition
             'daily_summary_retention_years' => ['required', 'integer', 'min:1', 'max:50'],
             'event_log_retention_months' => ['required', 'integer', 'min:1', 'max:600'],
             'async_threshold_products' => ['required', 'integer', 'min:1', 'max:10000'],
-            'kit_nesting_max_depth' => ['required', 'integer', 'min:1', 'max:20'],
             'recalculation_lock_timeout_ms' => ['required', 'integer', 'min:0', 'max:60000'],
         ];
     }
@@ -91,7 +92,6 @@ class AvailabilitySettings extends SettingsDefinition
             'daily_summary_retention_years' => 'integer',
             'event_log_retention_months' => 'integer',
             'async_threshold_products' => 'integer',
-            'kit_nesting_max_depth' => 'integer',
             'recalculation_lock_timeout_ms' => 'integer',
         ];
     }

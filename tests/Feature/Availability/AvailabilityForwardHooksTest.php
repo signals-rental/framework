@@ -101,7 +101,7 @@ describe('AvailabilitySettings new keys', function () {
             'shortage_acknowledgement_required', 'shortage_notification_roles',
             'overbooking_approval_required', 'shortage_warnings_at_quote',
             'daily_summary_retention_years', 'event_log_retention_months',
-            'async_threshold_products', 'kit_nesting_max_depth',
+            'async_threshold_products',
             'recalculation_lock_timeout_ms',
         ];
 

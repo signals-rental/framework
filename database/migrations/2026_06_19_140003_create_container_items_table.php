@@ -55,6 +55,19 @@ return new class extends Migration
                 ->constrained('containers')
                 ->nullOnDelete();
 
+            // Forward-compat base-schema columns (serialised-containers.md §Data
+            // Model). Written by Phase-4 auto-return operations (a dissolve-on-
+            // dispatch returns a packed item to the opportunity it belongs to);
+            // present in the base schema so Phase 4 needs no further migration.
+            $table->foreignId('auto_returned_from_opportunity_id')
+                ->nullable()
+                ->constrained('opportunities')
+                ->nullOnDelete();
+            $table->foreignId('returned_from_opportunity_id')
+                ->nullable()
+                ->constrained('opportunities')
+                ->nullOnDelete();
+
             $table->string('position')->nullable();
             $table->text('notes')->nullable();
             $table->timestampsTz();

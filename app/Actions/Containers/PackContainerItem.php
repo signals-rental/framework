@@ -6,9 +6,12 @@ use App\Data\Containers\ContainerItemData;
 use App\Data\Containers\PackContainerItemData;
 use App\Models\Container;
 use App\Models\ContainerItem;
+use App\Models\Demand;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Services\Availability\ContainerDemandResolver;
+use App\Services\AvailabilityService;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -31,8 +34,16 @@ use Illuminate\Validation\ValidationException;
  *  - the item must be a SERIALISED stock level at the container's store;
  *  - the item must not already be in an ACTIVE container (one membership per item)
  *    — this also backstops the Postgres partial unique index for the SQLite lane;
+ *  - the item must be free over the indefinite container window: packing an asset
+ *    already committed to an opportunity would write an indefinite container demand
+ *    overlapping the booking demand and trip the Postgres GiST exclusion constraint
+ *    as a raw 500 — so it is rejected up-front as a field-scoped 422 instead;
  *  - nesting a container item respects the outermost container's
  *    `container_max_nesting_depth`.
+ *
+ * The guard runs INSIDE the same transaction as the write so the free-asset and
+ * membership checks cannot be raced by a concurrent pack, and a partial-unique
+ * violation that slips through is translated into a 422 rather than a raw 500.
  *
  * The container's full conflict-resolution surface (transfer, auto-return,
  * checked-out override, sealed-container handling) is Phase 4.
@@ -45,9 +56,11 @@ class PackContainerItem
 
         $stockLevel = StockLevel::query()->findOrFail($data->serialised_item_id);
 
-        $this->guard($container, $stockLevel);
-
         $item = DB::transaction(function () use ($container, $stockLevel, $data): ContainerItem {
+            // Guard inside the transaction so the free-asset and membership checks
+            // cannot be raced by a concurrent pack between check and insert.
+            $this->guard($container, $stockLevel);
+
             $item = new ContainerItem([
                 'container_id' => $container->id,
                 'serialised_item_id' => $stockLevel->id,
@@ -57,7 +70,17 @@ class PackContainerItem
                 'position' => $data->position,
                 'notes' => $data->notes,
             ]);
-            $item->save();
+
+            try {
+                $item->save();
+            } catch (QueryException) {
+                // A concurrent pack won the race on the Postgres partial-unique
+                // index (uq_container_items_active_membership). Surface it as a
+                // friendly 422 rather than a raw 500.
+                throw ValidationException::withMessages([
+                    'serialised_item_id' => __('The item is already packed in an active container.'),
+                ]);
+            }
 
             // Mirror the CRMS-compat containment layer on the stock level so both
             // the operational overlay and the legacy column agree.
@@ -120,7 +143,41 @@ class PackContainerItem
             ]);
         }
 
+        $this->guardAssetFree($stockLevel);
+
         $this->guardNestingDepth($container, $stockLevel);
+    }
+
+    /**
+     * Reject packing an asset that is already committed to an opportunity.
+     *
+     * A kit / hybrid-fixed pack writes an INDEFINITE container demand
+     * (`asset_id = stock_level_id`, `[packed_at, ∞)`, active). If the asset already
+     * holds an active opportunity booking demand that overlaps that window, the two
+     * demands collide — on PostgreSQL the GiST exclusion constraint
+     * `excl_demands_asset_period` raises a raw 23P01 (an unhandled 500). This is the
+     * reverse of the pack-then-allocate direction already guarded by
+     * {@see App\Verbs\Events\Opportunities\AssetAllocated::validate()}; guard it here
+     * up-front as a friendly 422.
+     *
+     * The check spans `[now, sentinel)` — the indefinite container window — so any
+     * active asset-specific demand from now onward blocks the pack.
+     *
+     * @throws ValidationException
+     */
+    protected function guardAssetFree(StockLevel $stockLevel): void
+    {
+        $free = app(AvailabilityService::class)->checkAssetAvailable(
+            $stockLevel->id,
+            Carbon::now('UTC'),
+            Demand::sentinel(),
+        );
+
+        if (! $free) {
+            throw ValidationException::withMessages([
+                'serialised_item_id' => __('This item is currently committed to an opportunity and cannot be packed into a container.'),
+            ]);
+        }
     }
 
     /**

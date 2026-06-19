@@ -130,18 +130,67 @@ it('releases the container demand on unpack, returning the item to availability'
         'reason' => ContainerItemUnpackReason::Manual->value,
     ]));
 
+    // Container demands are PURGED on release (not voided): the audit trail lives
+    // on container_items.unpacked_at/reason, and a new pack mints a new source_id,
+    // so a left-behind voided row would never be reclaimed.
     $demand = Demand::query()
         ->where('source_type', 'container')
         ->where('source_id', $membership->id)
         ->first();
 
-    expect($demand)->not->toBeNull()
-        ->and($demand->phase)->toBe(DemandPhase::Void)
-        ->and($demand->is_active)->toBeFalse();
+    expect($demand)->toBeNull();
 
     $service = app(AvailabilityService::class);
     $after = $service->getAvailability($product->id, $this->store->id, Carbon::parse('2026-09-01T09:00:00Z'));
     expect($after->available)->toBe(1);
+});
+
+it('does not accumulate dead demand rows across pack → unpack → re-pack cycles', function () {
+    $product = Product::factory()->serialised()->create();
+    $container = Container::factory()->kit()->create(['store_id' => $this->store->id]);
+    $item = packableItem($this->store, $product);
+
+    foreach (range(1, 3) as $cycle) {
+        packItem($container, $item);
+
+        (new UnpackContainerItem)($container, UnpackContainerItemData::from([
+            'serialised_item_id' => $item->id,
+            'reason' => ContainerItemUnpackReason::Manual->value,
+        ]));
+    }
+
+    // Re-pack one final time and leave it packed.
+    packItem($container, $item);
+
+    // Exactly one live container demand exists for this asset — every prior cycle's
+    // demand was purged on unpack, so the table does not grow unbounded.
+    expect(Demand::query()->where('source_type', 'container')->where('asset_id', $item->id)->count())
+        ->toBe(1);
+});
+
+it('rejects packing an item currently committed to an opportunity', function () {
+    $product = Product::factory()->serialised()->create();
+    $container = Container::factory()->kit()->create(['store_id' => $this->store->id]);
+    $item = packableItem($this->store, $product);
+
+    // Simulate the asset being committed to an opportunity: an active, asset-keyed
+    // demand overlapping the indefinite container window.
+    Demand::factory()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'asset_id' => $item->id,
+        'quantity' => 1,
+        'starts_at' => Carbon::now('UTC')->subDay(),
+        'ends_at' => Carbon::now('UTC')->addMonths(2),
+        'buffered_starts_at' => Carbon::now('UTC')->subDay(),
+        'buffered_ends_at' => Carbon::now('UTC')->addMonths(2),
+        'source_type' => 'opportunity_item',
+        'source_id' => 999999,
+        'phase' => DemandPhase::Committed->value,
+        'is_active' => true,
+    ]);
+
+    expect(fn () => packItem($container, $item))->toThrow(ValidationException::class);
 });
 
 it('creates NO container demand for a transport container', function () {

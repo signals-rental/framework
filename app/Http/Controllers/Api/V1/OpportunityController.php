@@ -26,6 +26,7 @@ use App\Actions\Opportunities\PrepareAsset;
 use App\Actions\Opportunities\QuickAllocateAssets;
 use App\Actions\Opportunities\QuickBookOut;
 use App\Actions\Opportunities\QuickCheckIn;
+use App\Actions\Opportunities\QuickPrepareAssets;
 use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\ReturnAsset;
@@ -56,6 +57,7 @@ use App\Data\Opportunities\OverrideItemPriceData;
 use App\Data\Opportunities\QuickAllocateAssetsData;
 use App\Data\Opportunities\QuickBookOutData;
 use App\Data\Opportunities\QuickCheckInData;
+use App\Data\Opportunities\QuickPrepareAssetsData;
 use App\Data\Opportunities\ReturnAssetData;
 use App\Data\Opportunities\RevertAssetStatusData;
 use App\Data\Opportunities\SetAssetContainerData;
@@ -632,6 +634,27 @@ class OpportunityController extends Controller
         $data = QuickAllocateAssetsData::from($request->validate(QuickAllocateAssetsData::rules()));
 
         (new QuickAllocateAssets)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Batch-prepare several allocated assets in one atomic commit (the RMS
+     * `quick_prepare` action).
+     *
+     * Every preparation fires inside a single Verbs commit, so a failure on any one
+     * (an asset not in the Allocated status) rolls back the whole batch. All assets
+     * must belong to the bound opportunity. Returns the opportunity with its items +
+     * assets.
+     */
+    #[ApiResponse(200, 'Assets prepared')]
+    public function quickPrepare(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = QuickPrepareAssetsData::from($request->validate(QuickPrepareAssetsData::rules()));
+
+        (new QuickPrepareAssets)($opportunity, $data);
 
         return $this->respondWithFreshOpportunity($opportunity->id);
     }

@@ -152,6 +152,68 @@ describe('hybrid (fixed + pool)', function () {
             ->and($range->slots[0]->available)->toBe(3);
     });
 
+    it('clamps a slot to 0 when a pool component has no coverage there', function () {
+        // Hybrid kit with a pool component. The housing covers TWO slots but the pool
+        // component only has a snapshot for the FIRST — the second slot is a pool
+        // coverage gap and the kit is unfulfillable there (clamp 0), matching the
+        // catalogue convention rather than defaulting to the housing value.
+        $kit = Product::factory()->containerable(ContainerAvailabilityMode::Hybrid)->create();
+        $pool = Product::factory()->bulk()->create();
+
+        SerialisedComponent::factory()->pool()->quantity(1)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $pool->id,
+        ]);
+
+        $slot1 = Carbon::parse('2026-09-01T00:00:00Z');
+        $slot2 = Carbon::parse('2026-09-02T00:00:00Z');
+
+        // Housing free for BOTH slots.
+        housingSnapshot($kit->id, $this->store->id, $slot1, 4);
+        housingSnapshot($kit->id, $this->store->id, $slot2, 4);
+
+        // Pool only covers slot 1 (4 available → 4 kits). Slot 2 has NO pool snapshot.
+        AvailabilitySnapshot::factory()->create([
+            'product_id' => $pool->id,
+            'store_id' => $this->store->id,
+            'slot_start' => $slot1,
+            'total_stock' => 4,
+            'total_demanded' => 0,
+            'available' => 4,
+        ]);
+
+        $range = $this->calculator->calculate($kit->id, $this->store->id, $slot1, $slot2->copy()->addDay());
+
+        // Two housing slots, ordered. Slot 1 is covered by the pool → MIN(4 housing,
+        // 4 pool) = 4. Slot 2 is a pool coverage gap → clamped to 0 (not the housing
+        // value of 4).
+        $available = array_map(fn ($slot) => $slot->available, $range->slots);
+
+        expect($range->slots)->toHaveCount(2)
+            ->and($available[0])->toBe(4)
+            ->and($available[1])->toBe(0);
+    });
+
+    it('keeps housing-only hybrid behaviour when there are no pool components', function () {
+        // A hybrid kit with ONLY fixed components (no pool) must NOT be clamped to 0
+        // on the missing-pool path — the housing value stands.
+        $kit = Product::factory()->containerable(ContainerAvailabilityMode::Hybrid)->create();
+        $fixed = Product::factory()->serialised()->create();
+
+        SerialisedComponent::factory()->fixed()->quantity(1)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $fixed->id,
+        ]);
+
+        $slot = Carbon::parse('2026-09-01T00:00:00Z');
+        housingSnapshot($kit->id, $this->store->id, $slot, 3);
+        componentDemand($fixed->id, $this->store->id, '2026-09-01T00:00:00Z', '2199-01-01T00:00:00Z', 'container');
+
+        $range = $this->calculator->calculate($kit->id, $this->store->id, $slot, $slot->copy()->addDay());
+
+        expect($range->slots[0]->available)->toBe(3);
+    });
+
     it('clamps to 0 when the pool side is exhausted', function () {
         $kit = Product::factory()->containerable(ContainerAvailabilityMode::Hybrid)->create();
         $pool = Product::factory()->bulk()->create();

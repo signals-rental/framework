@@ -20,6 +20,8 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 | PATCH | `/api/v1/opportunities/{id}/items/{item}` | Update a line item |
 | DELETE | `/api/v1/opportunities/{id}/items/{item}` | Remove a line item |
 | PATCH | `/api/v1/opportunities/{id}/items/{item}/fulfilment` | Dispatch/return/adjust a bulk line |
+| POST | `/api/v1/opportunities/{id}/quick_allocate` | Batch-allocate serialised assets |
+| POST | `/api/v1/opportunities/{id}/quick_prepare` | Batch-prepare allocated assets |
 | POST | `/api/v1/opportunities/{id}/quick_book_out` | Batch-dispatch serialised assets |
 | POST | `/api/v1/opportunities/{id}/quick_check_in` | Batch-return serialised assets |
 | POST | `/api/v1/opportunities/{id}/costs` | Add an ad-hoc cost |
@@ -313,9 +315,21 @@ POST /api/v1/opportunities/{id}/quick_allocate
 
 Body: `allocations` — a non-empty array of `{opportunity_item_id, stock_level_id}`
 pairs. Every allocation fires inside a single atomic commit, so a failure on any one
-(asset unavailable, wrong product) rolls back the whole batch. All line items must
-belong to the opportunity. Returns the opportunity with its items + assets
-(`200 OK`).
+(asset unavailable, wrong product, or allocating beyond the line's quantity) rolls
+back the whole batch. All line items must belong to the opportunity. Returns the
+opportunity with its items + assets (`200 OK`).
+
+### Quick Prepare (batch)
+
+```
+POST /api/v1/opportunities/{id}/quick_prepare
+```
+
+Body: `asset_ids` — a non-empty array of asset-assignment ids, plus optional
+`prepared_at`. Every asset is prepared (Allocated → Prepared) inside a single atomic
+commit, so a failure on any one (an asset not in the Allocated status) rolls back the
+whole batch. All assets must belong to the opportunity. Returns the opportunity with
+its items + assets (`200 OK`).
 
 ## Dispatch & Return
 

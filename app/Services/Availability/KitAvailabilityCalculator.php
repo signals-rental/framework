@@ -141,6 +141,12 @@ class KitAvailabilityCalculator
         // Pool side: the M5-3a composition (only POOL components participate).
         $poolSlots = $this->computeSlots($kitProductId, $storeId, $from, $to, 1, [$kitProductId]);
 
+        // Whether this hybrid kit has ANY pool components. With no pool side the kit
+        // is housing-only and the housing value stands; with a pool side present, a
+        // slot the pool does not report is a coverage gap → unfulfillable (clamp 0),
+        // matching the catalogue {@see computeSlots()} convention.
+        $hasPoolComponents = $this->hasPoolComponents($kitProductId);
+
         /** @var array<string, int> $poolBySlot */
         $poolBySlot = [];
 
@@ -155,10 +161,18 @@ class KitAvailabilityCalculator
         foreach ($housing as $slotKey => $housingAvailable) {
             $fixedComponent = $fixedConflicted ? 0 : max(0, $housingAvailable);
 
-            // No pool constraint reported for this slot → pool does not limit it.
-            $poolComponent = array_key_exists($slotKey, $poolBySlot)
-                ? max(0, $poolBySlot[$slotKey])
-                : $fixedComponent;
+            // Pool-side constraint for the slot:
+            //  - no pool components at all → housing-only, pool does not limit;
+            //  - pool components present and this slot reported → use the pool MIN;
+            //  - pool components present but this slot missing → coverage gap,
+            //    the kit is unfulfillable here → clamp to 0.
+            if (! $hasPoolComponents) {
+                $poolComponent = $fixedComponent;
+            } elseif (array_key_exists($slotKey, $poolBySlot)) {
+                $poolComponent = max(0, $poolBySlot[$slotKey]);
+            } else {
+                $poolComponent = 0;
+            }
 
             $slots[] = new AvailabilitySlotData(
                 slot_start: $slotKey,
@@ -194,6 +208,19 @@ class KitAvailabilityCalculator
         }
 
         return $bySlot;
+    }
+
+    /**
+     * Whether the kit declares any POOL-binding components — distinguishing a
+     * housing-only hybrid kit (pool does not constrain) from one whose pool side
+     * has a coverage gap for a slot (unfulfillable → clamp to 0).
+     */
+    private function hasPoolComponents(int $kitProductId): bool
+    {
+        return SerialisedComponent::query()
+            ->where('product_id', $kitProductId)
+            ->where('binding', KitComponentBinding::Pool->value)
+            ->exists();
     }
 
     /**
@@ -248,10 +275,13 @@ class KitAvailabilityCalculator
     {
         $this->guardDepth($depth);
 
+        // Eager-load the component products once (hot read path) so the per-slot
+        // composition never issues an N+1 `Product::find()` per pool component.
         /** @var list<SerialisedComponent> $components */
         $components = SerialisedComponent::query()
             ->where('product_id', $kitProductId)
             ->where('binding', KitComponentBinding::Pool->value)
+            ->with('componentProduct')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
@@ -277,6 +307,7 @@ class KitAvailabilityCalculator
 
             $componentAvailability = $this->componentAvailabilityBySlot(
                 $component->component_product_id,
+                $component->componentProduct,
                 $storeId,
                 $from,
                 $to,
@@ -327,15 +358,16 @@ class KitAvailabilityCalculator
      * When the component is itself a kit, recurse (depth + 1). Otherwise read the
      * component's pre-calculated snapshot range — already reflecting ALL demands.
      *
+     * The component {@see Product} is passed in pre-loaded (eager-loaded by
+     * {@see computeSlots()}) so the hot read path never re-queries it per component.
+     *
      * @param  list<int>  $ancestry
      * @return array<string, int>
      *
      * @throws RuntimeException on a cycle (component already on the recursion path)
      */
-    private function componentAvailabilityBySlot(int $componentProductId, int $storeId, Carbon $from, Carbon $to, int $depth, array $ancestry): array
+    private function componentAvailabilityBySlot(int $componentProductId, ?Product $component, int $storeId, Carbon $from, Carbon $to, int $depth, array $ancestry): array
     {
-        $component = Product::query()->find($componentProductId);
-
         if ($component !== null && $component->isKit()) {
             if (in_array($componentProductId, $ancestry, true)) {
                 throw new RuntimeException(

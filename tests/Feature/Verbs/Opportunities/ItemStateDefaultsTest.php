@@ -28,7 +28,6 @@ it('instantiates an OpportunityItemState with expected defaults', function () {
         ->and($state->transaction_type)->toBe(LineItemTransactionType::Rental->value)
         ->and($state->starts_at)->toBeNull()
         ->and($state->ends_at)->toBeNull()
-        ->and($state->allocated_quantity)->toBe('0')
         ->and($state->dispatched_quantity)->toBe('0')
         ->and($state->returned_quantity)->toBe('0')
         ->and($state->last_event_at)->toBeNull();

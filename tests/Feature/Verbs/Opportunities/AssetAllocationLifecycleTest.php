@@ -10,6 +10,7 @@ use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\DeallocateAsset;
 use App\Actions\Opportunities\PrepareAsset;
 use App\Actions\Opportunities\QuickAllocateAssets;
+use App\Actions\Opportunities\QuickPrepareAssets;
 use App\Actions\Opportunities\RevertAssetPreparation;
 use App\Actions\Opportunities\SetAssetContainer;
 use App\Actions\Opportunities\SubstituteAsset;
@@ -17,6 +18,7 @@ use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AllocateAssetData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\QuickAllocateAssetsData;
+use App\Data\Opportunities\QuickPrepareAssetsData;
 use App\Data\Opportunities\SetAssetContainerData;
 use App\Data\Opportunities\SubstituteAssetData;
 use App\Enums\AssetAssignmentStatus;
@@ -32,6 +34,7 @@ use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Validation\ValidationException;
 use Thunk\Verbs\Exceptions\EventNotValid;
 use Thunk\Verbs\Facades\Verbs;
 
@@ -331,4 +334,87 @@ it('rebuilds assets, allocation, and demands identically on replay', function ()
     // Demands are NOT rebuilt by replay (unlessReplaying); they remain as last synced.
     expect(Demand::query()->where('source_id', $item->id)->whereNotNull('asset_id')->orderBy('asset_id')->pluck('asset_id')->all())
         ->toBe($demandAssetsBefore);
+});
+
+it('rejects allocating more assets than the line quantity', function () {
+    // A qty-2 line accepts two assets but rejects a third.
+    $item = makeOrderLine($this->store, $this->product, '2');
+    $a = makeSerialisedAsset($this->store, $this->product);
+    $b = makeSerialisedAsset($this->store, $this->product);
+    $c = makeSerialisedAsset($this->store, $this->product);
+
+    (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $a->id]));
+    (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $b->id]));
+
+    expect(fn () => (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $c->id])))
+        ->toThrow(EventNotValid::class);
+
+    expect(OpportunityItemAsset::query()->where('opportunity_item_id', $item->id)->count())->toBe(2);
+});
+
+it('rejects a quick_allocate batch that over-allocates a line atomically', function () {
+    // A qty-2 line — a batch of three allocations exceeds the quantity and the whole
+    // batch must roll back (no partial allocation left behind).
+    $item = makeOrderLine($this->store, $this->product, '2');
+    $a = makeSerialisedAsset($this->store, $this->product);
+    $b = makeSerialisedAsset($this->store, $this->product);
+    $c = makeSerialisedAsset($this->store, $this->product);
+
+    $opportunity = $item->opportunity()->firstOrFail();
+
+    expect(fn () => (new QuickAllocateAssets)($opportunity, QuickAllocateAssetsData::from([
+        'allocations' => [
+            ['opportunity_item_id' => $item->id, 'stock_level_id' => $a->id],
+            ['opportunity_item_id' => $item->id, 'stock_level_id' => $b->id],
+            ['opportunity_item_id' => $item->id, 'stock_level_id' => $c->id],
+        ],
+    ])))->toThrow(ValidationException::class);
+
+    // Atomic: nothing allocated.
+    expect(OpportunityItemAsset::query()->where('opportunity_item_id', $item->id)->count())->toBe(0);
+});
+
+it('quick-prepares several allocated assets in one atomic commit', function () {
+    $item = makeOrderLine($this->store, $this->product, '2');
+    $a = makeSerialisedAsset($this->store, $this->product);
+    $b = makeSerialisedAsset($this->store, $this->product);
+
+    $assetA = (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $a->id]));
+    $assetB = (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $b->id]));
+
+    $opportunity = $item->opportunity()->firstOrFail();
+
+    (new QuickPrepareAssets)($opportunity, QuickPrepareAssetsData::from([
+        'asset_ids' => [$assetA->id, $assetB->id],
+    ]));
+
+    $statuses = OpportunityItemAsset::query()
+        ->where('opportunity_item_id', $item->id)
+        ->pluck('status')
+        ->all();
+
+    expect($statuses)->each->toBe(AssetAssignmentStatus::Prepared);
+});
+
+it('rolls back the whole quick_prepare batch when one asset is not allocated', function () {
+    $item = makeOrderLine($this->store, $this->product, '2');
+    $a = makeSerialisedAsset($this->store, $this->product);
+    $b = makeSerialisedAsset($this->store, $this->product);
+
+    $assetA = (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $a->id]));
+    $assetB = (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $b->id]));
+
+    // Prepare asset B up-front so it can no longer be prepared — the batch must fail
+    // and roll back asset A's preparation too.
+    (new PrepareAsset)(OpportunityItemAsset::query()->whereKey($assetB->id)->firstOrFail());
+
+    $opportunity = $item->opportunity()->firstOrFail();
+
+    expect(fn () => (new QuickPrepareAssets)($opportunity, QuickPrepareAssetsData::from([
+        'asset_ids' => [$assetA->id, $assetB->id],
+    ])))->toThrow(EventNotValid::class);
+
+    // Asset A stayed Allocated — the batch rolled back.
+    expect(OpportunityItemAsset::query()->whereKey($assetA->id)->firstOrFail()->status)
+        ->toBe(AssetAssignmentStatus::Allocated);
 });

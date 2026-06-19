@@ -135,21 +135,23 @@ class ContainerDemandResolver implements DemandResolverContract
     }
 
     /**
-     * Void all container demands for a membership row (on unpack/transfer/dissolve).
-     * Voided rather than deleted so the audit trail is retained; voided demands are
-     * inactive and excluded from availability.
+     * Purge (delete) all container demands for a membership row on
+     * unpack/transfer/dissolve.
+     *
+     * Unlike opportunity-item demands — which are VOIDED to retain an in-row audit
+     * trail — a container membership's audit lives on the membership itself
+     * (`container_items.unpacked_at` / `unpacked_reason`), not on the demand. Each
+     * re-pack mints a NEW `source_id` (a new membership row), so a voided demand
+     * from a prior pack is never reclaimed and would accumulate unbounded across
+     * pack → unpack → re-pack cycles. Deleting on release keeps the `demands` table
+     * bounded and leaves no dead rows for the Postgres exclusion constraint to
+     * consider.
      */
     public function releaseDemands(Model $source): void
     {
         $item = $this->asContainerItem($source);
 
-        Demand::query()
-            ->where('source_type', $this->sourceType())
-            ->where('source_id', $item->id)
-            ->update([
-                'phase' => DemandPhase::Void->value,
-                'is_active' => false,
-            ]);
+        $this->purge($item);
     }
 
     /**
