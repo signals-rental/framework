@@ -638,7 +638,17 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             in_array($status, [AssetAssignmentStatus::CheckedIn, AssetAssignmentStatus::Finalised], true)
             && $asset->returned_at !== null
         ) {
-            return [$plannedStart, Carbon::parse($asset->returned_at), DemandPhase::Closed];
+            $returnedAt = Carbon::parse($asset->returned_at);
+
+            // An asset returned before its planned start (e.g. an early return on a
+            // future-dated booking) would otherwise produce a backwards window. The
+            // PostgreSQL `tstzrange` constructor rejects `lower > upper` (SQLSTATE
+            // 22000), so collapse to a degenerate window pinned at the return time.
+            // The phase is Closed (inactive) regardless, so it contributes nothing to
+            // availability either way.
+            $closedStart = $returnedAt->lessThan($plannedStart) ? $returnedAt : $plannedStart;
+
+            return [$closedStart, $returnedAt, DemandPhase::Closed];
         }
 
         // An asset dispatched before its planned start pulls the start back to the

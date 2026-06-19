@@ -74,9 +74,19 @@ class MatchWaitlistMonitors implements ShouldQueue
                     'quantity_needed' => $monitor->quantity_needed,
                 ]);
 
-                // M6: notify — alert the waitlisting user that stock is now free.
-                // The match event is emitted above; the user-facing notification is
-                // wired in M6 (notification engine), not here.
+                // Recorded stub (assessed in M6, deferred): a user-facing
+                // "stock is now free" notification on match needs consumer infra
+                // that is not yet built — the monitor carries no recipient
+                // (no user/member column on shortage_waitlist_monitors, and the
+                // backing ShortageResolution holds no notifiable owner), so there
+                // is no notifiable to resolve, and no `shortage.waitlist.matched`
+                // NotificationType / Notification class exists to apply per-user
+                // channel preferences against. The `shortage.waitlist.matched`
+                // audit/event is emitted above (the durable signal); the user
+                // alert lands when the monitor gains a recipient and the
+                // notification engine grows a waitlist consumer. The pull-based
+                // surfacing — `matched_at` flips and the resolution shows Matched —
+                // is fully wired today.
             });
     }
 }
