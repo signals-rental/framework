@@ -6,6 +6,7 @@ use App\Contracts\DemandResolverContract;
 use App\Enums\DemandPhase;
 use App\Enums\StockMethod;
 use App\Models\Demand;
+use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
@@ -41,6 +42,33 @@ class OpportunityItemDemandResolver implements DemandResolverContract
     public function sourceType(): string
     {
         return 'opportunity_item';
+    }
+
+    /**
+     * The resolved availability context for a line item: the product it claims
+     * against, the store (its `dispatch_store_id` override or the opportunity's
+     * store), the effective demand window (date-source-aware, pre-buffer), and the
+     * requested whole-unit quantity.
+     *
+     * Shared by the demand-writing path ({@see syncDemands()}) and the read path
+     * ({@see App\Services\AvailabilityService::getOpportunityContext()}) so both
+     * agree on which product/store/window/quantity a line resolves to. `productId`
+     * / `storeId` are null when the line references no product or has no store.
+     *
+     * @return array{product_id: int|null, store_id: int|null, from: Carbon, to: Carbon, quantity: int}
+     */
+    public function resolveContext(OpportunityItem $item): array
+    {
+        $product = $this->resolveProduct($item);
+        [$from, $to] = $this->resolveDates($item);
+
+        return [
+            'product_id' => $product?->id,
+            'store_id' => $this->resolveStoreId($item),
+            'from' => $from,
+            'to' => $to,
+            'quantity' => max(1, (int) round((float) $item->quantity)),
+        ];
     }
 
     /**
@@ -80,7 +108,7 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         $item = $this->asItem($source);
 
         $product = $this->resolveProduct($item);
-        $storeId = $item->opportunity->store_id;
+        $storeId = $this->resolveStoreId($item);
 
         // Without a product or store there is nothing to claim against — clear
         // any stale demands and stop.
@@ -123,6 +151,44 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         }
 
         $this->persist($product->id, $storeId, null, max(1, (int) round((float) $item->quantity)), $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
+    }
+
+    /**
+     * Re-sync every line item's demands after the parent opportunity's
+     * state/status has transitioned.
+     *
+     * Item demands derive their phase from the parent opportunity status via the
+     * ceiling principle, but they are written only by item events. When the
+     * opportunity itself transitions (Quote → Order, → Lost/Dead/Cancelled/
+     * Complete, or a status change within a state) the existing demand rows fall
+     * out of step: an order's demands stay inactive, a dead deal's demands keep
+     * blocking stock. This rebuilds them at the current ceiling phase.
+     *
+     *  - Closed (terminal) opportunity → void every item's demands.
+     *  - Otherwise → rebuild every item's demands at the phase derived from the
+     *    current status.
+     *
+     * Reuses {@see syncDemands()} / {@see releaseDemands()} so the phase logic is
+     * not duplicated. The opportunity is re-fetched fresh on each item so the
+     * resolved phase reflects the post-transition status, not a stale relation.
+     */
+    public function resyncForOpportunity(Opportunity $opportunity): void
+    {
+        $isClosed = $opportunity->statusEnum()->isClosed();
+
+        $opportunity->items()->each(function (OpportunityItem $item) use ($opportunity, $isClosed): void {
+            // Bind the freshly-loaded parent so resolvePhase()/buildMetadata()
+            // read the post-transition status rather than a stale cached relation.
+            $item->setRelation('opportunity', $opportunity);
+
+            if ($isClosed) {
+                $this->releaseDemands($item);
+
+                return;
+            }
+
+            $this->syncDemands($item);
+        });
     }
 
     /**
@@ -265,6 +331,20 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         $source = (string) settings('availability.demand_date_source', 'operational');
 
         return $source === 'charge' ? 'charge' : 'operational';
+    }
+
+    /**
+     * The store a line item's demand claims against.
+     *
+     * A line may override the opportunity's primary store with its own
+     * `dispatch_store_id` (multi-warehouse dispatch per line,
+     * availability-engine.md §"Multi-warehouse dispatch per line"); when unset it
+     * inherits the opportunity's `store_id`. Returns null only when neither is
+     * set, in which case the caller releases any stale demands and stops.
+     */
+    protected function resolveStoreId(OpportunityItem $item): ?int
+    {
+        return $item->dispatch_store_id ?? $item->opportunity->store_id;
     }
 
     /**

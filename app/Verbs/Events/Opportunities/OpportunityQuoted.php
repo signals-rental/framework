@@ -5,6 +5,7 @@ namespace App\Verbs\Events\Opportunities;
 use App\Enums\OpportunityState as StateAxis;
 use App\Models\Opportunity;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
+use App\Verbs\Events\Opportunities\Concerns\ResyncsOpportunityDemands;
 use App\Verbs\States\OpportunityState;
 use Carbon\CarbonImmutable;
 use Thunk\Verbs\Attributes\Autodiscovery\StateId;
@@ -19,6 +20,7 @@ use Thunk\Verbs\Event;
 class OpportunityQuoted extends Event
 {
     use RecordsOpportunityAudit;
+    use ResyncsOpportunityDemands;
 
     public function __construct(
         #[StateId(OpportunityState::class)]
@@ -65,5 +67,7 @@ class OpportunityQuoted extends Event
             newValues: ['state' => $state->state, 'status' => $state->status],
             oldValues: $oldValues,
         );
+
+        $this->resyncOpportunityDemands($opportunity);
     }
 }
