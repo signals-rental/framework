@@ -4,33 +4,45 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Opportunities\AddOpportunityCost;
 use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\AllocateAsset;
 use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ChangeOpportunityStatus;
+use App\Actions\Opportunities\ClearAssetContainer;
 use App\Actions\Opportunities\ClearDealPrice;
 use App\Actions\Opportunities\CloneOpportunity;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
+use App\Actions\Opportunities\DeallocateAsset;
 use App\Actions\Opportunities\DeleteOpportunity;
 use App\Actions\Opportunities\OverrideItemPrice;
+use App\Actions\Opportunities\PrepareAsset;
+use App\Actions\Opportunities\QuickAllocateAssets;
 use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
+use App\Actions\Opportunities\RevertAssetPreparation;
+use App\Actions\Opportunities\SetAssetContainer;
 use App\Actions\Opportunities\SetDealPrice;
 use App\Actions\Opportunities\SetItemDiscount;
+use App\Actions\Opportunities\SubstituteAsset;
 use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
 use App\Actions\Opportunities\UpdateOpportunity;
 use App\Actions\Opportunities\UpdateOpportunityCost;
 use App\Data\Opportunities\AddOpportunityCostData;
 use App\Data\Opportunities\AddOpportunityItemData;
+use App\Data\Opportunities\AllocateAssetData;
 use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\OverrideItemPriceData;
+use App\Data\Opportunities\QuickAllocateAssetsData;
+use App\Data\Opportunities\SetAssetContainerData;
 use App\Data\Opportunities\SetDealPriceData;
 use App\Data\Opportunities\SetItemDiscountData;
+use App\Data\Opportunities\SubstituteAssetData;
 use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
 use App\Data\Opportunities\UpdateOpportunityCostData;
@@ -43,6 +55,7 @@ use App\Models\CustomView;
 use App\Models\Opportunity;
 use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
+use App\Models\OpportunityItemAsset;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -429,6 +442,104 @@ class OpportunityController extends Controller
     }
 
     /**
+     * Allocate a serialised asset (stock level) to a line item.
+     *
+     * Fires the AssetAllocated genesis event: the asset is pinned to the line, the
+     * stock level's allocated quantity is incremented, and the line's availability
+     * demand transitions to an asset-specific demand (the bulk demand shrinks by
+     * one). The asset must belong to the line's product, be serialised, and be free
+     * for the line's window — otherwise a 422.
+     */
+    #[ApiResponse(201, 'Asset allocated')]
+    public function storeAsset(Request $request, Opportunity $opportunity, OpportunityItem $item): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertItemBelongsToOpportunity($item, $opportunity);
+
+        $data = AllocateAssetData::from($request->validate(AllocateAssetData::rules()));
+
+        $asset = (new AllocateAsset)($item, $data);
+
+        return $this->respondWith($asset->toArray(), 'asset', Response::HTTP_CREATED);
+    }
+
+    /**
+     * Mutate an existing asset assignment.
+     *
+     * The `action` discriminator selects the operation: `prepare`, `revert`,
+     * `set_container` (needs `container_stock_level_id`), `clear_container`, or
+     * `substitute` (needs `new_stock_level_id`, optional `reason`). An invalid
+     * status transition (e.g. preparing an already-prepared asset) yields a 422.
+     */
+    #[ApiResponse(200, 'Asset updated')]
+    public function updateAsset(Request $request, Opportunity $opportunity, OpportunityItem $item, OpportunityItemAsset $asset): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertItemBelongsToOpportunity($item, $opportunity);
+        $this->assertAssetBelongsToItem($asset, $item);
+
+        $action = (string) $request->validate([
+            'action' => ['required', 'string', 'in:prepare,revert,set_container,clear_container,substitute'],
+        ])['action'];
+
+        $result = match ($action) {
+            'prepare' => (new PrepareAsset)($asset),
+            'revert' => (new RevertAssetPreparation)($asset),
+            'set_container' => (new SetAssetContainer)($asset, SetAssetContainerData::from($request->validate(SetAssetContainerData::rules()))),
+            'clear_container' => (new ClearAssetContainer)($asset),
+            'substitute' => (new SubstituteAsset)($asset, SubstituteAssetData::from($request->validate(SubstituteAssetData::rules()))),
+            default => throw ValidationException::withMessages(['action' => ['The selected action is invalid.']]),
+        };
+
+        return $this->respondWith($result->toArray(), 'asset');
+    }
+
+    /**
+     * Deallocate (release) an asset from its line item.
+     *
+     * Fires AssetDeallocated: the assignment row is removed, the stock level's
+     * allocated quantity is decremented, and the freed unit reverts to a
+     * quantity-based demand. Only allowed while the asset is Allocated or Prepared.
+     */
+    #[ApiResponse(204, 'Asset deallocated')]
+    public function destroyAsset(Request $request, Opportunity $opportunity, OpportunityItem $item, OpportunityItemAsset $asset): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertItemBelongsToOpportunity($item, $opportunity);
+        $this->assertAssetBelongsToItem($asset, $item);
+
+        $reason = $request->validate(['reason' => ['sometimes', 'nullable', 'string', 'max:255']])['reason'] ?? null;
+
+        (new DeallocateAsset)($asset, $reason);
+
+        return response()->json(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Batch-allocate several serialised assets to line items in one atomic commit
+     * (the RMS `quick_allocate` action).
+     *
+     * Every allocation fires inside a single Verbs commit, so a failure on any one
+     * (asset unavailable, wrong product) rolls back the whole batch. All allocations
+     * must target line items of the bound opportunity. Returns the opportunity with
+     * its items + assets.
+     */
+    #[ApiResponse(200, 'Assets allocated')]
+    public function quickAllocate(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = QuickAllocateAssetsData::from($request->validate(QuickAllocateAssetsData::rules()));
+
+        (new QuickAllocateAssets)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
      * Add an ad-hoc cost (delivery, labour, surcharge, etc.) to an opportunity.
      *
      * The cost is taxed (matching the line-item inclusive/exclusive handling) and
@@ -529,6 +640,14 @@ class OpportunityController extends Controller
     private function assertCostBelongsToOpportunity(OpportunityCost $cost, Opportunity $opportunity): void
     {
         abort_unless($cost->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
+    }
+
+    /**
+     * Guard that an asset assignment belongs to the bound line item (else 404).
+     */
+    private function assertAssetBelongsToItem(OpportunityItemAsset $asset, OpportunityItem $item): void
+    {
+        abort_unless($asset->opportunity_item_id === $item->id, Response::HTTP_NOT_FOUND);
     }
 
     /**

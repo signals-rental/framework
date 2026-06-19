@@ -168,8 +168,15 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::post('opportunities/{opportunity}/change_status', [OpportunityController::class, 'changeStatus'])->name('api.v1.opportunities.change_status');
     // Line items (priced via the rate + tax engines; totals roll up to the parent)
     Route::post('opportunities/{opportunity}/items', [OpportunityController::class, 'storeItem'])->name('api.v1.opportunities.items.store');
+    // Per-asset allocation sub-resource (M5). Declared before items/{item} PATCH so
+    // the explicit asset routes win.
+    Route::post('opportunities/{opportunity}/items/{item}/assets', [OpportunityController::class, 'storeAsset'])->name('api.v1.opportunities.items.assets.store');
+    Route::patch('opportunities/{opportunity}/items/{item}/assets/{asset}', [OpportunityController::class, 'updateAsset'])->name('api.v1.opportunities.items.assets.update');
+    Route::delete('opportunities/{opportunity}/items/{item}/assets/{asset}', [OpportunityController::class, 'destroyAsset'])->name('api.v1.opportunities.items.assets.destroy');
     Route::patch('opportunities/{opportunity}/items/{item}', [OpportunityController::class, 'updateItem'])->name('api.v1.opportunities.items.update');
     Route::delete('opportunities/{opportunity}/items/{item}', [OpportunityController::class, 'destroyItem'])->name('api.v1.opportunities.items.destroy');
+    // Batch asset allocation (RMS quick_allocate).
+    Route::post('opportunities/{opportunity}/quick_allocate', [OpportunityController::class, 'quickAllocate'])->name('api.v1.opportunities.quick_allocate');
     // Ad-hoc costs (taxed, not rate-priced; totals roll up to the parent)
     Route::post('opportunities/{opportunity}/costs', [OpportunityController::class, 'storeCost'])->name('api.v1.opportunities.costs.store');
     Route::patch('opportunities/{opportunity}/costs/{cost}', [OpportunityController::class, 'updateCost'])->name('api.v1.opportunities.costs.update');

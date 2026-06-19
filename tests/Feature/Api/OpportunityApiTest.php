@@ -1,9 +1,12 @@
 <?php
 
+use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
+use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 use App\Models\CustomView;
@@ -11,7 +14,9 @@ use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityItemAsset;
+use App\Models\Product;
 use App\Models\StockLevel;
+use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -409,6 +414,127 @@ describe('DELETE /api/v1/opportunities/{id}', function () {
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->deleteJson("/api/v1/opportunities/{$opportunity->id}")
+            ->assertForbidden();
+    });
+});
+
+describe('Asset allocation endpoints', function () {
+    /**
+     * Build an event-sourced Order with one serialised line + a free serialised
+     * asset, returning [$opportunity, $item, $asset].
+     *
+     * @return array{0: Opportunity, 1: OpportunityItem, 2: StockLevel}
+     */
+    function orderWithSerialisedLine(User $actor): array
+    {
+        $store = Store::factory()->create();
+        $product = Product::factory()->rental()->serialised()->create();
+
+        $opportunity = createOpportunityViaEvent($actor, [
+            'store_id' => $store->id,
+            'starts_at' => '2026-10-01T09:00:00Z',
+            'ends_at' => '2026-10-05T17:00:00Z',
+        ]);
+
+        asAuthenticated($actor, function () use ($opportunity, $product): void {
+            (new ConvertToQuotation)($opportunity);
+            (new ConvertToOrder)($opportunity->refresh());
+            (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+                'name' => $product->name,
+                'item_id' => $product->id,
+                'item_type' => Product::class,
+                'quantity' => '2',
+                'transaction_type' => LineItemTransactionType::Rental->value,
+            ]));
+        });
+
+        $item = $opportunity->items()->firstOrFail();
+        $asset = StockLevel::factory()->serialised()->create([
+            'product_id' => $product->id,
+            'store_id' => $store->id,
+        ]);
+
+        return [$opportunity, $item, $asset];
+    }
+
+    it('allocates an asset to a line item', function () {
+        [$opportunity, $item, $asset] = orderWithSerialisedLine($this->owner);
+        $token = writeToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/items/{$item->id}/assets", [
+                'stock_level_id' => $asset->id,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('asset.stock_level_id', $asset->id)
+            ->assertJsonPath('asset.status', 0);
+
+        expect(OpportunityItemAsset::query()->where('opportunity_item_id', $item->id)->count())->toBe(1);
+    });
+
+    it('prepares then deallocates an asset', function () {
+        [$opportunity, $item, $asset] = orderWithSerialisedLine($this->owner);
+        $token = writeToken($this->owner);
+        $base = "/api/v1/opportunities/{$opportunity->id}/items/{$item->id}/assets";
+
+        $assetId = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson($base, ['stock_level_id' => $asset->id])
+            ->json('asset.id');
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("{$base}/{$assetId}", ['action' => 'prepare'])
+            ->assertOk()
+            ->assertJsonPath('asset.status', 1);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("{$base}/{$assetId}", ['reason' => 'no longer needed'])
+            ->assertNoContent();
+
+        expect(OpportunityItemAsset::query()->whereKey($assetId)->exists())->toBeFalse();
+    });
+
+    it('rejects an unknown asset action with 422', function () {
+        [$opportunity, $item, $asset] = orderWithSerialisedLine($this->owner);
+        $token = writeToken($this->owner);
+        $base = "/api/v1/opportunities/{$opportunity->id}/items/{$item->id}/assets";
+
+        $assetId = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson($base, ['stock_level_id' => $asset->id])
+            ->json('asset.id');
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("{$base}/{$assetId}", ['action' => 'teleport'])
+            ->assertStatus(422);
+    });
+
+    it('batch-allocates via quick_allocate', function () {
+        [$opportunity, $item, $asset] = orderWithSerialisedLine($this->owner);
+        $second = StockLevel::factory()->serialised()->create([
+            'product_id' => $asset->product_id,
+            'store_id' => $asset->store_id,
+        ]);
+        $token = writeToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/quick_allocate", [
+                'allocations' => [
+                    ['opportunity_item_id' => $item->id, 'stock_level_id' => $asset->id],
+                    ['opportunity_item_id' => $item->id, 'stock_level_id' => $second->id],
+                ],
+            ])
+            ->assertOk();
+
+        expect(OpportunityItemAsset::query()->where('opportunity_item_id', $item->id)->count())->toBe(2);
+    });
+
+    it('requires the opportunities:write ability to allocate', function () {
+        [$opportunity, $item, $asset] = orderWithSerialisedLine($this->owner);
+        $token = readToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/items/{$item->id}/assets", [
+                'stock_level_id' => $asset->id,
+            ])
             ->assertForbidden();
     });
 });

@@ -240,6 +240,71 @@ DELETE /api/v1/opportunities/{id}/items/{item}
 Releases the line's availability demand, removes the row, and rolls the totals back
 down. Returns the opportunity with refreshed totals (`200 OK`).
 
+## Asset Allocation
+
+Serialised line items track which specific physical assets (stock levels) are
+committed to them. Each allocation pins one asset to a line, increments the stock
+level's allocated quantity, and transitions the line's availability demand from a
+single quantity-based demand to one asset-specific demand per allocated unit (the
+quantity-based demand shrinks by the number allocated). Deallocation reverses this.
+
+Allocation is permitted while the opportunity is open (a Reserved quotation or an
+Order). The asset must belong to the line's product, be serialised, and be free for
+the line's window — otherwise a `422` is returned. Allocations carry no body beyond
+the asset id; the asset assignment is returned under the singular `asset` key.
+
+### Allocate Asset
+
+```
+POST /api/v1/opportunities/{id}/items/{item}/assets
+```
+
+Body: `stock_level_id` (required). Fires `AssetAllocated`. Returns the new
+assignment (`201 Created`).
+
+### Update Asset
+
+```
+PATCH /api/v1/opportunities/{id}/items/{item}/assets/{asset}
+```
+
+Mutates an existing assignment. The `action` field (required) selects the
+operation:
+
+| `action` | Effect | Extra body |
+|----------|--------|------------|
+| `prepare` | Allocated → Prepared (picked/packed) | — |
+| `revert` | Prepared → Allocated | — |
+| `set_container` | Nest the asset inside a kit/case | `container_stock_level_id` |
+| `clear_container` | Remove from its container | — |
+| `substitute` | Swap the physical asset, preserving status | `new_stock_level_id`, optional `reason` |
+
+An invalid status transition (e.g. preparing an already-prepared asset, or reverting
+one that is not prepared) yields a `422`. Returns the updated assignment (`200 OK`).
+
+### Deallocate Asset
+
+```
+DELETE /api/v1/opportunities/{id}/items/{item}/assets/{asset}
+```
+
+Optional body: `reason`. Fires `AssetDeallocated` — removes the assignment row,
+decrements the stock level's allocated quantity, and reverts the freed unit to a
+quantity-based demand. Allowed only while the asset is Allocated or Prepared;
+otherwise `422`. Returns `204 No Content`.
+
+### Quick Allocate (batch)
+
+```
+POST /api/v1/opportunities/{id}/quick_allocate
+```
+
+Body: `allocations` — a non-empty array of `{opportunity_item_id, stock_level_id}`
+pairs. Every allocation fires inside a single atomic commit, so a failure on any one
+(asset unavailable, wrong product) rolls back the whole batch. All line items must
+belong to the opportunity. Returns the opportunity with its items + assets
+(`200 OK`).
+
 ## Opportunity Costs
 
 Costs are ad-hoc charges that sit alongside the priced line items — delivery, crew

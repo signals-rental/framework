@@ -138,19 +138,33 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         $allocatedAssetIds = $this->allocatedAssetIds($item);
         $isSerialised = $product->stock_method === StockMethod::Serialised && $allocatedAssetIds !== [];
 
+        $quantity = max(1, (int) round((float) $item->quantity));
+
         // Replace the item's demands wholesale so the resolver is idempotent and
         // converges (handles quantity changes, allocation changes, etc.).
         $this->purge($item);
 
         if ($isSerialised) {
+            // Serialised demand transition (opportunity-lifecycle.md §9.3): each
+            // allocated asset claims a specific unit (asset_id set, quantity 1),
+            // while any still-unallocated remainder keeps a single quantity-based
+            // demand (asset_id null) so the line continues to claim the units it
+            // has not yet assigned to a physical asset. When the line is fully
+            // allocated the remainder is zero and no residual demand is written.
             foreach ($allocatedAssetIds as $assetId) {
                 $this->persist($product->id, $storeId, $assetId, 1, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
+            }
+
+            $remainder = $quantity - count($allocatedAssetIds);
+
+            if ($remainder > 0) {
+                $this->persist($product->id, $storeId, null, $remainder, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
             }
 
             return;
         }
 
-        $this->persist($product->id, $storeId, null, max(1, (int) round((float) $item->quantity)), $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
+        $this->persist($product->id, $storeId, null, $quantity, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
     }
 
     /**
