@@ -247,6 +247,27 @@ it('formats money cost from minor units to decimal string', function () {
         ->and($product->formatMoneyCost('sub_rental_price'))->toBe('9.99');
 });
 
+it('formats large minor-unit amounts without float drift and round-trips losslessly', function () {
+    // Amounts in the range where float division (value / 100) starts losing
+    // precision; brick/money minor-unit conversion must stay exact.
+    $cases = [
+        99999999999 => '999999999.99',
+        100000000001 => '1000000000.01',
+        2199999999999 => '21999999999.99',
+        1 => '0.01',
+    ];
+
+    foreach ($cases as $minor => $expected) {
+        $product = Product::factory()->create(['replacement_charge' => $minor]);
+
+        $formatted = $product->formatMoneyCost('replacement_charge');
+
+        expect($formatted)->toBe($expected)
+            // Round-trip: parse the decimal string back to minor units exactly.
+            ->and((int) round(((float) $formatted) * 100))->toBe($minor);
+    }
+});
+
 it('nullifies product_group_id when group is deleted', function () {
     $group = ProductGroup::factory()->create();
     $product = Product::factory()->create(['product_group_id' => $group->id]);

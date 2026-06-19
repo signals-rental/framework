@@ -8,6 +8,7 @@ $allModuleKeys = [
     'stock',
     'serialisation',
     'opportunities',
+    'shortage_resolutions',
     'invoicing',
     'credit_notes',
     'purchase_orders',
@@ -21,7 +22,7 @@ $allModuleKeys = [
     'crew',
 ];
 
-it('returns all 16 module keys for every profile', function () use ($allModuleKeys) {
+it('returns all 17 module keys for every profile', function () use ($allModuleKeys) {
     foreach (FeatureProfile::cases() as $profile) {
         $modules = $profile->modules();
         expect(array_keys($modules))->toBe($allModuleKeys, "Profile {$profile->value} missing expected module keys");
@@ -37,6 +38,7 @@ it('has correct DryHire module mapping', function () {
         'stock' => true,
         'serialisation' => false,
         'opportunities' => true,
+        'shortage_resolutions' => true,
         'invoicing' => true,
         'credit_notes' => false,
         'purchase_orders' => false,
@@ -51,10 +53,10 @@ it('has correct DryHire module mapping', function () {
     ]);
 });
 
-it('has all 16 modules enabled for FullService', function () {
+it('has all 17 modules enabled for FullService', function () {
     $modules = FeatureProfile::FullService->modules();
 
-    expect($modules)->toHaveCount(16);
+    expect($modules)->toHaveCount(17);
 
     foreach ($modules as $module => $enabled) {
         expect($enabled)->toBeTrue("FullService module '{$module}' should be true");
@@ -70,6 +72,7 @@ it('has correct Crew module mapping', function () {
         'stock' => false,
         'serialisation' => false,
         'opportunities' => true,
+        'shortage_resolutions' => true,
         'invoicing' => true,
         'credit_notes' => false,
         'purchase_orders' => false,
@@ -93,6 +96,7 @@ it('has correct Minimal module mapping', function () {
         'stock' => false,
         'serialisation' => false,
         'opportunities' => true,
+        'shortage_resolutions' => true,
         'invoicing' => false,
         'credit_notes' => false,
         'purchase_orders' => false,
@@ -116,6 +120,7 @@ it('has correct General module mapping', function () {
         'stock' => true,
         'serialisation' => false,
         'opportunities' => true,
+        'shortage_resolutions' => true,
         'invoicing' => true,
         'credit_notes' => false,
         'purchase_orders' => false,

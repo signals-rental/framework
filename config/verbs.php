@@ -100,6 +100,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Snapshot Threshold
+    |--------------------------------------------------------------------------
+    |
+    | NOTE: hirethunk/verbs ^0.8.0 (this project's pinned version) has NO
+    | "snapshot every N events" config key. Snapshots are not throttled by an
+    | event count — StateManager::writeSnapshots() rewrites each touched state's
+    | snapshot on every commit (single snapshot row per state, replaced in place),
+    | so there is nothing to pin here. The oft-quoted "default 50" threshold does
+    | not exist in this release. If a future Verbs version adds a configurable
+    | snapshot frequency, set it to 50 explicitly here.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
     | Wormhole
     |--------------------------------------------------------------------------
     |

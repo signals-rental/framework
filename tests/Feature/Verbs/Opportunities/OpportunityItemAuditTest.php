@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ClearDealPrice;
 use App\Actions\Opportunities\CreateOpportunity;
@@ -8,13 +9,16 @@ use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\SetDealPrice;
 use App\Actions\Opportunities\SetItemDiscount;
+use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
 use App\Data\Opportunities\AddOpportunityItemData;
+use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OverrideItemPriceData;
 use App\Data\Opportunities\SetDealPriceData;
 use App\Data\Opportunities\SetItemDiscountData;
+use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
 use App\Models\ActionLog;
 use App\Models\Opportunity;
@@ -73,6 +77,46 @@ it('writes an audit row against the opportunity for each item mutation', functio
         ->sole();
     expect($itemAdded->verb_event_id)->not->toBeNull()
         ->and($itemAdded->user_id)->toBe($this->actor->id);
+});
+
+it('writes audit rows for item date changes and substitutions', function () {
+    $opportunity = auditOpportunity();
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => 'Mixer', 'quantity' => '1', 'unit_price' => 7000,
+    ]));
+    $item = $opportunity->items()->firstOrFail();
+
+    (new ChangeItemDates)($item->refresh(), ChangeItemDatesData::from([
+        'starts_at' => '2026-07-01T09:00:00Z',
+        'ends_at' => '2026-07-05T17:00:00Z',
+    ]));
+    (new SubstituteItem)($item->refresh(), SubstituteItemData::from([
+        'name' => 'Larger Mixer',
+    ]));
+
+    $actions = ActionLog::query()
+        ->where('auditable_type', Opportunity::class)
+        ->where('auditable_id', $opportunity->id)
+        ->pluck('action')
+        ->all();
+
+    expect($actions)->toContain('opportunity.item_dates_changed')
+        ->toContain('opportunity.item_substituted');
+
+    $datesChanged = ActionLog::query()
+        ->where('auditable_id', $opportunity->id)
+        ->where('action', 'opportunity.item_dates_changed')
+        ->sole();
+    expect($datesChanged->verb_event_id)->not->toBeNull()
+        ->and($datesChanged->user_id)->toBe($this->actor->id);
+
+    $substituted = ActionLog::query()
+        ->where('auditable_id', $opportunity->id)
+        ->where('action', 'opportunity.item_substituted')
+        ->sole();
+    expect($substituted->verb_event_id)->not->toBeNull()
+        ->and($substituted->user_id)->toBe($this->actor->id);
 });
 
 it('records a removal audit row with the removed item snapshot', function () {

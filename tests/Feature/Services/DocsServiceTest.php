@@ -169,6 +169,24 @@ it('resolves the availability API documentation page', function () {
         ->and($page['html'])->toContain('availability:read');
 });
 
+it('resolves the opportunities API documentation page', function () {
+    expect($this->service->pageExists('api', 'opportunities'))->toBeTrue();
+
+    $page = $this->service->getPage('api', 'opportunities');
+
+    expect($page)->not->toBeNull()
+        ->and($page['html'])->toContain('opportunities:read');
+});
+
+it('resolves the shortages API documentation page', function () {
+    expect($this->service->pageExists('api', 'shortages'))->toBeTrue();
+
+    $page = $this->service->getPage('api', 'shortages');
+
+    expect($page)->not->toBeNull()
+        ->and($page['html'])->toContain('shortages:read');
+});
+
 it('lists the availability page in the API navigation section', function () {
     $nav = $this->service->getNavigation();
 
@@ -182,7 +200,9 @@ it('lists the availability page in the API navigation section', function () {
 
     $slugs = array_map(static fn (array $page): string => $page['slug'], $apiSection['pages']);
 
-    expect($slugs)->toContain('availability');
+    expect($slugs)->toContain('availability')
+        ->toContain('opportunities')
+        ->toContain('shortages');
 });
 
 it('skips changelog entries lacking frontmatter and formats integer dates', function () {
