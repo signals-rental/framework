@@ -176,6 +176,18 @@ class OpportunityItemDemandResolver implements DemandResolverContract
     {
         $isClosed = $opportunity->statusEnum()->isClosed();
 
+        // VERSION INVARIANT: only the ACTIVE version's items hold demands. When the
+        // opportunity carries versions, release demands for every line that is NOT
+        // in the active version (a superseded/alternative version's items must not
+        // block stock), then (re)sync the active version's lines below.
+        if ($opportunity->active_version_id > 0) {
+            $opportunity->allItems()
+                ->where('version_id', '!=', $opportunity->active_version_id)
+                ->each(function (OpportunityItem $item): void {
+                    $this->releaseDemands($item);
+                });
+        }
+
         $opportunity->items()->each(function (OpportunityItem $item) use ($opportunity, $isClosed): void {
             // Bind the freshly-loaded parent so resolvePhase()/buildMetadata()
             // read the post-transition status rather than a stale cached relation.

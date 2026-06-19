@@ -6,6 +6,7 @@ use App\Views\ActivityColumnRegistry;
 use App\Views\ColumnRegistry;
 use App\Views\MemberColumnRegistry;
 use App\Views\OpportunityColumnRegistry;
+use App\Views\OpportunityVersionColumnRegistry;
 use App\Views\ProductColumnRegistry;
 use App\Views\ProductGroupColumnRegistry;
 use App\Views\ProductRateColumnRegistry;
@@ -33,6 +34,7 @@ class ColumnRegistryResolver
         'rate_definitions' => RateDefinitionColumnRegistry::class,
         'product_rates' => ProductRateColumnRegistry::class,
         'opportunities' => OpportunityColumnRegistry::class,
+        'opportunity_versions' => OpportunityVersionColumnRegistry::class,
         'shortage_resolutions' => ShortageResolutionColumnRegistry::class,
     ];
 

@@ -63,6 +63,19 @@ class OpportunityState extends State
 
     public int $item_count = 0;
 
+    /**
+     * The small projection id of the currently-active quote version, or 0 when
+     * the opportunity has no versions (legacy / non-versioned). When non-zero the
+     * opportunity's totals mirror this version and its line items are scoped to it.
+     */
+    public int $active_version_id = 0;
+
+    /** Number of quote versions created on this opportunity (replay-stable). */
+    public int $version_count = 0;
+
+    /** True once at least one ALTERNATIVE version exists. */
+    public bool $has_alternatives = false;
+
     /** Document currency (ISO 4217), snapshotted at creation. */
     public ?string $currency_code = null;
 

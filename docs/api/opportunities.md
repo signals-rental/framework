@@ -339,11 +339,114 @@ DELETE /api/v1/opportunities/{id}/deal_price
 Clears the manual override, reverting `charge_total` to the engine-computed gross total.
 Returns the opportunity.
 
-### Error Cases
+## Quote Versions
+
+A quotation can carry multiple **versions** — sequential **revisions** (each new
+revision supersedes its parent) and parallel **alternatives** (concurrent options the
+customer chooses between). Exactly one version is **active** at any time: the
+opportunity's totals, line-item scope, and availability demand all follow the active
+version. Versions are a sub-resource of an opportunity — there is no top-level
+versions endpoint. They reuse the `opportunities:read` / `opportunities:write`
+abilities and the `opportunities.view` / `opportunities.edit` permissions.
+
+A version's `status` is one of `0` Draft, `1` Sent, `2` Accepted, `3` Declined,
+`4` Superseded. Its `version_type` is `0` Revision or `1` Alternative. Money totals
+are NET (tax-exclusive) decimal strings.
+
+### List Versions
+
+```
+GET /api/v1/opportunities/{id}/versions
+```
+
+Returns the opportunity's versions (oldest first) in a `versions` collection. Add
+`?include=items` to embed each version's line items.
+
+### Show Version
+
+```
+GET /api/v1/opportunities/{id}/versions/{version}
+```
+
+Returns a single `version`. Add `?include=items` to embed its line items.
+
+### Create Version
+
+```
+POST /api/v1/opportunities/{id}/versions
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `version_type` | int | No | `0` Revision (default), `1` Alternative |
+| `label` | string | No | Display label for the version |
+| `source_version_id` | int | No | Version whose items are cloned (defaults to the active version) |
+| `notes` | string | No | Free-text notes |
+
+Clones the source version's line items into the new version, which becomes active. A
+revision supersedes its parent; an alternative coexists. Valid only while the
+opportunity is a Quotation and within the `opportunities.max_versions` (20) and
+`opportunities.max_alternatives` (5) caps. Returns the new `version` (`201 Created`).
+
+### Activate Version
+
+```
+POST /api/v1/opportunities/{id}/versions/{version}/activate
+```
+
+Makes the version active. The opportunity's totals and item scope switch to it, and
+availability demand swaps from the previously-active version's items to this one's.
+
+### Send / Accept / Decline Version
+
+```
+POST /api/v1/opportunities/{id}/versions/{version}/send
+POST /api/v1/opportunities/{id}/versions/{version}/accept
+POST /api/v1/opportunities/{id}/versions/{version}/decline
+```
+
+Advance the version through its customer workflow. `send` (Draft → Sent) stamps
+`sent_at`; `accept` (Draft/Sent → Accepted) stamps `accepted_at`; `decline`
+(Draft/Sent → Declined) stamps `declined_at`. An **accepted** version takes priority
+when the quotation is converted to an order (an accepted version is confirmed over the
+active one, and every other version is superseded).
+
+### Rename Version
+
+```
+PATCH /api/v1/opportunities/{id}/versions/{version}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `label` | string\|null | Yes | New label (null clears it) |
+
+### Diff Versions
+
+```
+GET /api/v1/opportunities/{id}/versions/{from}/diff/{to}
+```
+
+Returns a `diff` of the item-level content delta between two versions of the same
+opportunity: `added` (in target, not source), `removed` (in source, not target),
+`changed` (quantity / unit price / discount differ), and `net_change` (signed total
+delta). Lines are matched by product. Both versions must belong to the opportunity.
+
+### Delete Version
+
+```
+DELETE /api/v1/opportunities/{id}/versions/{version}
+```
+
+Removes a version and its line items (`204 No Content`). The active version and the
+only remaining version cannot be deleted, and deletion is allowed only while the
+opportunity is a Quotation.
+
+## Error Cases
 
 | Status | Condition |
 |--------|-----------|
 | 401 | No valid Sanctum token |
 | 403 | Token lacks `opportunities:write`, or the user lacks the `opportunities.edit` permission |
-| 404 | Opportunity not found, or the line item / cost does not belong to the opportunity |
-| 422 | Validation failure, or a write against a closed/terminal opportunity |
+| 404 | Opportunity not found, or the line item / cost / version does not belong to the opportunity |
+| 422 | Validation failure, a write against a closed/terminal opportunity, a version cap breach, or an invalid version transition (e.g. sending an already-sent version, deleting the active or only version) |

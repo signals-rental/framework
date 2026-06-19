@@ -45,7 +45,13 @@ class AddOpportunityItem
 
         $itemId = null;
 
-        $this->commitVerbs(function () use ($opportunity, $data, $startsAt, $endsAt, &$itemId): void {
+        // When the opportunity carries an active quote version, the new line lands
+        // in that version's scope; a non-versioned opportunity keeps a NULL
+        // version_id (unchanged behaviour). A null override on the data wins (used
+        // by VersionCreated to target a specific brand-new version).
+        $versionId = $data->version_id ?? ($opportunity->active_version_id > 0 ? $opportunity->active_version_id : null);
+
+        $this->commitVerbs(function () use ($opportunity, $data, $startsAt, $endsAt, $versionId, &$itemId): void {
             // Allocate the replay-stable small PK and bake it into the event so a
             // truncate + Verbs::replay() rebuild reproduces the identical id.
             $itemId = app(SequenceAllocator::class)->next('opportunity_items');
@@ -53,6 +59,7 @@ class AddOpportunityItem
             ItemAdded::fire(
                 opportunity_item_id: $itemId,
                 opportunity_id: $opportunity->id,
+                version_id: $versionId,
                 item_id: $data->item_id,
                 item_type: $data->item_type,
                 name: $data->name,

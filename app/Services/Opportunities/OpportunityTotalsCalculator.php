@@ -8,6 +8,7 @@ use App\Enums\RateTransactionType;
 use App\Models\Opportunity;
 use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
+use App\Models\OpportunityVersion;
 use App\Models\Product;
 use App\Models\ProductTaxClass;
 use App\Services\RateEngine\RateCalculator;
@@ -299,6 +300,32 @@ class OpportunityTotalsCalculator
             'charge_including_tax_total' => $netHeadline + $taxTotal,
             'charge_total' => $netHeadline,
         ])->saveQuietly();
+
+        // When the opportunity carries an active quote version, mirror the
+        // just-computed NET totals onto that version row so its snapshot stays
+        // current (replay-active — projection only).
+        $this->syncActiveVersionTotals($opportunity, $netHeadline, $taxTotal);
+    }
+
+    /**
+     * Mirror the opportunity's headline NET totals onto its active quote version
+     * row (if any), so the version's stored snapshot tracks its scoped items.
+     * No-op for non-versioned opportunities (`active_version_id = 0`).
+     */
+    private function syncActiveVersionTotals(Opportunity $opportunity, int $netHeadline, int $taxTotal): void
+    {
+        if ($opportunity->active_version_id <= 0) {
+            return;
+        }
+
+        OpportunityVersion::query()
+            ->whereKey($opportunity->active_version_id)
+            ->update([
+                'charge_excluding_tax_total' => $netHeadline,
+                'tax_total' => $taxTotal,
+                'charge_including_tax_total' => $netHeadline + $taxTotal,
+                'charge_total' => $netHeadline,
+            ]);
     }
 
     /**

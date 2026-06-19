@@ -33,6 +33,7 @@ class ItemAdded extends Event
         #[StateId(OpportunityItemState::class)]
         public ?int $state_id = null,
         public int $opportunity_id = 0,
+        public ?int $version_id = null,
         public ?int $item_id = null,
         public ?string $item_type = null,
         public string $name = '',
@@ -55,6 +56,7 @@ class ItemAdded extends Event
     {
         $state->opportunity_item_id = $this->opportunity_item_id;
         $state->opportunity_id = $this->opportunity_id;
+        $state->version_id = $this->version_id;
         $state->item_id = $this->item_id;
         $state->item_type = $this->item_type;
         $state->name = $this->name;

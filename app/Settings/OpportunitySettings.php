@@ -33,6 +33,11 @@ class OpportunitySettings extends SettingsDefinition
         return [
             'number_pad' => 10,
             'number_scope' => 'store',
+            // Quote versioning caps (opportunity-lifecycle.md §8.6). Read at
+            // version-create time only; replay re-applies the stored event and
+            // never consults these, so sourcing them from settings is replay-safe.
+            'max_versions' => 20,
+            'max_alternatives' => 5,
         ];
     }
 
@@ -41,6 +46,8 @@ class OpportunitySettings extends SettingsDefinition
         return [
             'number_pad' => ['required', 'integer', 'min:0', 'max:20'],
             'number_scope' => ['required', 'string', Rule::in(['store', 'global'])],
+            'max_versions' => ['required', 'integer', 'min:1', 'max:200'],
+            'max_alternatives' => ['required', 'integer', 'min:1', 'max:50'],
         ];
     }
 
@@ -49,6 +56,8 @@ class OpportunitySettings extends SettingsDefinition
         return [
             'number_pad' => 'integer',
             'number_scope' => 'string',
+            'max_versions' => 'integer',
+            'max_alternatives' => 'integer',
         ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Verbs\Events\Opportunities;
 
 use App\Enums\OpportunityState as StateAxis;
 use App\Models\Opportunity;
+use App\Models\OpportunityVersion;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\Events\Opportunities\Concerns\ResyncsOpportunityDemands;
 use App\Verbs\States\OpportunityState;
@@ -33,6 +34,13 @@ class OpportunityConvertedToOrder extends Event
     public function __construct(
         #[StateId(OpportunityState::class)]
         public int $opportunity_id,
+        /**
+         * The quote version to confirm the order against (opportunity-lifecycle.md
+         * §8.8). Resolved by the ConvertToOrder action — an Accepted version wins,
+         * else the active version. Null for a non-versioned opportunity, where
+         * conversion behaves exactly as before versioning.
+         */
+        public ?int $confirmed_version_id = null,
     ) {}
 
     public function validate(OpportunityState $state): void
@@ -56,6 +64,13 @@ class OpportunityConvertedToOrder extends Event
         // never silently re-derive once the client has committed (MC §4.3/§7.2).
         $state->exchange_rate_locked = true;
         $state->tax_locked = true;
+
+        // §8.8 — the confirmed version becomes the (only) active version. Demand is
+        // then created for its items via the resync; the others are superseded.
+        if ($this->confirmed_version_id !== null) {
+            $state->active_version_id = $this->confirmed_version_id;
+        }
+
         $state->last_event_at = CarbonImmutable::now();
     }
 
@@ -76,9 +91,24 @@ class OpportunityConvertedToOrder extends Event
                 'status' => $state->status,
                 'exchange_rate_locked' => $state->exchange_rate_locked,
                 'tax_locked' => $state->tax_locked,
+                'active_version_id' => $state->active_version_id,
             ]);
 
         $opportunity = Opportunity::query()->where('state_id', $state->id)->firstOrFail();
+
+        // §8.8 — confirm the order against a single version: the confirmed version
+        // becomes the only active one, so the demand resync below claims stock for
+        // its items alone. The non-confirmed versions are superseded by the
+        // ConvertToOrder action firing VersionSuperseded events around this one.
+        if ($this->confirmed_version_id !== null) {
+            OpportunityVersion::query()
+                ->where('opportunity_id', $opportunity->id)
+                ->update(['is_active' => false]);
+
+            OpportunityVersion::query()
+                ->whereKey($this->confirmed_version_id)
+                ->update(['is_active' => true]);
+        }
 
         $this->recordAudit(
             $opportunity,

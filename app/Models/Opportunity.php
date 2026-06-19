@@ -29,6 +29,9 @@ use Illuminate\Support\Carbon;
  * @property int $state_id
  * @property OpportunityState $state
  * @property int $status
+ * @property int $active_version_id
+ * @property int $version_count
+ * @property bool $has_alternatives
  * @property string|null $currency_code
  * @property string $exchange_rate
  * @property bool $exchange_rate_locked
@@ -77,6 +80,9 @@ class Opportunity extends Model implements HasSchema
         'external_description',
         'state',
         'status',
+        'active_version_id',
+        'version_count',
+        'has_alternatives',
         'member_id',
         'venue_id',
         'store_id',
@@ -112,6 +118,9 @@ class Opportunity extends Model implements HasSchema
     {
         return [
             'state' => OpportunityState::class,
+            'active_version_id' => 'integer',
+            'version_count' => 'integer',
+            'has_alternatives' => 'boolean',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'charge_starts_at' => 'datetime',
@@ -194,11 +203,69 @@ class Opportunity extends Model implements HasSchema
     /**
      * Line items belonging to this opportunity, in display order.
      *
+     * VERSION SCOPING (opportunity-lifecycle.md §8.7): once the opportunity carries
+     * quote versions this relation is scoped to the ACTIVE version's items only, so
+     * totals, demands, and API reads all follow the active version. Non-versioned
+     * (legacy) opportunities have `active_version_id = 0` and their items carry a
+     * NULL `version_id`, so the scope is a no-op and behaviour is identical to
+     * before versioning.
+     *
+     * The scope is expressed as a row-correlated constraint (rather than a
+     * per-instance `where` on `$this->active_version_id`) so it holds under BATCHED
+     * EAGER LOADING too. Eager loads build the relation on a constraint-less
+     * `newInstance()` where `active_version_id` is null, which would otherwise skip
+     * a dynamic guard and leak every version's items. The correlated subquery ties
+     * each item to its own opportunity's `active_version_id`, working identically
+     * for lazy access, `with()`/`load()`/`loadMissing()`/`fresh()`, and
+     * `withCount()`, on both SQLite and PostgreSQL.
+     *
      * @return HasMany<OpportunityItem, $this>
      */
     public function items(): HasMany
     {
+        return $this->hasMany(OpportunityItem::class, 'opportunity_id')
+            ->orderBy('sort_order')
+            ->where(function ($query): void {
+                $query->whereNull('opportunity_items.version_id')
+                    ->orWhereExists(function ($sub): void {
+                        $sub->selectRaw('1')
+                            ->from('opportunities as opp_active_version')
+                            ->whereColumn('opp_active_version.id', 'opportunity_items.opportunity_id')
+                            ->whereColumn('opp_active_version.active_version_id', 'opportunity_items.version_id');
+                    });
+            });
+    }
+
+    /**
+     * ALL line items across every version of this opportunity, unscoped by the
+     * active version. Used by the version-diff path, which compares two specific
+     * versions' items directly.
+     *
+     * @return HasMany<OpportunityItem, $this>
+     */
+    public function allItems(): HasMany
+    {
         return $this->hasMany(OpportunityItem::class, 'opportunity_id')->orderBy('sort_order');
+    }
+
+    /**
+     * Quote versions belonging to this opportunity, oldest first.
+     *
+     * @return HasMany<OpportunityVersion, $this>
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(OpportunityVersion::class, 'opportunity_id')->orderBy('version_number');
+    }
+
+    /**
+     * The currently-active quote version (null when the opportunity has none).
+     *
+     * @return BelongsTo<OpportunityVersion, $this>
+     */
+    public function activeVersion(): BelongsTo
+    {
+        return $this->belongsTo(OpportunityVersion::class, 'active_version_id');
     }
 
     /**

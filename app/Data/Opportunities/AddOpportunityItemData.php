@@ -39,6 +39,12 @@ class AddOpportunityItemData extends Data
         public string $currency = 'GBP',
         #[WithCast(MoneyInput::class)]
         public ?int $unit_price = null,
+        /**
+         * Internal: the quote version scope the new line belongs to. Not a public
+         * input field — it is set by the version-clone path ({@see VersionCreated}).
+         * When null the action resolves it from the opportunity's active version.
+         */
+        public ?int $version_id = null,
     ) {}
 
     /**

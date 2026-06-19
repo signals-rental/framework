@@ -15,6 +15,7 @@ use App\Models\ExchangeRate;
 use App\Models\Link;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityVersion;
 use App\Models\Phone;
 use App\Models\Product;
 use App\Models\ProductGroup;
@@ -65,6 +66,7 @@ class SchemaController extends Controller
         'rate_definitions' => RateDefinition::class,
         'product_rates' => ProductRate::class,
         'opportunities' => Opportunity::class,
+        'opportunity_versions' => OpportunityVersion::class,
         'shortage_resolutions' => ShortageResolution::class,
     ];
 

@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\MemberLinkController;
 use App\Http\Controllers\Api\V1\MemberPhoneController;
 use App\Http\Controllers\Api\V1\MemberRelationshipController;
 use App\Http\Controllers\Api\V1\OpportunityController;
+use App\Http\Controllers\Api\V1\OpportunityVersionController;
 use App\Http\Controllers\Api\V1\OrganisationTaxClassController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductGroupController;
@@ -181,6 +182,20 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::get('opportunities/{opportunity}/items/{item}/shortage_resolvers', [ShortageController::class, 'resolvers'])->name('api.v1.opportunities.shortage_resolvers');
     Route::post('opportunities/{opportunity}/shortages/acknowledge', [ShortageController::class, 'acknowledge'])->name('api.v1.opportunities.shortages.acknowledge');
     Route::post('shortage_resolutions', [ShortageController::class, 'resolve'])->name('api.v1.shortage_resolutions.store');
+
+    // Quote versions (sub-resource — revisions + alternatives). Declared before the
+    // opportunities apiResource so the explicit routes win. The diff route is
+    // declared before `versions/{version}` so {version} does not swallow `diff`.
+    Route::get('opportunities/{opportunity}/versions', [OpportunityVersionController::class, 'index'])->name('api.v1.opportunities.versions.index');
+    Route::post('opportunities/{opportunity}/versions', [OpportunityVersionController::class, 'store'])->name('api.v1.opportunities.versions.store');
+    Route::get('opportunities/{opportunity}/versions/{from}/diff/{to}', [OpportunityVersionController::class, 'diff'])->name('api.v1.opportunities.versions.diff');
+    Route::post('opportunities/{opportunity}/versions/{version}/activate', [OpportunityVersionController::class, 'activate'])->name('api.v1.opportunities.versions.activate');
+    Route::post('opportunities/{opportunity}/versions/{version}/send', [OpportunityVersionController::class, 'send'])->name('api.v1.opportunities.versions.send');
+    Route::post('opportunities/{opportunity}/versions/{version}/accept', [OpportunityVersionController::class, 'accept'])->name('api.v1.opportunities.versions.accept');
+    Route::post('opportunities/{opportunity}/versions/{version}/decline', [OpportunityVersionController::class, 'decline'])->name('api.v1.opportunities.versions.decline');
+    Route::get('opportunities/{opportunity}/versions/{version}', [OpportunityVersionController::class, 'show'])->name('api.v1.opportunities.versions.show');
+    Route::patch('opportunities/{opportunity}/versions/{version}', [OpportunityVersionController::class, 'update'])->name('api.v1.opportunities.versions.update');
+    Route::delete('opportunities/{opportunity}/versions/{version}', [OpportunityVersionController::class, 'destroy'])->name('api.v1.opportunities.versions.destroy');
 
     Route::apiResource('opportunities', OpportunityController::class)->names('api.v1.opportunities');
 
