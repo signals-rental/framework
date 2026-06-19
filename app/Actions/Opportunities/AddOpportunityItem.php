@@ -7,6 +7,7 @@ use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\OpportunityData;
 use App\Models\Opportunity;
 use App\Services\SequenceAllocator;
+use App\Services\Shortages\ItemShortageProbe;
 use App\Verbs\Events\Opportunities\ItemAdded;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -15,6 +16,11 @@ use Illuminate\Support\Facades\Gate;
  * Adds a line item to an opportunity via the ItemAdded genesis event, allocating
  * the replay-stable item id, firing the event, and committing it with its
  * projection atomically.
+ *
+ * After the event commits, the {@see ItemShortageProbe} runs a cheap inline
+ * shortage check on the new line (shortage-resolution-sub-hires.md §2.4),
+ * emitting `shortage.detected` when the line is short. The probe never blocks the
+ * add and is skipped during replay.
  */
 class AddOpportunityItem
 {
@@ -37,7 +43,9 @@ class AddOpportunityItem
             ?? $this->toIso($opportunity->ends_at)
             ?? Carbon::parse($startsAt)->copy()->addDay()->toIso8601String();
 
-        $this->commitVerbs(function () use ($opportunity, $data, $startsAt, $endsAt): void {
+        $itemId = null;
+
+        $this->commitVerbs(function () use ($opportunity, $data, $startsAt, $endsAt, &$itemId): void {
             // Allocate the replay-stable small PK and bake it into the event so a
             // truncate + Verbs::replay() rebuild reproduces the identical id.
             $itemId = app(SequenceAllocator::class)->next('opportunity_items');
@@ -63,7 +71,19 @@ class AddOpportunityItem
             );
         });
 
-        return OpportunityData::fromModel($opportunity->fresh(['items']));
+        $fresh = $opportunity->fresh(['items']);
+
+        // Inline shortage detection (§2.4) on the newly-added line. Cheap, never
+        // blocks the add, replay-guarded inside the probe.
+        if ($itemId !== null && $fresh !== null) {
+            $item = $fresh->items->firstWhere('id', $itemId);
+
+            if ($item !== null) {
+                app(ItemShortageProbe::class)->probe($item);
+            }
+        }
+
+        return OpportunityData::fromModel($fresh ?? $opportunity);
     }
 
     private function toIso(?\DateTimeInterface $value): ?string

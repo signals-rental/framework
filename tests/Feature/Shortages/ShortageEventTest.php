@@ -11,12 +11,15 @@ use App\Enums\AvailabilityEventType;
 use App\Enums\AvailabilityResolution;
 use App\Enums\DemandPhase;
 use App\Enums\ShortagePolicy;
+use App\Enums\ShortageResolutionStatus;
+use App\Enums\ShortageResolutionType;
 use App\Enums\StockMethod;
 use App\Models\ActionLog;
 use App\Models\AvailabilityEvent;
 use App\Models\Demand;
 use App\Models\Opportunity;
 use App\Models\Product;
+use App\Models\ShortageResolution;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
@@ -121,4 +124,67 @@ it('logs shortage.cleared with a reason', function () {
 
     expect($event)->not->toBeNull()
         ->and($event->payload['reason'])->toBe('stock_returned');
+});
+
+/**
+ * Build a persisted resolution carrying the product/store metadata the recorder
+ * reads when logging a status-transition availability event (§9.2).
+ */
+function lifecycleResolution(ShortageResolutionStatus $status): ShortageResolution
+{
+    $store = Store::factory()->create(['timezone' => 'UTC']);
+    $product = Product::factory()->rental()->bulk()->create();
+
+    return ShortageResolution::factory()->create([
+        'resolver_key' => 'transfer',
+        'resolution_type' => ShortageResolutionType::Transfer->value,
+        'status' => $status->value,
+        'quantity_resolved' => 2,
+        'metadata' => ['product_id' => $product->id, 'store_id' => $store->id],
+    ]);
+}
+
+it('logs shortage.resolution.in_progress as both an availability event and an audit log', function () {
+    $this->actingAs(User::factory()->owner()->create());
+
+    $resolution = lifecycleResolution(ShortageResolutionStatus::InProgress);
+
+    app(ShortageEventRecorder::class)->resolutionInProgress($resolution);
+
+    expect(AvailabilityEvent::query()
+        ->where('event_type', AvailabilityEventType::ShortageResolutionInProgress->value)
+        ->where('source_id', $resolution->id)
+        ->exists())->toBeTrue()
+        ->and(ActionLog::query()->where('action', 'shortage.resolution.in_progress')->exists())->toBeTrue();
+});
+
+it('logs shortage.resolution.fulfilled as both an availability event and an audit log', function () {
+    $this->actingAs(User::factory()->owner()->create());
+
+    $resolution = lifecycleResolution(ShortageResolutionStatus::Fulfilled);
+
+    app(ShortageEventRecorder::class)->resolutionFulfilled($resolution);
+
+    expect(AvailabilityEvent::query()
+        ->where('event_type', AvailabilityEventType::ShortageResolutionFulfilled->value)
+        ->where('source_id', $resolution->id)
+        ->exists())->toBeTrue()
+        ->and(ActionLog::query()->where('action', 'shortage.resolution.fulfilled')->exists())->toBeTrue();
+});
+
+it('logs shortage.resolution.failed with the failure reason in the event payload', function () {
+    $this->actingAs(User::factory()->owner()->create());
+
+    $resolution = lifecycleResolution(ShortageResolutionStatus::Failed);
+
+    app(ShortageEventRecorder::class)->resolutionFailed($resolution, 'supplier_declined');
+
+    $event = AvailabilityEvent::query()
+        ->where('event_type', AvailabilityEventType::ShortageResolutionFailed->value)
+        ->where('source_id', $resolution->id)
+        ->first();
+
+    expect($event)->not->toBeNull()
+        ->and($event->payload['failure_reason'])->toBe('supplier_declined')
+        ->and(ActionLog::query()->where('action', 'shortage.resolution.failed')->exists())->toBeTrue();
 });

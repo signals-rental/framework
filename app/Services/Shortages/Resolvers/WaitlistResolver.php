@@ -4,6 +4,10 @@ namespace App\Services\Shortages\Resolvers;
 
 use App\Enums\ShortageResolutionStatus;
 use App\Enums\ShortageResolutionType;
+use App\Enums\WaitlistMonitorStatus;
+use App\Jobs\ExpireWaitlistMonitors;
+use App\Listeners\Availability\MatchWaitlistMonitors;
+use App\Models\ShortageWaitlistMonitor;
 use App\ValueObjects\ResolutionOption;
 use App\ValueObjects\ResolutionResult;
 use App\ValueObjects\Shortage;
@@ -13,13 +17,18 @@ use App\ValueObjects\Shortage;
  *
  * Always offers exactly one option: add the shortage to the waitlist — a
  * monitoring mechanism that watches for availability changes that would satisfy
- * it. Self-contained: it records a Monitoring resolution capturing the product,
- * store, quantity, and window in metadata. The availability-change listener that
- * fires `shortage.waitlist.matched` is a later wiring step; the durable
- * monitoring record is created here.
+ * it. Self-contained: it records a Monitoring resolution AND a durable
+ * {@see ShortageWaitlistMonitor} row capturing the product, store, quantity, and
+ * window, then fires `shortage.waitlist.created`. The
+ * {@see MatchWaitlistMonitors} listener flips the
+ * monitor to Matched when stock frees up; the scheduled
+ * {@see ExpireWaitlistMonitors} job retires stale ones.
  */
 class WaitlistResolver extends AbstractShortageResolver
 {
+    /** Default monitor lifetime (days) when no item end date bounds it. */
+    private const int DEFAULT_EXPIRY_DAYS = 30;
+
     public function key(): string
     {
         return 'waitlist';
@@ -83,6 +92,28 @@ class WaitlistResolver extends AbstractShortageResolver
                 'ends_at' => $shortage->endsAt->utc()->toIso8601String(),
             ],
         );
+
+        // The monitor expires when the hire window ends (no point watching past
+        // it), or after a default horizon when the window is open-ended.
+        $expiresAt = $shortage->endsAt;
+        $defaultExpiry = now()->addDays(self::DEFAULT_EXPIRY_DAYS);
+        if ($expiresAt->greaterThan($defaultExpiry->copy()->addYears(50))) {
+            $expiresAt = $defaultExpiry;
+        }
+
+        $monitor = ShortageWaitlistMonitor::query()->create([
+            'shortage_resolution_id' => $resolution->id,
+            'opportunity_item_id' => $shortage->opportunityItemId,
+            'product_id' => $shortage->productId,
+            'store_id' => $shortage->storeId,
+            'quantity_needed' => $shortage->remainingShortfall(),
+            'starts_at' => $shortage->startsAt,
+            'ends_at' => $shortage->endsAt,
+            'status' => WaitlistMonitorStatus::Active->value,
+            'expires_at' => $expiresAt,
+        ]);
+
+        $this->events->waitlistCreated($monitor);
 
         return ResolutionResult::monitoring(
             $resolution,

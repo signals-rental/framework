@@ -48,6 +48,24 @@ enum AvailabilityEventType: string
     /** A shortage resolution was confirmed. */
     case ShortageResolutionConfirmed = 'shortage_resolution_confirmed';
 
+    /** A shortage resolution entered active fulfilment (stock in transit). */
+    case ShortageResolutionInProgress = 'shortage_resolution_in_progress';
+
+    /** A shortage resolution was completed (stock available). */
+    case ShortageResolutionFulfilled = 'shortage_resolution_fulfilled';
+
+    /** A shortage resolution attempt failed (e.g. supplier declined). */
+    case ShortageResolutionFailed = 'shortage_resolution_failed';
+
     /** A shortage resolution was cancelled. */
     case ShortageResolutionCancelled = 'shortage_resolution_cancelled';
+
+    /** A waitlist monitor was created for a shortage. */
+    case WaitlistCreated = 'shortage_waitlist_created';
+
+    /** A waitlist monitor matched freed-up availability. */
+    case WaitlistMatched = 'shortage_waitlist_matched';
+
+    /** A waitlist monitor expired without a match. */
+    case WaitlistExpired = 'shortage_waitlist_expired';
 }

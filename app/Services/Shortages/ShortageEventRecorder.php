@@ -7,6 +7,7 @@ use App\Events\AuditableEvent;
 use App\Listeners\LogAction;
 use App\Models\AvailabilityEvent;
 use App\Models\ShortageResolution;
+use App\Models\ShortageWaitlistMonitor;
 use App\Observers\DemandObserver;
 use App\ValueObjects\Shortage;
 use App\ValueObjects\ShortageCollection;
@@ -94,6 +95,58 @@ class ShortageEventRecorder
     }
 
     /**
+     * Record `shortage.resolution.in_progress` (§9.2): fulfilment has begun
+     * (e.g. stock dispatched from a supplier / in transit).
+     */
+    public function resolutionInProgress(ShortageResolution $resolution): void
+    {
+        $this->logResolutionStatus(AvailabilityEventType::ShortageResolutionInProgress, $resolution);
+
+        event(new AuditableEvent(
+            model: $resolution,
+            action: 'shortage.resolution.in_progress',
+            newValues: ['status' => $resolution->status->value],
+        ));
+    }
+
+    /**
+     * Record `shortage.resolution.fulfilled` (§9.2): the resolution completed and
+     * the stock is now available.
+     */
+    public function resolutionFulfilled(ShortageResolution $resolution): void
+    {
+        $this->logResolutionStatus(AvailabilityEventType::ShortageResolutionFulfilled, $resolution);
+
+        event(new AuditableEvent(
+            model: $resolution,
+            action: 'shortage.resolution.fulfilled',
+            newValues: ['status' => $resolution->status->value],
+        ));
+    }
+
+    /**
+     * Record `shortage.resolution.failed` (§9.2): the resolution attempt failed
+     * (e.g. a supplier declined). The shortage may reappear on re-evaluation.
+     */
+    public function resolutionFailed(ShortageResolution $resolution, ?string $reason = null): void
+    {
+        $this->logResolutionStatus(
+            AvailabilityEventType::ShortageResolutionFailed,
+            $resolution,
+            $reason !== null ? ['failure_reason' => $reason] : [],
+        );
+
+        event(new AuditableEvent(
+            model: $resolution,
+            action: 'shortage.resolution.failed',
+            newValues: [
+                'status' => $resolution->status->value,
+                'failure_reason' => $reason ?? $resolution->cancellation_reason,
+            ],
+        ));
+    }
+
+    /**
      * Record `shortage.resolution.cancelled`.
      */
     public function resolutionCancelled(ShortageResolution $resolution): void
@@ -114,6 +167,56 @@ class ShortageEventRecorder
                 'status' => $resolution->status->value,
                 'cancellation_reason' => $resolution->cancellation_reason,
             ],
+        ));
+    }
+
+    /**
+     * Record `shortage.waitlist.created` (§9.4): a monitor was placed on a
+     * shortage to watch for freed-up availability.
+     */
+    public function waitlistCreated(ShortageWaitlistMonitor $monitor): void
+    {
+        $this->logWaitlist(AvailabilityEventType::WaitlistCreated, $monitor);
+
+        event(new AuditableEvent(
+            model: $monitor,
+            action: 'shortage.waitlist.created',
+            newValues: [
+                'status' => $monitor->status->value,
+                'quantity_needed' => $monitor->quantity_needed,
+            ],
+        ));
+    }
+
+    /**
+     * Record `shortage.waitlist.matched` (§9.4): monitored stock became available.
+     *
+     * @param  array<string, mixed>  $availability  availability detail at match time
+     */
+    public function waitlistMatched(ShortageWaitlistMonitor $monitor, array $availability = []): void
+    {
+        $this->logWaitlist(AvailabilityEventType::WaitlistMatched, $monitor, $availability);
+
+        event(new AuditableEvent(
+            model: $monitor,
+            action: 'shortage.waitlist.matched',
+            newValues: ['status' => $monitor->status->value],
+            metadata: $availability,
+        ));
+    }
+
+    /**
+     * Record `shortage.waitlist.expired` (§9.4): a monitor reached its expiry
+     * without ever matching.
+     */
+    public function waitlistExpired(ShortageWaitlistMonitor $monitor): void
+    {
+        $this->logWaitlist(AvailabilityEventType::WaitlistExpired, $monitor);
+
+        event(new AuditableEvent(
+            model: $monitor,
+            action: 'shortage.waitlist.expired',
+            newValues: ['status' => $monitor->status->value],
         ));
     }
 
@@ -149,6 +252,47 @@ class ShortageEventRecorder
             'payload' => $this->resolutionPayload($resolution) + [
                 'opportunity_item_id' => $shortage->opportunityItemId,
             ],
+        ]);
+    }
+
+    /**
+     * Write a resolution-scoped availability-log row for a status transition,
+     * stamping product/store off the resolution's metadata.
+     *
+     * @param  array<string, mixed>  $extra
+     */
+    private function logResolutionStatus(AvailabilityEventType $type, ShortageResolution $resolution, array $extra = []): void
+    {
+        AvailabilityEvent::query()->create([
+            'event_type' => $type,
+            'product_id' => (int) ($resolution->metadata['product_id'] ?? 0),
+            'store_id' => (int) ($resolution->metadata['store_id'] ?? 0),
+            'source_type' => 'shortage_resolution',
+            'source_id' => $resolution->id,
+            'payload' => $this->resolutionPayload($resolution) + $extra,
+        ]);
+    }
+
+    /**
+     * Write a waitlist-scoped availability-log row.
+     *
+     * @param  array<string, mixed>  $extra
+     */
+    private function logWaitlist(AvailabilityEventType $type, ShortageWaitlistMonitor $monitor, array $extra = []): void
+    {
+        AvailabilityEvent::query()->create([
+            'event_type' => $type,
+            'product_id' => $monitor->product_id,
+            'store_id' => $monitor->store_id,
+            'source_type' => 'shortage_waitlist_monitor',
+            'source_id' => $monitor->id,
+            'payload' => [
+                'status' => $monitor->status->value,
+                'quantity_needed' => $monitor->quantity_needed,
+                'shortage_resolution_id' => $monitor->shortage_resolution_id,
+                'starts_at' => $monitor->starts_at?->utc()->toIso8601String(),
+                'ends_at' => $monitor->ends_at?->utc()->toIso8601String(),
+            ] + $extra,
         ]);
     }
 
