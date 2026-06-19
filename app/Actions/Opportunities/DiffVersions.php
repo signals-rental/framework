@@ -6,6 +6,7 @@ use App\Data\Opportunities\VersionDiffData;
 use App\Data\Opportunities\VersionDiffItemData;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityVersion;
+use Brick\Money\Currency;
 use Brick\Money\Money;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -29,7 +30,8 @@ class DiffVersions
 {
     /**
      * The opportunity's currency, resolved per invocation; used to format every
-     * money figure in the diff (both versions share one opportunity).
+     * money figure in the diff (both versions share one opportunity). Defaults to
+     * the company base currency, never a hardcoded 'GBP'.
      */
     private string $currencyCode = 'GBP';
 
@@ -43,7 +45,8 @@ class DiffVersions
             ]);
         }
 
-        $this->currencyCode = $source->opportunity->currency_code ?? 'GBP';
+        $this->currencyCode = $source->opportunity->currency_code
+            ?? settings('company.base_currency', 'GBP');
 
         $sourceItems = $this->keyItems($source->items()->get());
         $targetItems = $this->keyItems($target->items()->get());
@@ -207,10 +210,15 @@ class DiffVersions
     }
 
     /**
-     * Format minor units as a signed 2dp decimal string (RMS money format).
+     * Format minor units as a signed decimal string (RMS money format) at the
+     * opportunity currency's natural scale (JPY 0dp, GBP 2dp, KWD 3dp).
      */
     private function money(int $minor): string
     {
-        return (string) Money::ofMinor($minor, $this->currencyCode)->getAmount()->toScale(2);
+        $currency = Currency::of($this->currencyCode);
+
+        return (string) Money::ofMinor($minor, $currency)
+            ->getAmount()
+            ->toScale($currency->getDefaultFractionDigits());
     }
 }

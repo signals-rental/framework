@@ -45,6 +45,7 @@ class OpportunityCreated extends Event
         public ?string $ends_at = null,
         public int $charge_total = 0,
         public ?string $currency_code = null,
+        public ?string $exchange_rate = null,
         public bool $prices_include_tax = false,
     ) {}
 
@@ -70,7 +71,12 @@ class OpportunityCreated extends Event
         // payload, so apply() stays pure — no settings()/external read here, which
         // keeps replay deterministic even if the company base currency later changes.
         $state->currency_code = $this->currency_code ?? 'GBP';
-        $state->exchange_rate = '1';
+        // The exchange rate against the company base currency is resolved at
+        // fire-time by the CreateOpportunity action (via CurrencyService) and baked
+        // into the payload, so apply() stays pure and replay-deterministic — the
+        // rate snapshot never re-fetches on replay even if rates later change. A
+        // same-currency opportunity (or an unresolved payload) is exactly '1'.
+        $state->exchange_rate = $this->exchange_rate ?? '1';
         $state->prices_include_tax = $this->prices_include_tax;
         $state->last_event_at = CarbonImmutable::now();
     }

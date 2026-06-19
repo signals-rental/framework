@@ -278,4 +278,15 @@ class Opportunity extends Model implements HasSchema
     {
         return $this->hasMany(OpportunityCost::class, 'opportunity_id')->orderBy('sort_order');
     }
+
+    /**
+     * Format money columns in the opportunity's own snapshotted currency, falling
+     * back to the company base currency when none is set.
+     */
+    protected function moneyFormattingCurrency(): string
+    {
+        $code = $this->currency_code;
+
+        return is_string($code) && $code !== '' ? $code : $this->baseFormattingCurrency();
+    }
 }

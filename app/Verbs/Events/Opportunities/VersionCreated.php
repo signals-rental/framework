@@ -53,6 +53,8 @@ class VersionCreated extends Event
         public ?string $label = null,
         public ?int $created_by = null,
         public ?string $notes = null,
+        public ?string $currency_code = null,
+        public ?string $exchange_rate = null,
     ) {}
 
     public function validate(OpportunityState $state): void
@@ -98,6 +100,8 @@ class VersionCreated extends Event
         $state->parent_version_id = $this->parent_version_id;
         $state->version_type = $this->version_type;
         $state->label = $this->label;
+        $state->currency_code = $this->currency_code;
+        $state->exchange_rate = $this->exchange_rate;
         $state->is_active = true;
         $state->status = VersionStatus::Draft->value;
         $state->notes = $this->notes;
@@ -129,6 +133,8 @@ class VersionCreated extends Event
                 'parent_version_id' => $versionState->parent_version_id,
                 'version_type' => $versionState->version_type,
                 'label' => $versionState->label,
+                'currency_code' => $versionState->currency_code,
+                'exchange_rate' => $versionState->exchange_rate,
                 'is_active' => true,
                 'status' => $versionState->status,
                 'notes' => $versionState->notes,

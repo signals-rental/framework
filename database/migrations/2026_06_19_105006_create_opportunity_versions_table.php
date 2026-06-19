@@ -72,6 +72,16 @@ return new class extends Migration
             $table->integer('charge_including_tax_total')->default(0);
             $table->integer('charge_total')->default(0);
 
+            // Currency context snapshotted from the parent opportunity when the
+            // version is created, so a version's money totals are self-describing
+            // (no parent join needed to interpret them). Nullable: a version created
+            // before this column existed, or on a currency-less opportunity, reads
+            // through to the parent / company base currency at the serialisation
+            // layer. The exchange_rate mirrors the opportunity's base-currency rate
+            // snapshot (replay-stable; carried in the VersionCreated payload).
+            $table->string('currency_code', 3)->nullable();
+            $table->decimal('exchange_rate', 18, 8)->nullable();
+
             // Optional free-text reason captured when a version is declined by the
             // customer (carried in the VersionDeclined event payload). Delete reasons
             // are NOT persisted here (the row is hard-deleted) — they go to the audit

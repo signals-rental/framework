@@ -6,10 +6,12 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
 use App\Models\Opportunity;
+use App\Services\CurrencyService;
 use App\Services\Opportunities\OpportunityNumberGenerator;
 use App\Services\SequenceAllocator;
 use App\Verbs\Events\Opportunities\OpportunityCreated;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Creates a new opportunity as a Draft via the OpportunityCreated event,
@@ -35,6 +37,12 @@ class CreateOpportunity
             // replay-stability principle as the projection id).
             $number = app(OpportunityNumberGenerator::class)->next($data->store_id);
 
+            // Resolve the currency and its base-currency exchange rate HERE and bake
+            // both into the event, so the genesis apply() stays a pure,
+            // replay-deterministic state projection (no settings()/CurrencyService
+            // read). The rate is snapshotted at creation and survives replay.
+            $currency = $this->resolveCurrency($data->currency);
+
             OpportunityCreated::fire(
                 opportunity_id: $opportunityId,
                 number: $number,
@@ -49,12 +57,8 @@ class CreateOpportunity
                 starts_at: $data->starts_at,
                 ends_at: $data->ends_at,
                 charge_total: $data->charge_total,
-                // Resolve the currency HERE and bake it into the event, so the
-                // genesis apply() stays a pure, replay-deterministic state
-                // projection (no settings() / external read). The DTO defaults the
-                // currency to the company base currency, so a concrete value always
-                // reaches the event payload.
-                currency_code: $this->resolveCurrency($data->currency),
+                currency_code: $currency,
+                exchange_rate: $this->resolveExchangeRate($currency),
                 prices_include_tax: $data->prices_include_tax,
             );
 
@@ -79,5 +83,34 @@ class CreateOpportunity
         }
 
         return settings('company.base_currency', 'GBP');
+    }
+
+    /**
+     * Snapshot the exchange rate FROM the opportunity currency TO the company base
+     * currency at creation time, baked into the event payload (replay-stable).
+     *
+     * Same-currency short-circuits to exactly '1' without a lookup. Otherwise the
+     * rate is resolved via {@see CurrencyService} (which honours direct, inverse and
+     * triangulated rates). The service throws when no rate exists; that is
+     * surfaced as a 422 so a non-base opportunity cannot be created with a bogus
+     * (defaulted) rate.
+     */
+    private function resolveExchangeRate(string $currency): string
+    {
+        $base = settings('company.base_currency', 'GBP');
+
+        if (! is_string($base) || $base === '' || $currency === $base) {
+            return '1';
+        }
+
+        try {
+            return app(CurrencyService::class)->getRate($currency, $base);
+        } catch (\RuntimeException $e) {
+            throw ValidationException::withMessages([
+                'currency' => [
+                    "No exchange rate is configured from {$currency} to the base currency {$base}.",
+                ],
+            ]);
+        }
     }
 }

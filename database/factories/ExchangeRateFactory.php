@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Currency;
 use App\Models\ExchangeRate;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
@@ -12,6 +13,28 @@ use Illuminate\Support\Carbon;
 class ExchangeRateFactory extends Factory
 {
     protected $model = ExchangeRate::class;
+
+    /**
+     * Ensure the referenced source/target currencies exist before the row is
+     * persisted, so the exchange_rates → currencies foreign keys are always
+     * satisfiable in tests that do not separately seed the currency catalogue.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (ExchangeRate $rate): void {
+            foreach ([$rate->source_currency_code, $rate->target_currency_code] as $code) {
+                Currency::query()->firstOrCreate(
+                    ['code' => $code],
+                    [
+                        'name' => $code,
+                        'symbol' => $code,
+                        'decimal_places' => 2,
+                        'is_enabled' => false,
+                    ],
+                );
+            }
+        });
+    }
 
     public function definition(): array
     {

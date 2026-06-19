@@ -103,4 +103,15 @@ class ProductRate extends Model implements HasSchema
     {
         return $this->belongsTo(Store::class);
     }
+
+    /**
+     * Format money columns in the rate's own currency, falling back to the company
+     * base currency when none is set.
+     */
+    protected function moneyFormattingCurrency(): string
+    {
+        $code = $this->currency;
+
+        return $code !== '' ? $code : $this->baseFormattingCurrency();
+    }
 }

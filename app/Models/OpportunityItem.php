@@ -161,4 +161,22 @@ class OpportunityItem extends Model
     {
         return $this->belongsTo(Store::class, 'return_store_id');
     }
+
+    /**
+     * Format money columns in the line's own currency, falling back to the parent
+     * opportunity's currency (when already loaded) and finally the company base
+     * currency.
+     */
+    protected function moneyFormattingCurrency(): string
+    {
+        $code = $this->currency_code;
+
+        if (is_string($code) && $code !== '') {
+            return $code;
+        }
+
+        $parentCode = $this->relationLoaded('opportunity') ? $this->opportunity?->currency_code : null;
+
+        return is_string($parentCode) && $parentCode !== '' ? $parentCode : $this->baseFormattingCurrency();
+    }
 }

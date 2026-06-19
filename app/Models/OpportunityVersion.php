@@ -42,6 +42,8 @@ use Illuminate\Support\Carbon;
  * @property int $tax_total
  * @property int $charge_including_tax_total
  * @property int $charge_total
+ * @property string|null $currency_code
+ * @property string|null $exchange_rate
  * @property string|null $notes
  * @property int|null $created_by
  * @property Carbon|null $sent_at
@@ -80,6 +82,8 @@ class OpportunityVersion extends Model implements HasSchema
         'tax_total',
         'charge_including_tax_total',
         'charge_total',
+        'currency_code',
+        'exchange_rate',
         'decline_reason',
         'notes',
         'created_by',
@@ -160,5 +164,23 @@ class OpportunityVersion extends Model implements HasSchema
     public function items(): HasMany
     {
         return $this->hasMany(OpportunityItem::class, 'version_id')->orderBy('sort_order');
+    }
+
+    /**
+     * Format money columns in the version's own snapshotted currency (copied from
+     * the parent opportunity at creation), falling back to the parent opportunity's
+     * currency (when loaded) and finally the company base currency.
+     */
+    protected function moneyFormattingCurrency(): string
+    {
+        $code = $this->currency_code;
+
+        if (is_string($code) && $code !== '') {
+            return $code;
+        }
+
+        $parentCode = $this->relationLoaded('opportunity') ? $this->opportunity?->currency_code : null;
+
+        return is_string($parentCode) && $parentCode !== '' ? $parentCode : $this->baseFormattingCurrency();
     }
 }

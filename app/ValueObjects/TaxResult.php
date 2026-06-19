@@ -2,6 +2,10 @@
 
 namespace App\ValueObjects;
 
+use Brick\Money\Currency;
+use Brick\Money\Exception\UnknownCurrencyException;
+use Brick\Money\Money;
+
 /**
  * Immutable value object representing the result of a tax calculation.
  *
@@ -79,18 +83,30 @@ class TaxResult
     }
 
     /**
-     * Convert a minor-unit integer to a decimal string using the currency's exponent.
+     * Convert a minor-unit integer to a decimal string using the currency's
+     * natural exponent.
+     *
+     * Uses brick/money string arithmetic (never float division) so large minor-unit
+     * magnitudes never lose pennies to binary-float drift, and renders at the
+     * currency's natural scale (JPY 0dp, GBP/USD/EUR 2dp, KWD 3dp). Unknown/custom
+     * currency codes fall back to the local exponent table, then a 2dp default.
      */
     private function toDecimalString(int $minorUnits): string
     {
-        $exponent = self::CURRENCY_EXPONENTS[strtoupper($this->currencyCode)] ?? 2;
+        $code = strtoupper($this->currencyCode);
 
-        if ($exponent === 0) {
-            return (string) $minorUnits;
+        try {
+            $currency = Currency::of($code);
+
+            return (string) Money::ofMinor($minorUnits, $currency)
+                ->getAmount()
+                ->toScale($currency->getDefaultFractionDigits());
+        } catch (UnknownCurrencyException) {
+            $exponent = self::CURRENCY_EXPONENTS[$code] ?? 2;
+
+            return (string) Money::ofMinor($minorUnits, new Currency($code, 0, $code, $exponent))
+                ->getAmount()
+                ->toScale($exponent);
         }
-
-        $divisor = 10 ** $exponent;
-
-        return number_format($minorUnits / $divisor, $exponent, '.', '');
     }
 }

@@ -380,4 +380,15 @@ class Member extends Model implements HasSchema
             });
         });
     }
+
+    /**
+     * Format money columns in the member's default currency, falling back to the
+     * company base currency when none is set.
+     */
+    protected function moneyFormattingCurrency(): string
+    {
+        $code = $this->default_currency_code;
+
+        return is_string($code) && $code !== '' ? $code : $this->baseFormattingCurrency();
+    }
 }

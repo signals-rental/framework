@@ -20,6 +20,16 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['source_currency_code', 'target_currency_code', 'effective_at'], 'exchange_rates_lookup_index');
+
+            // Referential integrity to the currencies catalogue (currencies.code is
+            // UNIQUE, so it is a valid FK target). A typo cannot insert an orphan
+            // rate. The currencies migration runs first (earlier timestamp).
+            $table->foreign('source_currency_code')
+                ->references('code')->on('currencies')
+                ->cascadeOnUpdate()->restrictOnDelete();
+            $table->foreign('target_currency_code')
+                ->references('code')->on('currencies')
+                ->cascadeOnUpdate()->restrictOnDelete();
         });
     }
 

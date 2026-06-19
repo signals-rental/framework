@@ -69,6 +69,11 @@ class CreateVersion
                 label: $data->label instanceof Optional ? null : $data->label,
                 created_by: $createdBy,
                 notes: $data->notes instanceof Optional ? null : $data->notes,
+                // Snapshot the parent opportunity's currency context onto the version
+                // so its totals are self-describing. Baked into the event payload, so
+                // replay reproduces the same snapshot even if the parent later changes.
+                currency_code: $opportunity->currency_code,
+                exchange_rate: $opportunity->exchange_rate,
             );
 
             // Clone the source version's items into the new version scope.

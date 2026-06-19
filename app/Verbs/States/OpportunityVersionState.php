@@ -57,6 +57,12 @@ class OpportunityVersionState extends State
 
     public int $charge_total = 0;
 
+    /** Currency context snapshotted from the parent opportunity at creation. */
+    public ?string $currency_code = null;
+
+    /** Base-currency exchange rate snapshot, mirroring the parent opportunity. */
+    public ?string $exchange_rate = null;
+
     public ?string $notes = null;
 
     public ?int $created_by = null;
