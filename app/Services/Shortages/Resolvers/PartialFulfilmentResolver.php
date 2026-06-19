@@ -12,12 +12,15 @@ use App\ValueObjects\Shortage;
  * Partial fulfilment (shortage-resolution-sub-hires.md §4.5).
  *
  * Always offers exactly one option: fulfil with the available quantity instead of
- * the requested quantity. Self-contained — needs no other domain — so it executes
- * immediately, recording a Confirmed resolution covering the available units and
- * capturing the original→reduced quantities in metadata for audit. The line
- * item's quantity edit itself remains the user's explicit edit flow (an
- * ItemQuantityChanged event), so the resolver stays decoupled from the Verbs
- * write path.
+ * the requested quantity. When applied it records a Confirmed resolution covering
+ * the available units and captures the original→reduced quantities in metadata for
+ * audit. The line item's quantity edit itself remains the user's explicit edit
+ * flow (an ItemQuantityChanged event), so the resolver stays decoupled from the
+ * Verbs write path.
+ *
+ * **NOT auto-executable** (spec §4.5): reducing a line quantity requires business
+ * judgement and must never happen without explicit confirmation, so the
+ * {@see ShortageAutoResolver} will not silently apply it.
  */
 class PartialFulfilmentResolver extends AbstractShortageResolver
 {
@@ -38,7 +41,8 @@ class PartialFulfilmentResolver extends AbstractShortageResolver
 
     public function isAutoExecutable(): bool
     {
-        return true;
+        // Spec §4.5: reducing a line quantity requires business judgement.
+        return false;
     }
 
     /**
@@ -67,8 +71,8 @@ class PartialFulfilmentResolver extends AbstractShortageResolver
                 description: "Reduce the line to the {$shortage->availableQuantity} available; {$shortage->remainingShortfall()} would remain unfulfilled.",
                 quantityResolved: $shortage->availableQuantity,
                 isPartial: true,
-                autoExecutable: true,
-                requiresConfirmation: false,
+                autoExecutable: false,
+                requiresConfirmation: true,
             ),
         ];
     }

@@ -74,8 +74,7 @@ class DetectOverdueDemands extends Command
             // redundant, un-debounced enqueue in addition to ours). is_active and
             // phase are unchanged — the item is still committed/operational, just late.
             DB::transaction(function () use ($demand, $sentinel, $scheduledEnd): void {
-                $demand->ends_at = $sentinel;
-                $demand->saveQuietly();
+                $this->extendToSentinel($demand, $sentinel);
 
                 $this->logOverdue($demand, $scheduledEnd);
             });
@@ -98,6 +97,52 @@ class DetectOverdueDemands extends Command
         ));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Push an overdue demand's unavailable window out to the sentinel.
+     *
+     * Both the raw `ends_at` AND the buffered `buffered_ends_at` move to the
+     * sentinel: a held-over unit has no turnaround end (it is physically still
+     * out), so the per-slot attribution — which gates on
+     * {@see Demand::bufferedEndsAt()} via `COALESCE(buffered_ends_at, ends_at)` —
+     * must see the demand occupying every future slot. Leaving
+     * `buffered_ends_at` at the original turnaround end would let the
+     * recalculation free the unit for future bookings while it is still out.
+     *
+     * On PostgreSQL the `period` tstzrange is the column the `period &&` fetch
+     * and the GiST index read, so it is rebuilt to span
+     * `[buffered_starts_at, sentinel)` via the raw {@see Demand::periodExpression()}.
+     * The `period` column does not exist on the SQLite test connection, so the
+     * rebuild is driver-guarded the same way the demands migration and
+     * {@see OpportunityItemDemandResolver::persist()} guard their writes.
+     *
+     * Buffered start is preserved (a late return does not change when the unit
+     * went out). The write is quiet so the per-save observer dispatch is
+     * suppressed — the caller dispatches a single debounced recalc per
+     * product/store.
+     */
+    private function extendToSentinel(Demand $demand, Carbon $sentinel): void
+    {
+        $bufferedStart = Carbon::parse($demand->bufferedStartsAt()->toIso8601String());
+
+        $demand->ends_at = $sentinel;
+        $demand->buffered_ends_at = $sentinel;
+        $demand->saveQuietly();
+
+        if ($demand->getConnection()->getDriverName() === 'pgsql') {
+            // Rebuild the tstzrange `period` server-side so the `period &&`
+            // overlap fetch and the GiST index see the demand spanning every
+            // future slot. The column is absent on SQLite, hence the guard. Done
+            // as a targeted raw UPDATE (the `period` column has no Eloquent
+            // attribute) rather than via setRawAttributes — syncing originals
+            // there would clear the date columns' dirty state and skip the save.
+            $demand->newQuery()
+                ->whereKey($demand->getKey())
+                ->update([
+                    'period' => Demand::periodExpression($bufferedStart, $sentinel),
+                ]);
+        }
     }
 
     /**

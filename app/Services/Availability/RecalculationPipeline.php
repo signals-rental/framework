@@ -16,8 +16,10 @@ use App\Models\Store;
 use App\Observers\DemandObserver;
 use App\Services\Shortages\PipelineShortageEmitter;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\Log;
 use Thunk\Verbs\Facades\Verbs;
 
 /**
@@ -232,15 +234,41 @@ class RecalculationPipeline
             // (pg_advisory_xact_lock(product_id, store_id)) would overflow once
             // a BIGSERIAL id exceeds ~2.1B, so we hash a composite string into
             // one int8 key instead.
-            /** @var array{0: int, 1: bool} $outcome */
-            $outcome = $connection->transaction(function () use ($connection, $productId, $storeId, $work): array {
-                $connection->statement(
-                    'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
-                    [$productId.':'.$storeId],
-                );
+            //
+            // The advisory wait is bounded by `availability.recalculation_lock_timeout_ms`
+            // via `SET LOCAL lock_timeout`, so a contended product/store never
+            // blocks a worker indefinitely. On timeout Postgres raises SQLSTATE
+            // 55P03 (lock_not_available); we catch it, skip this run, and log —
+            // the recalc is idempotent and a later trigger (or the next debounced
+            // job) re-materialises the window. We do NOT rethrow: rethrowing would
+            // fail the queued job and churn retries against the same contention.
+            try {
+                /** @var array{0: int, 1: bool} $outcome */
+                $outcome = $connection->transaction(function () use ($connection, $productId, $storeId, $work): array {
+                    $connection->statement(
+                        'SET LOCAL lock_timeout = '.$this->lockTimeoutMs(),
+                    );
 
-                return $work();
-            });
+                    $connection->statement(
+                        'SELECT pg_advisory_xact_lock(hashtextextended(?, 0))',
+                        [$productId.':'.$storeId],
+                    );
+
+                    return $work();
+                });
+            } catch (QueryException $exception) {
+                if ($this->isLockTimeout($exception)) {
+                    Log::warning('availability.recalculation lock timeout — skipping run', [
+                        'product_id' => $productId,
+                        'store_id' => $storeId,
+                        'timeout_ms' => $this->lockTimeoutMs(),
+                    ]);
+
+                    return RecalculationResult::skipped($productId, $storeId);
+                }
+
+                throw $exception;
+            }
 
             return new RecalculationResult($productId, $storeId, $from, $to, $outcome[0], $outcome[1]);
         }
@@ -248,6 +276,30 @@ class RecalculationPipeline
         [$slotCount, $hasShortage] = $work();
 
         return new RecalculationResult($productId, $storeId, $from, $to, $slotCount, $hasShortage);
+    }
+
+    /**
+     * The bounded wait (milliseconds) for the per-product/store advisory lock,
+     * read from the `availability.recalculation_lock_timeout_ms` setting with the
+     * settings-default fallback. Clamped to a non-negative integer so it is safe
+     * to inline into the `SET LOCAL lock_timeout` statement. A value of `0` means
+     * "wait indefinitely" in Postgres — the setting's own bounds keep it positive
+     * by default.
+     */
+    private function lockTimeoutMs(): int
+    {
+        return max(0, (int) settings('availability.recalculation_lock_timeout_ms', 5000));
+    }
+
+    /**
+     * Whether a {@see QueryException} is a Postgres `lock_timeout` failure
+     * (SQLSTATE `55P03`, lock_not_available) — the error raised when
+     * `pg_advisory_xact_lock` waits past `lock_timeout`. Matched on the SQLSTATE
+     * rather than the message so it is locale-independent.
+     */
+    private function isLockTimeout(QueryException $exception): bool
+    {
+        return $exception->getCode() === '55P03';
     }
 
     /**

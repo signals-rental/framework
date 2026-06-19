@@ -1,10 +1,13 @@
 <?php
 
 use App\Enums\AvailabilityEventType;
+use App\Enums\DemandPhase;
+use App\Enums\OpportunityState;
 use App\Enums\ShortageResolutionStatus;
 use App\Enums\ShortageResolutionType;
 use App\Enums\StockMethod;
 use App\Models\AvailabilityEvent;
+use App\Models\Demand;
 use App\Models\OpportunityItem;
 use App\Models\Product;
 use App\Models\Store;
@@ -69,8 +72,16 @@ it('resolves a resolver instance from the container by key', function () {
         ->and($this->registry->has('nope'))->toBeFalse();
 });
 
-it('marks only the partial resolver auto-executable among the self-contained ones', function () {
-    expect(app(PartialFulfilmentResolver::class)->isAutoExecutable())->toBeTrue()
+it('marks no built-in resolver auto-executable (every option needs business judgement per spec)', function () {
+    // Spec §4.1/§4.4/§4.5/§4.6: reallocate, date_shift, partial and waitlist are
+    // all "Auto-executable: No"; substitute/transfer are "configurable" and
+    // default to false until a relationship/pair opts in. So the auto-resolver
+    // never silently applies any built-in resolver.
+    foreach ($this->registry->all() as $resolver) {
+        expect($resolver->isAutoExecutable())->toBeFalse();
+    }
+
+    expect(app(PartialFulfilmentResolver::class)->isAutoExecutable())->toBeFalse()
         ->and(app(WaitlistResolver::class)->isAutoExecutable())->toBeFalse()
         ->and(app(QuoteReallocationResolver::class)->isAutoExecutable())->toBeFalse();
 });
@@ -96,7 +107,8 @@ it('applies the partial resolver, recording a confirmed resolution and its item'
     $options = $resolver->getOptions($shortage);
     expect($options)->toHaveCount(1)
         ->and($options[0]->quantityResolved)->toBe(4)
-        ->and($options[0]->autoExecutable)->toBeTrue();
+        ->and($options[0]->autoExecutable)->toBeFalse()
+        ->and($options[0]->requiresConfirmation)->toBeTrue();
 
     $result = $resolver->apply($shortage, $options[0]);
 
@@ -188,8 +200,67 @@ it('still records substitution intent as pending when applied directly', functio
     ]);
 });
 
+/**
+ * Create an ACTIVE demand held by an unconfirmed quote (opportunity state =
+ * Quotation) on the shortage's product/store, overlapping its window — exactly
+ * the stock the QuoteReallocationResolver looks for.
+ */
+function competingQuoteDemand(Shortage $shortage): void
+{
+    Demand::factory()
+        ->phase(DemandPhase::Held)
+        ->window($shortage->startsAt, $shortage->endsAt)
+        ->create([
+            'product_id' => $shortage->productId,
+            'store_id' => $shortage->storeId,
+            'quantity' => 1,
+            'source_type' => 'opportunity_item',
+            'source_id' => 987654,
+            'metadata' => ['opportunity_state' => OpportunityState::Quotation->value],
+        ]);
+}
+
+it('offers the reallocate option only when a competing quote demand exists', function () {
+    $shortage = bulkShortage();
+    $resolver = app(QuoteReallocationResolver::class);
+
+    // No competing quote holds stock → nothing to reallocate from.
+    expect($resolver->canResolve($shortage))->toBeFalse()
+        ->and($resolver->getOptions($shortage))->toBe([]);
+});
+
+it('offers the reallocate option when an unconfirmed quote holds overlapping stock', function () {
+    $shortage = bulkShortage();
+    competingQuoteDemand($shortage);
+
+    $resolver = app(QuoteReallocationResolver::class);
+
+    expect($resolver->canResolve($shortage))->toBeTrue()
+        ->and($resolver->getOptions($shortage))->toHaveCount(1);
+});
+
+it('does not offer reallocate when the only overlapping demand is a confirmed order', function () {
+    $shortage = bulkShortage();
+
+    // A committed (order-state) demand is NOT a reallocation candidate.
+    Demand::factory()
+        ->phase(DemandPhase::Committed)
+        ->window($shortage->startsAt, $shortage->endsAt)
+        ->create([
+            'product_id' => $shortage->productId,
+            'store_id' => $shortage->storeId,
+            'quantity' => 1,
+            'source_type' => 'opportunity_item',
+            'source_id' => 111222,
+            'metadata' => ['opportunity_state' => OpportunityState::Order->value],
+        ]);
+
+    expect(app(QuoteReallocationResolver::class)->canResolve($shortage))->toBeFalse();
+});
+
 it('records reallocation as pending intent awaiting the quote-release domain', function () {
     $shortage = bulkShortage();
+    competingQuoteDemand($shortage);
     $resolver = app(QuoteReallocationResolver::class);
 
     $result = $resolver->apply($shortage, $resolver->getOptions($shortage)[0]);

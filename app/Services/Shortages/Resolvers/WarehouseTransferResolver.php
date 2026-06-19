@@ -22,6 +22,13 @@ use App\ValueObjects\Shortage;
  */
 class WarehouseTransferResolver extends AbstractShortageResolver
 {
+    /**
+     * Memoised "more than one store exists" check for this resolver instance's
+     * lifetime, so a detection pass resolving many shortages performs a single
+     * `stores` count rather than one per shortage.
+     */
+    private ?bool $isMultiWarehouse = null;
+
     public function __construct(
         ShortageEventRecorder $events,
         private readonly AvailabilityService $availability,
@@ -51,11 +58,21 @@ class WarehouseTransferResolver extends AbstractShortageResolver
     }
 
     /**
-     * Only worth offering in a multi-warehouse store.
+     * Only worth offering in a multi-warehouse store. The multi-warehouse check
+     * is memoised so resolving many shortages in one pass counts stores once.
      */
     public function canResolve(Shortage $shortage): bool
     {
-        return $shortage->remainingShortfall() > 0 && Store::query()->count() > 1;
+        return $shortage->remainingShortfall() > 0 && $this->isMultiWarehouse();
+    }
+
+    /**
+     * Whether more than one store (warehouse) exists, memoised for this
+     * resolver instance's lifetime.
+     */
+    private function isMultiWarehouse(): bool
+    {
+        return $this->isMultiWarehouse ??= Store::query()->count() > 1;
     }
 
     /**

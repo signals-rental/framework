@@ -11,7 +11,6 @@ use App\Enums\AvailabilityResolution;
 use App\Enums\DemandPhase;
 use App\Enums\OpportunityState;
 use App\Enums\ShortagePolicy;
-use App\Enums\ShortageResolutionType;
 use App\Models\Demand;
 use App\Models\Opportunity;
 use App\Models\Product;
@@ -91,7 +90,11 @@ function autoResolveQuotation(array $storeConfig): Opportunity
     return $opportunity->fresh();
 }
 
-it('auto-applies the partial resolver when auto-resolve is on, leaving a residual gate', function () {
+it('does not auto-apply the partial resolver — partial requires business judgement (spec §4.5)', function () {
+    // Even with partial preferred and auto-resolve on, the auto-resolver must NOT
+    // silently reduce the line quantity: PartialFulfilmentResolver is
+    // "Auto-executable: No" per spec §4.5. Auto-resolution finds no
+    // auto-executable option and records nothing.
     $opportunity = autoResolveQuotation([
         'shortage_policy' => ShortagePolicy::Allow->value,
         'shortage_auto_resolve_enabled' => true,
@@ -100,14 +103,8 @@ it('auto-applies the partial resolver when auto-resolve is on, leaving a residua
 
     $count = app(ShortageAutoResolver::class)->resolve($opportunity);
 
-    expect($count)->toBe(1);
-
-    // Partial fulfilment recorded a Confirmed resolution covering the 1 available
-    // unit (5 held - 4 committed = 1 free).
-    $resolution = ShortageResolution::query()->first();
-    expect($resolution)->not->toBeNull()
-        ->and($resolution->resolution_type)->toBe(ShortageResolutionType::Partial)
-        ->and($resolution->quantity_resolved)->toBe(1);
+    expect($count)->toBe(0)
+        ->and(ShortageResolution::query()->count())->toBe(0);
 });
 
 it('is a no-op when auto-resolve is off', function () {
@@ -122,7 +119,10 @@ it('is a no-op when auto-resolve is off', function () {
         ->and(ShortageResolution::query()->count())->toBe(0);
 });
 
-it('falls back to all resolvers in priority order when none configured', function () {
+it('records nothing when none configured because no built-in resolver is auto-executable', function () {
+    // With no preferred order the auto-resolver scans every registered resolver in
+    // priority order — but none of the built-ins is auto-executable per spec, so
+    // it auto-applies nothing and records no resolution.
     $opportunity = autoResolveQuotation([
         'shortage_policy' => ShortagePolicy::Allow->value,
         'shortage_auto_resolve_enabled' => true,
@@ -131,15 +131,14 @@ it('falls back to all resolvers in priority order when none configured', functio
 
     $count = app(ShortageAutoResolver::class)->resolve($opportunity);
 
-    // Partial is the only auto-executable built-in that produces an option here,
-    // so exactly one execution happens even without an explicit order.
-    expect($count)->toBe(1)
-        ->and(ShortageResolution::query()->where('resolution_type', ShortageResolutionType::Partial->value)->count())->toBe(1);
+    expect($count)->toBe(0)
+        ->and(ShortageResolution::query()->count())->toBe(0);
 });
 
-it('runs inside ConvertToOrder so the gate sees the residual before blocking', function () {
-    // Block policy, auto-resolve on with partial. Partial covers the 1 available
-    // unit but 1 still short, so a Block policy still blocks on the residual.
+it('runs inside ConvertToOrder and a Block policy still blocks the unresolved shortage', function () {
+    // Block policy, auto-resolve on with partial preferred. Partial is NOT
+    // auto-executable, so nothing is auto-applied and the full shortage remains —
+    // a Block policy blocks the conversion.
     $opportunity = autoResolveQuotation([
         'shortage_policy' => ShortagePolicy::Block->value,
         'shortage_auto_resolve_enabled' => true,
@@ -149,8 +148,7 @@ it('runs inside ConvertToOrder so the gate sees the residual before blocking', f
     expect(fn () => (new ConvertToOrder)($opportunity))
         ->toThrow(ValidationException::class);
 
-    // Even though the conversion rolled back, the auto-resolution ran within the
-    // same transaction and was rolled back too — so no orphan resolution remains.
+    // The conversion rolled back and no resolution was auto-recorded.
     expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation)
         ->and(ShortageResolution::query()->count())->toBe(0);
 });
