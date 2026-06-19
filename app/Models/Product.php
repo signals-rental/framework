@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $buffer_before_minutes
  * @property int $post_rent_unavailability
  * @property bool $track_availability
+ * @property bool $is_kit
  */
 class Product extends Model implements HasSchema
 {
@@ -46,6 +47,7 @@ class Product extends Model implements HasSchema
         'buffer_before_minutes',
         'post_rent_unavailability',
         'track_availability',
+        'is_kit',
         'is_active',
         'accessory_only',
         'system',
@@ -83,6 +85,7 @@ class Product extends Model implements HasSchema
             'buffer_before_minutes' => 'integer',
             'post_rent_unavailability' => 'integer',
             'track_availability' => 'boolean',
+            'is_kit' => 'boolean',
         ];
     }
 
@@ -235,6 +238,44 @@ class Product extends Model implements HasSchema
     public function accessoryOf(): HasMany
     {
         return $this->hasMany(Accessory::class, 'accessory_product_id');
+    }
+
+    /**
+     * Kit composition rows where this product is the kit parent — i.e. the
+     * components drawn into this kit (availability-engine.md §"Non-Serialised
+     * Kits"). A product is a kit when this relation is non-empty.
+     *
+     * @return HasMany<SerialisedComponent, $this>
+     */
+    public function components(): HasMany
+    {
+        return $this->hasMany(SerialisedComponent::class, 'product_id');
+    }
+
+    /**
+     * Kit composition rows where this product is used as a component of other
+     * kits.
+     *
+     * @return HasMany<SerialisedComponent, $this>
+     */
+    public function componentOf(): HasMany
+    {
+        return $this->hasMany(SerialisedComponent::class, 'component_product_id');
+    }
+
+    /**
+     * Whether this product is a kit — composed of other products read-time rather
+     * than demand-tracked directly. Prefers the denormalised `is_kit` flag and
+     * falls back to composition existence so a freshly-built kit (flag not yet
+     * persisted) still reports correctly.
+     */
+    public function isKit(): bool
+    {
+        if ($this->is_kit) {
+            return true;
+        }
+
+        return $this->components()->exists();
     }
 
     /**

@@ -5,12 +5,14 @@ namespace App\Services\Availability;
 use App\Contracts\DemandResolverContract;
 use App\Enums\AssetAssignmentStatus;
 use App\Enums\DemandPhase;
+use App\Enums\KitComponentBinding;
 use App\Enums\StockMethod;
 use App\Models\Demand;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityItemAsset;
 use App\Models\Product;
+use App\Models\SerialisedComponent;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -34,6 +36,11 @@ use InvalidArgumentException;
  * (`asset_id` set, quantity 1); bulk products — and serialised products with no
  * allocations yet — produce a single product-level demand (`asset_id` null,
  * quantity = line quantity).
+ *
+ * Catalogue (pool) kit lines explode instead: the kit product generates no demand
+ * of its own; each pool component produces a demand against the COMPONENT product
+ * at (line_qty × component_qty). Fixed (container-bound) components are a seam for
+ * M5-3b. See {@see syncKitComponentDemands()}.
  *
  * This resolver is a callable service. It is NOT wired to fire automatically on
  * item events (that wiring is M3); callers invoke {@see syncDemands()} /
@@ -146,6 +153,28 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         // converges (handles quantity changes, allocation changes, etc.).
         $this->purge($item);
 
+        // Catalogue (pool) kit line: the kit product itself generates NO demand —
+        // it has no stock of its own. Instead each pool component explodes into its
+        // own demand at (line_qty × component_qty), so the booking draws the
+        // components from general stock (availability-engine.md §"Non-Serialised
+        // Kits"). Fixed (container-bound) components are a seam for M5-3b.
+        if ($product->isKit()) {
+            $this->syncKitComponentDemands(
+                $product,
+                $item,
+                $storeId,
+                $quantity,
+                $startsAt,
+                $endsAt,
+                $bufferedStart,
+                $bufferedEnd,
+                $phase,
+                $metadata,
+            );
+
+            return;
+        }
+
         if ($isSerialised) {
             // Serialised demand transition (opportunity-lifecycle.md §9.3): each
             // allocated asset claims a specific unit (asset_id set, quantity 1),
@@ -199,6 +228,105 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         }
 
         $this->persist($product->id, $storeId, null, $effectiveQuantity, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
+    }
+
+    /**
+     * Explode a catalogue (pool) kit line into one demand per pool component.
+     *
+     * Each pool component claims (line_qty × component.quantity) units of the
+     * COMPONENT product (rounded up to whole units — demands are integer), at the
+     * line's window with the COMPONENT's own before/after buffers baked in (the kit
+     * parent carries no meaningful buffers of its own). All demands share the line
+     * item's `source_type`/`source_id` so {@see purge()} / {@see releaseDemands()}
+     * reverse them as one set, and so a resync converges.
+     *
+     * FIXED-binding components are deliberately skipped here — they are
+     * container-bound and modelled in M5-3b. The branch is the seam: when M5-3b
+     * lands, fixed components route to container demands rather than exploding.
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    protected function syncKitComponentDemands(
+        Product $kit,
+        OpportunityItem $item,
+        int $storeId,
+        int $kitQuantity,
+        Carbon $startsAt,
+        Carbon $endsAt,
+        Carbon $bufferedStart,
+        Carbon $bufferedEnd,
+        DemandPhase $phase,
+        array $metadata,
+    ): void {
+        $appliesTurnaround = $phase->appliesTurnaround();
+
+        /** @var list<SerialisedComponent> $components */
+        $components = $kit->components()
+            ->where('binding', KitComponentBinding::Pool->value)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->all();
+
+        foreach ($components as $component) {
+            // SEAM (M5-3b): fixed components become container demands; for now the
+            // catalogue-kit chunk treats only pool components.
+            if ($component->binding !== KitComponentBinding::Pool) {
+                continue;
+            }
+
+            // Whole units required of this component: line qty × per-kit qty, never
+            // below 1 for a present component.
+            $componentQuantity = max(1, (int) ceil($kitQuantity * (float) $component->quantity));
+
+            $componentProduct = Product::query()->find($component->component_product_id);
+
+            if ($componentProduct === null) {
+                continue;
+            }
+
+            // A component that is itself a kit recurses one level: build a synthetic
+            // item context is overkill here — instead explode its pool components
+            // against the same line, scaling quantities. Keep it simple by treating
+            // nested kit components as their own explosion via this same method.
+            if ($componentProduct->isKit()) {
+                $this->syncKitComponentDemands(
+                    $componentProduct,
+                    $item,
+                    $storeId,
+                    $componentQuantity,
+                    $startsAt,
+                    $endsAt,
+                    $bufferedStart,
+                    $bufferedEnd,
+                    $phase,
+                    $metadata,
+                );
+
+                continue;
+            }
+
+            [$componentBufferedStart, $componentBufferedEnd] = Demand::bufferedPeriod(
+                $startsAt,
+                $endsAt,
+                $appliesTurnaround ? (int) ($componentProduct->buffer_before_minutes ?? 0) : 0,
+                $appliesTurnaround ? (int) ($componentProduct->post_rent_unavailability ?? 0) : 0,
+            );
+
+            $this->persist(
+                $componentProduct->id,
+                $storeId,
+                null,
+                $componentQuantity,
+                $startsAt,
+                $endsAt,
+                $componentBufferedStart,
+                $componentBufferedEnd,
+                $phase,
+                $metadata,
+                $item->id,
+            );
+        }
     }
 
     /**

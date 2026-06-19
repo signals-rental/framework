@@ -3,8 +3,10 @@
 use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Enums\AvailabilityResolution;
 use App\Enums\DemandPhase;
+use App\Models\AvailabilitySnapshot;
 use App\Models\Demand;
 use App\Models\Product;
+use App\Models\SerialisedComponent;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\AvailabilityService;
@@ -195,7 +197,43 @@ describe('deferred methods', function () {
         $this->service->getShortages($this->store->id, Carbon::now(), Carbon::now()->addDay());
     })->throws(BadMethodCallException::class);
 
-    it('throws for getKitAvailability (deferred to M5)', function () {
-        $this->service->getKitAvailability(1, $this->store->id, Carbon::now(), Carbon::now()->addDay());
-    })->throws(BadMethodCallException::class);
+    it('composes kit availability from component snapshots (M5-3a)', function () {
+        $kit = Product::factory()->kit()->create();
+
+        // Two pool components: one with 6 available (qty 2/kit → 3 kits), one with
+        // 5 available (qty 1/kit → 5 kits). MIN → 3 kits.
+        $componentA = Product::factory()->bulk()->create();
+        $componentB = Product::factory()->bulk()->create();
+
+        SerialisedComponent::factory()->pool()->quantity(2)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $componentA->id,
+        ]);
+        SerialisedComponent::factory()->pool()->quantity(1)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $componentB->id,
+        ]);
+
+        $slot = Carbon::parse('2026-09-01T00:00:00Z');
+
+        AvailabilitySnapshot::factory()->create([
+            'product_id' => $componentA->id, 'store_id' => $this->store->id,
+            'slot_start' => $slot, 'total_stock' => 6, 'total_demanded' => 0, 'available' => 6,
+        ]);
+        AvailabilitySnapshot::factory()->create([
+            'product_id' => $componentB->id, 'store_id' => $this->store->id,
+            'slot_start' => $slot, 'total_stock' => 5, 'total_demanded' => 0, 'available' => 5,
+        ]);
+
+        $range = $this->service->getKitAvailability(
+            $kit->id,
+            $this->store->id,
+            $slot,
+            $slot->copy()->addDay(),
+        );
+
+        expect($range->slots)->toHaveCount(1)
+            ->and($range->slots[0]->available)->toBe(3)
+            ->and($range->min_available)->toBe(3);
+    });
 });

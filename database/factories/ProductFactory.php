@@ -80,6 +80,19 @@ class ProductFactory extends Factory
         ]);
     }
 
+    /**
+     * A catalogue kit: composed read-time from components, so it generates no
+     * demand of its own and holds no snapshot rows. Attach components via the
+     * `SerialisedComponent` factory.
+     */
+    public function kit(): static
+    {
+        return $this->state(fn () => [
+            'is_kit' => true,
+            'track_availability' => false,
+        ]);
+    }
+
     public function withGroup(): static
     {
         return $this->state(fn () => [

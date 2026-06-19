@@ -8,6 +8,7 @@ use App\Contracts\Availability\AvailabilityStrategyContract;
 use App\Models\User;
 use App\Services\Activities\ActivityTypeList;
 use App\Services\Availability\DatabaseAvailabilityDataPresence;
+use App\Services\Availability\KitAvailabilityCalculator;
 use App\Services\Availability\OpportunityItemDemandResolver;
 use App\Services\Availability\PassThroughAvailabilityStrategy;
 use App\Services\Availability\RecalculationPipeline;
@@ -92,6 +93,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(PipelineShortageEmitter::class);
         $this->app->singleton(RecalculationPipeline::class);
         $this->app->singleton(AvailabilityService::class);
+
+        // The kit calculator reads component availability back through the
+        // AvailabilityService. Resolve the service lazily (closure) so the
+        // singleton never captures a request-bound dependency in its constructor
+        // (Octane-safe) and so tests can rebind the service to a mock.
+        $this->app->singleton(KitAvailabilityCalculator::class, fn ($app): KitAvailabilityCalculator => new KitAvailabilityCalculator(
+            fn (): AvailabilityService => $app->make(AvailabilityService::class),
+        ));
 
         $this->app->singleton(PermissionRegistry::class, function (): PermissionRegistry {
             $registry = new PermissionRegistry;

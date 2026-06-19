@@ -83,4 +83,20 @@ return [
         'batch_size' => (int) env('AVAILABILITY_OVERDUE_BATCH_SIZE', 500),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kit Nesting Maximum Depth
+    |--------------------------------------------------------------------------
+    |
+    | The deepest a kit may nest other kits before the chain is rejected. This is
+    | an infrastructure safety bound (not a tenant setting): it caps the recursion
+    | the KitAvailabilityCalculator performs when composing a kit's availability
+    | from its components, and is enforced at composition-create time so a cycle or
+    | runaway chain can never be persisted. Depth 1 = a kit whose components are
+    | all leaf products; the default of 3 permits kit-of-kit-of-kit.
+    |
+    */
+
+    'kit_nesting_max_depth' => (int) env('AVAILABILITY_KIT_NESTING_MAX_DEPTH', 3),
+
 ];

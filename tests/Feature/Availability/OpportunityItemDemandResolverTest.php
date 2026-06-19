@@ -8,6 +8,7 @@ use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityItemAsset;
 use App\Models\Product;
+use App\Models\SerialisedComponent;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Availability\OpportunityItemDemandResolver;
@@ -410,4 +411,119 @@ it('voids demands on release', function () {
 
     expect($demand->phase)->toBe(DemandPhase::Void)
         ->and($demand->is_active)->toBeFalse();
+});
+
+describe('catalogue kit explosion (M5-3a)', function () {
+    it('explodes a kit line into per-pool-component demands (not a kit demand)', function () {
+        $componentA = Product::factory()->bulk()->create([
+            'buffer_before_minutes' => 0,
+            'post_rent_unavailability' => 0,
+        ]);
+        $componentB = Product::factory()->bulk()->create([
+            'buffer_before_minutes' => 0,
+            'post_rent_unavailability' => 0,
+        ]);
+
+        $kit = Product::factory()->kit()->create();
+
+        SerialisedComponent::factory()->pool()->quantity(2)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $componentA->id,
+        ]);
+        SerialisedComponent::factory()->pool()->quantity(3)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $componentB->id,
+        ]);
+
+        $store = Store::factory()->create();
+        // line qty 4 → A: 4×2=8, B: 4×3=12
+        $item = makeDemandItem(OpportunityStatus::OrderActive, $kit, $store, ['quantity' => 4]);
+
+        demandResolver()->syncDemands($item);
+
+        $demands = Demand::query()->where('source_id', $item->id)->get();
+
+        // No demand against the kit product itself.
+        expect($demands->where('product_id', $kit->id))->toHaveCount(0)
+            ->and($demands)->toHaveCount(2);
+
+        $byProduct = $demands->keyBy('product_id');
+
+        expect($byProduct[$componentA->id]->quantity)->toBe(8)
+            ->and($byProduct[$componentB->id]->quantity)->toBe(12)
+            ->and($byProduct[$componentA->id]->asset_id)->toBeNull()
+            ->and($byProduct[$componentA->id]->phase)->toBe(DemandPhase::Committed);
+    });
+
+    it('ignores fixed-binding components when exploding a kit (M5-3b seam)', function () {
+        $pool = Product::factory()->bulk()->create();
+        $fixed = Product::factory()->bulk()->create();
+        $kit = Product::factory()->kit()->create();
+
+        SerialisedComponent::factory()->pool()->quantity(1)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $pool->id,
+        ]);
+        SerialisedComponent::factory()->fixed()->quantity(1)->create([
+            'product_id' => $kit->id,
+            'component_product_id' => $fixed->id,
+        ]);
+
+        $store = Store::factory()->create();
+        $item = makeDemandItem(OpportunityStatus::OrderActive, $kit, $store, ['quantity' => 1]);
+
+        demandResolver()->syncDemands($item);
+
+        $demands = Demand::query()->where('source_id', $item->id)->get();
+
+        expect($demands)->toHaveCount(1)
+            ->and($demands->first()->product_id)->toBe($pool->id);
+    });
+
+    it('releases exploded kit-component demands as one set', function () {
+        $a = Product::factory()->bulk()->create();
+        $b = Product::factory()->bulk()->create();
+        $kit = Product::factory()->kit()->create();
+
+        SerialisedComponent::factory()->pool()->quantity(1)->create(['product_id' => $kit->id, 'component_product_id' => $a->id]);
+        SerialisedComponent::factory()->pool()->quantity(1)->create(['product_id' => $kit->id, 'component_product_id' => $b->id]);
+
+        $store = Store::factory()->create();
+        $item = makeDemandItem(OpportunityStatus::OrderActive, $kit, $store, ['quantity' => 2]);
+
+        $resolver = demandResolver();
+        $resolver->syncDemands($item);
+
+        expect(Demand::query()->where('source_id', $item->id)->where('is_active', true)->count())->toBe(2);
+
+        $resolver->releaseDemands($item);
+
+        $active = Demand::query()->where('source_id', $item->id)->where('is_active', true)->count();
+        $voided = Demand::query()->where('source_id', $item->id)->where('phase', DemandPhase::Void->value)->count();
+
+        expect($active)->toBe(0)
+            ->and($voided)->toBe(2);
+    });
+
+    it('explodes a nested kit recursively', function () {
+        $leaf = Product::factory()->bulk()->create();
+        $inner = Product::factory()->kit()->create();
+        $outer = Product::factory()->kit()->create();
+
+        // inner kit → 2× leaf ; outer kit → 3× inner
+        SerialisedComponent::factory()->pool()->quantity(2)->create(['product_id' => $inner->id, 'component_product_id' => $leaf->id]);
+        SerialisedComponent::factory()->pool()->quantity(3)->create(['product_id' => $outer->id, 'component_product_id' => $inner->id]);
+
+        $store = Store::factory()->create();
+        // line qty 1 → inner needed = 3 → leaf needed = 3×2 = 6
+        $item = makeDemandItem(OpportunityStatus::OrderActive, $outer, $store, ['quantity' => 1]);
+
+        demandResolver()->syncDemands($item);
+
+        $demands = Demand::query()->where('source_id', $item->id)->get();
+
+        expect($demands)->toHaveCount(1)
+            ->and($demands->first()->product_id)->toBe($leaf->id)
+            ->and($demands->first()->quantity)->toBe(6);
+    });
 });

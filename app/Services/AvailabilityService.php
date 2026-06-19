@@ -13,6 +13,7 @@ use App\Models\OpportunityItem;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
+use App\Services\Availability\KitAvailabilityCalculator;
 use App\Services\Availability\OpportunityItemDemandResolver;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\Availability\SlotCalculator;
@@ -63,6 +64,16 @@ class AvailabilityService
         $slotStart = $this->slotCalculator->alignToSlot($date, $timezone);
         $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
 
+        // Kit products are composed read-time from components — they have no stock
+        // or demand of their own. Compose the slot's availability via the kit
+        // calculator and surface it as a point reading.
+        if ($product->is_kit) {
+            $range = $this->getKitAvailability($productId, $storeId, $slotStart, $slotEnd);
+            $available = $range->min_available ?? 0;
+
+            return AvailabilityData::make($productId, $storeId, $slotStart, $available, 0, []);
+        }
+
         $totalStock = $this->pipeline->totalStock($product, $storeId);
 
         [$demanded, $breakdown] = $this->sumDemand($productId, $storeId, $slotStart, $slotEnd);
@@ -77,6 +88,14 @@ class AvailabilityService
      */
     public function getAvailabilityRange(int $productId, int $storeId, Carbon $from, Carbon $to): AvailabilityRangeData
     {
+        // Kit products hold no snapshot rows — their availability is composed
+        // read-time from components. Route them to the kit calculator so a kit
+        // passed to the normal range read "just works" rather than returning an
+        // empty (and misleading) slot set.
+        if ($this->isKitProduct($productId)) {
+            return $this->getKitAvailability($productId, $storeId, $from, $to);
+        }
+
         /** @var Collection<int, AvailabilitySnapshot> $snapshots */
         $snapshots = AvailabilitySnapshot::query()
             ->forProductStore($productId, $storeId)
@@ -414,16 +433,27 @@ class AvailabilityService
     }
 
     /**
-     * Composed availability for a kit product from its component snapshots.
+     * Composed availability for a catalogue (pool) kit, delegated to the
+     * {@see KitAvailabilityCalculator}: per slot, MIN(floor(component_available /
+     * component_qty)) across all pool components, reading component availability
+     * from the snapshot range read and recursing for nested kits (depth-limited).
      *
-     * Deferred to M5 (kit/serialised-container availability). Declared so the
-     * surface matches the design and callers fail loudly.
-     *
-     * @return never
+     * Kits hold no snapshot rows and generate no demand of their own — this is the
+     * only read path that produces a kit's availability.
      */
-    public function getKitAvailability(int $productId, int $storeId, Carbon $from, Carbon $to): mixed
+    public function getKitAvailability(int $productId, int $storeId, Carbon $from, Carbon $to): AvailabilityRangeData
     {
-        throw new BadMethodCallException('Kit availability is not implemented until M5.');
+        return app(KitAvailabilityCalculator::class)->calculate($productId, $storeId, $from, $to);
+    }
+
+    /**
+     * Whether a product is a catalogue kit (composed read-time from components).
+     * Prefers the denormalised `is_kit` flag; only products flagged as kits are
+     * routed to the kit calculator from the normal range read.
+     */
+    private function isKitProduct(int $productId): bool
+    {
+        return Product::query()->whereKey($productId)->where('is_kit', true)->exists();
     }
 
     /**
