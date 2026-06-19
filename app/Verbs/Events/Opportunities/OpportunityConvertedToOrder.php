@@ -5,6 +5,7 @@ namespace App\Verbs\Events\Opportunities;
 use App\Enums\OpportunityState as StateAxis;
 use App\Models\Opportunity;
 use App\Models\OpportunityVersion;
+use App\Verbs\Events\Opportunities\Concerns\GuardsOpportunityLifecycle;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\Events\Opportunities\Concerns\ResyncsOpportunityDemands;
 use App\Verbs\States\OpportunityState;
@@ -28,6 +29,7 @@ use Thunk\Verbs\Event;
  */
 class OpportunityConvertedToOrder extends Event
 {
+    use GuardsOpportunityLifecycle;
     use RecordsOpportunityAudit;
     use ResyncsOpportunityDemands;
 
@@ -53,6 +55,15 @@ class OpportunityConvertedToOrder extends Event
         $this->assert(
             ! $state->isClosed(),
             'A closed quotation cannot be converted to an order.',
+        );
+
+        // §12.1 invariant — an order must have something to fulfil. Reads the
+        // active-version line items from the projection (versioned opportunities
+        // confirm against a single version, §8.8), so the check holds for both
+        // versioned and non-versioned deals without name-matching a status.
+        $this->assert(
+            $this->opportunityHasActiveItem($state->id),
+            'An opportunity with no items cannot be converted to an order.',
         );
     }
 

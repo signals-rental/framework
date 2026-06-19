@@ -62,8 +62,9 @@ function makeOrderLine(Store $store, Product $product, string $quantity = '4'): 
 
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new ConvertToQuotation)($opportunity);
-    (new ConvertToOrder)($opportunity->refresh());
 
+    // Items are added while still a quotation — an order must have at least one
+    // line item to be confirmed (opportunity-lifecycle.md §12.1 convert guard).
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
         'item_id' => $product->id,
@@ -71,6 +72,8 @@ function makeOrderLine(Store $store, Product $product, string $quantity = '4'): 
         'quantity' => $quantity,
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
+
+    (new ConvertToOrder)($opportunity->refresh());
 
     return $opportunity->items()->firstOrFail();
 }

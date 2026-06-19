@@ -27,6 +27,15 @@ enum DemandPhase: string
     /** Being composed, provisional, not yet confirmed. No availability impact. */
     case Draft = 'draft';
 
+    /**
+     * Soft-reserved while a confirmed/reserved booking is on hold (a postponed
+     * quotation). The unit is still claimed — availability-engine.md retains
+     * postponed demand as `held` rather than releasing it — but the hold is not an
+     * operational hire. Active (reduces availability) yet distinct from Committed/
+     * Operational so it can be reported and re-derived separately.
+     */
+    case Held = 'held';
+
     /** Confirmed, resources reserved. Active — reduces availability. */
     case Committed = 'committed';
 
@@ -42,14 +51,14 @@ enum DemandPhase: string
     /**
      * Whether a demand in this phase consumes availability.
      *
-     * True only for the Committed and Operational phases; every other phase is
-     * inactive and excluded from availability calculations and the serialised
-     * exclusion constraint.
+     * True for the Held, Committed and Operational phases (each holds a unit);
+     * every other phase is inactive and excluded from availability calculations
+     * and the serialised exclusion constraint.
      */
     public function isActive(): bool
     {
         return match ($this) {
-            self::Committed, self::Operational => true,
+            self::Held, self::Committed, self::Operational => true,
             self::Draft, self::Closed, self::Void => false,
         };
     }
@@ -64,7 +73,9 @@ enum DemandPhase: string
      * turnaround/cleaning window still occupies it). The buffer is only meaningful
      * while the unit is, or has just been, physically present.
      *
-     * False for {@see DemandPhase::Draft} (provisional — never reserved a unit) and
+     * False for {@see DemandPhase::Draft} (provisional — never reserved a unit),
+     * {@see DemandPhase::Held} (a soft hold on a postponed quote — the unit is
+     * claimed but not physically out, so no turnaround/cleaning window applies) and
      * {@see DemandPhase::Void} (cancelled/rejected — releases immediately with no
      * turnaround, per availability-engine.md §"Turnaround Time": "Turnaround does
      * not apply when a demand enters the Void phase").
@@ -80,7 +91,7 @@ enum DemandPhase: string
     {
         return match ($this) {
             self::Committed, self::Operational, self::Closed => true,
-            self::Draft, self::Void => false,
+            self::Draft, self::Held, self::Void => false,
         };
     }
 
@@ -88,6 +99,7 @@ enum DemandPhase: string
     {
         return match ($this) {
             self::Draft => 'Draft',
+            self::Held => 'Held',
             self::Committed => 'Committed',
             self::Operational => 'Operational',
             self::Closed => 'Closed',

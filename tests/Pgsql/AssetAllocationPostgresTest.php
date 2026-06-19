@@ -60,8 +60,9 @@ function makePgOrderLine(Store $store, Product $product): OpportunityItem
     ]));
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new ConvertToQuotation)($opportunity);
-    (new ConvertToOrder)($opportunity->refresh());
 
+    // The line item must exist before conversion — an order must carry at least
+    // one item to be confirmed (opportunity-lifecycle.md §12.1).
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
         'item_id' => $product->id,
@@ -69,6 +70,8 @@ function makePgOrderLine(Store $store, Product $product): OpportunityItem
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
+
+    (new ConvertToOrder)($opportunity->refresh());
 
     return $opportunity->items()->firstOrFail();
 }
@@ -118,7 +121,8 @@ it('allows the same asset on a non-overlapping window', function () {
     ]));
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new ConvertToQuotation)($opportunity);
-    (new ConvertToOrder)($opportunity->refresh());
+    // The line item must exist before conversion — an order must carry at least
+    // one item to be confirmed (opportunity-lifecycle.md §12.1).
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $this->product->name,
         'item_id' => $this->product->id,
@@ -126,6 +130,7 @@ it('allows the same asset on a non-overlapping window', function () {
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
+    (new ConvertToOrder)($opportunity->refresh());
     $itemB = $opportunity->items()->firstOrFail();
 
     (new AllocateAsset)($itemB, AllocateAssetData::from(['stock_level_id' => $asset->id]));

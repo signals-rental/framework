@@ -206,6 +206,11 @@ it('rejects mutating a cost on a closed opportunity', function () {
     $cost = $opportunity->costs()->firstOrFail();
 
     (new ConvertToQuotation)($opportunity->refresh());
+    // An order must carry at least one line item to be confirmed
+    // (opportunity-lifecycle.md §12.1 convert guard).
+    (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+        'name' => 'Line', 'quantity' => '1', 'unit_price' => 5000,
+    ]));
     (new ConvertToOrder)($opportunity->refresh());
     $opportunity->refresh();
     $opportunity->update(['status' => OpportunityStatus::OrderCancelled->statusValue()]);

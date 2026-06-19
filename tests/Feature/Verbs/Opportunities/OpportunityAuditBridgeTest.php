@@ -1,10 +1,12 @@
 <?php
 
+use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\ChangeOpportunityStatus;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\UpdateOpportunity;
+use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Enums\OpportunityState;
@@ -75,6 +77,16 @@ it('records an audit row when an opportunity is quoted', function () {
 it('records an audit row when a quotation is converted to an order', function () {
     $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'To order']));
     (new ConvertToQuotation)(Opportunity::findOrFail($created->id));
+
+    // An order must carry at least one line item to be confirmed
+    // (opportunity-lifecycle.md §12.1 convert guard).
+    (new AddOpportunityItem)(Opportunity::findOrFail($created->id), AddOpportunityItemData::from([
+        'name' => 'Line',
+        'quantity' => '1',
+        'unit_price' => 5000,
+        'starts_at' => now()->toIso8601String(),
+        'ends_at' => now()->addDays(2)->toIso8601String(),
+    ]));
 
     (new ConvertToOrder)(Opportunity::findOrFail($created->id));
 
@@ -148,12 +160,23 @@ it('records an audit row when editable header fields are updated', function () {
 it('does not duplicate audit rows on replay', function () {
     $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Replay safe']));
     (new ConvertToQuotation)(Opportunity::findOrFail($created->id));
+    // An order must carry at least one line item to be confirmed
+    // (opportunity-lifecycle.md §12.1 convert guard); this also writes an
+    // opportunity.item_added audit row.
+    (new AddOpportunityItem)(Opportunity::findOrFail($created->id), AddOpportunityItemData::from([
+        'name' => 'Line',
+        'quantity' => '1',
+        'unit_price' => 5000,
+        'starts_at' => now()->toIso8601String(),
+        'ends_at' => now()->addDays(2)->toIso8601String(),
+    ]));
     (new ConvertToOrder)(Opportunity::findOrFail($created->id));
 
     $id = $created->id;
     $countBefore = ActionLog::query()->where('auditable_id', $id)->count();
 
-    expect($countBefore)->toBe(3);
+    // created + quoted + item_added + converted_to_order.
+    expect($countBefore)->toBe(4);
 
     // Replay re-runs every handle() (Phase::Replay), which re-dispatches the
     // audit bridge — but firstOrCreate on verb_event_id makes each a no-op.

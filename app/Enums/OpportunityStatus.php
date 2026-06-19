@@ -95,22 +95,47 @@ enum OpportunityStatus: int
      * Mapping follows the opportunity-status → demand-phase table in the
      * availability engine plan:
      *
-     *  - Draft / provisional / postponed quotes → {@see DemandPhase::Draft}
-     *    (inactive; the booking exists but does not consume stock).
+     *  - Draft / provisional quotes → {@see DemandPhase::Draft} (inactive; the
+     *    booking exists but does not consume stock).
+     *  - Postponed quotes → {@see DemandPhase::Held} — a postponed reservation is
+     *    soft-reserved, not released (availability-engine.md retains postponed
+     *    demand as `held`). The unit stays claimed (active) while the deal is on
+     *    hold.
      *  - Reserved quotes and active (confirmed, not-yet-dispatched) orders →
      *    {@see DemandPhase::Committed} (active).
      *  - Dispatched / on-hire orders → {@see DemandPhase::Operational} (active).
      *  - Returned / checked / completed orders → {@see DemandPhase::Closed}
-     *    (inactive after turnaround).
+     *    (inactive after turnaround) — but the exact point at which an order's
+     *    operational demand closes is governed by the configurable
+     *    {@see ReleasePoint} (availability-engine.md §"Configurable release point").
+     *    See {@see $releasePoint} below.
      *  - Cancelled orders and lost / dead quotes → {@see DemandPhase::Void}
      *    (inactive immediately, no turnaround).
+     *
+     * The `release_point` (availability.release_point setting) governs which Order
+     * sub-status FIRST drops to the Closed phase, freeing the unit (subject to
+     * turnaround). It must be read from settings on the resolver/handle path and
+     * passed in — never read inside an event's pure apply() — so phase derivation
+     * stays replay-safe:
+     *
+     *  - {@see ReleasePoint::Returned} (default) — Returned closes the demand. This
+     *    is the historical behaviour and is preserved when no point is supplied.
+     *  - {@see ReleasePoint::OffHired} — release at/before physical return. The
+     *    framework has no distinct Off-hired Order status, so this maps to the
+     *    same Returned boundary (documented choice — avoids inventing a status).
+     *  - {@see ReleasePoint::Checked} — strict: a Returned order stays
+     *    {@see DemandPhase::Operational} (the unit still occupies) until it is
+     *    Checked/Complete, which closes it.
      */
-    public function phase(): DemandPhase
+    public function phase(?ReleasePoint $releasePoint = null): DemandPhase
     {
+        $releasePoint ??= ReleasePoint::default();
+
         return match ($this) {
             self::DraftOpen,
-            self::QuotationProvisional,
-            self::QuotationPostponed => DemandPhase::Draft,
+            self::QuotationProvisional => DemandPhase::Draft,
+
+            self::QuotationPostponed => DemandPhase::Held,
 
             self::QuotationReserved,
             self::OrderActive => DemandPhase::Committed,
@@ -118,7 +143,14 @@ enum OpportunityStatus: int
             self::OrderDispatched,
             self::OrderOnHire => DemandPhase::Operational,
 
-            self::OrderReturned,
+            // The Returned boundary depends on the configured release point: with
+            // the strict `checked` point a Returned order is still considered to
+            // occupy the unit (Operational) until inspection clears it; otherwise
+            // a physical return closes the demand.
+            self::OrderReturned => $releasePoint === ReleasePoint::Checked
+                ? DemandPhase::Operational
+                : DemandPhase::Closed,
+
             self::OrderChecked,
             self::OrderComplete => DemandPhase::Closed,
 
@@ -141,5 +173,23 @@ enum OpportunityStatus: int
             self::QuotationDead => true,
             default => false,
         };
+    }
+
+    /**
+     * Whether this status is the terminal "complete" close of the order
+     * lifecycle — the point at which all assets must already be finalised/returned
+     * (opportunity-lifecycle.md §5.2: OpportunityCompleted "all assets finalised or
+     * no assets").
+     *
+     * Derived generically: it is the closed/terminal status of the Order state
+     * that is NOT a Void-phase status (cancellation). Custom statuses that derive
+     * from Complete inherit the predicate through their phase + closed mapping
+     * rather than being name-matched here.
+     */
+    public function isTerminalComplete(): bool
+    {
+        return $this->isClosed()
+            && $this->state() === OpportunityState::Order
+            && $this->phase() !== DemandPhase::Void;
     }
 }

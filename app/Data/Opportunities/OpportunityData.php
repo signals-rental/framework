@@ -6,6 +6,7 @@ use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
 use App\Enums\DemandPhase;
 use App\Enums\OpportunityState;
+use App\Enums\ReleasePoint;
 use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\OpportunityCost;
@@ -88,6 +89,13 @@ class OpportunityData extends Data
 
         $status = $opportunity->statusEnum();
 
+        // Report the demand phase under the configured release point so the
+        // serialised `availability_phase` matches the demand actually written.
+        // This is a read-path settings read (not a replay path), so it is safe.
+        $releasePoint = ReleasePoint::tryFrom(
+            (string) settings('availability.release_point', ReleasePoint::default()->value),
+        ) ?? ReleasePoint::default();
+
         return new self(
             id: $opportunity->id,
             subject: $opportunity->subject,
@@ -99,7 +107,7 @@ class OpportunityData extends Data
             state_label: $opportunity->state->label(),
             status: $opportunity->status,
             status_label: $status->label(),
-            availability_phase: $status->phase()->value,
+            availability_phase: $status->phase($releasePoint)->value,
             member_id: $opportunity->member_id,
             venue_id: $opportunity->venue_id,
             store_id: $opportunity->store_id,

@@ -7,6 +7,7 @@ use App\Enums\AssetAssignmentStatus;
 use App\Enums\ContainerAvailabilityMode;
 use App\Enums\DemandPhase;
 use App\Enums\KitComponentBinding;
+use App\Enums\ReleasePoint;
 use App\Enums\StockMethod;
 use App\Models\Demand;
 use App\Models\Opportunity;
@@ -90,12 +91,30 @@ class OpportunityItemDemandResolver implements DemandResolverContract
     /**
      * Map the line item's parent opportunity status to a demand phase
      * (ceiling principle).
+     *
+     * The configurable {@see ReleasePoint} (availability.release_point setting) is
+     * read HERE — on the resolver/handle path, never inside an event's pure
+     * apply() — so the Operational → Closed boundary stays replay-safe and honours
+     * the tenant setting.
      */
     public function resolvePhase(Model $source): DemandPhase
     {
         $item = $this->asItem($source);
 
-        return $item->opportunity->statusEnum()->phase();
+        return $item->opportunity->statusEnum()->phase($this->releasePoint());
+    }
+
+    /**
+     * The configured demand release point, read from the
+     * `availability.release_point` system setting. Any unrecognised/absent value
+     * falls back to the {@see ReleasePoint::default()} (Returned), preserving the
+     * historical close-on-return behaviour.
+     */
+    protected function releasePoint(): ReleasePoint
+    {
+        $value = (string) settings('availability.release_point', ReleasePoint::default()->value);
+
+        return ReleasePoint::tryFrom($value) ?? ReleasePoint::default();
     }
 
     /**

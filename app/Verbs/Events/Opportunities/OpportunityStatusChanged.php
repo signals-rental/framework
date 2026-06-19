@@ -2,8 +2,10 @@
 
 namespace App\Verbs\Events\Opportunities;
 
+use App\Enums\DemandPhase;
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
+use App\Verbs\Events\Opportunities\Concerns\GuardsOpportunityLifecycle;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\Events\Opportunities\Concerns\ResyncsOpportunityDemands;
 use App\Verbs\States\OpportunityState;
@@ -30,6 +32,7 @@ use Thunk\Verbs\Event;
  */
 class OpportunityStatusChanged extends Event
 {
+    use GuardsOpportunityLifecycle;
     use RecordsOpportunityAudit;
     use ResyncsOpportunityDemands;
 
@@ -52,6 +55,34 @@ class OpportunityStatusChanged extends Event
             $target !== null,
             'The target status is not valid for the current opportunity state.',
         );
+
+        if ($target === null) {
+            return;
+        }
+
+        // §12.1 invariants — keyed on the TARGET status's PHASE / capability, not a
+        // named-status matrix, so configurable/custom statuses inherit the rule:
+
+        // Cancel-with-assets-out: a transition into the Void phase (cancelled /
+        // dead / lost) is rejected while any stock is physically out with the
+        // client (a serialised asset Dispatched/OnHire, or a bulk line still
+        // outstanding). Stock must be recovered before the deal can be voided.
+        if ($target->phase() === DemandPhase::Void) {
+            $this->assert(
+                ! $this->opportunityHasStockOut($state->id),
+                'An opportunity with assets still out on hire cannot be cancelled.',
+            );
+        }
+
+        // Complete-with-unreturned: the terminal "complete" close requires every
+        // asset to be finalised/returned — no asset still Dispatched/OnHire/
+        // CheckedIn and no bulk line still out.
+        if ($target->isTerminalComplete()) {
+            $this->assert(
+                ! $this->opportunityHasUnreturnedAssets($state->id),
+                'An opportunity with unreturned assets cannot be completed.',
+            );
+        }
     }
 
     public function apply(OpportunityState $state): void

@@ -1,17 +1,21 @@
 <?php
 
+use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\ChangeOpportunityStatus;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\UpdateOpportunity;
+use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Enums\DemandPhase;
+use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
+use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -74,6 +78,17 @@ it('converts a draft to a quotation', function () {
 it('converts a quotation to an order', function () {
     $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'To order']));
     (new ConvertToQuotation)(Opportunity::findOrFail($created->id));
+
+    // An order must have at least one line item to be confirmed
+    // (opportunity-lifecycle.md §12.1 convert guard).
+    $product = Product::factory()->rental()->bulk()->create();
+    (new AddOpportunityItem)(Opportunity::findOrFail($created->id), AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_id' => $product->id,
+        'item_type' => Product::class,
+        'quantity' => '1',
+        'transaction_type' => LineItemTransactionType::Rental->value,
+    ]));
 
     $result = (new ConvertToOrder)(Opportunity::findOrFail($created->id));
 
@@ -255,6 +270,13 @@ it('denies converting an opportunity without permission', function () {
 it('rebuilds the projection identically on replay', function () {
     $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Replay me']));
     (new ConvertToQuotation)(Opportunity::findOrFail($created->id));
+
+    // An order must carry at least one line item to be confirmed
+    // (opportunity-lifecycle.md §12.1 convert guard).
+    (new AddOpportunityItem)(Opportunity::findOrFail($created->id), AddOpportunityItemData::from([
+        'name' => 'Line', 'quantity' => '1', 'unit_price' => 5000,
+    ]));
+
     (new ConvertToOrder)(Opportunity::findOrFail($created->id));
 
     $id = $created->id;

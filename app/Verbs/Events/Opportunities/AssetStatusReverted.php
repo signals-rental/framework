@@ -47,6 +47,11 @@ class AssetStatusReverted extends Event
 
     public function validate(AssetAssignmentState $state): void
     {
+        // Reject reverting a deallocated/removed assignment: AssetDeallocated
+        // hard-deletes the projection row, so without this the state would mutate
+        // with no row to write to and diverge permanently (ghost state on replay).
+        $this->assertAssignmentNotRemoved($state);
+
         $this->assertAssignmentMutable($state);
 
         $target = AssetAssignmentStatus::tryFrom($this->revert_to);

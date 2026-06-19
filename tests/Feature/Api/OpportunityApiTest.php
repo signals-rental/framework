@@ -333,7 +333,14 @@ describe('transition endpoints', function () {
 
     it('converts a quotation to an order', function () {
         $opportunity = createOpportunityViaEvent($this->owner);
-        asAuthenticated($this->owner, fn () => (new ConvertToQuotation)($opportunity));
+        asAuthenticated($this->owner, function () use ($opportunity) {
+            (new ConvertToQuotation)($opportunity);
+            // An order must carry at least one line item to be confirmed
+            // (opportunity-lifecycle.md §12.1 convert guard).
+            (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+                'name' => 'Line', 'quantity' => '1', 'unit_price' => 5000,
+            ]));
+        });
         $token = writeToken($this->owner);
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -370,7 +377,12 @@ describe('transition endpoints', function () {
         $opportunity = createOpportunityViaEvent($this->owner);
         asAuthenticated($this->owner, function () use ($opportunity) {
             (new ConvertToQuotation)($opportunity);
-            (new ConvertToOrder)($opportunity);
+            // An order must carry at least one line item to be confirmed
+            // (opportunity-lifecycle.md §12.1 convert guard).
+            (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+                'name' => 'Line', 'quantity' => '1', 'unit_price' => 5000,
+            ]));
+            (new ConvertToOrder)($opportunity->refresh());
         });
         $token = writeToken($this->owner);
 
@@ -438,7 +450,8 @@ describe('Asset allocation endpoints', function () {
 
         asAuthenticated($actor, function () use ($opportunity, $product): void {
             (new ConvertToQuotation)($opportunity);
-            (new ConvertToOrder)($opportunity->refresh());
+            // The line item must exist before conversion — an order must carry at
+            // least one item to be confirmed (opportunity-lifecycle.md §12.1).
             (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
                 'name' => $product->name,
                 'item_id' => $product->id,
@@ -446,6 +459,7 @@ describe('Asset allocation endpoints', function () {
                 'quantity' => '2',
                 'transaction_type' => LineItemTransactionType::Rental->value,
             ]));
+            (new ConvertToOrder)($opportunity->refresh());
         });
 
         $item = $opportunity->items()->firstOrFail();

@@ -38,6 +38,21 @@ function makeGapOpportunity(array $attributes = []): Opportunity
     return Opportunity::query()->whereKey($created->id)->firstOrFail();
 }
 
+/**
+ * Add a single manual line item to a quotation so it can be converted to an
+ * order (opportunity-lifecycle.md §12.1 convert guard requires ≥ 1 item).
+ */
+function addGapLine(Opportunity $opportunity): void
+{
+    (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+        'name' => 'Line',
+        'quantity' => '1',
+        'unit_price' => 5000,
+        'starts_at' => now()->toIso8601String(),
+        'ends_at' => now()->addDays(2)->toIso8601String(),
+    ]));
+}
+
 // ---------------------------------------------------------------------------
 // Build 1 — CloneOpportunity
 // ---------------------------------------------------------------------------
@@ -45,16 +60,18 @@ function makeGapOpportunity(array $attributes = []): Opportunity
 it('clones an opportunity into a new draft with its items and costs', function () {
     $source = makeGapOpportunity(['reference' => 'PO-SRC', 'currency' => 'GBP']);
     (new ConvertToQuotation)($source);
-    (new ConvertToOrder)(Opportunity::findOrFail($source->id));
-    $source->refresh();
-
-    (new AddOpportunityItem)($source, AddOpportunityItemData::from([
+    // An order must carry at least one line item to be confirmed
+    // (opportunity-lifecycle.md §12.1 convert guard) — add it while still a quote.
+    (new AddOpportunityItem)($source->refresh(), AddOpportunityItemData::from([
         'name' => 'PA Stack',
         'quantity' => '2',
         'unit_price' => 5000,
         'starts_at' => now()->toIso8601String(),
         'ends_at' => now()->addDays(2)->toIso8601String(),
     ]));
+    (new ConvertToOrder)(Opportunity::findOrFail($source->id));
+    $source->refresh();
+
     (new AddOpportunityCost)($source, AddOpportunityCostData::from([
         'description' => 'Delivery',
         'amount' => 2500,
@@ -163,6 +180,7 @@ it('denies cloning without the create permission', function () {
 it('locks the exchange rate and tax when converting to an order', function () {
     $source = makeGapOpportunity();
     (new ConvertToQuotation)($source);
+    addGapLine($source);
 
     $opportunity = Opportunity::findOrFail($source->id);
     expect($opportunity->exchange_rate_locked)->toBeFalse()
@@ -178,6 +196,7 @@ it('locks the exchange rate and tax when converting to an order', function () {
 it('preserves the locked tax total when totals are recomputed after lock', function () {
     $source = makeGapOpportunity();
     (new ConvertToQuotation)($source);
+    addGapLine($source);
     (new ConvertToOrder)(Opportunity::findOrFail($source->id));
 
     $ordered = Opportunity::findOrFail($source->id);
@@ -198,6 +217,7 @@ it('preserves the locked tax total when totals are recomputed after lock', funct
 it('keeps the locks set across replay', function () {
     $source = makeGapOpportunity();
     (new ConvertToQuotation)($source);
+    addGapLine($source);
     (new ConvertToOrder)(Opportunity::findOrFail($source->id));
     $id = $source->id;
 
@@ -217,6 +237,7 @@ it('promotes status, writes an audit row, and is replay-stable when fired direct
     // The event has no trigger yet (M5); fire it directly to prove the scaffold.
     $source = makeGapOpportunity();
     (new ConvertToQuotation)($source);
+    addGapLine($source);
     (new ConvertToOrder)(Opportunity::findOrFail($source->id));
     $ordered = Opportunity::findOrFail($source->id);
 
