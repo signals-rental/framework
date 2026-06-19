@@ -31,6 +31,8 @@ use Illuminate\Support\Carbon;
  * @property int $status
  * @property string|null $currency_code
  * @property string $exchange_rate
+ * @property bool $exchange_rate_locked
+ * @property bool $tax_locked
  * @property int $charge_total
  * @property int|null $deal_total
  * @property int $rental_charge_total
@@ -85,6 +87,8 @@ class Opportunity extends Model implements HasSchema
         'charge_ends_at',
         'currency_code',
         'exchange_rate',
+        'exchange_rate_locked',
+        'tax_locked',
         'charge_total',
         'deal_total',
         'rental_charge_total',
@@ -113,6 +117,8 @@ class Opportunity extends Model implements HasSchema
             'charge_starts_at' => 'datetime',
             'charge_ends_at' => 'datetime',
             'exchange_rate' => 'decimal:10',
+            'exchange_rate_locked' => 'boolean',
+            'tax_locked' => 'boolean',
             'prices_include_tax' => 'boolean',
             'invoiced' => 'boolean',
             'tag_list' => 'array',

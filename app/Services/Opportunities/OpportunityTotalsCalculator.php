@@ -59,6 +59,15 @@ use Illuminate\Support\Carbon;
  * event handle() and reproduce identical totals on replay. They write projection
  * rows quietly (updateQuietly / saveQuietly) so no model events fire and no
  * further Verbs events are triggered.
+ *
+ * LOCKING (multi-currency-tax-engine.md §4.3/§7.2): once an opportunity is
+ * confirmed as an order it carries `exchange_rate_locked` + `tax_locked`. This
+ * calculator works entirely in the opportunity's stored minor-unit currency and
+ * NEVER fetches a live exchange rate, so `exchange_rate_locked` is already honoured
+ * by construction (the stored `exchange_rate` snapshot is authoritative).
+ * `tax_locked` is honoured explicitly: {@see rollUp()} skips the final grouped tax
+ * pass and preserves the stored `tax_total` / `charge_including_tax_total`, so a
+ * later tax-rule or rate change can never move a confirmed order's tax.
  */
 class OpportunityTotalsCalculator
 {
@@ -250,8 +259,17 @@ class OpportunityTotalsCalculator
         // real lines, but the net headline + final tax are computed on the deal
         // using the opportunity's blended tax context (org class + default product
         // class).
-        if ($opportunity->deal_total !== null) {
-            $netHeadline = (int) $opportunity->deal_total;
+        $netHeadline = $opportunity->deal_total !== null
+            ? (int) $opportunity->deal_total
+            : $excludingTax;
+
+        if ($opportunity->tax_locked) {
+            // TAX LOCK (MC §7.2): the opportunity is confirmed — preserve the tax
+            // figures exactly as they were locked. The net buckets above still
+            // reflect the current lines, but the final tax pass is skipped so a
+            // later tax-rule/rate change cannot move a confirmed order's tax.
+            $taxTotal = (int) $opportunity->tax_total;
+        } elseif ($opportunity->deal_total !== null) {
             $taxTotal = $this->taxCalculator->calculate(
                 $netHeadline,
                 $opportunity->currency_code ?? 'GBP',
@@ -259,7 +277,6 @@ class OpportunityTotalsCalculator
                 $defaultProductTaxClassId,
             )->taxAmount;
         } else {
-            $netHeadline = $excludingTax;
             $taxTotal = $this->groupedTaxTotal(
                 $netByProductTaxClass,
                 $opportunity->currency_code ?? 'GBP',

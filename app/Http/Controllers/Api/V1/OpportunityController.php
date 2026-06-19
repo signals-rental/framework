@@ -8,6 +8,7 @@ use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ChangeOpportunityStatus;
 use App\Actions\Opportunities\ClearDealPrice;
+use App\Actions\Opportunities\CloneOpportunity;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
@@ -263,6 +264,25 @@ class OpportunityController extends Controller
     public function destroy(Opportunity $opportunity): JsonResponse
     {
         return $this->resourceDestroy($opportunity);
+    }
+
+    /**
+     * Clone an opportunity into a new Draft quotation.
+     *
+     * Fires a fresh OpportunityCreated (always landing as a Draft, with a freshly
+     * allocated number) and replays the source's line items and costs through the
+     * standard add-item / add-cost events, so the clone's demands and totals
+     * rebuild naturally. The source state/status is never copied. Returns the new
+     * opportunity with its items + costs.
+     */
+    #[ApiResponse(201, 'Opportunity cloned')]
+    public function clone(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.create', 'opportunities:write');
+
+        $result = (new CloneOpportunity)($opportunity);
+
+        return $this->respondWithFreshOpportunity($result->id, Response::HTTP_CREATED);
     }
 
     /**

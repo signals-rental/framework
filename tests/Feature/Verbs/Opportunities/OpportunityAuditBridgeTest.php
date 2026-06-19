@@ -88,7 +88,14 @@ it('records an audit row when a quotation is converted to an order', function ()
         ->and($log->user_id)->toBe($this->actor->id)
         ->and($log->verb_event_id)->not->toBeNull()
         ->and($log->old_values)->toBe(['state' => OpportunityState::Quotation->value, 'status' => OpportunityStatus::QuotationProvisional->statusValue()])
-        ->and($log->new_values)->toBe(['state' => OpportunityState::Order->value, 'status' => OpportunityStatus::OrderActive->statusValue()]);
+        // Converting to an order also locks the FX rate + tax (MC §4.3/§7.2), which
+        // the audit snapshot now records alongside the state/status transition.
+        ->and($log->new_values)->toBe([
+            'state' => OpportunityState::Order->value,
+            'status' => OpportunityStatus::OrderActive->statusValue(),
+            'exchange_rate_locked' => true,
+            'tax_locked' => true,
+        ]);
 });
 
 it('records an audit row when a status changes within a state', function () {

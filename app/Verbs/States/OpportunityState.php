@@ -69,6 +69,18 @@ class OpportunityState extends State
     /** Exchange-rate snapshot at creation time, as a decimal string. */
     public string $exchange_rate = '1';
 
+    /**
+     * When true, totals use the stored {@see $exchange_rate} and never re-derive
+     * from the live rate. Locked at quote → order conversion (MC §4.3).
+     */
+    public bool $exchange_rate_locked = false;
+
+    /**
+     * When true, the stored tax figures are preserved and the final tax pass is
+     * skipped on recompute. Locked at quote → order conversion (MC §7.2).
+     */
+    public bool $tax_locked = false;
+
     /** Headline charge total in integer minor units (pence/cents/fils). */
     public int $charge_total = 0;
 
