@@ -132,9 +132,9 @@ describe('StoreScope', function () {
     it('restores scoping even when callback throws', function () {
         try {
             StoreScope::withoutScoping(function () {
-                throw new \RuntimeException('Test exception');
+                throw new RuntimeException('Test exception');
             });
-        } catch (\RuntimeException) {
+        } catch (RuntimeException) {
             // Expected
         }
 

@@ -4,7 +4,10 @@ use App\Jobs\DeliverWebhook;
 use App\Models\Webhook;
 use App\Models\WebhookLog;
 use App\Services\Api\WebhookService;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
 it('generates correct HMAC-SHA256 signature', function () {
@@ -46,7 +49,7 @@ it('records failure and throws on server error for retry', function () {
     $webhook = Webhook::factory()->create(['consecutive_failures' => 0]);
 
     expect(fn () => (new DeliverWebhook($webhook, 'user.created', ['id' => 1]))->handle())
-        ->toThrow(\RuntimeException::class, 'Webhook delivery failed with HTTP 500');
+        ->toThrow(RuntimeException::class, 'Webhook delivery failed with HTTP 500');
 
     expect($webhook->fresh()->consecutive_failures)->toBe(1);
 });
@@ -92,7 +95,7 @@ it('auto-disables webhook after 18 consecutive failures', function () {
 
     try {
         (new DeliverWebhook($webhook, 'user.created', ['id' => 1]))->handle();
-    } catch (\RuntimeException) {
+    } catch (RuntimeException) {
         // Expected — 5xx errors now throw for retry
     }
 
@@ -138,11 +141,11 @@ it('failed method logs error', function () {
     $webhook = Webhook::factory()->create();
     $job = new DeliverWebhook($webhook, 'user.created', ['id' => 1]);
 
-    \Illuminate\Support\Facades\Log::shouldReceive('error')
+    Log::shouldReceive('error')
         ->once()
         ->withArgs(fn ($message) => str_contains($message, 'permanently failed'));
 
-    $job->failed(new \RuntimeException('Test failure'));
+    $job->failed(new RuntimeException('Test failure'));
 });
 
 it('backoff returns correct exponential schedule', function () {
@@ -161,7 +164,7 @@ it('middleware returns ThrottlesExceptions', function () {
     $middleware = $job->middleware();
 
     expect($middleware)->toHaveCount(1);
-    expect($middleware[0])->toBeInstanceOf(\Illuminate\Queue\Middleware\ThrottlesExceptions::class);
+    expect($middleware[0])->toBeInstanceOf(ThrottlesExceptions::class);
 });
 
 it('handles JSON encode failure gracefully', function () {
@@ -170,7 +173,7 @@ it('handles JSON encode failure gracefully', function () {
     // Create a payload with invalid UTF-8 that will cause json_encode to fail
     $invalidPayload = ['data' => "\xB1\x31"];
 
-    \Illuminate\Support\Facades\Log::shouldReceive('error')
+    Log::shouldReceive('error')
         ->once()
         ->withArgs(fn ($message) => str_contains($message, 'Failed to JSON-encode'));
 
@@ -183,12 +186,12 @@ it('handles JSON encode failure gracefully', function () {
 });
 
 it('records failure and updates log when HTTP request throws exception', function () {
-    Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection timed out'));
+    Http::fake(fn () => throw new ConnectionException('Connection timed out'));
 
     $webhook = Webhook::factory()->create(['consecutive_failures' => 0]);
 
     expect(fn () => (new DeliverWebhook($webhook, 'user.created', ['id' => 1]))->handle())
-        ->toThrow(\Illuminate\Http\Client\ConnectionException::class, 'Connection timed out');
+        ->toThrow(ConnectionException::class, 'Connection timed out');
 
     $log = WebhookLog::where('webhook_id', $webhook->id)->first();
     expect($log)->not->toBeNull();

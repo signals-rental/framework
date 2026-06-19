@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\ActivityParticipantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActivityParticipant extends Model
 {
-    /** @use HasFactory<\Database\Factories\ActivityParticipantFactory> */
+    /** @use HasFactory<ActivityParticipantFactory> */
     use HasFactory;
 
     /** @var list<string> */

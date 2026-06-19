@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\CustomFieldGroupFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CustomFieldGroup extends Model
 {
-    /** @use HasFactory<\Database\Factories\CustomFieldGroupFactory> */
+    /** @use HasFactory<CustomFieldGroupFactory> */
     use HasFactory;
 
     /** @var list<string> */

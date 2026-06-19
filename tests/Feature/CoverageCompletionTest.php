@@ -7,21 +7,31 @@
  * partially covered, to flip the class to fully covered.
  */
 
+use App\Enums\CustomFieldType;
 use App\Jobs\ExportActionLog;
 use App\Models\ActionLog;
 use App\Models\Attachment;
+use App\Models\Currency;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
+use App\Models\CustomView;
+use App\Models\EmailTemplate;
 use App\Models\Member;
 use App\Models\User;
 use App\Services\CurrencyService;
 use App\Services\CustomFieldCopier;
 use App\Services\CustomFieldSerializer;
+use App\Services\EmailTemplateRenderer;
 use App\Services\PermissionRegistry;
+use App\Services\ViewResolver;
 use App\Support\Formatter;
+use App\Views\MemberColumnRegistry;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -31,7 +41,7 @@ use Laravel\Sanctum\Sanctum;
 */
 describe('Formatter complete coverage', function () {
     beforeEach(function () {
-        \App\Models\Currency::factory()->create([
+        Currency::factory()->create([
             'code' => 'GBP', 'name' => 'British Pound', 'symbol' => '£',
             'decimal_places' => 2, 'is_enabled' => true,
         ]);
@@ -107,7 +117,7 @@ describe('Formatter complete coverage', function () {
     });
 
     it('money() with zero-decimal currency exercises scale=0 branch', function () {
-        \App\Models\Currency::factory()->create([
+        Currency::factory()->create([
             'code' => 'JPY', 'name' => 'Yen', 'symbol' => '¥',
             'decimal_places' => 0, 'is_enabled' => true,
         ]);
@@ -181,7 +191,7 @@ describe('PermissionRegistry complete coverage', function () {
     it('validate throws for unknown permissions', function () {
         $registry = app(PermissionRegistry::class);
         $registry->validate(['completely.fake.permission']);
-    })->throws(\Illuminate\Validation\ValidationException::class);
+    })->throws(ValidationException::class);
 });
 
 /*
@@ -191,7 +201,7 @@ describe('PermissionRegistry complete coverage', function () {
 */
 describe('CurrencyService complete coverage', function () {
     it('baseCurrency returns model when setting exists', function () {
-        \App\Models\Currency::factory()->create(['code' => 'GBP', 'is_enabled' => true]);
+        Currency::factory()->create(['code' => 'GBP', 'is_enabled' => true]);
         settings()->set('company.base_currency', 'GBP');
 
         $service = new CurrencyService;
@@ -213,7 +223,7 @@ describe('CustomFieldCopier complete coverage', function () {
         // Create a source field that has no matching target field
         $sourceField = CustomField::factory()->forModule('Store')->create([
             'name' => 'store_only_field',
-            'field_type' => \App\Enums\CustomFieldType::String,
+            'field_type' => CustomFieldType::String,
         ]);
 
         CustomFieldValue::create([
@@ -271,7 +281,7 @@ describe('CustomFieldSerializer complete coverage', function () {
     it('coerceDefaultValue for numeric types', function () {
         $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'numeric_default',
-            'field_type' => \App\Enums\CustomFieldType::Number,
+            'field_type' => CustomFieldType::Number,
             'default_value' => '42.5',
         ]);
 
@@ -310,17 +320,17 @@ describe('ExportActionLog job', function () {
         $job->handle();
 
         $cacheKey = "action-log-export:{$user->id}";
-        $filename = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        $filename = Cache::get($cacheKey);
         expect($filename)->toStartWith('exports/action-log-');
         Storage::assertExists($filename);
     });
 
     it('records failure in cache', function () {
         $job = new ExportActionLog(userId: 999);
-        $job->failed(new \RuntimeException('Test failure'));
+        $job->failed(new RuntimeException('Test failure'));
 
         $cacheKey = 'action-log-export:999';
-        expect(\Illuminate\Support\Facades\Cache::get($cacheKey))->toBe('failed');
+        expect(Cache::get($cacheKey))->toBe('failed');
     });
 });
 
@@ -364,7 +374,7 @@ describe('MemberController view_id filtering', function () {
         Sanctum::actingAs(User::factory()->owner()->create(), ['*']);
 
         $member = Member::factory()->create();
-        $view = \App\Models\CustomView::factory()->create([
+        $view = CustomView::factory()->create([
             'entity_type' => 'members',
             'visibility' => 'system',
             'columns' => ['name', 'membership_type'],
@@ -386,19 +396,19 @@ describe('MemberController view_id filtering', function () {
 */
 describe('ColumnRegistry complete coverage', function () {
     it('get() returns null for unknown column', function () {
-        $registry = new \App\Views\MemberColumnRegistry;
+        $registry = new MemberColumnRegistry;
         expect($registry->get('nonexistent_column'))->toBeNull();
     });
 
     it('defaultColumns() returns array of keys', function () {
-        $registry = new \App\Views\MemberColumnRegistry;
+        $registry = new MemberColumnRegistry;
         $defaults = $registry->defaultColumns();
         expect($defaults)->toBeArray();
         expect(count($defaults))->toBeGreaterThan(0);
     });
 
     it('validates columns and returns invalid ones', function () {
-        $registry = new \App\Views\MemberColumnRegistry;
+        $registry = new MemberColumnRegistry;
         $invalid = $registry->validateColumns(['name', 'fake_column']);
         expect($invalid)->toContain('fake_column');
     });
@@ -408,18 +418,18 @@ describe('ColumnRegistry complete coverage', function () {
         CustomField::factory()->forModule('Member')->boolean()->create(['name' => 'cf_bool_test']);
         CustomField::factory()->forModule('Member')->create([
             'name' => 'cf_date_test',
-            'field_type' => \App\Enums\CustomFieldType::Date,
+            'field_type' => CustomFieldType::Date,
         ]);
         CustomField::factory()->forModule('Member')->create([
             'name' => 'cf_currency_test',
-            'field_type' => \App\Enums\CustomFieldType::Currency,
+            'field_type' => CustomFieldType::Currency,
         ]);
         CustomField::factory()->forModule('Member')->create([
             'name' => 'cf_list_test',
-            'field_type' => \App\Enums\CustomFieldType::ListOfValues,
+            'field_type' => CustomFieldType::ListOfValues,
         ]);
 
-        $registry = new \App\Views\MemberColumnRegistry;
+        $registry = new MemberColumnRegistry;
         $columns = $registry->allColumns();
 
         expect($columns['cf.cf_bool_test']->type)->toBe('boolean');
@@ -436,7 +446,7 @@ describe('ColumnRegistry complete coverage', function () {
 */
 describe('ViewResolver complete coverage', function () {
     it('applySort uses view sort column', function () {
-        $view = \App\Models\CustomView::factory()->create([
+        $view = CustomView::factory()->create([
             'entity_type' => 'members',
             'columns' => ['name'],
             'filters' => [],
@@ -444,7 +454,7 @@ describe('ViewResolver complete coverage', function () {
             'sort_direction' => 'desc',
         ]);
 
-        $resolver = app(\App\Services\ViewResolver::class);
+        $resolver = app(ViewResolver::class);
         $query = Member::query();
         $sorted = $resolver->applySort($query, $view);
 
@@ -460,7 +470,7 @@ describe('ViewResolver complete coverage', function () {
 */
 describe('EmailTemplateRenderer branch coverage', function () {
     it('renders empty string for missing merge fields', function () {
-        \App\Models\EmailTemplate::create([
+        EmailTemplate::create([
             'key' => 'test_missing_field',
             'name' => 'Test Missing',
             'subject' => 'Hello {{ nonexistent.field }}',
@@ -468,7 +478,7 @@ describe('EmailTemplateRenderer branch coverage', function () {
             'is_active' => true,
         ]);
 
-        $renderer = new \App\Services\EmailTemplateRenderer;
+        $renderer = new EmailTemplateRenderer;
         $result = $renderer->render('test_missing_field', []);
         expect($result['subject'])->toBe('Hello ');
     });
@@ -504,7 +514,7 @@ describe('RansackFilter complete coverage', function () {
 */
 describe('AppServiceProvider blade directives', function () {
     it('registers @area and @costs blade directives', function () {
-        $directives = \Illuminate\Support\Facades\Blade::getCustomDirectives();
+        $directives = Blade::getCustomDirectives();
         expect($directives)->toHaveKey('area')
             ->and($directives)->toHaveKey('endarea')
             ->and($directives)->toHaveKey('costs')

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Signals\PHPStan;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Testing\PendingCommand;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -55,7 +56,7 @@ class PestTestCase extends TestCase
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Model|string  $table
+     * @param  Model|string  $table
      * @param  array<string, mixed>  $data
      */
     public function assertDatabaseHas($table, array $data, ?string $connection = null): static
@@ -64,7 +65,7 @@ class PestTestCase extends TestCase
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Model|string  $table
+     * @param  Model|string  $table
      * @param  array<string, mixed>  $data
      */
     public function assertDatabaseMissing($table, array $data, ?string $connection = null): static

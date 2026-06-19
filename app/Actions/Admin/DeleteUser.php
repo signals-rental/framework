@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admin;
 
+use App\Data\Api\UserData;
 use App\Events\AuditableEvent;
 use App\Models\User;
 use App\Services\Api\WebhookService;
@@ -26,7 +27,7 @@ class DeleteUser
         event(new AuditableEvent($user, 'user.deleted'));
 
         app(WebhookService::class)->dispatch('user.deleted', [
-            'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
+            'user' => UserData::fromModel($user)->toArray(),
         ]);
 
         $user->delete();

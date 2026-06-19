@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\CurrencyFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Currency extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\CurrencyFactory> */
+    /** @use HasFactory<CurrencyFactory> */
     use HasFactory;
 
     /** @var list<string> */

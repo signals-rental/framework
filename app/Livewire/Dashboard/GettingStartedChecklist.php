@@ -4,6 +4,7 @@ namespace App\Livewire\Dashboard;
 
 use App\Models\Store;
 use App\Models\User;
+use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
 class GettingStartedChecklist extends Component
@@ -78,7 +79,7 @@ class GettingStartedChecklist extends Component
         return $items ? (int) round(($completed / count($items)) * 100) : 0;
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    public function render(): View
     {
         return view('livewire.dashboard.getting-started-checklist', [
             'items' => $this->items(),

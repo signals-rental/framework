@@ -3,6 +3,7 @@
 use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use App\Models\CustomFieldGroup;
+use App\Models\Member;
 use App\Views\MemberColumnRegistry;
 
 beforeEach(function () {
@@ -85,5 +86,5 @@ it('reports unknown cf. columns as invalid', function () {
 it('returns correct modelClass', function () {
     $registry = new MemberColumnRegistry;
 
-    expect($registry->modelClass())->toBe(\App\Models\Member::class);
+    expect($registry->modelClass())->toBe(Member::class);
 });

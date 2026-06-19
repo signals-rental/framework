@@ -2,6 +2,7 @@
 
 use App\Models\Accessory;
 use App\Models\Product;
+use Illuminate\Database\QueryException;
 
 it('belongs to a product', function () {
     $accessory = Accessory::factory()->create();
@@ -69,7 +70,7 @@ it('enforces unique product and accessory product combination', function () {
     expect(fn () => Accessory::factory()->create([
         'product_id' => $product->id,
         'accessory_product_id' => $accessoryProduct->id,
-    ]))->toThrow(\Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 });
 
 it('defaults included to true', function () {

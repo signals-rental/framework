@@ -1,8 +1,12 @@
 <?php
 
 use App\Models\Setting;
+use App\Providers\SettingsServiceProvider;
 use App\Services\SettingsRegistry;
 use App\Services\SettingsService;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 it('registers SettingsService as singleton', function () {
     $service1 = app(SettingsService::class);
@@ -45,7 +49,7 @@ it('configures SMTP mail settings from stored values', function () {
     app(SettingsService::class)->load();
 
     // Manually trigger configureMailFromSettings by re-booting
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     expect(config('mail.default'))->toBe('smtp');
@@ -65,7 +69,7 @@ it('skips mail config when mailer is log', function () {
     $originalDefault = config('mail.default');
 
     app(SettingsService::class)->load();
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     // mail.default should not change to 'log' since the log mailer is skipped
@@ -76,10 +80,10 @@ it('handles missing settings table gracefully', function () {
     config(['signals.installed' => true]);
 
     // Drop the settings table to simulate first-run
-    \Illuminate\Support\Facades\Schema::drop('settings');
+    Schema::drop('settings');
 
     // Should not throw
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     expect(true)->toBeTrue();
@@ -96,7 +100,7 @@ it('configures SES mail settings from stored values', function () {
     ], ['group', 'key'], ['value']);
 
     app(SettingsService::class)->load();
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     expect(config('mail.default'))->toBe('ses');
@@ -115,7 +119,7 @@ it('configures Mailgun mail settings from stored values', function () {
     ], ['group', 'key'], ['value']);
 
     app(SettingsService::class)->load();
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     expect(config('mail.default'))->toBe('mailgun');
@@ -132,7 +136,7 @@ it('configures Postmark mail settings from stored values', function () {
     ], ['group', 'key'], ['value']);
 
     app(SettingsService::class)->load();
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     expect(config('mail.default'))->toBe('postmark');
@@ -149,11 +153,11 @@ it('logs warning for unknown mailer driver', function () {
 
     app(SettingsService::class)->load();
 
-    \Illuminate\Support\Facades\Log::shouldReceive('warning')
+    Log::shouldReceive('warning')
         ->once()
         ->withArgs(fn ($msg) => str_contains($msg, 'unknown_driver'));
 
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     expect(config('mail.default'))->toBe('unknown_driver');
@@ -165,20 +169,20 @@ it('logs unexpected database errors during boot', function () {
     // Mock SettingsService to throw a non-table-not-found QueryException
     $this->mock(SettingsService::class, function ($mock) {
         $mock->shouldReceive('load')->andThrow(
-            new \Illuminate\Database\QueryException(
+            new QueryException(
                 'pgsql',
                 'SELECT * FROM settings',
                 [],
-                new \Exception('connection refused')
+                new Exception('connection refused')
             )
         );
     });
 
-    \Illuminate\Support\Facades\Log::shouldReceive('error')
+    Log::shouldReceive('error')
         ->once()
         ->withArgs(fn ($msg) => str_contains($msg, 'unexpected database error'));
 
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 });
 
@@ -199,7 +203,7 @@ it('sets smtp encryption to null when set to none', function () {
     ], ['group', 'key'], ['value']);
 
     app(SettingsService::class)->load();
-    $provider = new \App\Providers\SettingsServiceProvider(app());
+    $provider = new SettingsServiceProvider(app());
     $provider->boot();
 
     expect(config('mail.mailers.smtp.encryption'))->toBeNull();

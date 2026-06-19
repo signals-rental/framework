@@ -3,8 +3,10 @@
 use App\Jobs\DeliverWebhook;
 use App\Models\Webhook;
 use App\Services\Api\WebhookService;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 
 it('generates correct HMAC-SHA256 signature', function () {
     $payload = '{"test":"data"}';
@@ -44,7 +46,7 @@ it('logs error when query fails', function () {
         ->withArgs(fn ($message) => str_contains($message, 'Failed to query webhooks'));
 
     // Drop the table to force a query exception
-    \Illuminate\Support\Facades\Schema::drop('webhooks');
+    Schema::drop('webhooks');
 
     app(WebhookService::class)->dispatch('user.created', ['id' => 1]);
 });
@@ -59,17 +61,17 @@ it('logs error and continues when individual dispatch fails', function () {
 
     // Swap the bus dispatcher so that dispatch() throws on the first call
     $callCount = 0;
-    $original = app(\Illuminate\Contracts\Bus\Dispatcher::class);
-    $mock = Mockery::mock(\Illuminate\Contracts\Bus\Dispatcher::class);
+    $original = app(Dispatcher::class);
+    $mock = Mockery::mock(Dispatcher::class);
     $mock->shouldReceive('dispatch')->andReturnUsing(function ($job) use (&$callCount, $original) {
         $callCount++;
         if ($callCount === 1) {
-            throw new \RuntimeException('Queue connection failed');
+            throw new RuntimeException('Queue connection failed');
         }
 
         return $original->dispatch($job);
     });
-    app()->instance(\Illuminate\Contracts\Bus\Dispatcher::class, $mock);
+    app()->instance(Dispatcher::class, $mock);
 
     app(WebhookService::class)->dispatch('user.created', ['id' => 1]);
 });

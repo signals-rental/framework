@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Setting;
+use Illuminate\Cache\TaggableStore;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 
@@ -235,7 +237,7 @@ class SettingsService
     {
         try {
             return Crypt::decryptString($value);
-        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+        } catch (DecryptException $e) {
             logger()->error('Failed to decrypt setting value. The APP_KEY may have been rotated.', [
                 'exception' => $e->getMessage(),
             ]);
@@ -247,7 +249,7 @@ class SettingsService
     private function supportsTags(): bool
     {
         try {
-            return Cache::getStore() instanceof \Illuminate\Cache\TaggableStore;
+            return Cache::getStore() instanceof TaggableStore;
         } catch (\Exception $e) {
             logger()->warning('Cache store unavailable for tag support check.', [
                 'exception' => $e->getMessage(),

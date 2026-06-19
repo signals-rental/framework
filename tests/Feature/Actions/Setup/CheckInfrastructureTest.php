@@ -3,6 +3,7 @@
 use App\Actions\Setup\CheckInfrastructure;
 use App\Services\ConnectionTesters\PostgresConnectionTester;
 use App\Services\ConnectionTesters\RedisConnectionTester;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
     // Default: Redis not required
@@ -122,15 +123,15 @@ it('reports missing tables when some required tables do not exist', function () 
     app()->instance(PostgresConnectionTester::class, $mockDb);
 
     // Mock Schema to report some tables as missing
-    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
+    Schema::shouldReceive('hasTable')
         ->with('users')->andReturn(true);
-    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
+    Schema::shouldReceive('hasTable')
         ->with('settings')->andReturn(false);
-    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
+    Schema::shouldReceive('hasTable')
         ->with('stores')->andReturn(true);
-    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
+    Schema::shouldReceive('hasTable')
         ->with('cache')->andReturn(false);
-    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
+    Schema::shouldReceive('hasTable')
         ->with('jobs')->andReturn(true);
 
     config(['reverb.apps.apps' => [['app_id' => 'test-id']]]);
@@ -149,8 +150,8 @@ it('reports error when Schema check throws an exception', function () {
     $mockDb->shouldReceive('test')->andReturn(['success' => true, 'version' => 'PostgreSQL 16.0', 'error' => null]);
     app()->instance(PostgresConnectionTester::class, $mockDb);
 
-    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
-        ->andThrow(new \RuntimeException('Connection lost'));
+    Schema::shouldReceive('hasTable')
+        ->andThrow(new RuntimeException('Connection lost'));
 
     config(['reverb.apps.apps' => [['app_id' => 'test-id']]]);
 

@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Product;
 use App\Models\ProductGroup;
+use App\Services\SchemaBuilder;
 
 it('creates a product group with factory', function () {
     $group = ProductGroup::factory()->create([
@@ -78,14 +80,14 @@ it('defaults parent_id to null for root groups', function () {
 
 it('has many products', function () {
     $group = ProductGroup::factory()->create();
-    \App\Models\Product::factory()->count(3)->create(['product_group_id' => $group->id]);
+    Product::factory()->count(3)->create(['product_group_id' => $group->id]);
 
     expect($group->products)->toHaveCount(3);
-    expect($group->products->first())->toBeInstanceOf(\App\Models\Product::class);
+    expect($group->products->first())->toBeInstanceOf(Product::class);
 });
 
 it('defines a schema', function () {
-    $builder = new \App\Services\SchemaBuilder;
+    $builder = new SchemaBuilder;
     ProductGroup::defineSchema($builder);
 
     $fields = $builder->build();

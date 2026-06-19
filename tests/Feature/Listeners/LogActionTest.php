@@ -1,6 +1,7 @@
 <?php
 
 use App\Events\AuditableEvent;
+use App\Listeners\LogAction;
 use App\Models\ActionLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
@@ -52,13 +53,13 @@ it('reports exception when ActionLog creation fails', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    $listener = new \App\Listeners\LogAction;
+    $listener = new LogAction;
 
     $event = new AuditableEvent($user, 'created');
 
     // Replace the model with one that throws on getMorphClass
-    $mockModel = Mockery::mock(\App\Models\User::class)->makePartial();
-    $mockModel->shouldReceive('getMorphClass')->andThrow(new \RuntimeException('Database error'));
+    $mockModel = Mockery::mock(User::class)->makePartial();
+    $mockModel->shouldReceive('getMorphClass')->andThrow(new RuntimeException('Database error'));
 
     $event->model = $mockModel;
 

@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\CountryFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Country extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\CountryFactory> */
+    /** @use HasFactory<CountryFactory> */
     use HasFactory;
 
     /** @var list<string> */

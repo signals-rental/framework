@@ -2,6 +2,8 @@
 
 namespace App\Views;
 
+use App\Models\Member;
+
 class MemberColumnRegistry extends ColumnRegistry
 {
     public function entityType(): string
@@ -11,7 +13,7 @@ class MemberColumnRegistry extends ColumnRegistry
 
     public function modelClass(): string
     {
-        return \App\Models\Member::class;
+        return Member::class;
     }
 
     /**

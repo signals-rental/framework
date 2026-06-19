@@ -2,8 +2,9 @@
 
 use App\Services\VisibilityRuleEvaluator;
 use Illuminate\Support\Facades\Log;
+use Tests\TestCase;
 
-uses(Tests\TestCase::class);
+uses(TestCase::class);
 
 beforeEach(function () {
     $this->evaluator = new VisibilityRuleEvaluator;

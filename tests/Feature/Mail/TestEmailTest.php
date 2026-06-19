@@ -1,6 +1,7 @@
 <?php
 
 use App\Mail\TestEmail;
+use Illuminate\Mail\Mailable;
 
 it('has the correct subject including app name', function () {
     config(['app.name' => 'Signals']);
@@ -19,5 +20,5 @@ it('uses the emails.test markdown view', function () {
 it('is a valid mailable', function () {
     $mailable = new TestEmail;
 
-    expect($mailable)->toBeInstanceOf(\Illuminate\Mail\Mailable::class);
+    expect($mailable)->toBeInstanceOf(Mailable::class);
 });

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Settings\SettingsDefinition;
+use Illuminate\Validation\Rule;
 
 class SettingsRegistry
 {
@@ -70,7 +71,7 @@ class SettingsRegistry
     /**
      * Get validation rules for a group.
      *
-     * @return array<string, array<int, string|\Illuminate\Validation\Rule>>
+     * @return array<string, array<int, string|Rule>>
      */
     public function rules(string $group): array
     {

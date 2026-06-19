@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Validation\ValidationException;
+
 class PermissionRegistry
 {
     /**
@@ -97,14 +99,14 @@ class PermissionRegistry
      *
      * @param  list<string>  $permissions
      *
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws ValidationException
      */
     public function validate(array $permissions): void
     {
         $invalid = array_filter($permissions, fn (string $p): bool => ! $this->has($p));
 
         if ($invalid !== []) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'permissions' => 'The following permissions are not registered: '.implode(', ', $invalid),
             ]);
         }

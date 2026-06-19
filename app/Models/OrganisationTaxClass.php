@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use Database\Factories\OrganisationTaxClassFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class OrganisationTaxClass extends Model
 {
-    /** @use HasFactory<\Database\Factories\OrganisationTaxClassFactory> */
+    /** @use HasFactory<OrganisationTaxClassFactory> */
     use HasFactory;
 
     /** @var list<string> */

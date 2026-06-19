@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\EmailFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Email extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\EmailFactory> */
+    /** @use HasFactory<EmailFactory> */
     use HasFactory;
 
     /** @var list<string> */

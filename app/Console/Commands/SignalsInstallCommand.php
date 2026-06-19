@@ -7,6 +7,8 @@ use App\Services\ConnectionTesters\PostgresConnectionTester;
 use App\Services\ConnectionTesters\RedisConnectionTester;
 use App\Services\ConnectionTesters\S3ConnectionTester;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
@@ -743,7 +745,7 @@ class SignalsInstallCommand extends Command
                     $this->components->warn('npm install failed — you can run it manually later');
                     $this->outputProcessError($npmInstall);
                 }
-            } catch (\Illuminate\Process\Exceptions\ProcessTimedOutException $e) {
+            } catch (ProcessTimedOutException $e) {
                 $this->components->warn('npm timed out — you can run "npm install && npm run build" manually later');
             }
         }
@@ -858,7 +860,7 @@ class SignalsInstallCommand extends Command
     /**
      * Output the error from a failed process, if available.
      */
-    private function outputProcessError(\Illuminate\Contracts\Process\ProcessResult $process): void
+    private function outputProcessError(ProcessResult $process): void
     {
         $errorOutput = trim($process->errorOutput() ?: $process->output());
         if ($errorOutput !== '') {

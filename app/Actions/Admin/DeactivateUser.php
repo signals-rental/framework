@@ -2,6 +2,7 @@
 
 namespace App\Actions\Admin;
 
+use App\Data\Api\UserData;
 use App\Models\User;
 use App\Services\Api\WebhookService;
 use Illuminate\Support\Facades\Gate;
@@ -31,7 +32,7 @@ class DeactivateUser
         $user = $user->fresh();
 
         app(WebhookService::class)->dispatch('user.deactivated', [
-            'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
+            'user' => UserData::fromModel($user)->toArray(),
         ]);
 
         return $user;

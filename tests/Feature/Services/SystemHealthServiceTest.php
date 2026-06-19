@@ -1,7 +1,11 @@
 <?php
 
+use App\Services\ConnectionTesters\PostgresConnectionTester;
+use App\Services\ConnectionTesters\RedisConnectionTester;
+use App\Services\ConnectionTesters\S3ConnectionTester;
 use App\Services\SystemHealthService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     $this->service = new SystemHealthService;
@@ -86,13 +90,13 @@ it('returns scheduler warning when heartbeat is stale', function () {
 it('returns redis ok when cache driver is redis and connection succeeds', function () {
     config(['cache.default' => 'redis']);
 
-    $mock = Mockery::mock(\App\Services\ConnectionTesters\RedisConnectionTester::class);
+    $mock = Mockery::mock(RedisConnectionTester::class);
     $mock->shouldReceive('test')->once()->andReturn([
         'success' => true,
         'version' => 'Redis 7.0',
         'error' => null,
     ]);
-    app()->instance(\App\Services\ConnectionTesters\RedisConnectionTester::class, $mock);
+    app()->instance(RedisConnectionTester::class, $mock);
 
     $result = $this->service->checkRedis();
 
@@ -104,13 +108,13 @@ it('returns redis ok when cache driver is redis and connection succeeds', functi
 it('returns redis error when connection fails', function () {
     config(['cache.default' => 'redis']);
 
-    $mock = Mockery::mock(\App\Services\ConnectionTesters\RedisConnectionTester::class);
+    $mock = Mockery::mock(RedisConnectionTester::class);
     $mock->shouldReceive('test')->once()->andReturn([
         'success' => false,
         'version' => null,
         'error' => 'Connection refused',
     ]);
-    app()->instance(\App\Services\ConnectionTesters\RedisConnectionTester::class, $mock);
+    app()->instance(RedisConnectionTester::class, $mock);
 
     $result = $this->service->checkRedis();
 
@@ -121,9 +125,9 @@ it('returns redis error when connection fails', function () {
 it('returns redis error when tester throws exception', function () {
     config(['queue.default' => 'redis']);
 
-    $mock = Mockery::mock(\App\Services\ConnectionTesters\RedisConnectionTester::class);
-    $mock->shouldReceive('test')->once()->andThrow(new \RuntimeException('Redis unavailable'));
-    app()->instance(\App\Services\ConnectionTesters\RedisConnectionTester::class, $mock);
+    $mock = Mockery::mock(RedisConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andThrow(new RuntimeException('Redis unavailable'));
+    app()->instance(RedisConnectionTester::class, $mock);
 
     $result = $this->service->checkRedis();
 
@@ -153,9 +157,9 @@ it('returns s3 ok when connection succeeds', function () {
         'filesystems.disks.s3.bucket' => 'test-bucket',
     ]);
 
-    $mock = Mockery::mock(\App\Services\ConnectionTesters\S3ConnectionTester::class);
+    $mock = Mockery::mock(S3ConnectionTester::class);
     $mock->shouldReceive('test')->once()->andReturn(['success' => true, 'error' => null]);
-    app()->instance(\App\Services\ConnectionTesters\S3ConnectionTester::class, $mock);
+    app()->instance(S3ConnectionTester::class, $mock);
 
     $result = $this->service->checkStorage();
 
@@ -171,9 +175,9 @@ it('returns s3 error when tester throws', function () {
         'filesystems.disks.s3.bucket' => 'test-bucket',
     ]);
 
-    $mock = Mockery::mock(\App\Services\ConnectionTesters\S3ConnectionTester::class);
-    $mock->shouldReceive('test')->once()->andThrow(new \RuntimeException('S3 unavailable'));
-    app()->instance(\App\Services\ConnectionTesters\S3ConnectionTester::class, $mock);
+    $mock = Mockery::mock(S3ConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andThrow(new RuntimeException('S3 unavailable'));
+    app()->instance(S3ConnectionTester::class, $mock);
 
     $result = $this->service->checkStorage();
 
@@ -182,9 +186,9 @@ it('returns s3 error when tester throws', function () {
 });
 
 it('returns database error when postgres tester throws', function () {
-    $mock = Mockery::mock(\App\Services\ConnectionTesters\PostgresConnectionTester::class);
-    $mock->shouldReceive('test')->once()->andThrow(new \RuntimeException('Connection refused'));
-    app()->instance(\App\Services\ConnectionTesters\PostgresConnectionTester::class, $mock);
+    $mock = Mockery::mock(PostgresConnectionTester::class);
+    $mock->shouldReceive('test')->once()->andThrow(new RuntimeException('Connection refused'));
+    app()->instance(PostgresConnectionTester::class, $mock);
 
     $result = $this->service->checkDatabase();
 
@@ -195,8 +199,8 @@ it('returns database error when postgres tester throws', function () {
 
 it('returns queue error when queue check throws', function () {
     // Mock Queue facade to throw
-    Illuminate\Support\Facades\Queue::shouldReceive('size')
-        ->andThrow(new \RuntimeException('Queue unavailable'));
+    Queue::shouldReceive('size')
+        ->andThrow(new RuntimeException('Queue unavailable'));
 
     $result = $this->service->checkQueue();
 

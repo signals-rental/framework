@@ -1,8 +1,9 @@
 <?php
 
 use App\Services\ConnectionTesters\PostgresConnectionTester;
+use Tests\TestCase;
 
-uses(Tests\TestCase::class);
+uses(TestCase::class);
 
 it('returns success shape on successful connection', function () {
     // Skip if no local PostgreSQL available
@@ -62,7 +63,7 @@ it('checks if database exists', function () {
         );
 
         expect($result)->toBeBool();
-    } catch (\PDOException) {
+    } catch (PDOException) {
         // Connection might not be available in CI
         $this->markTestSkipped('PostgreSQL not available');
     }
@@ -83,7 +84,7 @@ it('checks extensions and returns correct shape', function () {
         expect($result)->toBeArray();
         expect($result)->toHaveKey('plpgsql');
         expect($result['plpgsql'])->toBeBool();
-    } catch (\PDOException) {
+    } catch (PDOException) {
         $this->markTestSkipped('PostgreSQL not available');
     }
 });

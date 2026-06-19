@@ -5,6 +5,8 @@ use App\Models\CustomField;
 use App\Models\CustomFieldGroup;
 use App\Models\CustomFieldValue;
 use App\Models\ListName;
+use App\Models\Store;
+use Illuminate\Database\QueryException;
 
 it('creates a custom field group', function () {
     $group = CustomFieldGroup::factory()->create(['name' => 'Compliance']);
@@ -84,7 +86,7 @@ it('enforces unique name per module_type', function () {
 
     // Same name + module_type should fail
     expect(fn () => CustomField::factory()->create(['name' => 'test_field', 'module_type' => 'Invoice']))
-        ->toThrow(\Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('relates custom field to group', function () {
@@ -121,7 +123,7 @@ it('enforces unique custom field value per entity', function () {
         'custom_field_id' => $field->id,
         'entity_type' => 'Member',
         'entity_id' => 1,
-    ]))->toThrow(\Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 });
 
 it('maps field types to correct value columns', function () {
@@ -172,11 +174,11 @@ it('accesses list name relationship', function () {
 });
 
 it('accesses custom field value entity via morphTo', function () {
-    $store = \App\Models\Store::factory()->create();
+    $store = Store::factory()->create();
     $field = CustomField::factory()->create(['module_type' => 'Store']);
     $value = CustomFieldValue::factory()->create([
         'custom_field_id' => $field->id,
-        'entity_type' => \App\Models\Store::class,
+        'entity_type' => Store::class,
         'entity_id' => $store->id,
         'value_string' => 'test',
     ]);
@@ -184,7 +186,7 @@ it('accesses custom field value entity via morphTo', function () {
     /** @var CustomFieldValue $loaded */
     $loaded = CustomFieldValue::with('entity')->find($value->id);
 
-    /** @var \App\Models\Store $entity */
+    /** @var Store $entity */
     $entity = $loaded->entity;
 
     expect($entity)->not->toBeNull()

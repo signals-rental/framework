@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\CurrencySeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
@@ -63,7 +64,7 @@ describe('CreateExchangeRate', function () {
         ]);
 
         (new CreateExchangeRate)($dto);
-    })->throws(\InvalidArgumentException::class, 'Exchange rate cannot be zero');
+    })->throws(InvalidArgumentException::class, 'Exchange rate cannot be zero');
 
     it('denies unpermissioned user', function () {
         $user = User::factory()->create();
@@ -77,7 +78,7 @@ describe('CreateExchangeRate', function () {
         ]);
 
         (new CreateExchangeRate)($dto);
-    })->throws(\Illuminate\Auth\Access\AuthorizationException::class);
+    })->throws(AuthorizationException::class);
 });
 
 describe('UpdateExchangeRate', function () {
@@ -141,7 +142,7 @@ describe('UpdateExchangeRate', function () {
         $dto = UpdateExchangeRateData::from(['rate' => '0']);
 
         (new UpdateExchangeRate)($rate, $dto);
-    })->throws(\InvalidArgumentException::class, 'Exchange rate cannot be zero');
+    })->throws(InvalidArgumentException::class, 'Exchange rate cannot be zero');
 });
 
 describe('DeleteExchangeRate', function () {
@@ -164,5 +165,5 @@ describe('DeleteExchangeRate', function () {
         $rate = ExchangeRate::factory()->create();
 
         (new DeleteExchangeRate)($rate);
-    })->throws(\Illuminate\Auth\Access\AuthorizationException::class);
+    })->throws(AuthorizationException::class);
 });

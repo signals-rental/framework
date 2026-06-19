@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
 use App\Models\Product;
@@ -102,14 +103,14 @@ it('skips orphaned custom field values and logs a warning', function () {
         $values = [];
         foreach ($model->customFieldValues as $cfv) {
             if ($cfv->customField === null) {
-                \Illuminate\Support\Facades\Log::warning('Orphaned custom field value: definition not found', [
+                Log::warning('Orphaned custom field value: definition not found', [
                     'custom_field_value_id' => $cfv->id,
                     'custom_field_id' => $cfv->custom_field_id,
                 ]);
 
                 continue;
             }
-            /** @var \App\Enums\CustomFieldType $fieldType */
+            /** @var CustomFieldType $fieldType */
             $fieldType = $cfv->customField->field_type;
             $column = $fieldType->valueColumn();
             $values[$cfv->customField->name] = $cfv->{$column};

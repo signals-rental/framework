@@ -5,12 +5,28 @@
  * Each test targets the exact uncovered method/branch to flip a class to 100%.
  */
 
+use App\Data\Attachments\AttachmentData;
+use App\Enums\CustomFieldType;
+use App\Jobs\ExportActionLog;
+use App\Livewire\Components\IconUpload;
+use App\Livewire\Components\ViewBuilder;
+use App\Livewire\Members\MergeModal;
+use App\Models\Attachment;
+use App\Models\CustomField;
 use App\Models\Member;
 use App\Models\User;
 use App\Support\Timezone;
+use App\Views\MemberColumnRegistry;
 use Carbon\CarbonImmutable;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
 /*
 |--------------------------------------------------------------------------
@@ -111,12 +127,12 @@ describe('ViewBuilder sortable fields', function () {
     });
 
     it('exposes sortable fields computed property', function () {
-        $component = \Livewire\Livewire::test(\App\Livewire\Components\ViewBuilder::class);
+        $component = Livewire::test(ViewBuilder::class);
 
         $component->call('open', null);
 
         // Access the computed property directly
-        /** @var \App\Livewire\Components\ViewBuilder $instance */
+        /** @var ViewBuilder $instance */
         $instance = $component->instance();
         $sortable = $instance->getSortableFieldsProperty();
         expect($sortable)->toBeArray();
@@ -134,7 +150,7 @@ describe('MergeModal render', function () {
         $this->seed(RoleSeeder::class);
         $this->actingAs(User::factory()->owner()->create());
 
-        \Livewire\Livewire::test(\App\Livewire\Members\MergeModal::class)
+        Livewire::test(MergeModal::class)
             ->assertViewIs('livewire.members.merge-modal')
             ->assertStatus(200);
     });
@@ -149,7 +165,7 @@ describe('IconUpload render', function () {
     it('renders the icon upload component', function () {
         $member = Member::factory()->create();
 
-        \Livewire\Livewire::test(\App\Livewire\Components\IconUpload::class, [
+        Livewire::test(IconUpload::class, [
             'model' => $member,
             'iconField' => 'icon_url',
             'thumbField' => 'icon_thumb_url',
@@ -165,18 +181,18 @@ describe('IconUpload render', function () {
 */
 describe('AttachmentData resolveUrl all branches', function () {
     it('resolves URL via fromModel with public disk', function () {
-        \Illuminate\Support\Facades\Storage::fake('public');
-        \Illuminate\Support\Facades\Storage::disk('public')->put('test/file.pdf', 'content');
+        Storage::fake('public');
+        Storage::disk('public')->put('test/file.pdf', 'content');
 
-        $attachment = \App\Models\Attachment::factory()->create([
+        $attachment = Attachment::factory()->create([
             'file_path' => 'test/file.pdf',
             'thumb_path' => 'test/thumb.jpg',
             'disk' => 'public',
         ]);
 
         // Force fresh load to exercise fromModel fully
-        $fresh = \App\Models\Attachment::find($attachment->id);
-        $dto = \App\Data\Attachments\AttachmentData::fromModel($fresh);
+        $fresh = Attachment::find($attachment->id);
+        $dto = AttachmentData::fromModel($fresh);
 
         expect($dto->url)->toBeString();
         expect($dto->thumb_url)->toBeString();
@@ -191,12 +207,12 @@ describe('AttachmentData resolveUrl all branches', function () {
 */
 describe('ExportActionLog failed method', function () {
     it('marks export as failed in cache with logging', function () {
-        \Illuminate\Support\Facades\Log::shouldReceive('error')->once();
+        Log::shouldReceive('error')->once();
 
-        $job = new \App\Jobs\ExportActionLog(userId: 42);
-        $job->failed(new \RuntimeException('Disk full'));
+        $job = new ExportActionLog(userId: 42);
+        $job->failed(new RuntimeException('Disk full'));
 
-        expect(\Illuminate\Support\Facades\Cache::get('action-log-export:42'))->toBe('failed');
+        expect(Cache::get('action-log-export:42'))->toBe('failed');
     });
 });
 
@@ -221,7 +237,7 @@ describe('EnsureTwoFactorAuthenticated all branches', function () {
             'two_factor_recovery_codes' => null,
         ]);
 
-        \Illuminate\Support\Facades\Route::middleware(['web', '2fa'])->get('/2fa-nonadmin-test', fn () => 'ok');
+        Route::middleware(['web', '2fa'])->get('/2fa-nonadmin-test', fn () => 'ok');
 
         $this->actingAs($user)
             ->get('/2fa-nonadmin-test')
@@ -237,12 +253,12 @@ describe('EnsureTwoFactorAuthenticated all branches', function () {
 describe('ColumnRegistry mapSchemaType default', function () {
     it('maps unknown schema types to string', function () {
         // Create a custom field with a type that maps to an unusual schema type
-        \App\Models\CustomField::factory()->forModule('Member')->create([
+        CustomField::factory()->forModule('Member')->create([
             'name' => 'cf_json_test',
-            'field_type' => \App\Enums\CustomFieldType::JsonKeyValue,
+            'field_type' => CustomFieldType::JsonKeyValue,
         ]);
 
-        $registry = new \App\Views\MemberColumnRegistry;
+        $registry = new MemberColumnRegistry;
         $columns = $registry->allColumns();
 
         // JsonKeyValue maps to 'json' in SchemaRegistry, which maps to 'string' in ColumnRegistry
@@ -301,9 +317,9 @@ describe('AppServiceProvider rate limiting', function () {
     it('configures API rate limiter from settings', function () {
         settings()->set('api.rate_limit', 100);
 
-        $limiter = app(\Illuminate\Cache\RateLimiting\Limit::class);
+        $limiter = app(Limit::class);
         // Just verify the rate limiter is registered
-        $limiters = \Illuminate\Support\Facades\RateLimiter::limiter('api');
+        $limiters = RateLimiter::limiter('api');
         expect($limiters)->not->toBeNull();
     });
 });

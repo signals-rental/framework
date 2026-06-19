@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Actions\Activities\CompleteActivity;
+use App\Actions\Activities\DeleteActivity;
 use App\Models\Activity;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -14,7 +16,7 @@ trait HasActivityActions
     {
         try {
             $activity = Activity::findOrFail($activityId);
-            (new \App\Actions\Activities\CompleteActivity)($activity);
+            (new CompleteActivity)($activity);
             $this->dispatch('activity-completed');
         } catch (ModelNotFoundException) {
             session()->flash('info', 'Activity was already removed.');
@@ -33,7 +35,7 @@ trait HasActivityActions
     {
         try {
             $activity = Activity::findOrFail($activityId);
-            (new \App\Actions\Activities\DeleteActivity)($activity);
+            (new DeleteActivity)($activity);
             $this->dispatch('activity-deleted');
         } catch (ModelNotFoundException) {
             session()->flash('info', 'Activity was already removed.');

@@ -6,6 +6,7 @@ use App\Models\CustomFieldValue;
 use App\Models\ListName;
 use App\Models\ListValue;
 use App\Models\Store;
+use App\Services\CustomFieldDefinitionResolver;
 use App\Services\CustomFieldSerializer;
 use Illuminate\Support\Collection;
 
@@ -284,7 +285,7 @@ it('toArray excludes deactivated fields even if values exist', function () {
     $this->textField->update(['is_active' => false]);
 
     // Fresh resolver + serializer so the definitions cache doesn't include the deactivated field
-    $resolver = new \App\Services\CustomFieldDefinitionResolver;
+    $resolver = new CustomFieldDefinitionResolver;
     $freshSerializer = new CustomFieldSerializer($resolver);
     $result = $freshSerializer->toArray($store->fresh());
 
@@ -319,7 +320,7 @@ it('fromArray coerces ListOfValues default value to integer', function () {
 });
 
 it('fromArray applies falsy default value like zero', function () {
-    $this->textField->update(['field_type' => \App\Enums\CustomFieldType::Number, 'default_value' => '0']);
+    $this->textField->update(['field_type' => CustomFieldType::Number, 'default_value' => '0']);
 
     $store = Store::factory()->create();
     $this->serializer->fromArray($store, [], applyDefaults: true);

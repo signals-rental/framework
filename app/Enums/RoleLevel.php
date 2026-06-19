@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Models\User;
+
 /**
  * Maps system role names to numeric hierarchy levels.
  *
@@ -53,7 +55,7 @@ enum RoleLevel: int
      *
      * Owner flag grants the highest level regardless of assigned roles.
      */
-    public static function forUser(\App\Models\User $user): int
+    public static function forUser(User $user): int
     {
         if ($user->isOwner()) {
             return self::Owner->value;

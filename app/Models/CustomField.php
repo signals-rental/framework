@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CustomFieldType;
+use Database\Factories\CustomFieldFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class CustomField extends Model
 {
-    /** @use HasFactory<\Database\Factories\CustomFieldFactory> */
+    /** @use HasFactory<CustomFieldFactory> */
     use HasFactory;
 
     /** @var list<string> */

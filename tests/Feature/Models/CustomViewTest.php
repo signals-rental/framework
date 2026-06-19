@@ -5,6 +5,7 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Database\Seeders\ViewSeeder;
+use Spatie\Permission\Models\Role;
 
 it('creates a custom view with factory', function () {
     $view = CustomView::factory()->create();
@@ -63,7 +64,7 @@ it('has roles relationship for shared views', function () {
     $this->seed(RoleSeeder::class);
 
     $view = CustomView::factory()->shared()->create();
-    $role = \Spatie\Permission\Models\Role::findByName('Admin', 'web');
+    $role = Role::findByName('Admin', 'web');
     $view->roles()->attach($role);
 
     expect($view->roles)->toHaveCount(1)
@@ -138,11 +139,11 @@ it('scopes visible views to user including shared role views', function () {
 
     // Shared view for Admin role - visible to $user
     $shared = CustomView::factory()->shared()->create(['entity_type' => 'members']);
-    $shared->roles()->attach(\Spatie\Permission\Models\Role::findByName('Admin', 'web'));
+    $shared->roles()->attach(Role::findByName('Admin', 'web'));
 
     // Shared view for a different role - not visible
     $otherShared = CustomView::factory()->shared()->create(['entity_type' => 'members']);
-    $otherShared->roles()->attach(\Spatie\Permission\Models\Role::findByName('Read Only', 'web'));
+    $otherShared->roles()->attach(Role::findByName('Read Only', 'web'));
 
     $visible = CustomView::visibleTo($user)->get();
 
@@ -166,7 +167,7 @@ it('scopes visible views combining all visibility types', function () {
     CustomView::factory()->create(['entity_type' => 'members', 'user_id' => $otherUser->id]);
     // Shared view for Admin role
     $shared = CustomView::factory()->shared()->create(['entity_type' => 'members']);
-    $shared->roles()->attach(\Spatie\Permission\Models\Role::findByName('Admin', 'web'));
+    $shared->roles()->attach(Role::findByName('Admin', 'web'));
 
     $visible = CustomView::visibleTo($user)->get();
 

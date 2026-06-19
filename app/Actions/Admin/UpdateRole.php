@@ -46,7 +46,7 @@ class UpdateRole
             $role->syncPermissions($data['permissions']);
         }
 
-        /** @var \Spatie\Permission\Models\Role $freshRole */
+        /** @var Role $freshRole */
         $freshRole = $role->fresh();
 
         app(WebhookService::class)->dispatch('role.updated', [

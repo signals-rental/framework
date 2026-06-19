@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\ListNameFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ListName extends Model
 {
-    /** @use HasFactory<\Database\Factories\ListNameFactory> */
+    /** @use HasFactory<ListNameFactory> */
     use HasFactory;
 
     /** @var list<string> */

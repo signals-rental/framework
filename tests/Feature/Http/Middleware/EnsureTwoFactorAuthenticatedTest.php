@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\SettingsService;
 use Illuminate\Support\Facades\Session;
 
 beforeEach(function () {
@@ -47,7 +48,7 @@ it('allows unauthenticated requests through without redirect to challenge', func
 });
 
 it('redirects to profile when 2FA required for all users but not configured', function () {
-    app(\App\Services\SettingsService::class)->set('security.require_2fa_all', true, 'boolean');
+    app(SettingsService::class)->set('security.require_2fa_all', true, 'boolean');
 
     $user = User::factory()->create();
 
@@ -57,7 +58,7 @@ it('redirects to profile when 2FA required for all users but not configured', fu
 });
 
 it('redirects admin to profile when 2FA required for admins but not configured', function () {
-    app(\App\Services\SettingsService::class)->set('security.require_2fa_admin', true, 'boolean');
+    app(SettingsService::class)->set('security.require_2fa_admin', true, 'boolean');
 
     $user = User::factory()->admin()->create();
 
@@ -67,7 +68,7 @@ it('redirects admin to profile when 2FA required for admins but not configured',
 });
 
 it('allows through profile page when 2FA redirect is active', function () {
-    app(\App\Services\SettingsService::class)->set('security.require_2fa_all', true, 'boolean');
+    app(SettingsService::class)->set('security.require_2fa_all', true, 'boolean');
 
     $user = User::factory()->create();
 
@@ -85,7 +86,7 @@ it('does not redirect when 2FA not required by settings', function () {
 });
 
 it('allows non-admin user through when only admin 2FA is required', function () {
-    app(\App\Services\SettingsService::class)->set('security.require_2fa_admin', true, 'boolean');
+    app(SettingsService::class)->set('security.require_2fa_admin', true, 'boolean');
 
     $user = User::factory()->create(); // regular user, not admin, not owner
 

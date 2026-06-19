@@ -2,6 +2,7 @@
 
 use App\Models\Webhook;
 use App\Models\WebhookLog;
+use Carbon\CarbonImmutable;
 
 it('belongs to a webhook', function () {
     $webhook = Webhook::factory()->create();
@@ -32,6 +33,6 @@ it('casts delivered_at and next_retry_at to datetime', function () {
         'next_retry_at' => now()->addHour(),
     ]);
 
-    expect($log->delivered_at)->toBeInstanceOf(\Carbon\CarbonImmutable::class);
-    expect($log->next_retry_at)->toBeInstanceOf(\Carbon\CarbonImmutable::class);
+    expect($log->delivered_at)->toBeInstanceOf(CarbonImmutable::class);
+    expect($log->next_retry_at)->toBeInstanceOf(CarbonImmutable::class);
 });

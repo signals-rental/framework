@@ -4,6 +4,7 @@ use App\Models\CustomFieldMultiValue;
 use App\Models\CustomFieldValue;
 use App\Models\ListName;
 use App\Models\ListValue;
+use Illuminate\Database\QueryException;
 
 it('creates a custom field multi value', function () {
     $multiValue = CustomFieldMultiValue::factory()->create();
@@ -37,7 +38,7 @@ it('enforces unique custom_field_value_id and list_value_id pair', function () {
     expect(fn () => CustomFieldMultiValue::factory()->create([
         'custom_field_value_id' => $multiValue->custom_field_value_id,
         'list_value_id' => $multiValue->list_value_id,
-    ]))->toThrow(\Illuminate\Database\QueryException::class);
+    ]))->toThrow(QueryException::class);
 });
 
 it('cascades delete from custom field value', function () {

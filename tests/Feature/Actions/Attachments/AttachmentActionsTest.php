@@ -8,6 +8,7 @@ use App\Models\Member;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -49,7 +50,7 @@ describe('CreateAttachment', function () {
         );
 
         (new CreateAttachment)($dto, $file);
-    })->throws(\InvalidArgumentException::class, 'Unknown attachable type');
+    })->throws(InvalidArgumentException::class, 'Unknown attachable type');
 
     it('throws for non-existent attachable id', function () {
         $file = UploadedFile::fake()->create('doc.pdf', 100);
@@ -60,7 +61,7 @@ describe('CreateAttachment', function () {
         );
 
         (new CreateAttachment)($dto, $file);
-    })->throws(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    })->throws(ModelNotFoundException::class);
 });
 
 describe('DeleteAttachment', function () {

@@ -1,14 +1,16 @@
 <?php
 
+use App\Enums\CustomFieldType;
 use App\Models\AutoNumberSequence;
 use App\Models\CustomField;
 use App\Services\AutoNumberService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 describe('AutoNumberService', function () {
     it('generates formatted auto-number with prefix and suffix', function () {
         $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'invoice_number',
-            'field_type' => \App\Enums\CustomFieldType::AutoNumber,
+            'field_type' => CustomFieldType::AutoNumber,
         ]);
 
         AutoNumberSequence::create([
@@ -27,7 +29,7 @@ describe('AutoNumberService', function () {
     it('increments atomically on each call', function () {
         $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'order_number',
-            'field_type' => \App\Enums\CustomFieldType::AutoNumber,
+            'field_type' => CustomFieldType::AutoNumber,
         ]);
 
         AutoNumberSequence::create([
@@ -48,7 +50,7 @@ describe('AutoNumberService', function () {
     it('generates with suffix', function () {
         $field = CustomField::factory()->forModule('Store')->create([
             'name' => 'asset_tag',
-            'field_type' => \App\Enums\CustomFieldType::AutoNumber,
+            'field_type' => CustomFieldType::AutoNumber,
         ]);
 
         AutoNumberSequence::create([
@@ -67,7 +69,7 @@ describe('AutoNumberService', function () {
     it('previews next number without consuming', function () {
         $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'ref_number',
-            'field_type' => \App\Enums\CustomFieldType::AutoNumber,
+            'field_type' => CustomFieldType::AutoNumber,
         ]);
 
         AutoNumberSequence::create([
@@ -90,7 +92,7 @@ describe('AutoNumberService', function () {
     it('resets sequence to a specific value', function () {
         $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'reset_test',
-            'field_type' => \App\Enums\CustomFieldType::AutoNumber,
+            'field_type' => CustomFieldType::AutoNumber,
         ]);
 
         AutoNumberSequence::create([
@@ -110,17 +112,17 @@ describe('AutoNumberService', function () {
     it('throws when sequence does not exist for generate', function () {
         $service = new AutoNumberService;
         $service->generate(99999);
-    })->throws(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    })->throws(ModelNotFoundException::class);
 
     it('throws when sequence does not exist for preview', function () {
         $service = new AutoNumberService;
         $service->preview(99999);
-    })->throws(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    })->throws(ModelNotFoundException::class);
 
     it('respects custom pad width', function () {
         $field = CustomField::factory()->forModule('Member')->create([
             'name' => 'short_number',
-            'field_type' => \App\Enums\CustomFieldType::AutoNumber,
+            'field_type' => CustomFieldType::AutoNumber,
         ]);
 
         AutoNumberSequence::create([

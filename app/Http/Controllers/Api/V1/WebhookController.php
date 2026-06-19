@@ -8,6 +8,7 @@ use App\Data\Api\WebhookData;
 use App\Data\Api\WebhookLogData;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
+use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WebhookLog;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
@@ -184,7 +185,7 @@ class WebhookController extends Controller
      */
     private function authorizeOwnership(Webhook $webhook, Request $request): void
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         if ($webhook->user_id !== $user->id && ! $user->isOwner()) {

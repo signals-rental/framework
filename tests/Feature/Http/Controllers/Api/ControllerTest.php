@@ -1,11 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\Controller;
+use Illuminate\Http\JsonResponse;
 
 it('respondAccepted returns 202 with message only when no jobId given', function () {
     $controller = new class extends Controller
     {
-        public function testAccepted(?string $jobId = null): \Illuminate\Http\JsonResponse
+        public function testAccepted(?string $jobId = null): JsonResponse
         {
             return $this->respondAccepted($jobId);
         }
@@ -23,7 +24,7 @@ it('respondAccepted returns 202 with message only when no jobId given', function
 it('respondAccepted returns 202 with job_id when jobId given', function () {
     $controller = new class extends Controller
     {
-        public function testAccepted(?string $jobId = null): \Illuminate\Http\JsonResponse
+        public function testAccepted(?string $jobId = null): JsonResponse
         {
             return $this->respondAccepted($jobId);
         }
@@ -41,7 +42,7 @@ it('respondAccepted returns 202 with job_id when jobId given', function () {
 it('respondWith wraps data with given key', function () {
     $controller = new class extends Controller
     {
-        public function testWith(mixed $data, string $key): \Illuminate\Http\JsonResponse
+        public function testWith(mixed $data, string $key): JsonResponse
         {
             return $this->respondWith($data, $key);
         }
@@ -56,7 +57,7 @@ it('respondWith wraps data with given key', function () {
 it('respondWithCollection includes meta without paginator', function () {
     $controller = new class extends Controller
     {
-        public function testCollection(mixed $items, string $key): \Illuminate\Http\JsonResponse
+        public function testCollection(mixed $items, string $key): JsonResponse
         {
             return $this->respondWithCollection($items, $key);
         }
@@ -74,7 +75,7 @@ it('respondWithError returns error response', function () {
     $controller = new class extends Controller
     {
         /** @param  array<string, list<string>>|null  $errors */
-        public function testError(string $msg, int $status, ?array $errors = null): \Illuminate\Http\JsonResponse
+        public function testError(string $msg, int $status, ?array $errors = null): JsonResponse
         {
             return $this->respondWithError($msg, $status, $errors);
         }

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\CustomFieldMultiValueFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CustomFieldMultiValue extends Model
 {
-    /** @use HasFactory<\Database\Factories\CustomFieldMultiValueFactory> */
+    /** @use HasFactory<CustomFieldMultiValueFactory> */
     use HasFactory;
 
     /** @var list<string> */

@@ -250,7 +250,7 @@ it('uses non-taggable cache path when cache driver does not support tags', funct
 
 it('supportsTags returns false when cache store throws exception', function () {
     // Mock Cache facade to throw on getStore()
-    Cache::shouldReceive('getStore')->andThrow(new \RuntimeException('Cache unavailable'));
+    Cache::shouldReceive('getStore')->andThrow(new RuntimeException('Cache unavailable'));
     Cache::shouldReceive('forget')->once(); // non-tag flush path
     Cache::shouldReceive('rememberForever')->andReturn([]);
 

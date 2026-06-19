@@ -40,7 +40,7 @@ foreach ($files as $file) {
 
     try {
         $coverage = include $file;
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         fwrite(STDERR, '  Error loading '.basename($file).': '.$e->getMessage()."\n");
 
         continue;
@@ -58,7 +58,7 @@ foreach ($files as $file) {
         } else {
             $merged->merge($coverage);
         }
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         fwrite(STDERR, '  Error merging '.basename($file).': '.$e->getMessage()."\n");
     }
 }
@@ -96,7 +96,7 @@ if ($htmlPath) {
     try {
         (new HtmlReport)->process($merged, $htmlPath);
         echo "Done.\n";
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         fwrite(STDERR, 'Failed to generate HTML report: '.$e->getMessage()."\n");
         exit(1);
     }

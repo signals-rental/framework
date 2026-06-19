@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Currency;
 use App\Models\User;
 use Database\Seeders\CurrencySeeder;
 use Database\Seeders\PermissionSeeder;
@@ -58,7 +59,7 @@ describe('GET /api/v1/currencies', function () {
 
 describe('GET /api/v1/currencies/{id}', function () {
     it('shows a single currency', function () {
-        $currency = \App\Models\Currency::where('code', 'GBP')->first();
+        $currency = Currency::where('code', 'GBP')->first();
 
         $this->getJson("/api/v1/currencies/{$currency->id}")
             ->assertOk()

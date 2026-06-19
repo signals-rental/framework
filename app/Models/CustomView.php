@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\CustomViewFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
+use Spatie\Permission\Models\Role;
 
 /**
  * @property int $id
@@ -24,12 +27,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property string $sort_direction
  * @property int $per_page
  * @property array<string, mixed> $config
- * @property \Illuminate\Support\Carbon $created_at
- * @property \Illuminate\Support\Carbon $updated_at
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
  */
 class CustomView extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\CustomViewFactory> */
+    /** @use HasFactory<CustomViewFactory> */
     use HasFactory;
 
     /** @var list<string> */
@@ -87,11 +90,11 @@ class CustomView extends Model implements HasSchema
     }
 
     /**
-     * @return BelongsToMany<\Spatie\Permission\Models\Role, $this>
+     * @return BelongsToMany<Role, $this>
      */
     public function roles(): BelongsToMany
     {
-        return $this->belongsToMany(\Spatie\Permission\Models\Role::class, 'custom_view_roles')
+        return $this->belongsToMany(Role::class, 'custom_view_roles')
             ->withPivot('created_at');
     }
 

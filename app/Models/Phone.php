@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\PhoneFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Phone extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\PhoneFactory> */
+    /** @use HasFactory<PhoneFactory> */
     use HasFactory;
 
     /** @var list<string> */

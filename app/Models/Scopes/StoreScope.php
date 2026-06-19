@@ -2,6 +2,7 @@
 
 namespace App\Models\Scopes;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -27,7 +28,7 @@ class StoreScope implements Scope
             return;
         }
 
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $storeIds = $user->accessibleStoreIds();
 
         // null means unrestricted access (owner/admin)

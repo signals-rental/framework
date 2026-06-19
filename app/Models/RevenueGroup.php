@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use Database\Factories\RevenueGroupFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class RevenueGroup extends Model
 {
-    /** @use HasFactory<\Database\Factories\RevenueGroupFactory> */
+    /** @use HasFactory<RevenueGroupFactory> */
     use HasFactory;
 
     /** @var list<string> */

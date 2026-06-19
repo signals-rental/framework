@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\MemberRelationshipFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MemberRelationship extends Model
 {
-    /** @use HasFactory<\Database\Factories\MemberRelationshipFactory> */
+    /** @use HasFactory<MemberRelationshipFactory> */
     use HasFactory;
 
     /** @var list<string> */

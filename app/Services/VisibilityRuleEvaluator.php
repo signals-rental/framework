@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
+
 /**
  * Evaluates custom field visibility rules against entity data.
  *
@@ -69,7 +71,7 @@ class VisibilityRuleEvaluator
         $expected = $rule['value'] ?? null;
 
         if ($field === null) {
-            \Illuminate\Support\Facades\Log::warning('Visibility rule missing field key', ['rule' => $rule]);
+            Log::warning('Visibility rule missing field key', ['rule' => $rule]);
 
             return true;
         }
@@ -88,7 +90,7 @@ class VisibilityRuleEvaluator
             'lt' => is_numeric($actual) && is_numeric($expected) && $actual < $expected,
             'lte' => is_numeric($actual) && is_numeric($expected) && $actual <= $expected,
             'contains' => is_string($actual) && is_string($expected) && str_contains($actual, $expected),
-            default => tap(true, fn () => \Illuminate\Support\Facades\Log::warning("Unknown visibility rule operator: {$operator}", $rule)),
+            default => tap(true, fn () => Log::warning("Unknown visibility rule operator: {$operator}", $rule)),
         };
     }
 

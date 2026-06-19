@@ -12,6 +12,7 @@ use App\Models\Attachment;
 use App\Models\Member;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
 class AttachmentController extends Controller
@@ -81,7 +82,7 @@ class AttachmentController extends Controller
         $dto = CreateAttachmentData::from($validated);
 
         $file = $request->file('file');
-        if (! $file instanceof \Illuminate\Http\UploadedFile) {
+        if (! $file instanceof UploadedFile) {
             return $this->respondWithError('File upload failed. The file may exceed server size limits.', 422);
         }
 

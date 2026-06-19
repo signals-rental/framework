@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\MembershipType;
 use App\Models\Member;
+use App\Models\Membership;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -64,6 +65,6 @@ class MemberFactory extends Factory
 
     public function withMembership(): static
     {
-        return $this->has(\App\Models\Membership::factory(), 'memberships');
+        return $this->has(Membership::factory(), 'memberships');
     }
 }

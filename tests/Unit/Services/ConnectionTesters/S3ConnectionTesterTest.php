@@ -1,7 +1,9 @@
 <?php
 
 use App\Services\ConnectionTesters\S3ConnectionTester;
+use Aws\CommandInterface;
 use Aws\Exception\AwsException;
+use Aws\Result;
 use Aws\S3\S3Client;
 
 it('returns failure shape with error message for exception', function () {
@@ -73,7 +75,7 @@ it('returns success when put, get, verify, and delete all succeed via mock', fun
     $mockS3->shouldReceive('putObject')->once()->andReturnUsing(function ($args) use (&$capturedContent) {
         $capturedContent = $args['Body'];
 
-        return new \Aws\Result([]);
+        return new Result([]);
     });
     $mockS3->shouldReceive('getObject')->once()->andReturnUsing(function () use (&$capturedContent) {
         return ['Body' => $capturedContent];
@@ -128,7 +130,7 @@ it('returns failure when read-back content does not match via mock', function ()
 it('returns AWS error message when AwsException is thrown via mock', function () {
     $mockS3 = Mockery::mock(S3Client::class);
     $mockS3->shouldReceive('putObject')->once()->andThrow(
-        new AwsException('Access Denied', Mockery::mock(\Aws\CommandInterface::class), [
+        new AwsException('Access Denied', Mockery::mock(CommandInterface::class), [
             'message' => 'Access Denied',
         ])
     );
@@ -154,7 +156,7 @@ it('returns AWS error message when AwsException is thrown via mock', function ()
 it('returns generic error message when non-AWS exception is thrown via mock', function () {
     $mockS3 = Mockery::mock(S3Client::class);
     $mockS3->shouldReceive('putObject')->once()->andThrow(
-        new \Exception('Network timeout')
+        new Exception('Network timeout')
     );
 
     $tester = Mockery::mock(S3ConnectionTester::class)

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
 use App\Jobs\ExportActionLog;
 use App\Models\ActionLog;
+use App\Models\User;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -74,7 +75,7 @@ class ActionLogController extends Controller
             'date_to' => ['nullable', 'date'],
         ]);
 
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
 
         ExportActionLog::dispatch($user->id, $validated);

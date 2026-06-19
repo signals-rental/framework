@@ -3,6 +3,7 @@
 namespace App\Actions\Admin;
 
 use App\Data\Admin\InviteUserData;
+use App\Data\Api\UserData;
 use App\Enums\MembershipType;
 use App\Enums\RoleLevel;
 use App\Models\Member;
@@ -48,7 +49,7 @@ class InviteUser
         $user->notify(new UserInvitedNotification);
 
         app(WebhookService::class)->dispatch('user.created', [
-            'user' => \App\Data\Api\UserData::fromModel($user)->toArray(),
+            'user' => UserData::fromModel($user)->toArray(),
         ]);
 
         return $user;
@@ -65,7 +66,7 @@ class InviteUser
             return;
         }
 
-        /** @var \App\Models\User $actingUser */
+        /** @var User $actingUser */
         $actingUser = auth()->user();
         $actingLevel = RoleLevel::forUser($actingUser);
 

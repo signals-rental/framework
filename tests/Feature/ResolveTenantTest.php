@@ -3,6 +3,7 @@
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 beforeEach(function () {
     $this->originalDatabase = config('database.connections.pgsql.database');
@@ -79,7 +80,7 @@ it('rejects an empty subdomain as a malformed host', function () {
 
     $middleware = new ResolveTenant;
     $middleware->handle($request, fn () => response('ok'));
-})->throws(\Symfony\Component\HttpFoundation\Exception\BadRequestException::class);
+})->throws(BadRequestException::class);
 
 it('returns no-tenant page for a subdomain with invalid characters', function () {
     config(['signals.cloud' => true]);
@@ -133,7 +134,7 @@ it('returns 503 with tenant info when the database does not exist', function () 
     $request = Request::create('https://nonexistent.signals.cloud/dashboard');
 
     $connection = Mockery::mock();
-    $connection->shouldReceive('getPdo')->once()->andThrow(new \RuntimeException('database does not exist'));
+    $connection->shouldReceive('getPdo')->once()->andThrow(new RuntimeException('database does not exist'));
 
     DB::shouldReceive('purge')->once()->with('pgsql');
     DB::shouldReceive('connection')->once()->with('pgsql')->andReturn($connection);

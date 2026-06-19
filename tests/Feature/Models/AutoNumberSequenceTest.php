@@ -2,6 +2,7 @@
 
 use App\Models\AutoNumberSequence;
 use App\Models\CustomField;
+use Illuminate\Database\QueryException;
 
 it('creates an auto number sequence', function () {
     $sequence = AutoNumberSequence::factory()->create();
@@ -46,7 +47,7 @@ it('enforces unique custom_field_id', function () {
     AutoNumberSequence::factory()->create(['custom_field_id' => $field->id]);
 
     expect(fn () => AutoNumberSequence::factory()->create(['custom_field_id' => $field->id]))
-        ->toThrow(\Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('cascades delete from custom field', function () {

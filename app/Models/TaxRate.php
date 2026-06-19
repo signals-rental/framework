@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Contracts\HasSchema;
 use App\Services\SchemaBuilder;
+use Database\Factories\TaxRateFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TaxRate extends Model implements HasSchema
 {
-    /** @use HasFactory<\Database\Factories\TaxRateFactory> */
+    /** @use HasFactory<TaxRateFactory> */
     use HasFactory;
 
     /** @var list<string> */

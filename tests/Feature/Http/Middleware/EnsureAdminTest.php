@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Database\Seeders\RoleSeeder;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -52,8 +54,8 @@ it('redirects /admin/settings to /admin', function () {
 });
 
 it('allows users with Admin Spatie role to access admin routes', function () {
-    $this->seed(\Database\Seeders\PermissionSeeder::class);
-    $this->seed(\Database\Seeders\RoleSeeder::class);
+    $this->seed(PermissionSeeder::class);
+    $this->seed(RoleSeeder::class);
 
     $user = User::factory()->create();
     $user->assignRole('Admin');

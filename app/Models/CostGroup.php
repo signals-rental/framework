@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use Database\Factories\CostGroupFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class CostGroup extends Model
 {
-    /** @use HasFactory<\Database\Factories\CostGroupFactory> */
+    /** @use HasFactory<CostGroupFactory> */
     use HasFactory;
 
     /** @var list<string> */
