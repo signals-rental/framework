@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\ActionLogController;
 use App\Http\Controllers\Api\V1\ActivityController;
 use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\AvailabilityController;
+use App\Http\Controllers\Api\V1\ContainerController;
 use App\Http\Controllers\Api\V1\CountryController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\CustomFieldController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Api\V1\RateDefinitionController;
 use App\Http\Controllers\Api\V1\RateEngineMetaController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SchemaController;
+use App\Http\Controllers\Api\V1\SerialisedComponentController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\ShortageController;
 use App\Http\Controllers\Api\V1\StockLevelController;
@@ -138,12 +140,25 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::apiResource('products.accessories', AccessoryController::class)->only(['index', 'store', 'update', 'destroy'])->names('api.v1.products.accessories');
     Route::apiResource('products.rates', ProductRateController::class)->names('api.v1.products.rates');
     Route::post('products/{product}/calculate_rate', [RateCalculationController::class, 'calculate'])->name('api.v1.products.calculate_rate');
+    // Kit composition (serialised_components — the product's bill-of-materials)
+    Route::apiResource('products.components', SerialisedComponentController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->parameters(['components' => 'component'])
+        ->names('api.v1.products.components');
 
     // Product Groups
     Route::apiResource('product_groups', ProductGroupController::class)->names('api.v1.product_groups');
 
     // Stock Levels
     Route::apiResource('stock_levels', StockLevelController::class)->names('api.v1.stock_levels');
+
+    // Containers (M5-3b availability subset — read + pack/unpack only; the full
+    // seal/dissolve/scan/dispatch/return lifecycle is Phase-4). The pack/unpack
+    // sub-actions are declared before the resource routes so the explicit verbs win.
+    Route::post('containers/{container}/pack', [ContainerController::class, 'pack'])->name('api.v1.containers.pack');
+    Route::post('containers/{container}/unpack', [ContainerController::class, 'unpack'])->name('api.v1.containers.unpack');
+    Route::get('containers', [ContainerController::class, 'index'])->name('api.v1.containers.index');
+    Route::get('containers/{container}', [ContainerController::class, 'show'])->name('api.v1.containers.show');
 
     // Availability (read-only: point query via ?date, range query via ?from&?to)
     Route::get('availability', [AvailabilityController::class, 'index'])->name('api.v1.availability.index');

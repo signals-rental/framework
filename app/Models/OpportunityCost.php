@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
 use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityCostType;
 use App\Models\Traits\FormatsMoney;
+use App\Services\SchemaBuilder;
 use Database\Factories\OpportunityCostFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -40,7 +42,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-class OpportunityCost extends Model
+class OpportunityCost extends Model implements HasSchema
 {
     /** @use HasFactory<OpportunityCostFactory> */
     use FormatsMoney, HasFactory;
@@ -85,6 +87,21 @@ class OpportunityCost extends Model
             'is_optional' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->relation('opportunity_id')->label('Opportunity')
+            ->relation('opportunity', 'belongsTo', Opportunity::class, 'subject')
+            ->filterable();
+        $builder->string('description')->label('Description')->required()->searchable()->filterable()->sortable();
+        $builder->enum('cost_type')->label('Cost Type')->filterable()->sortable()->groupable();
+        $builder->enum('transaction_type')->label('Transaction Type')->filterable()->groupable();
+        $builder->integer('amount')->label('Amount')->sortable();
+        $builder->decimal('quantity')->label('Quantity')->filterable()->sortable();
+        $builder->boolean('is_optional')->label('Optional')->filterable()->sortable();
+        $builder->integer('sort_order')->label('Sort Order')->sortable();
+        $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 
     /**

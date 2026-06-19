@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
 use App\Enums\ContainerAvailabilityMode;
 use App\Enums\ContainerScanMode;
 use App\Enums\ContainerStatus;
+use App\Services\SchemaBuilder;
 use Database\Factories\ContainerFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -52,7 +54,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-class Container extends Model
+class Container extends Model implements HasSchema
 {
     /** @use HasFactory<ContainerFactory> */
     use HasFactory, HasUuids;
@@ -98,6 +100,24 @@ class Container extends Model
             'dispatched_at' => 'datetime',
             'returned_at' => 'datetime',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->string('uuid')->label('UUID')->filterable();
+        $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
+        $builder->string('barcode')->label('Barcode')->searchable()->filterable()->sortable();
+        $builder->enum('status')->label('Status')->filterable()->sortable()->groupable();
+        $builder->enum('scan_mode')->label('Scan Mode')->filterable()->groupable();
+        $builder->boolean('is_temporary')->label('Temporary')->filterable()->sortable()->groupable();
+        $builder->relation('product_id')->label('Product')
+            ->relation('product', 'belongsTo', Product::class, 'name')
+            ->filterable();
+        $builder->relation('store_id')->label('Store')
+            ->relation('store', 'belongsTo', Store::class, 'name')
+            ->filterable();
+        $builder->integer('opportunity_id')->label('Opportunity')->filterable();
+        $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 
     /**

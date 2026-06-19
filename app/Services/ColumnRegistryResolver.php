@@ -4,13 +4,17 @@ namespace App\Services;
 
 use App\Views\ActivityColumnRegistry;
 use App\Views\ColumnRegistry;
+use App\Views\ContainerColumnRegistry;
 use App\Views\MemberColumnRegistry;
 use App\Views\OpportunityColumnRegistry;
+use App\Views\OpportunityCostColumnRegistry;
+use App\Views\OpportunityItemColumnRegistry;
 use App\Views\OpportunityVersionColumnRegistry;
 use App\Views\ProductColumnRegistry;
 use App\Views\ProductGroupColumnRegistry;
 use App\Views\ProductRateColumnRegistry;
 use App\Views\RateDefinitionColumnRegistry;
+use App\Views\SerialisedComponentColumnRegistry;
 use App\Views\ShortageResolutionColumnRegistry;
 use App\Views\StockLevelColumnRegistry;
 use Illuminate\Validation\ValidationException;
@@ -34,7 +38,11 @@ class ColumnRegistryResolver
         'rate_definitions' => RateDefinitionColumnRegistry::class,
         'product_rates' => ProductRateColumnRegistry::class,
         'opportunities' => OpportunityColumnRegistry::class,
+        'opportunity_items' => OpportunityItemColumnRegistry::class,
+        'opportunity_costs' => OpportunityCostColumnRegistry::class,
         'opportunity_versions' => OpportunityVersionColumnRegistry::class,
+        'containers' => ContainerColumnRegistry::class,
+        'serialised_components' => SerialisedComponentColumnRegistry::class,
         'shortage_resolutions' => ShortageResolutionColumnRegistry::class,
     ];
 

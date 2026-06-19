@@ -305,8 +305,12 @@ class DemoDataSeeder extends Seeder
     /** @codeCoverageIgnore */
     private function createDemoOpportunities(): void
     {
-        // TODO: Implement when Opportunity model exists
-        // Spec: ~20 opportunities in various states (draft, quotation, order)
+        // Opportunities are event-sourced (Verbs): a faithful demo spread would
+        // have to fire the CreateOpportunity / AddOpportunityItem / status-change
+        // events rather than insert projection rows directly. That lifecycle is
+        // exercised by its own feature tests and factories; seeding a realistic
+        // multi-state spread here is deferred to a dedicated opportunity demo
+        // seeder so this catalogue-focused seeder stays cheap and side-effect free.
     }
 
     /** @codeCoverageIgnore */

@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Contracts\HasSchema;
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
 use App\Models\Traits\FormatsMoney;
+use App\Services\SchemaBuilder;
 use Database\Factories\OpportunityItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -55,7 +57,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-class OpportunityItem extends Model
+class OpportunityItem extends Model implements HasSchema
 {
     /** @use HasFactory<OpportunityItemFactory> */
     use FormatsMoney, HasFactory;
@@ -122,6 +124,27 @@ class OpportunityItem extends Model
             'is_optional' => 'boolean',
             'custom_fields' => 'array',
         ];
+    }
+
+    public static function defineSchema(SchemaBuilder $builder): void
+    {
+        $builder->relation('opportunity_id')->label('Opportunity')
+            ->relation('opportunity', 'belongsTo', Opportunity::class, 'subject')
+            ->filterable();
+        $builder->integer('item_id')->label('Item')->filterable();
+        $builder->string('item_type')->label('Item Type')->filterable()->groupable();
+        $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
+        $builder->text('description')->label('Description')->searchable();
+        $builder->decimal('quantity')->label('Quantity')->filterable()->sortable();
+        $builder->integer('unit_price')->label('Unit Price')->sortable();
+        $builder->enum('charge_period')->label('Charge Period')->filterable()->groupable();
+        $builder->integer('total')->label('Total')->sortable();
+        $builder->enum('transaction_type')->label('Transaction Type')->filterable()->groupable();
+        $builder->datetime('starts_at')->label('Starts')->filterable()->sortable();
+        $builder->datetime('ends_at')->label('Ends')->filterable()->sortable();
+        $builder->boolean('is_optional')->label('Optional')->filterable()->sortable();
+        $builder->integer('sort_order')->label('Sort Order')->sortable();
+        $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 
     /**

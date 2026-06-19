@@ -76,6 +76,10 @@ class PermissionSeeder extends Seeder
             'products.edit' => ['label' => 'Edit Products', 'description' => 'Edit existing products', 'group' => 'Products', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['products.view']],
             'products.delete' => ['label' => 'Delete Products', 'description' => 'Delete products', 'group' => 'Products', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['products.edit']],
 
+            // Kits (the product bill-of-materials — serialised_components composition)
+            'kits.view' => ['label' => 'View Kit Compositions', 'description' => 'View a product\'s kit bill-of-materials', 'group' => 'Products', 'sub_group' => 'Kits', 'layer' => 'action', 'dependencies' => ['products.view']],
+            'kits.manage' => ['label' => 'Manage Kit Compositions', 'description' => 'Add, update, and remove kit components', 'group' => 'Products', 'sub_group' => 'Kits', 'layer' => 'action', 'dependencies' => ['kits.view']],
+
             // Rates
             'rates.access' => ['label' => 'Access Rates', 'description' => 'Access the rate definitions area', 'group' => 'Rates', 'sub_group' => null, 'layer' => 'area', 'dependencies' => []],
             'rates.view' => ['label' => 'View Rates', 'description' => 'View rate definitions and product rates', 'group' => 'Rates', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['rates.access']],

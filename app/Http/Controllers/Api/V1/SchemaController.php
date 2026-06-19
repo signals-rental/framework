@@ -7,6 +7,7 @@ use App\Models\ActionLog;
 use App\Models\Activity;
 use App\Models\Address;
 use App\Models\Attachment;
+use App\Models\Container;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\CustomView;
@@ -15,6 +16,8 @@ use App\Models\ExchangeRate;
 use App\Models\Link;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityCost;
+use App\Models\OpportunityItem;
 use App\Models\OpportunityVersion;
 use App\Models\Phone;
 use App\Models\Product;
@@ -66,7 +69,10 @@ class SchemaController extends Controller
         'rate_definitions' => RateDefinition::class,
         'product_rates' => ProductRate::class,
         'opportunities' => Opportunity::class,
+        'opportunity_items' => OpportunityItem::class,
+        'opportunity_costs' => OpportunityCost::class,
         'opportunity_versions' => OpportunityVersion::class,
+        'containers' => Container::class,
         'shortage_resolutions' => ShortageResolution::class,
     ];
 

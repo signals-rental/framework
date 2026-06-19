@@ -187,6 +187,15 @@ it('resolves the shortages API documentation page', function () {
         ->and($page['html'])->toContain('shortages:read');
 });
 
+it('resolves the containers API documentation page', function () {
+    expect($this->service->pageExists('api', 'containers'))->toBeTrue();
+
+    $page = $this->service->getPage('api', 'containers');
+
+    expect($page)->not->toBeNull()
+        ->and($page['html'])->toContain('containers:read');
+});
+
 it('lists the availability page in the API navigation section', function () {
     $nav = $this->service->getNavigation();
 
@@ -202,7 +211,8 @@ it('lists the availability page in the API navigation section', function () {
 
     expect($slugs)->toContain('availability')
         ->toContain('opportunities')
-        ->toContain('shortages');
+        ->toContain('shortages')
+        ->toContain('containers');
 });
 
 it('skips changelog entries lacking frontmatter and formats integer dates', function () {

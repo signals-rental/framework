@@ -210,3 +210,87 @@ The `secondary_id` must reference an existing, non-archived product and must dif
 ### Response
 
 Returns `200 OK` with the merged primary product object.
+
+## Kit Components
+
+A product can be a **kit** — composed of other products (its bill-of-materials) rather than tracked as stock directly. Kit components are managed as a sub-resource of the parent product. Adding the first component flips the product's `is_kit` flag to `true`; removing the last component flips it back to `false`.
+
+Kit availability is composed read-time from component availability, so the composition must stay acyclic and within the configured nesting depth (`availability.kit_nesting_max_depth`).
+
+### Endpoints
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/v1/products/{product}/components` | List a product's kit components |
+| POST | `/api/v1/products/{product}/components` | Add a component to the kit |
+| PATCH | `/api/v1/products/{product}/components/{component}` | Update a component line |
+| DELETE | `/api/v1/products/{product}/components/{component}` | Remove a component |
+
+### Authentication
+
+Requires the `kits:read` ability (GET) or `kits:write` (POST/PATCH/DELETE), and the matching `kits.view` / `kits.manage` permission.
+
+### List Components
+
+```
+GET /api/v1/products/{product}/components
+```
+
+```json
+{
+    "components": [
+        {
+            "id": 1,
+            "product_id": 10,
+            "component_product_id": 42,
+            "component_name": "Par Can 64",
+            "quantity": "4.0000",
+            "binding": "pool",
+            "sort_order": 0
+        }
+    ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | int | Component line ID |
+| `product_id` | int | Parent kit product ID |
+| `component_product_id` | int | Component product ID |
+| `component_name` | string | Name of the component product |
+| `quantity` | string | Quantity of the component per single kit (decimal string) |
+| `binding` | string | `pool` (drawn from general stock) or `fixed` (permanently container-assigned) |
+| `sort_order` | int | Display order |
+
+### Add Component
+
+```
+POST /api/v1/products/{product}/components
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `component_product_id` | int | Yes | Product to add as a component (must exist) |
+| `quantity` | numeric | No | Quantity per kit (min 1, default 1) |
+| `binding` | string | No | `pool` (default) or `fixed` |
+| `sort_order` | int | No | Display order (min 0, default 0) |
+
+The `product_id` is taken from the URL. Returns `201 Created` with the new component in a `component` key.
+
+Rejected with `422` when the component is the product itself, would create a circular composition, would exceed the maximum kit nesting depth, or is already a component of the kit.
+
+### Update Component
+
+```
+PATCH /api/v1/products/{product}/components/{component}
+```
+
+All fields optional (`quantity`, `binding`, `sort_order`); only those supplied change. The parent kit and component product cannot be re-pointed — remove and re-add instead. A component that does not belong to the product in the URL returns `404`. Returns `200 OK`.
+
+### Remove Component
+
+```
+DELETE /api/v1/products/{product}/components/{component}
+```
+
+Removes the component. Returns `204 No Content`. Removing the last component flips the product's `is_kit` flag back to `false`.
