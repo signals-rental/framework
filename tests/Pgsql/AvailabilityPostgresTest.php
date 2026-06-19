@@ -139,8 +139,13 @@ it('recalculates serialised availability against the asset exclusion model', fun
             'quantity' => 1,
         ]);
 
+    // The demand-create observer recalculates the WHOLE rolling snapshot horizon
+    // (M3-4 async wiring), so scope the read to the demand's own window rather
+    // than the earliest horizon slot (which carries no demand).
     $snapshot = AvailabilitySnapshot::query()
         ->forProductStore($product->id, $this->store->id)
+        ->where('slot_start', '>=', Carbon::parse('2026-08-20T00:00:00Z'))
+        ->where('slot_start', '<', Carbon::parse('2026-08-22T00:00:00Z'))
         ->orderBy('slot_start')
         ->first();
 
@@ -198,8 +203,13 @@ it('recalculates end-to-end under the bigint advisory lock', function () {
         Carbon::parse('2026-09-03T00:00:00Z'),
     );
 
+    // The demand-create observer recalculated the whole rolling horizon, and the
+    // explicit recalculate() above re-materialised the demand window; scope the
+    // read to that window rather than the earliest (demand-free) horizon slot.
     $snapshot = AvailabilitySnapshot::query()
         ->forProductStore($product->id, $this->store->id)
+        ->where('slot_start', '>=', Carbon::parse('2026-09-01T00:00:00Z'))
+        ->where('slot_start', '<', Carbon::parse('2026-09-03T00:00:00Z'))
         ->orderBy('slot_start')
         ->first();
 
@@ -286,8 +296,12 @@ it('rolls half-daily slots up into a daily summary against real Postgres', funct
         Carbon::parse('2026-11-02T00:00:00Z'),
     );
 
+    // The demand-create observer recalculated the whole rolling horizon, so the
+    // table holds one summary per day in the horizon; read the day under test
+    // explicitly rather than the earliest (demand-free) one.
     $summary = AvailabilityDailySummary::query()
         ->forProductStore($product->id, $this->store->id)
+        ->where('date', Carbon::parse('2026-11-01')->startOfDay())
         ->first();
 
     expect($summary)->not->toBeNull()

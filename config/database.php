@@ -56,6 +56,13 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Pin the session time zone to UTC so naive datetime strings written
+            // by Eloquent's `datetime` casts map to UTC instants regardless of the
+            // server's `timezone` GUC. The app stores everything in UTC
+            // (`app.timezone`), so a non-UTC server default would otherwise shift
+            // every `timestamptz` written via a cast by the server's offset
+            // (the `period` tstzrange is immune — it embeds an explicit `+00:00`).
+            'timezone' => 'UTC',
         ],
 
         /*
@@ -86,6 +93,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // UTC session time zone — see the `pgsql` connection above. The pgsql
+            // test lane asserts exact UTC slot boundaries, so a non-UTC server
+            // default (e.g. Europe/London) must not shift cast-written timestamps.
+            'timezone' => 'UTC',
         ],
 
     ],
