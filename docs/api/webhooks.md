@@ -103,6 +103,82 @@ Webhooks can be managed via the API (`/api/v1/webhooks`) or from the admin panel
 |-------|---------|
 | `settings.updated` | Application settings are changed |
 
+### Opportunities
+
+Opportunity events fire on every committed mutation of an opportunity, its line
+items, costs, allocated assets, and quote versions. They are never re-delivered
+when the event store is rebuilt.
+
+| Event | Trigger |
+|-------|---------|
+| `opportunity.created` | A new opportunity (quote) is created |
+| `opportunity.updated` | An opportunity's header fields are updated |
+| `opportunity.quoted` | An opportunity is marked as quoted |
+| `opportunity.converted_to_order` | A quote is converted to an order |
+| `opportunity.status_changed` | An opportunity's status changes |
+| `opportunity.status_promoted` | An opportunity's status is promoted along its workflow |
+| `opportunity.cloned` | An opportunity is cloned into a new opportunity |
+| `opportunity.deleted` | An opportunity is soft-deleted |
+| `opportunity.deal_price_set` | A negotiated deal total is set |
+| `opportunity.deal_price_cleared` | A negotiated deal total is cleared |
+| `opportunity.item_added` | A line item is added |
+| `opportunity.item_removed` | A line item is removed |
+| `opportunity.item_quantity_changed` | A line item's quantity changes |
+| `opportunity.item_dates_changed` | A line item's hire dates change |
+| `opportunity.item_discount_set` | A line item discount is set |
+| `opportunity.item_optional_toggled` | A line item is toggled optional/required |
+| `opportunity.item_price_overridden` | A line item unit price is overridden |
+| `opportunity.item_substituted` | A line item product is substituted |
+| `opportunity.cost_added` | An additional cost is added |
+| `opportunity.cost_updated` | An additional cost is updated |
+| `opportunity.cost_removed` | An additional cost is removed |
+| `opportunity.version_created` | A new quote version is created |
+| `opportunity.version_activated` | A quote version is made active |
+| `opportunity.version_accepted` | A quote version is accepted by the customer |
+| `opportunity.version_declined` | A quote version is declined |
+| `opportunity.version_sent` | A quote version is sent to the customer |
+| `opportunity.version_relabelled` | A quote version's label is changed |
+| `opportunity.version_superseded` | A quote version is superseded by a newer one |
+| `opportunity.version_deleted` | A quote version is deleted |
+| `opportunity.asset_allocated` | A serialised asset is allocated to a line item |
+| `opportunity.asset_deallocated` | A serialised asset is deallocated |
+| `opportunity.asset_substituted` | An allocated asset is substituted for another |
+| `opportunity.asset_prepared` | An asset is marked prepared for dispatch |
+| `opportunity.asset_preparation_reverted` | An asset's prepared state is reverted |
+| `opportunity.asset_checked` | An asset is scan-checked |
+| `opportunity.asset_dispatched` | An asset is dispatched |
+| `opportunity.asset_on_hire` | An asset is marked on-hire |
+| `opportunity.asset_returned` | An asset is returned |
+| `opportunity.asset_status_reverted` | An asset's lifecycle status is reverted |
+| `opportunity.asset_container_set` | An asset is placed in a container |
+| `opportunity.asset_container_cleared` | An asset is removed from its container |
+| `opportunity.bulk_dispatched` | A bulk (non-serialised) quantity is dispatched |
+| `opportunity.bulk_returned` | A bulk quantity is returned |
+| `opportunity.bulk_quantity_adjusted` | A bulk dispatched/returned quantity is adjusted |
+
+### Availability
+
+| Event | Trigger |
+|-------|---------|
+| `availability.changed` | A product/store's availability read model has been recalculated |
+
+### Shortages
+
+| Event | Trigger |
+|-------|---------|
+| `shortage.detected` | A shortage is detected for an order line |
+| `shortage.cleared` | A previously-detected shortage no longer exists |
+| `shortage.acknowledged` | A shortage is acknowledged at a confirmation gate |
+| `shortage.resolution.created` | A shortage resolution is created |
+| `shortage.resolution.confirmed` | A shortage resolution is confirmed |
+| `shortage.resolution.in_progress` | A shortage resolution's fulfilment has begun |
+| `shortage.resolution.fulfilled` | A shortage resolution completes and stock is available |
+| `shortage.resolution.failed` | A shortage resolution attempt fails |
+| `shortage.resolution.cancelled` | A shortage resolution is cancelled |
+| `shortage.waitlist.created` | A waitlist monitor is placed on a shortage |
+| `shortage.waitlist.matched` | Monitored stock becomes available |
+| `shortage.waitlist.expired` | A waitlist monitor expires without matching |
+
 ## Payload Format
 
 Every webhook delivery sends a JSON POST request with the event name and associated data:

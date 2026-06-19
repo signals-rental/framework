@@ -24,9 +24,84 @@ function documentedWebhookEvents(): array
 {
     $markdown = File::get(base_path('docs/api/webhooks.md'));
 
-    preg_match_all('/^\|\s*`([a-z_]+\.[a-z_]+)`\s*\|/m', $markdown, $matches);
+    // Event names are one OR MORE dot-separated segments so multi-segment
+    // Phase-3 events (e.g. `shortage.resolution.created`) parse fully.
+    preg_match_all('/^\|\s*`([a-z_]+(?:\.[a-z_]+)+)`\s*\|/m', $markdown, $matches);
 
     return array_values(array_unique($matches[1]));
+}
+
+/**
+ * Discover every webhook event name the application can dispatch, from both
+ * dispatch styles in use:
+ *
+ *  1. Direct `->dispatch('event.name', …)` calls (Phase-2 actions, plus the
+ *     Phase-3 shortage/availability emitters that bypass the audit bridge).
+ *  2. The Phase-3 centralised bridge: `App\Listeners\DispatchWebhookForAuditableEvent`
+ *     dispatches `$event->action`, so the actual event names are the audit
+ *     `action` literals passed to `recordAudit($opportunity, 'event.name', …)`
+ *     inside the Verbs events.
+ *
+ * @return list<string>
+ */
+function dispatchedWebhookEvents(): array
+{
+    $events = [];
+
+    $scanDirs = [
+        app_path('Actions'),
+        app_path('Services'),
+        app_path('Jobs'),
+        app_path('Listeners'),
+    ];
+
+    foreach ($scanDirs as $dir) {
+        foreach (File::allFiles($dir) as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+
+            preg_match_all("/->dispatch\(\s*'([a-z_]+(?:\.[a-z_]+)+)'/", $file->getContents(), $matches);
+
+            foreach ($matches[1] as $event) {
+                $events[$event] = true;
+            }
+        }
+    }
+
+    // Verbs/audit actions become webhook event names via the central bridge
+    // (App\Listeners\DispatchWebhookForAuditableEvent dispatches $event->action).
+    // The action literal is supplied either positionally to recordAudit(
+    // $opportunity, 'event.name', …) inside the Verbs events, or as the named
+    // `action: 'event.name'` argument to `new AuditableEvent(…)` (e.g. the
+    // shortage resolution/waitlist records in App\Services\Shortages).
+    foreach ([app_path('Verbs'), app_path('Services')] as $dir) {
+        foreach (File::allFiles($dir) as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $contents = $file->getContents();
+
+            preg_match_all(
+                "/recordAudit\(\s*\\\$opportunity,\s*'([a-z_]+(?:\.[a-z_]+)+)'/",
+                $contents,
+                $recordMatches,
+            );
+
+            preg_match_all(
+                "/action:\s*'([a-z_]+(?:\.[a-z_]+)+)'/",
+                $contents,
+                $auditMatches,
+            );
+
+            foreach (array_merge($recordMatches[1], $auditMatches[1]) as $event) {
+                $events[$event] = true;
+            }
+        }
+    }
+
+    return array_keys($events);
 }
 
 beforeEach(function () {
@@ -50,24 +125,21 @@ it('registers stock_transaction.deleted in the EVENTS allow-list', function () {
         ->and((new WebhookService)->availableEvents())->toContain('stock_transaction.deleted');
 });
 
-it('registers every action-dispatched webhook event in the EVENTS allow-list', function () {
-    $dispatched = [];
-
-    foreach (File::allFiles(app_path('Actions')) as $file) {
-        if ($file->getExtension() !== 'php') {
-            continue;
-        }
-
-        preg_match_all("/->dispatch\(\s*'([a-z_]+\.[a-z_]+)'/", $file->getContents(), $matches);
-
-        foreach ($matches[1] as $event) {
-            $dispatched[$event] = true;
-        }
-    }
-
-    $missing = array_values(array_diff(array_keys($dispatched), WebhookService::EVENTS));
+it('registers every dispatched webhook event in the EVENTS allow-list', function () {
+    $missing = array_values(array_diff(dispatchedWebhookEvents(), WebhookService::EVENTS));
 
     expect($missing)->toBe([]);
+});
+
+it('discovers the Phase-3 opportunity, shortage and availability events', function () {
+    // Anchors the multi-location/multi-segment discovery so a regression in the
+    // scanner (e.g. dropping the Verbs audit-action source, or failing to parse
+    // a 3-segment event) cannot silently make the registration check vacuous.
+    expect(dispatchedWebhookEvents())
+        ->toContain('opportunity.converted_to_order')
+        ->toContain('shortage.detected')
+        ->toContain('shortage.resolution.created')
+        ->toContain('availability.changed');
 });
 
 it('accepts API webhook subscriptions to Phase-2 entity events', function (string $event) {

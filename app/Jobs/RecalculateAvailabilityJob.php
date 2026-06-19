@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Events\Availability\AvailabilityChanged;
+use App\Services\Api\WebhookService;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\AvailabilityService;
 use Illuminate\Bus\Queueable;
@@ -129,5 +130,18 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
             $result->slots,
             $result->hasShortage,
         );
+
+        // Mirror the Reverb broadcast onto the outbound webhook bus so external
+        // integrators can react to availability changes too. This runs in a
+        // queued job that the (replay-skipped) observers enqueue, so it is never
+        // reached during a Verbs replay — no extra guard is required here.
+        app(WebhookService::class)->dispatch('availability.changed', [
+            'product_id' => $this->productId,
+            'store_id' => $this->storeId,
+            'from' => $result->from?->toIso8601String(),
+            'to' => $result->to?->toIso8601String(),
+            'slots' => $result->slots,
+            'has_shortage' => $result->hasShortage,
+        ]);
     }
 }

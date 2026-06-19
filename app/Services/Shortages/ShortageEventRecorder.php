@@ -4,13 +4,16 @@ namespace App\Services\Shortages;
 
 use App\Enums\AvailabilityEventType;
 use App\Events\AuditableEvent;
+use App\Listeners\DispatchWebhookForAuditableEvent;
 use App\Listeners\LogAction;
 use App\Models\AvailabilityEvent;
 use App\Models\ShortageResolution;
 use App\Models\ShortageWaitlistMonitor;
 use App\Observers\DemandObserver;
+use App\Services\Api\WebhookService;
 use App\ValueObjects\Shortage;
 use App\ValueObjects\ShortageCollection;
+use Thunk\Verbs\Facades\Verbs;
 
 /**
  * Emits the shortage lifecycle events (shortage-resolution-sub-hires.md §9).
@@ -33,23 +36,46 @@ use App\ValueObjects\ShortageCollection;
  */
 class ShortageEventRecorder
 {
+    public function __construct(private readonly WebhookService $webhooks) {}
+
     /**
      * Record `shortage.detected` for every shortage in a freshly-detected
      * collection (used by the confirmation gate and the badge endpoint).
+     *
+     * These rows are pure telemetry — they are NOT bridged onto the
+     * {@see AuditableEvent} stream (unlike resolution/waitlist records), so the
+     * matching `shortage.detected` webhook is dispatched directly here rather than
+     * via {@see DispatchWebhookForAuditableEvent}. Detection is
+     * computed (never Verbs-sourced) so this path is not part of the event store;
+     * the {@see Verbs::unlessReplaying()} guard is belt-and-braces consistency
+     * with every other webhook side effect.
      */
     public function detected(ShortageCollection $shortages): void
     {
         foreach ($shortages as $shortage) {
             $this->logAvailability(AvailabilityEventType::ShortageDetected, $shortage);
+
+            Verbs::unlessReplaying(fn () => $this->webhooks->dispatch(
+                'shortage.detected',
+                $this->shortageWebhookPayload($shortage),
+            ));
         }
     }
 
     /**
      * Record `shortage.cleared` for a single shortage that no longer exists.
+     *
+     * Telemetry only (see {@see self::detected()}); the `shortage.cleared`
+     * webhook is dispatched directly here, replay-skipped.
      */
     public function cleared(Shortage $shortage, string $reason): void
     {
         $this->logAvailability(AvailabilityEventType::ShortageResolved, $shortage, ['reason' => $reason]);
+
+        Verbs::unlessReplaying(fn () => $this->webhooks->dispatch(
+            'shortage.cleared',
+            $this->shortageWebhookPayload($shortage) + ['reason' => $reason],
+        ));
     }
 
     /**
@@ -294,6 +320,23 @@ class ShortageEventRecorder
                 'ends_at' => $monitor->ends_at?->utc()->toIso8601String(),
             ] + $extra,
         ]);
+    }
+
+    /**
+     * The lean outbound webhook payload for a `shortage.detected`/`cleared`
+     * event — the identifying ids and the shortfall, no heavy relations.
+     *
+     * @return array<string, mixed>
+     */
+    private function shortageWebhookPayload(Shortage $shortage): array
+    {
+        return [
+            'opportunity_id' => $shortage->opportunityId,
+            'opportunity_item_id' => $shortage->opportunityItemId,
+            'product_id' => $shortage->productId,
+            'store_id' => $shortage->storeId,
+            'shortfall' => $shortage->shortfall,
+        ];
     }
 
     /**
