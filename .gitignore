@@ -31,3 +31,4 @@ yarn-error.log
 /.claude/reviews/*.md
 /.worktrees
 .DS_Store
+/signals-test
