@@ -6,27 +6,34 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityData;
 use App\Enums\ShortagePolicy;
 use App\Enums\VersionStatus;
+use App\Guards\Opportunities\GuardPipeline;
+use App\Guards\Opportunities\Rules\ShortageConfirmationRule;
+use App\Guards\Opportunities\TransitionContext;
 use App\Models\Opportunity;
 use App\Models\OpportunityVersion;
 use App\Services\Shortages\ShortageAutoResolver;
 use App\Services\Shortages\ShortageConfirmationGate;
 use App\Verbs\Events\Opportunities\OpportunityConvertedToOrder;
 use App\Verbs\Events\Opportunities\VersionSuperseded;
-use Illuminate\Support\Facades\Gate;
 
 /**
  * Converts a Quotation into a confirmed Order via the
  * OpportunityConvertedToOrder event.
  *
- * The quote → order transition runs {@see ShortageAutoResolver} first (when the
- * store has `shortage_auto_resolve_enabled`, §7.5) so auto-executable options
- * (e.g. partial fulfilment) are applied before the {@see ShortageConfirmationGate}
- * evaluates and sees only the RESIDUAL shortage. The gate is a config-driven
- * business rule — store {@see ShortagePolicy} relaxed by the actor's
- * `shortages.ignore` permission — not a hardcoded matrix; a Block decision throws
- * a 422 before any event fires, while Warn records an acknowledgement and
- * proceeds. Auto-resolution, the gate, and the conversion all run inside the same
- * atomic transaction so they commit or roll back together.
+ * The quote → order transition runs the M7 {@see GuardPipeline} before firing:
+ * Permission (opportunities.edit) → Approval (placeholder) → Business Rules →
+ * Plugin validators (placeholder). The business-rules stage runs the registered
+ * {@see ShortageConfirmationRule}, which applies {@see ShortageAutoResolver} first
+ * (when the store has `shortage_auto_resolve_enabled`, §7.5) so auto-executable
+ * options (e.g. partial fulfilment) are applied before the
+ * {@see ShortageConfirmationGate} evaluates and sees only the RESIDUAL shortage.
+ * The gate is a config-driven business rule — store {@see ShortagePolicy} relaxed
+ * by the actor's `shortages.ignore` permission — not a hardcoded matrix; a Block
+ * decision throws a 422 before any event fires, while Warn records an
+ * acknowledgement and proceeds. The pipeline, the version supersession, and the
+ * conversion all run inside the same atomic transaction so they commit or roll
+ * back together; the Verbs `validate()` invariants (empty-deal / isClosed) remain
+ * the final hard-invariant layer inside fire().
  */
 class ConvertToOrder
 {
@@ -34,8 +41,6 @@ class ConvertToOrder
 
     public function __invoke(Opportunity $opportunity, ?string $shortageNotes = null): OpportunityData
     {
-        Gate::authorize('opportunities.edit');
-
         // §8.8 — when the opportunity carries quote versions, the order is confirmed
         // against ONE version: an Accepted version wins, else the current active
         // version. Resolved BEFORE the gate so shortage detection (which reads the
@@ -50,13 +55,16 @@ class ConvertToOrder
                 $opportunity->refresh();
             }
 
-            // §7.5 — run auto-resolution first (no-op unless the store enables it)
-            // so the gate sees only the residual shortage.
-            app(ShortageAutoResolver::class)->resolve($opportunity);
-
-            // Business-rule guard: enforce the store's shortage policy before the
-            // state transition. Throws a ValidationException (→ 422) on a Block.
-            app(ShortageConfirmationGate::class)->enforceForConfirmation($opportunity, $shortageNotes);
+            // Run the guard pipeline: Permission → Approval → Business Rules
+            // (auto-resolve + shortage gate via ShortageConfirmationRule) → Plugin
+            // validators. Throws a ValidationException (→ 422) on a shortage Block,
+            // or an AuthorizationException (→ 403) without `opportunities.edit`.
+            app(GuardPipeline::class)->run(new TransitionContext(
+                transition: ShortageConfirmationRule::TRANSITION,
+                opportunity: $opportunity,
+                permission: 'opportunities.edit',
+                notes: $shortageNotes,
+            ));
 
             // Supersede every non-confirmed version (preserving Accepted/Declined
             // history) so only the confirmed version remains live on the order.

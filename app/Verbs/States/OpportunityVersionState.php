@@ -67,6 +67,15 @@ class OpportunityVersionState extends State
 
     public ?int $created_by = null;
 
+    /** The member the version was last sent to (§8.6); null until sent. */
+    public ?int $sent_to = null;
+
+    /** The channel the version was sent through (email/portal/manual). */
+    public ?string $sent_via = null;
+
+    /** The member who accepted the version (§8.6); null until accepted. */
+    public ?int $accepted_by = null;
+
     public bool $is_deleted = false;
 
     public ?CarbonImmutable $last_event_at = null;

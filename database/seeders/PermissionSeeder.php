@@ -48,6 +48,7 @@ class PermissionSeeder extends Seeder
             'opportunities.create' => ['label' => 'Create Opportunities', 'description' => 'Create new opportunities', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.view']],
             'opportunities.edit' => ['label' => 'Edit Opportunities', 'description' => 'Edit existing opportunities', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.view']],
             'opportunities.delete' => ['label' => 'Delete Opportunities', 'description' => 'Delete opportunities', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.edit']],
+            'opportunities.unlock_rates' => ['label' => 'Unlock Order Rates', 'description' => 'Release the FX/tax locks set when an order is confirmed, to re-price or re-tax it', 'group' => 'Opportunities', 'sub_group' => null, 'layer' => 'action', 'dependencies' => ['opportunities.edit']],
 
             // Shortages (detection, resolution, and the confirmation-gate override)
             'shortages.view' => ['label' => 'View Shortages', 'description' => 'View detected shortages and their resolutions', 'group' => 'Opportunities', 'sub_group' => 'Shortages', 'layer' => 'action', 'dependencies' => ['opportunities.view']],

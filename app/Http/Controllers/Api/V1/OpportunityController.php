@@ -39,6 +39,7 @@ use App\Actions\Opportunities\SetItemDiscount;
 use App\Actions\Opportunities\SubstituteAsset;
 use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
+use App\Actions\Opportunities\UnlockOpportunity;
 use App\Actions\Opportunities\UpdateOpportunity;
 use App\Actions\Opportunities\UpdateOpportunityCost;
 use App\Data\Opportunities\AddOpportunityCostData;
@@ -353,6 +354,28 @@ class OpportunityController extends Controller
         ]);
 
         $result = (new ConvertToOrder)($opportunity, $validated['shortage_notes'] ?? null);
+
+        return $this->respondWithIncludes($request, $result, $opportunity);
+    }
+
+    /**
+     * Release an order's FX and tax locks so it can be re-priced or re-taxed.
+     *
+     * Fires the OpportunityLocksReleased event, clearing `exchange_rate_locked`
+     * and `tax_locked` (frozen at quote → order conversion). Requires the
+     * privileged `opportunities.unlock_rates` permission; a 422 results when the
+     * opportunity has no active locks to release.
+     */
+    #[ApiResponse(200, 'Opportunity FX/tax locks released')]
+    public function unlockLocks(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.unlock_rates', 'opportunities:write');
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string'],
+        ]);
+
+        $result = (new UnlockOpportunity)($opportunity, $validated['reason'] ?? null);
 
         return $this->respondWithIncludes($request, $result, $opportunity);
     }

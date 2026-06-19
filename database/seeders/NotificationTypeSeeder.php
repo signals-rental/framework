@@ -52,6 +52,23 @@ class NotificationTypeSeeder extends Seeder
                 'default_channels' => ['mail'],
                 'is_system' => true,
             ],
+            // PLACEHOLDER hook (M7-B) for the notifications consumer
+            // (shortage-resolution-sub-hires.md §4.6). The waitlist monitor already
+            // flips to Matched and fires the durable `shortage.waitlist.matched`
+            // audit/event/webhook; registering the NotificationType lets the (unbuilt)
+            // notifications consumer attach a "stock is now free" alert with NO
+            // retrofit. Actual push delivery is DEFERRED: the monitor carries no
+            // recipient column yet, so there is no notifiable to resolve and no
+            // Notification class is dispatched — the type is registered so per-user
+            // channel preferences exist the moment a recipient is added. `database`
+            // is offered (in-app pull) but defaults to none until delivery lands.
+            'shortage.waitlist.matched' => [
+                'category' => 'Opportunities',
+                'name' => 'Waitlist Match',
+                'description' => 'Sent when stock a shortage waitlist monitor is waiting on becomes available. Placeholder: delivery is deferred until a recipient is recorded on the monitor.',
+                'available_channels' => ['database', 'mail'],
+                'default_channels' => [],
+            ],
         ];
     }
 

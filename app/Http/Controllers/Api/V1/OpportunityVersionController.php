@@ -108,28 +108,47 @@ class OpportunityVersionController extends Controller
 
     /**
      * Mark a version as Sent to the customer.
+     *
+     * Optionally records WHO it was sent to (`sent_to`, a member id) and HOW
+     * (`sent_via`, e.g. email/portal/manual) on the event stream.
      */
     #[ApiResponse(200, 'Version sent')]
-    public function send(Opportunity $opportunity, OpportunityVersion $version): JsonResponse
+    public function send(Request $request, Opportunity $opportunity, OpportunityVersion $version): JsonResponse
     {
         $this->authorizeApi('opportunities.edit', 'opportunities:write');
         $this->assertVersionBelongsToOpportunity($version, $opportunity);
 
-        $result = (new SendVersion)($version);
+        $validated = $request->validate([
+            'sent_to' => ['nullable', 'integer', 'exists:members,id'],
+            'sent_via' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $result = (new SendVersion)(
+            $version,
+            $validated['sent_to'] ?? null,
+            $validated['sent_via'] ?? null,
+        );
 
         return $this->respondWith($result->toArray(), 'version');
     }
 
     /**
      * Mark a version as Accepted by the customer.
+     *
+     * Optionally records WHO accepted it (`accepted_by`, a member id) on the
+     * event stream.
      */
     #[ApiResponse(200, 'Version accepted')]
-    public function accept(Opportunity $opportunity, OpportunityVersion $version): JsonResponse
+    public function accept(Request $request, Opportunity $opportunity, OpportunityVersion $version): JsonResponse
     {
         $this->authorizeApi('opportunities.edit', 'opportunities:write');
         $this->assertVersionBelongsToOpportunity($version, $opportunity);
 
-        $result = (new AcceptVersion)($version);
+        $validated = $request->validate([
+            'accepted_by' => ['nullable', 'integer', 'exists:members,id'],
+        ]);
+
+        $result = (new AcceptVersion)($version, $validated['accepted_by'] ?? null);
 
         return $this->respondWith($result->toArray(), 'version');
     }

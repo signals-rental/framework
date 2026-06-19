@@ -28,7 +28,10 @@ class RoleSeeder extends Seeder
             && ! str_starts_with($p, 'roles.')
         );
 
-        $salesPermissions = array_filter($allPermissions, fn (string $p): bool => str_starts_with($p, 'opportunities.')
+        $salesPermissions = array_filter($allPermissions, fn (string $p): bool => (str_starts_with($p, 'opportunities.')
+            // Releasing an order's FX/tax locks is a privileged re-pricing action
+            // reserved for management-tier roles, like shortages.ignore below.
+            && $p !== 'opportunities.unlock_rates')
             || str_starts_with($p, 'activities.')
             || str_starts_with($p, 'invoices.')
             || str_starts_with($p, 'members.')

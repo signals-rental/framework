@@ -20,8 +20,12 @@ use Thunk\Verbs\Facades\Verbs;
  * `quantity_needed`, the monitor flips to Matched and `shortage.waitlist.matched`
  * fires.
  *
- * Notification on match is M6 — left as a clearly-marked stub here (the event is
- * emitted; the user alert is a later wiring step).
+ * Notification on match: M7-B registers the `shortage.waitlist.matched`
+ * NotificationType in the {@see App\Services\NotificationRegistry} as the
+ * placeholder hook the (unbuilt) notifications consumer attaches to with no
+ * retrofit. Actual push delivery stays DEFERRED — the monitor carries no recipient
+ * column yet (see the stub note in handle()), so the durable event is emitted but
+ * no Notification is dispatched.
  *
  * Replay-safe: {@see AvailabilityChanged} is never dispatched during replay, and
  * this listener short-circuits on replay as a guard.

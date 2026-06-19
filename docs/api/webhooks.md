@@ -115,6 +115,7 @@ when the event store is rebuilt.
 | `opportunity.updated` | An opportunity's header fields are updated |
 | `opportunity.quoted` | An opportunity is marked as quoted |
 | `opportunity.converted_to_order` | A quote is converted to an order |
+| `opportunity.locks_released` | An order's FX/tax locks are released for re-pricing |
 | `opportunity.status_changed` | An opportunity's status changes |
 | `opportunity.status_promoted` | An opportunity's status is promoted along its workflow |
 | `opportunity.cloned` | An opportunity is cloned into a new opportunity |

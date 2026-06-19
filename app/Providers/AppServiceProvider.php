@@ -5,6 +5,11 @@ namespace App\Providers;
 use App\Contracts\Availability\AvailabilityDataPresence;
 use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Contracts\Availability\AvailabilityStrategyContract;
+use App\Guards\Opportunities\Contracts\ApprovalGate;
+use App\Guards\Opportunities\PluginValidatorRegistry;
+use App\Guards\Opportunities\Rules\FxTaxLockRule;
+use App\Guards\Opportunities\Rules\ShortageConfirmationRule;
+use App\Guards\Opportunities\Stages\AutoApprovalGate;
 use App\Models\User;
 use App\Services\Activities\ActivityTypeList;
 use App\Services\Availability\ContainerDemandResolver;
@@ -22,6 +27,9 @@ use App\Services\DemandSourceRegistry;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\Opportunities\AutoPromotionContext;
+use App\Services\Opportunities\Hooks\ApprovalChainRegistry;
+use App\Services\Opportunities\Hooks\WorkflowTriggerRegistry;
+use App\Services\Opportunities\TransitionRuleRegistry;
 use App\Services\PermissionRegistry;
 use App\Services\RateEngine\Modifiers\FactorModifier;
 use App\Services\RateEngine\Modifiers\MultiplierModifier;
@@ -178,6 +186,52 @@ class AppServiceProvider extends ServiceProvider
             $registry = new CostApportionmentRegistry;
 
             $registry->register(new NullCostApportionmentStrategy);
+
+            return $registry;
+        });
+
+        $this->registerOpportunityGuardPipeline();
+    }
+
+    /**
+     * Register the opportunity transition guard pipeline (opportunity-lifecycle.md
+     * §12.2). The pipeline composes four ordered stages — Permission (real),
+     * Approval (placeholder seam), Business Rules (config-driven registry), and
+     * Plugin Validators (placeholder seam) — that actions run before firing a
+     * transition's Verbs event(s); Verbs `validate()` remains the final
+     * hard-invariant layer.
+     */
+    protected function registerOpportunityGuardPipeline(): void
+    {
+        // Approval stage seam — PLACEHOLDER. The OSS default always approves; a
+        // future approval-chain consumer rebinds this contract with no retrofit.
+        $this->app->singleton(AutoApprovalGate::class);
+        $this->app->bind(ApprovalGate::class, AutoApprovalGate::class);
+
+        // Plugin-validator stage seam — PLACEHOLDER. Empty in core; plugins
+        // register TransitionRule validators through it via the Plugin SDK.
+        $this->app->singleton(PluginValidatorRegistry::class);
+
+        // Unbuilt-consumer hooks — PLACEHOLDERS, empty in core. They let the
+        // workflow + approval-chain engines attach to the opportunity event stream
+        // with no retrofit (the notification consumer uses the NotificationRegistry
+        // above). Consulted nowhere in the hot path today.
+        $this->app->singleton(WorkflowTriggerRegistry::class);
+        $this->app->singleton(ApprovalChainRegistry::class);
+
+        // Business-rules stage registry — core registers the concrete config-driven
+        // rules; plugins register their own through the same interface. Rules are
+        // matched generically by transition (never a hardcoded status matrix).
+        $this->app->singleton(TransitionRuleRegistry::class, function ($app): TransitionRuleRegistry {
+            $registry = new TransitionRuleRegistry;
+
+            // The shortage confirmation gate (quote → order): auto-resolve + the
+            // store shortage policy relaxed by `shortages.ignore`.
+            $registry->register($app->make(ShortageConfirmationRule::class));
+
+            // FX/tax lock enforcement: a rate/tax edit on a locked (confirmed)
+            // order is rejected until the locks are released.
+            $registry->register($app->make(FxTaxLockRule::class));
 
             return $registry;
         });

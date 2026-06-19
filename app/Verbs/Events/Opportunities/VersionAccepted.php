@@ -15,8 +15,9 @@ use Thunk\Verbs\Event;
 /**
  * Marks a quote version as Accepted by the customer (opportunity-lifecycle.md
  * §8.6). Valid from Sent or Draft and while the opportunity is a Quotation; sets
- * `status = Accepted` and stamps `accepted_at`. An accepted version takes priority
- * at quote → order conversion (§8.8).
+ * `status = Accepted`, stamps `accepted_at`, and records WHO accepted it
+ * (`accepted_by`, a member) on the immutable event stream. An accepted version
+ * takes priority at quote → order conversion (§8.8).
  */
 class VersionAccepted extends Event
 {
@@ -25,6 +26,8 @@ class VersionAccepted extends Event
     public function __construct(
         #[StateId(OpportunityVersionState::class)]
         public int $version_id,
+        /** The member who accepted the version (§8.6); recorded on the event stream. */
+        public ?int $accepted_by = null,
     ) {}
 
     public function validate(OpportunityVersionState $state): void
@@ -45,6 +48,7 @@ class VersionAccepted extends Event
     public function apply(OpportunityVersionState $state): void
     {
         $state->status = VersionStatus::Accepted->value;
+        $state->accepted_by = $this->accepted_by;
         $state->last_event_at = CarbonImmutable::now();
     }
 
@@ -61,6 +65,7 @@ class VersionAccepted extends Event
         $version->forceFill([
             'status' => VersionStatus::Accepted->value,
             'accepted_at' => CarbonImmutable::now(),
+            'accepted_by' => $this->accepted_by,
         ])->save();
 
         $opportunity = Opportunity::query()->whereKey($version->opportunity_id)->first();
@@ -69,7 +74,11 @@ class VersionAccepted extends Event
             $this->recordAudit(
                 $opportunity,
                 'opportunity.version_accepted',
-                newValues: ['version_id' => $version->id, 'status' => VersionStatus::Accepted->value],
+                newValues: [
+                    'version_id' => $version->id,
+                    'status' => VersionStatus::Accepted->value,
+                    'accepted_by' => $this->accepted_by,
+                ],
                 oldValues: ['status' => $oldStatus],
             );
         }

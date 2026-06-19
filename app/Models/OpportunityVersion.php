@@ -46,6 +46,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $exchange_rate
  * @property string|null $notes
  * @property int|null $created_by
+ * @property int|null $sent_to
+ * @property string|null $sent_via
+ * @property int|null $accepted_by
  * @property Carbon|null $sent_at
  * @property Carbon|null $accepted_at
  * @property Carbon|null $declined_at
@@ -87,6 +90,9 @@ class OpportunityVersion extends Model implements HasSchema
         'decline_reason',
         'notes',
         'created_by',
+        'sent_to',
+        'sent_via',
+        'accepted_by',
         'sent_at',
         'accepted_at',
         'declined_at',
