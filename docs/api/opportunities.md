@@ -19,6 +19,9 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 | POST | `/api/v1/opportunities/{id}/items` | Add a line item |
 | PATCH | `/api/v1/opportunities/{id}/items/{item}` | Update a line item |
 | DELETE | `/api/v1/opportunities/{id}/items/{item}` | Remove a line item |
+| PATCH | `/api/v1/opportunities/{id}/items/{item}/fulfilment` | Dispatch/return/adjust a bulk line |
+| POST | `/api/v1/opportunities/{id}/quick_book_out` | Batch-dispatch serialised assets |
+| POST | `/api/v1/opportunities/{id}/quick_check_in` | Batch-return serialised assets |
 | POST | `/api/v1/opportunities/{id}/costs` | Add an ad-hoc cost |
 | PATCH | `/api/v1/opportunities/{id}/costs/{cost}` | Update a cost |
 | DELETE | `/api/v1/opportunities/{id}/costs/{cost}` | Remove a cost |
@@ -278,9 +281,18 @@ operation:
 | `set_container` | Nest the asset inside a kit/case | `container_stock_level_id` |
 | `clear_container` | Remove from its container | — |
 | `substitute` | Swap the physical asset, preserving status | `new_stock_level_id`, optional `reason` |
+| `dispatch` | Allocated/Prepared → Dispatched (**order only**) | optional `dispatched_by`, `vehicle_id`, `notes`, `dispatched_at` |
+| `on_hire` | Dispatched → On Hire | — |
+| `return` | Dispatched/On Hire → Checked In | optional `received_by`, `return_store_id`, `returned_at` |
+| `check` | Checked In → Finalised (condition assessment) | `condition` (0=Good, 1=Damaged, 2=Missing), optional `checked_by`, `damage_notes`, `checked_at` |
+| `revert_status` | Step the asset back to an earlier status | `revert_to`, optional `reason` |
 
-An invalid status transition (e.g. preparing an already-prepared asset, or reverting
-one that is not prepared) yields a `422`. Returns the updated assignment (`200 OK`).
+An invalid status transition (e.g. preparing an already-prepared asset, dispatching
+an unallocated asset, or dispatching on a quote rather than an order) yields a `422`.
+Returns the updated assignment (`200 OK`).
+
+The fulfilment actions auto-promote the parent opportunity's aggregate status — see
+[Dispatch & Return](#dispatch--return).
 
 ### Deallocate Asset
 
@@ -303,6 +315,77 @@ Body: `allocations` — a non-empty array of `{opportunity_item_id, stock_level_
 pairs. Every allocation fires inside a single atomic commit, so a failure on any one
 (asset unavailable, wrong product) rolls back the whole batch. All line items must
 belong to the opportunity. Returns the opportunity with its items + assets
+(`200 OK`).
+
+## Dispatch & Return
+
+Once an opportunity is an **order**, its line items move through the fulfilment
+cycle — out of the warehouse on dispatch, back on return, then condition-checked.
+Serialised lines track this per physical asset (via the asset `action`s above);
+bulk (non-serialised) lines track it as aggregate quantities on the line.
+
+### Aggregate auto-promotion
+
+Every dispatch/return/check re-derives the opportunity's order sub-status from the
+state of all its items (the "lowest common denominator") and, when it changes, fires
+a distinct `OpportunityStatusPromoted` event — a real, audited status change with its
+own timestamp, not a silent column write:
+
+| Condition across all items | Order status |
+|----------------------------|--------------|
+| Nothing dispatched yet | Active |
+| Some allocated assets still undispatched | Dispatched |
+| Everything out, nothing returned | On Hire |
+| Some returned but not yet checked | Returned |
+| Everything dispatched is checked | Checked |
+
+A dispatch before the line's planned start pulls that asset's availability demand
+start back to the actual dispatch time; a return moves the demand end to the actual
+return time (with turnaround applied off the real return) and releases availability
+immediately on scan — there is no finalisation gate.
+
+### Bulk-line fulfilment
+
+```
+PATCH /api/v1/opportunities/{id}/items/{item}/fulfilment
+```
+
+Dispatch, return, or adjust a non-serialised line. The `action` field (required)
+selects the operation:
+
+| `action` | Effect | Extra body |
+|----------|--------|------------|
+| `dispatch` | Record a (partial) dispatch (**order only**) | `quantity`, optional `dispatched_by` |
+| `return` | Record a (partial) return | `quantity`, optional `received_by`, `condition` |
+| `adjust` | Change the requested quantity mid-cycle | `new_quantity`, optional `reason` |
+
+Partial dispatch/return is first-class: 60 m of a 100 m cable line can go out now and
+40 m later. Over-dispatch (beyond the requested quantity), over-return (beyond what is
+out), or adjusting below the dispatched quantity each yield a `422`. The line's
+effective demand is `quantity - returned_quantity`. Returns the updated line (`200 OK`).
+
+### Quick Book-Out (batch)
+
+```
+POST /api/v1/opportunities/{id}/quick_book_out
+```
+
+Body: `asset_ids` — a non-empty array of asset-assignment ids, plus optional
+`dispatched_by`, `vehicle_id`, `dispatched_at`. Every asset is dispatched inside a
+single atomic commit (a failure on any one rolls back the batch), and the order's
+aggregate status promotes once consistently. All assets must belong to the
+opportunity. Returns the opportunity with its items + assets (`200 OK`).
+
+### Quick Check-In (batch)
+
+```
+POST /api/v1/opportunities/{id}/quick_check_in
+```
+
+Body: `asset_ids` (required array), optional `received_by`, `return_store_id`,
+`returned_at`, and `finalise` (boolean). Each asset is returned in one atomic commit;
+when `finalise` is true each return is immediately condition-checked (Good), clearing
+the check-in queue in a single pass. Returns the opportunity with its items + assets
 (`200 OK`).
 
 ## Opportunity Costs

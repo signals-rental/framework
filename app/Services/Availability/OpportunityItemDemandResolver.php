@@ -3,11 +3,13 @@
 namespace App\Services\Availability;
 
 use App\Contracts\DemandResolverContract;
+use App\Enums\AssetAssignmentStatus;
 use App\Enums\DemandPhase;
 use App\Enums\StockMethod;
 use App\Models\Demand;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
+use App\Models\OpportunityItemAsset;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -94,7 +96,7 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             'opportunity_id' => $opportunity->id,
             'opportunity_state' => $opportunity->state->value,
             'opportunity_status' => $opportunity->status,
-            'returned_quantity' => 0,
+            'returned_quantity' => (int) round((float) ($item->returned_quantity ?? '0')),
         ];
     }
 
@@ -135,8 +137,8 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             $appliesTurnaround ? (int) ($product->post_rent_unavailability ?? 0) : 0,
         );
 
-        $allocatedAssetIds = $this->allocatedAssetIds($item);
-        $isSerialised = $product->stock_method === StockMethod::Serialised && $allocatedAssetIds !== [];
+        $allocatedAssets = $this->allocatedAssets($item);
+        $isSerialised = $product->stock_method === StockMethod::Serialised && $allocatedAssets !== [];
 
         $quantity = max(1, (int) round((float) $item->quantity));
 
@@ -151,11 +153,33 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             // demand (asset_id null) so the line continues to claim the units it
             // has not yet assigned to a physical asset. When the line is fully
             // allocated the remainder is zero and no residual demand is written.
-            foreach ($allocatedAssetIds as $assetId) {
-                $this->persist($product->id, $storeId, $assetId, 1, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
+            //
+            // Each asset's demand follows OPERATIONAL reality, not just the planned
+            // line dates (availability-engine.md "Asset-Level Date Tracking"): an
+            // asset dispatched before the planned start pulls its demand start back
+            // to the actual dispatch time, and a returned asset's demand ends at the
+            // actual return time (phase Closed) with turnaround off that return. The
+            // dates live on the projected assignment row, so this reproduces across
+            // any resync AND a Verbs replay (the projection is replay-stable).
+            foreach ($allocatedAssets as $asset) {
+                [$assetStart, $assetEnd, $assetPhase] = $this->assetOperationalWindow(
+                    $asset,
+                    $startsAt,
+                    $endsAt,
+                    $phase,
+                );
+
+                [$assetBufferedStart, $assetBufferedEnd] = Demand::bufferedPeriod(
+                    $assetStart,
+                    $assetEnd,
+                    $assetPhase->appliesTurnaround() ? (int) ($product->buffer_before_minutes ?? 0) : 0,
+                    $assetPhase->appliesTurnaround() ? (int) ($product->post_rent_unavailability ?? 0) : 0,
+                );
+
+                $this->persist($product->id, $storeId, (int) $asset->stock_level_id, 1, $assetStart, $assetEnd, $assetBufferedStart, $assetBufferedEnd, $assetPhase, $metadata, $item->id);
             }
 
-            $remainder = $quantity - count($allocatedAssetIds);
+            $remainder = $quantity - count($allocatedAssets);
 
             if ($remainder > 0) {
                 $this->persist($product->id, $storeId, null, $remainder, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
@@ -164,7 +188,17 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             return;
         }
 
-        $this->persist($product->id, $storeId, null, $quantity, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
+        // Bulk lines: the effective demanded quantity is the requested quantity
+        // minus whatever has already been returned (opportunity-lifecycle.md §5.5 /
+        // availability-engine.md "Partial returns for bulk items"). A fully-returned
+        // line drops to zero and writes no demand.
+        $effectiveQuantity = max(0, $quantity - (int) round((float) ($item->returned_quantity ?? '0')));
+
+        if ($effectiveQuantity <= 0) {
+            return;
+        }
+
+        $this->persist($product->id, $storeId, null, $effectiveQuantity, $startsAt, $endsAt, $bufferedStart, $bufferedEnd, $phase, $metadata, $item->id);
     }
 
     /**
@@ -374,17 +408,64 @@ class OpportunityItemDemandResolver implements DemandResolverContract
     }
 
     /**
-     * The allocated serialised asset (stock level) ids for the line item.
+     * The allocated serialised asset assignment rows for the line item (carrying
+     * status + actual dispatch/return timestamps so the per-asset demand window can
+     * follow operational reality).
      *
-     * @return list<int>
+     * @return list<OpportunityItemAsset>
      */
-    protected function allocatedAssetIds(OpportunityItem $item): array
+    protected function allocatedAssets(OpportunityItem $item): array
     {
         return $item->assets()
             ->whereNotNull('stock_level_id')
-            ->pluck('stock_level_id')
-            ->map(fn ($id): int => (int) $id)
+            ->get()
             ->all();
+    }
+
+    /**
+     * Resolve a single allocated asset's operational demand window from its planned
+     * line window and its actual dispatch/return milestones
+     * (availability-engine.md "Asset-Level Date Tracking").
+     *
+     *  - Returned (CheckedIn/Finalised): the window closes at the actual return time
+     *    and the phase is forced to Closed (inactive) — the unit is physically back,
+     *    regardless of the line's ceiling phase.
+     *  - Dispatched/OnHire before the planned start: the start is pulled back to the
+     *    actual dispatch time.
+     *  - Otherwise the planned line window + ceiling phase apply unchanged.
+     *
+     * @return array{0: Carbon, 1: Carbon, 2: DemandPhase}
+     */
+    protected function assetOperationalWindow(
+        OpportunityItemAsset $asset,
+        Carbon $plannedStart,
+        Carbon $plannedEnd,
+        DemandPhase $linePhase,
+    ): array {
+        $status = $asset->status;
+
+        // A returned asset is physically back: close its demand at the actual return.
+        if (
+            in_array($status, [AssetAssignmentStatus::CheckedIn, AssetAssignmentStatus::Finalised], true)
+            && $asset->returned_at !== null
+        ) {
+            return [$plannedStart, Carbon::parse($asset->returned_at), DemandPhase::Closed];
+        }
+
+        // An asset dispatched before its planned start pulls the start back to the
+        // actual dispatch time.
+        if (
+            in_array($status, [AssetAssignmentStatus::Dispatched, AssetAssignmentStatus::OnHire], true)
+            && $asset->dispatched_at !== null
+        ) {
+            $actualDispatch = Carbon::parse($asset->dispatched_at);
+
+            if ($actualDispatch->lessThan($plannedStart)) {
+                return [$actualDispatch, $plannedEnd, $linePhase];
+            }
+        }
+
+        return [$plannedStart, $plannedEnd, $linePhase];
     }
 
     /**

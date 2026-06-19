@@ -44,6 +44,9 @@ use Illuminate\Support\Carbon;
  * @property LineItemTransactionType $transaction_type
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
+ * @property string $allocated_quantity
+ * @property string $dispatched_quantity
+ * @property string $returned_quantity
  * @property int|null $dispatch_store_id
  * @property int|null $return_store_id
  * @property int $sort_order
@@ -87,6 +90,9 @@ class OpportunityItem extends Model
         'transaction_type',
         'starts_at',
         'ends_at',
+        'allocated_quantity',
+        'dispatched_quantity',
+        'returned_quantity',
         'dispatch_store_id',
         'return_store_id',
         'sort_order',
@@ -110,6 +116,9 @@ class OpportunityItem extends Model
             'transaction_type' => LineItemTransactionType::class,
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'allocated_quantity' => 'decimal:2',
+            'dispatched_quantity' => 'decimal:2',
+            'returned_quantity' => 'decimal:2',
             'dispatch_store_id' => 'integer',
             'return_store_id' => 'integer',
             'sort_order' => 'integer',

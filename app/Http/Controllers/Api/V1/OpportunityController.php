@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Opportunities\AddOpportunityCost;
 use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\AdjustBulkQuantity;
 use App\Actions\Opportunities\AllocateAsset;
 use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ChangeOpportunityStatus;
+use App\Actions\Opportunities\CheckAsset;
 use App\Actions\Opportunities\ClearAssetContainer;
 use App\Actions\Opportunities\ClearDealPrice;
 use App\Actions\Opportunities\CloneOpportunity;
@@ -16,12 +18,20 @@ use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\DeallocateAsset;
 use App\Actions\Opportunities\DeleteOpportunity;
+use App\Actions\Opportunities\DispatchAsset;
+use App\Actions\Opportunities\DispatchBulkQuantity;
+use App\Actions\Opportunities\MarkAssetOnHire;
 use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\PrepareAsset;
 use App\Actions\Opportunities\QuickAllocateAssets;
+use App\Actions\Opportunities\QuickBookOut;
+use App\Actions\Opportunities\QuickCheckIn;
 use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
+use App\Actions\Opportunities\ReturnAsset;
+use App\Actions\Opportunities\ReturnBulkQuantity;
 use App\Actions\Opportunities\RevertAssetPreparation;
+use App\Actions\Opportunities\RevertAssetStatus;
 use App\Actions\Opportunities\SetAssetContainer;
 use App\Actions\Opportunities\SetDealPrice;
 use App\Actions\Opportunities\SetItemDiscount;
@@ -33,12 +43,21 @@ use App\Actions\Opportunities\UpdateOpportunityCost;
 use App\Data\Opportunities\AddOpportunityCostData;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AllocateAssetData;
+use App\Data\Opportunities\BulkAdjustData;
+use App\Data\Opportunities\BulkDispatchData;
+use App\Data\Opportunities\BulkReturnData;
 use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\ChangeItemQuantityData;
+use App\Data\Opportunities\CheckAssetData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Data\Opportunities\DispatchAssetData;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\OverrideItemPriceData;
 use App\Data\Opportunities\QuickAllocateAssetsData;
+use App\Data\Opportunities\QuickBookOutData;
+use App\Data\Opportunities\QuickCheckInData;
+use App\Data\Opportunities\ReturnAssetData;
+use App\Data\Opportunities\RevertAssetStatusData;
 use App\Data\Opportunities\SetAssetContainerData;
 use App\Data\Opportunities\SetDealPriceData;
 use App\Data\Opportunities\SetItemDiscountData;
@@ -467,10 +486,19 @@ class OpportunityController extends Controller
     /**
      * Mutate an existing asset assignment.
      *
-     * The `action` discriminator selects the operation: `prepare`, `revert`,
-     * `set_container` (needs `container_stock_level_id`), `clear_container`, or
-     * `substitute` (needs `new_stock_level_id`, optional `reason`). An invalid
-     * status transition (e.g. preparing an already-prepared asset) yields a 422.
+     * The `action` discriminator selects the operation:
+     *
+     *  - allocation phase: `prepare`, `revert`, `set_container` (needs
+     *    `container_stock_level_id`), `clear_container`, `substitute` (needs
+     *    `new_stock_level_id`, optional `reason`);
+     *  - fulfilment phase (M5-2): `dispatch` (the order must be active —
+     *    `book_out`), `on_hire`, `return` (`check_in`, optional `return_store_id`),
+     *    `check` (`finalise_check_in`, needs `condition`), `revert_status` (needs
+     *    `revert_to`).
+     *
+     * An invalid status transition (e.g. dispatching an unallocated asset, or
+     * dispatching on a quote) yields a 422. Dispatch/return auto-promote the parent
+     * opportunity's aggregate status.
      */
     #[ApiResponse(200, 'Asset updated')]
     public function updateAsset(Request $request, Opportunity $opportunity, OpportunityItem $item, OpportunityItemAsset $asset): JsonResponse
@@ -481,7 +509,7 @@ class OpportunityController extends Controller
         $this->assertAssetBelongsToItem($asset, $item);
 
         $action = (string) $request->validate([
-            'action' => ['required', 'string', 'in:prepare,revert,set_container,clear_container,substitute'],
+            'action' => ['required', 'string', 'in:prepare,revert,set_container,clear_container,substitute,dispatch,on_hire,return,check,revert_status'],
         ])['action'];
 
         $result = match ($action) {
@@ -490,10 +518,79 @@ class OpportunityController extends Controller
             'set_container' => (new SetAssetContainer)($asset, SetAssetContainerData::from($request->validate(SetAssetContainerData::rules()))),
             'clear_container' => (new ClearAssetContainer)($asset),
             'substitute' => (new SubstituteAsset)($asset, SubstituteAssetData::from($request->validate(SubstituteAssetData::rules()))),
+            'dispatch' => (new DispatchAsset)($asset, DispatchAssetData::from($request->validate(DispatchAssetData::rules()))),
+            'on_hire' => (new MarkAssetOnHire)($asset),
+            'return' => (new ReturnAsset)($asset, ReturnAssetData::from($request->validate(ReturnAssetData::rules()))),
+            'check' => (new CheckAsset)($asset, CheckAssetData::from($request->validate(CheckAssetData::rules()))),
+            'revert_status' => (new RevertAssetStatus)($asset, RevertAssetStatusData::from($request->validate(RevertAssetStatusData::rules()))),
             default => throw ValidationException::withMessages(['action' => ['The selected action is invalid.']]),
         };
 
         return $this->respondWith($result->toArray(), 'asset');
+    }
+
+    /**
+     * Dispatch, return, or adjust a bulk (non-serialised) line's quantity (M5-2).
+     *
+     * The `action` discriminator selects the operation: `dispatch` (needs
+     * `quantity`), `return` (needs `quantity`, optional `condition`), or `adjust`
+     * (needs `new_quantity`). Over-dispatch / over-return and adjusting below the
+     * dispatched quantity yield a 422.
+     */
+    #[ApiResponse(200, 'Bulk quantity updated')]
+    public function updateBulkQuantity(Request $request, Opportunity $opportunity, OpportunityItem $item): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertItemBelongsToOpportunity($item, $opportunity);
+
+        $action = (string) $request->validate([
+            'action' => ['required', 'string', 'in:dispatch,return,adjust'],
+        ])['action'];
+
+        $result = match ($action) {
+            'dispatch' => (new DispatchBulkQuantity)($item, BulkDispatchData::from($request->validate(BulkDispatchData::rules()))),
+            'return' => (new ReturnBulkQuantity)($item, BulkReturnData::from($request->validate(BulkReturnData::rules()))),
+            'adjust' => (new AdjustBulkQuantity)($item, BulkAdjustData::from($request->validate(BulkAdjustData::rules()))),
+            default => throw ValidationException::withMessages(['action' => ['The selected action is invalid.']]),
+        };
+
+        return $this->respondWith($result->toArray(), 'item');
+    }
+
+    /**
+     * Book several serialised assets out of an opportunity in one atomic commit
+     * (the RMS `quick_book_out` action). Every dispatch fires inside a single Verbs
+     * commit, so a failure on any one rolls back the batch and the order's aggregate
+     * status promotes once consistently.
+     */
+    #[ApiResponse(200, 'Assets booked out')]
+    public function quickBookOut(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = QuickBookOutData::from($request->validate(QuickBookOutData::rules()));
+
+        (new QuickBookOut)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Check several serialised assets back into an opportunity in one atomic commit
+     * (the RMS `quick_check_in` action). With `finalise` each return is immediately
+     * condition-checked (Good). Atomic: a failure on any one rolls back the batch.
+     */
+    #[ApiResponse(200, 'Assets checked in')]
+    public function quickCheckIn(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = QuickCheckInData::from($request->validate(QuickCheckInData::rules()));
+
+        (new QuickCheckIn)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
     }
 
     /**

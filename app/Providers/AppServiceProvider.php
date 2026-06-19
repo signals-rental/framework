@@ -19,6 +19,7 @@ use App\Services\DemandSourceDefinition;
 use App\Services\DemandSourceRegistry;
 use App\Services\DocsService;
 use App\Services\NotificationRegistry;
+use App\Services\Opportunities\AutoPromotionContext;
 use App\Services\PermissionRegistry;
 use App\Services\RateEngine\Modifiers\FactorModifier;
 use App\Services\RateEngine\Modifiers\MultiplierModifier;
@@ -70,6 +71,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TaxCalculator::class);
         $this->app->singleton(ColumnRegistryResolver::class);
         $this->app->singleton(ActivityTypeList::class);
+
+        // Request-scoped suppression flag for batch auto-promotion (scoped so it is
+        // Octane-safe — reset between requests).
+        $this->app->scoped(AutoPromotionContext::class);
 
         // Availability seams — tenant-ignorant OSS defaults. The commercial Cloud
         // package rebinds these to tenant-/hosting-aware implementations.

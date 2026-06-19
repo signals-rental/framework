@@ -173,10 +173,16 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::post('opportunities/{opportunity}/items/{item}/assets', [OpportunityController::class, 'storeAsset'])->name('api.v1.opportunities.items.assets.store');
     Route::patch('opportunities/{opportunity}/items/{item}/assets/{asset}', [OpportunityController::class, 'updateAsset'])->name('api.v1.opportunities.items.assets.update');
     Route::delete('opportunities/{opportunity}/items/{item}/assets/{asset}', [OpportunityController::class, 'destroyAsset'])->name('api.v1.opportunities.items.assets.destroy');
+    // Bulk-line dispatch/return/adjust (M5-2 — non-serialised lines). Declared
+    // before items/{item} PATCH so the explicit fulfilment route wins.
+    Route::patch('opportunities/{opportunity}/items/{item}/fulfilment', [OpportunityController::class, 'updateBulkQuantity'])->name('api.v1.opportunities.items.fulfilment');
     Route::patch('opportunities/{opportunity}/items/{item}', [OpportunityController::class, 'updateItem'])->name('api.v1.opportunities.items.update');
     Route::delete('opportunities/{opportunity}/items/{item}', [OpportunityController::class, 'destroyItem'])->name('api.v1.opportunities.items.destroy');
     // Batch asset allocation (RMS quick_allocate).
     Route::post('opportunities/{opportunity}/quick_allocate', [OpportunityController::class, 'quickAllocate'])->name('api.v1.opportunities.quick_allocate');
+    // Batch dispatch/return (RMS quick_book_out / quick_check_in).
+    Route::post('opportunities/{opportunity}/quick_book_out', [OpportunityController::class, 'quickBookOut'])->name('api.v1.opportunities.quick_book_out');
+    Route::post('opportunities/{opportunity}/quick_check_in', [OpportunityController::class, 'quickCheckIn'])->name('api.v1.opportunities.quick_check_in');
     // Ad-hoc costs (taxed, not rate-priced; totals roll up to the parent)
     Route::post('opportunities/{opportunity}/costs', [OpportunityController::class, 'storeCost'])->name('api.v1.opportunities.costs.store');
     Route::patch('opportunities/{opportunity}/costs/{cost}', [OpportunityController::class, 'updateCost'])->name('api.v1.opportunities.costs.update');
