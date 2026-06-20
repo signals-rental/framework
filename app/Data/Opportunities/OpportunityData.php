@@ -4,6 +4,7 @@ namespace App\Data\Opportunities;
 
 use App\Data\Concerns\EntityReferenceData;
 use App\Data\Concerns\FormatsTimestamps;
+use App\Data\Members\AddressData;
 use App\Enums\DemandPhase;
 use App\Enums\OpportunityState;
 use App\Enums\ReleasePoint;
@@ -80,6 +81,8 @@ class OpportunityData extends Data
         public bool $customer_returning,
         public ?string $delivery_instructions,
         public ?string $collection_instructions,
+        public ?int $delivery_address_id,
+        public ?int $collection_address_id,
         public ?int $source_opportunity_id,
         public ?string $currency_code,
         public string $exchange_rate,
@@ -108,6 +111,8 @@ class OpportunityData extends Data
         public Lazy|EntityReferenceData|null $venue = null,
         public Lazy|EntityReferenceData|null $store = null,
         public Lazy|EntityReferenceData|null $owner = null,
+        public Lazy|AddressData|null $delivery_address = null,
+        public Lazy|AddressData|null $collection_address = null,
         /** @var Lazy|array<int, OpportunityItemData> */
         public Lazy|array $items = [],
         /** @var Lazy|array<int, OpportunityCostData> */
@@ -183,6 +188,8 @@ class OpportunityData extends Data
             customer_returning: (bool) $opportunity->customer_returning,
             delivery_instructions: $opportunity->delivery_instructions,
             collection_instructions: $opportunity->collection_instructions,
+            delivery_address_id: $opportunity->delivery_address_id,
+            collection_address_id: $opportunity->collection_address_id,
             source_opportunity_id: $opportunity->source_opportunity_id,
             currency_code: $opportunity->currency_code,
             exchange_rate: (string) $opportunity->exchange_rate,
@@ -210,6 +217,16 @@ class OpportunityData extends Data
             venue: Lazy::whenLoaded('venue', $opportunity, fn (): ?EntityReferenceData => self::reference($opportunity->venue)),
             store: Lazy::whenLoaded('store', $opportunity, fn (): ?EntityReferenceData => self::reference($opportunity->store)),
             owner: Lazy::whenLoaded('owner', $opportunity, fn (): ?EntityReferenceData => self::reference($opportunity->owner)),
+            delivery_address: Lazy::whenLoaded(
+                'deliveryAddress',
+                $opportunity,
+                fn (): ?AddressData => $opportunity->deliveryAddress !== null ? AddressData::fromModel($opportunity->deliveryAddress) : null,
+            ),
+            collection_address: Lazy::whenLoaded(
+                'collectionAddress',
+                $opportunity,
+                fn (): ?AddressData => $opportunity->collectionAddress !== null ? AddressData::fromModel($opportunity->collectionAddress) : null,
+            ),
             items: Lazy::whenLoaded(
                 'items',
                 $opportunity,

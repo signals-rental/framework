@@ -174,6 +174,8 @@ class OpportunityController extends Controller
         'venue',
         'store',
         'owner',
+        'deliveryAddress',
+        'collectionAddress',
         'sourceOpportunity',
         'items',
         'items.assets',

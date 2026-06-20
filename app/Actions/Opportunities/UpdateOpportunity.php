@@ -5,9 +5,12 @@ namespace App\Actions\Opportunities;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
+use App\Models\Address;
+use App\Models\Member;
 use App\Models\Opportunity;
 use App\Verbs\Events\Opportunities\OpportunityUpdated;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\Optional;
 
 /**
@@ -24,7 +27,8 @@ class UpdateOpportunity
      */
     private const OPTIONAL_FIELDS = [
         'venue_id', 'reference', 'description', 'external_description',
-        'chargeable_days', 'delivery_instructions', 'collection_instructions', 'tag_list',
+        'chargeable_days', 'delivery_instructions', 'collection_instructions',
+        'delivery_address_id', 'collection_address_id', 'tag_list',
     ];
 
     /**
@@ -57,6 +61,12 @@ class UpdateOpportunity
         Gate::authorize('opportunities.edit');
 
         $provided = $this->providedFields($data);
+
+        // Authoritative IDOR guard: a supplied delivery/collection address must
+        // belong to the opportunity's member. When the member is being changed in
+        // this same update, scope to the new member; otherwise the current one. Only
+        // address fields actually provided (not their Optional sentinel) are checked.
+        $this->assertAddressesBelongToMember($opportunity, $data);
 
         $this->commitVerbs(function () use ($opportunity, $data, $provided): void {
             OpportunityUpdated::fire(
@@ -101,6 +111,8 @@ class UpdateOpportunity
                 customer_returning: $data->customer_returning,
                 delivery_instructions: $this->resolveOptional($data->delivery_instructions),
                 collection_instructions: $this->resolveOptional($data->collection_instructions),
+                delivery_address_id: $this->resolveOptional($data->delivery_address_id),
+                collection_address_id: $this->resolveOptional($data->collection_address_id),
                 is_invoiced: $data->invoiced,
                 tag_list: $this->resolveTagList($data->tag_list),
             );
@@ -113,6 +125,41 @@ class UpdateOpportunity
         }
 
         return OpportunityData::fromModel($opportunity->refresh()->load('customFieldValues'));
+    }
+
+    /**
+     * Assert that every supplied (non-null) address FK points at an {@see Address}
+     * owned by the opportunity's member. When the member is being changed in this
+     * same update the new member is authoritative; otherwise the current member is.
+     * An absent address field (its Optional sentinel) or an explicit null (clearing
+     * the column) is skipped — neither leaks another member's address. A mismatch
+     * (including a non-Member-owned address) is surfaced as a 422.
+     */
+    private function assertAddressesBelongToMember(Opportunity $opportunity, UpdateOpportunityData $data): void
+    {
+        $memberId = $data->member_id ?? $opportunity->member_id;
+
+        foreach (['delivery_address_id', 'collection_address_id'] as $field) {
+            $value = $data->{$field};
+
+            // Skip absent (Optional) and explicit-null (clearing) values; only a
+            // newly-set address id can introduce a foreign-member reference.
+            if ($value instanceof Optional || $value === null) {
+                continue;
+            }
+
+            $belongs = $memberId !== null && Address::query()
+                ->whereKey($value)
+                ->where('addressable_type', Member::class)
+                ->where('addressable_id', $memberId)
+                ->exists();
+
+            if (! $belongs) {
+                throw ValidationException::withMessages([
+                    $field => ['The selected address does not belong to this opportunity\'s member.'],
+                ]);
+            }
+        }
     }
 
     /**

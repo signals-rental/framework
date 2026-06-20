@@ -3,9 +3,11 @@
 namespace App\Data\Opportunities;
 
 use App\Data\Casts\MoneyInput;
+use App\Models\Member;
 use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Attributes\WithCast;
 use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Support\Validation\ValidationContext;
 
 class CreateOpportunityData extends Data
 {
@@ -52,6 +54,9 @@ class CreateOpportunityData extends Data
         public bool $customer_returning = false,
         public ?string $delivery_instructions = null,
         public ?string $collection_instructions = null,
+        // Delivery/collection address FKs (C-data-2), each one of the member's addresses.
+        public ?int $delivery_address_id = null,
+        public ?int $collection_address_id = null,
         public string $currency = 'GBP',
         public bool $prices_include_tax = false,
         /**
@@ -71,8 +76,23 @@ class CreateOpportunityData extends Data
     /**
      * @return array<string, mixed>
      */
-    public static function rules(): array
+    public static function rules(?ValidationContext $context = null): array
     {
+        // Scope the delivery/collection address to an Address owned by a Member
+        // (polymorphic addressable_type/addressable_id). When the validation context
+        // exposes the payload (Spatie's auto-validation path) we further constrain to
+        // the payload's member_id, closing the IDOR at the DTO layer. The manual
+        // `$request->validate(::rules())` path has no context, so this narrows to any
+        // Member-owned address; the action then enforces the exact member match
+        // authoritatively (a caller can spoof or omit member_id past this rule).
+        $memberAddressExists = Rule::exists('addresses', 'id')
+            ->where('addressable_type', Member::class);
+
+        $payloadMemberId = is_array($context?->payload) ? ($context->payload['member_id'] ?? null) : null;
+        if ($payloadMemberId !== null) {
+            $memberAddressExists->where('addressable_id', $payloadMemberId);
+        }
+
         return [
             'subject' => ['required', 'string', 'max:255'],
             'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
@@ -113,6 +133,8 @@ class CreateOpportunityData extends Data
             'customer_returning' => ['sometimes', 'boolean'],
             'delivery_instructions' => ['sometimes', 'nullable', 'string'],
             'collection_instructions' => ['sometimes', 'nullable', 'string'],
+            'delivery_address_id' => ['sometimes', 'nullable', 'integer', $memberAddressExists],
+            'collection_address_id' => ['sometimes', 'nullable', 'integer', $memberAddressExists],
             'currency' => ['sometimes', 'string', 'size:3'],
             'prices_include_tax' => ['sometimes', 'boolean'],
             'charge_total' => ['sometimes', 'numeric'],

@@ -16,6 +16,7 @@ class CreateAddressData extends Data
         public ?string $county = null,
         #[Max(20)]
         public ?string $postcode = null,
+        public ?string $what3words = null,
         public ?int $country_id = null,
         public ?int $type_id = null,
         public bool $is_primary = false,
@@ -34,6 +35,7 @@ class CreateAddressData extends Data
             'city' => ['sometimes', 'nullable', 'string', 'max:255'],
             'county' => ['sometimes', 'nullable', 'string', 'max:255'],
             'postcode' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'what3words' => ['sometimes', 'nullable', 'string', 'max:255'],
             'country_id' => ['sometimes', 'nullable', 'integer', 'exists:countries,id'],
             'type_id' => ['sometimes', 'nullable', 'integer', 'exists:list_values,id'],
             'is_primary' => ['sometimes', 'boolean'],

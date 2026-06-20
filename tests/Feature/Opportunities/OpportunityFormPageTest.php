@@ -221,3 +221,63 @@ it('selects a member via the autocomplete picker', function () {
         ->assertSet('memberSelectedName', 'Acme Events Ltd')
         ->assertSet('memberSearch', '');
 });
+
+it('creates a new address on the member and selects it into the delivery FK', function () {
+    $member = Member::factory()->organisation()->create(['is_active' => true]);
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.form')
+        ->set('memberId', $member->id)
+        ->call('selectMember', $member->id)
+        ->call('openAddressModal', 'delivery')
+        ->assertSet('showAddressModal', true)
+        ->assertSet('addressTarget', 'delivery')
+        ->set('newAddressStreet', '12 Stage Lane')
+        ->set('newAddressCity', 'Leeds')
+        ->set('newAddressWhat3words', 'index.home.raft')
+        ->call('saveNewAddress')
+        ->assertHasNoErrors()
+        ->assertSet('showAddressModal', false);
+
+    $address = $member->addresses()->first();
+
+    expect($address)->not->toBeNull()
+        ->and($address->street)->toBe('12 Stage Lane')
+        ->and($address->what3words)->toBe('index.home.raft');
+
+    // The freshly-created address is selected into the delivery FK.
+    $component->assertSet('deliveryAddressId', $address->id);
+});
+
+it('validates the required street when adding a new address', function () {
+    $member = Member::factory()->organisation()->create(['is_active' => true]);
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.form')
+        ->set('memberId', $member->id)
+        ->call('selectMember', $member->id)
+        ->call('openAddressModal', 'collection')
+        ->call('saveNewAddress')
+        ->assertHasErrors(['newAddressStreet' => 'required'])
+        ->assertSet('showAddressModal', true);
+
+    expect($member->addresses()->count())->toBe(0);
+});
+
+it('drops a stale address selection when the member changes', function () {
+    [$memberA, $memberB] = [
+        Member::factory()->organisation()->create(['is_active' => true]),
+        Member::factory()->organisation()->create(['is_active' => true]),
+    ];
+    $address = $memberA->addresses()->create(['street' => 'A Road', 'name' => 'A']);
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.form')
+        ->call('selectMember', $memberA->id)
+        ->set('deliveryAddressId', $address->id)
+        ->assertSet('deliveryAddressId', $address->id);
+
+    // Switching to a member that does not own that address clears the selection.
+    $component->call('selectMember', $memberB->id)
+        ->assertSet('deliveryAddressId', null);
+});

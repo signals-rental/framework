@@ -53,6 +53,7 @@ class OpportunityUpdated extends Event
         'use_chargeable_days', 'chargeable_days', 'open_ended_rental',
         'customer_collecting', 'customer_returning',
         'delivery_instructions', 'collection_instructions',
+        'delivery_address_id', 'collection_address_id',
         'is_invoiced', 'tag_list',
     ];
 
@@ -104,6 +105,8 @@ class OpportunityUpdated extends Event
         public ?bool $customer_returning = null,
         public ?string $delivery_instructions = null,
         public ?string $collection_instructions = null,
+        public ?int $delivery_address_id = null,
+        public ?int $collection_address_id = null,
         public ?bool $is_invoiced = null,
         /** @var list<string>|null */
         public ?array $tag_list = null,
@@ -194,6 +197,8 @@ class OpportunityUpdated extends Event
                 'customer_returning' => $state->customer_returning,
                 'delivery_instructions' => $state->delivery_instructions,
                 'collection_instructions' => $state->collection_instructions,
+                'delivery_address_id' => $state->delivery_address_id,
+                'collection_address_id' => $state->collection_address_id,
                 'invoiced' => $state->is_invoiced,
                 'tag_list' => $state->tag_list,
             ]);

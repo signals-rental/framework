@@ -1,13 +1,18 @@
 <?php
 
+use App\Actions\Members\CreateAddress;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\UpdateOpportunity;
+use App\Data\Members\CreateAddressData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Livewire\Concerns\LoadsCustomFieldValues;
 use App\Livewire\Concerns\ReKeysCustomFieldErrors;
+use App\Models\Address;
+use App\Models\Country;
 use App\Models\Currency;
 use App\Models\CustomField;
+use App\Models\ListName;
 use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\Store;
@@ -138,6 +143,33 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public string $collectionInstructions = '';
 
+    // Delivery/collection address FKs (C-data-2) — one of the member's addresses.
+    public ?int $deliveryAddressId = null;
+
+    public ?int $collectionAddressId = null;
+
+    // "Add new address" modal state. `addressTarget` is 'delivery' or 'collection'
+    // and tells save which FK to set once the address is created on the member.
+    public bool $showAddressModal = false;
+
+    public string $addressTarget = 'delivery';
+
+    public string $newAddressName = '';
+
+    public string $newAddressStreet = '';
+
+    public string $newAddressCity = '';
+
+    public string $newAddressCounty = '';
+
+    public string $newAddressPostcode = '';
+
+    public ?int $newAddressCountryId = null;
+
+    public ?int $newAddressTypeId = null;
+
+    public string $newAddressWhat3words = '';
+
     public bool $pricesIncludeTax = false;
 
     /** @var array<int, string> */
@@ -202,6 +234,8 @@ new #[Layout('components.layouts.app')] class extends Component
             $this->customerReturning = (bool) $opportunity->customer_returning;
             $this->deliveryInstructions = $opportunity->delivery_instructions ?? '';
             $this->collectionInstructions = $opportunity->collection_instructions ?? '';
+            $this->deliveryAddressId = $opportunity->delivery_address_id;
+            $this->collectionAddressId = $opportunity->collection_address_id;
             $this->pricesIncludeTax = (bool) $opportunity->prices_include_tax;
             $this->tags = $opportunity->tag_list ?? [];
 
@@ -256,6 +290,8 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->memberId = $member->id;
         $this->memberSelectedName = $member->name;
         $this->memberSearch = '';
+
+        $this->syncAddressSelections();
     }
 
     public function clearMember(): void
@@ -263,6 +299,27 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->memberId = null;
         $this->memberSelectedName = '';
         $this->memberSearch = '';
+
+        $this->syncAddressSelections();
+    }
+
+    /**
+     * Refresh the member-addresses cache and drop any delivery/collection
+     * address selection that no longer belongs to the current member.
+     */
+    private function syncAddressSelections(): void
+    {
+        unset($this->memberAddresses);
+
+        $validIds = $this->memberAddresses->pluck('id')->all();
+
+        if ($this->deliveryAddressId !== null && ! in_array($this->deliveryAddressId, $validIds, true)) {
+            $this->deliveryAddressId = null;
+        }
+
+        if ($this->collectionAddressId !== null && ! in_array($this->collectionAddressId, $validIds, true)) {
+            $this->collectionAddressId = null;
+        }
     }
 
     /**
@@ -304,6 +361,93 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->venueId = null;
         $this->venueSelectedName = '';
         $this->venueSearch = '';
+    }
+
+    /**
+     * The selected member's addresses, used to populate both address pickers.
+     * Empty when no member is selected (the pickers render disabled).
+     *
+     * @return Collection<int, Address>
+     */
+    #[Computed]
+    public function memberAddresses(): Collection
+    {
+        if ($this->memberId === null) {
+            return collect();
+        }
+
+        return Address::query()
+            ->where('addressable_type', Member::class)
+            ->where('addressable_id', $this->memberId)
+            ->orderByDesc('is_primary')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Open the "add new address" modal for the given target ('delivery' or
+     * 'collection'), resetting the modal fields.
+     */
+    public function openAddressModal(string $target): void
+    {
+        if ($this->memberId === null) {
+            return;
+        }
+
+        $this->addressTarget = $target === 'collection' ? 'collection' : 'delivery';
+        $this->reset([
+            'newAddressName', 'newAddressStreet', 'newAddressCity', 'newAddressCounty',
+            'newAddressPostcode', 'newAddressCountryId', 'newAddressTypeId', 'newAddressWhat3words',
+        ]);
+        $this->resetValidation();
+        $this->showAddressModal = true;
+    }
+
+    /**
+     * Create a new address on the selected member via the shared CreateAddress
+     * action (which owns the members.edit gate + validation) and select it into
+     * the target FK.
+     */
+    public function saveNewAddress(): void
+    {
+        if ($this->memberId === null) {
+            return;
+        }
+
+        $this->validate([
+            'newAddressStreet' => ['required', 'string'],
+            'newAddressName' => ['nullable', 'string', 'max:255'],
+            'newAddressCity' => ['nullable', 'string', 'max:255'],
+            'newAddressCounty' => ['nullable', 'string', 'max:255'],
+            'newAddressPostcode' => ['nullable', 'string', 'max:20'],
+            'newAddressCountryId' => ['nullable', 'integer', 'exists:countries,id'],
+            'newAddressTypeId' => ['nullable', 'integer', 'exists:list_values,id'],
+            'newAddressWhat3words' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        /** @var Member $member */
+        $member = Member::query()->findOrFail($this->memberId);
+
+        $address = (new CreateAddress)($member, CreateAddressData::from([
+            'street' => $this->newAddressStreet,
+            'name' => $this->newAddressName ?: null,
+            'city' => $this->newAddressCity ?: null,
+            'county' => $this->newAddressCounty ?: null,
+            'postcode' => $this->newAddressPostcode ?: null,
+            'country_id' => $this->newAddressCountryId,
+            'type_id' => $this->newAddressTypeId,
+            'what3words' => $this->newAddressWhat3words ?: null,
+        ]));
+
+        // Select the freshly-created address into the target FK.
+        if ($this->addressTarget === 'collection') {
+            $this->collectionAddressId = $address->id;
+        } else {
+            $this->deliveryAddressId = $address->id;
+        }
+
+        unset($this->memberAddresses);
+        $this->showAddressModal = false;
     }
 
     public function save(): void
@@ -388,6 +532,8 @@ new #[Layout('components.layouts.app')] class extends Component
             'customer_returning' => $this->customerReturning,
             'delivery_instructions' => $this->deliveryInstructions ?: null,
             'collection_instructions' => $this->collectionInstructions ?: null,
+            'delivery_address_id' => $this->deliveryAddressId,
+            'collection_address_id' => $this->collectionAddressId,
         ];
     }
 
@@ -438,6 +584,9 @@ new #[Layout('components.layouts.app')] class extends Component
      */
     public function with(): array
     {
+        $addressTypes = ListName::query()->where('name', 'Address Type')->first()
+            ?->values()->where('is_active', true)->sortBy('sort_order')->values() ?? collect();
+
         return [
             'isEditing' => $this->opportunityId !== null,
             'opportunity' => $this->opportunityId ? Opportunity::find($this->opportunityId) : null,
@@ -445,6 +594,10 @@ new #[Layout('components.layouts.app')] class extends Component
             'currencies' => Currency::query()->where('is_enabled', true)->orderBy('code')->get(['code', 'name']),
             'owners' => Member::query()->ofType(\App\Enums\MembershipType::User)->orderBy('name')->get(['id', 'name']),
             'groupedCustomFields' => $this->customFields->groupBy(fn (CustomField $f) => $f->group?->name ?? 'General'),
+            'memberAddresses' => $this->memberAddresses,
+            'countries' => Country::query()->active()->orderBy('name')->get(['id', 'name']),
+            'addressTypes' => $addressTypes,
+            'what3wordsConfigured' => app(\App\Services\What3WordsService::class)->isConfigured(),
         ];
     }
 
@@ -625,6 +778,44 @@ new #[Layout('components.layouts.app')] class extends Component
                         </div>
                     </x-signals.form-section>
 
+                    {{-- Delivery & collection addresses (C-data-2). Each picker is --}}
+                    {{-- populated from the selected member's addresses; "Add new --}}
+                    {{-- address" opens a modal that creates one on the member. --}}
+                    <x-signals.form-section title="Delivery & Collection">
+                        <div class="space-y-4">
+                            @if($memberId === null)
+                                <p class="s-field-hint text-[var(--text-muted)]">Select a member to choose delivery and collection addresses.</p>
+                            @endif
+
+                            @php
+                                $addressFields = [
+                                    ['Delivery Address', 'deliveryAddressId', 'delivery'],
+                                    ['Collection Address', 'collectionAddressId', 'collection'],
+                                ];
+                            @endphp
+                            @foreach($addressFields as [$addressLabel, $addressProp, $addressTarget])
+                                <div wire:key="opp-address-{{ $addressTarget }}">
+                                    <label class="s-field-label mb-1 block">{{ $addressLabel }}</label>
+                                    <div class="flex items-end gap-2">
+                                        <div class="flex-1">
+                                            <flux:select wire:model="{{ $addressProp }}" :disabled="$memberId === null">
+                                                <option value="">None</option>
+                                                @foreach($memberAddresses as $address)
+                                                    <option value="{{ $address->id }}" wire:key="{{ $addressTarget }}-opt-{{ $address->id }}">
+                                                        {{ \Illuminate\Support\Str::limit(collect([$address->name, $address->street, $address->city, $address->postcode])->filter()->implode(', '), 70) ?: 'Address #'.$address->id }}
+                                                    </option>
+                                                @endforeach
+                                            </flux:select>
+                                        </div>
+                                        <flux:button type="button" variant="filled" wire:click="openAddressModal('{{ $addressTarget }}')" :disabled="$memberId === null">
+                                            Add new address
+                                        </flux:button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </x-signals.form-section>
+
                     <x-signals.form-section title="Pricing">
                         <div class="space-y-3">
                             <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
@@ -773,6 +964,49 @@ new #[Layout('components.layouts.app')] class extends Component
                     @endif
                 </div>
             </div>
+
+            {{-- Add-new-address modal (C-data-2). Creates an Address on the --}}
+            {{-- selected member via the shared CreateAddress action, then selects --}}
+            {{-- it into the delivery/collection FK that opened the modal. --}}
+            <flux:modal wire:model.self="showAddressModal" class="w-full max-w-lg">
+                <div class="space-y-4">
+                    <div>
+                        <flux:heading size="lg">Add {{ $addressTarget === 'collection' ? 'Collection' : 'Delivery' }} Address</flux:heading>
+                        <flux:subheading>This address is saved on the selected member.</flux:subheading>
+                    </div>
+
+                    <flux:input wire:model="newAddressName" label="Label" placeholder="e.g. Site Entrance" />
+                    <flux:textarea wire:model="newAddressStreet" label="Street" rows="2" />
+                    <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+                        <flux:input wire:model="newAddressCity" label="City" />
+                        <flux:input wire:model="newAddressCounty" label="County / State" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+                        <flux:input wire:model="newAddressPostcode" label="Postcode / ZIP" />
+                        <flux:select wire:model="newAddressCountryId" label="Country">
+                            <option value="">Select country...</option>
+                            @foreach($countries as $country)
+                                <option value="{{ $country->id }}" wire:key="new-addr-country-{{ $country->id }}">{{ $country->name }}</option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+                    <flux:select wire:model="newAddressTypeId" label="Type">
+                        <option value="">Select type...</option>
+                        @foreach($addressTypes as $type)
+                            <option value="{{ $type->id }}" wire:key="new-addr-type-{{ $type->id }}">{{ $type->name }}</option>
+                        @endforeach
+                    </flux:select>
+
+                    @if($what3wordsConfigured)
+                        <flux:input wire:model="newAddressWhat3words" label="what3words" placeholder="e.g. filled.count.soap" />
+                    @endif
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <flux:button type="button" variant="ghost" wire:click="$set('showAddressModal', false)">Cancel</flux:button>
+                        <flux:button type="button" variant="primary" wire:click="saveNewAddress">Add Address</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
         </form>
     </div>
 </section>

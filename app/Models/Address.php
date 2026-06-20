@@ -24,6 +24,7 @@ class Address extends Model implements HasSchema
         'city',
         'county',
         'postcode',
+        'what3words',
         'country_id',
         'type_id',
         'is_primary',
@@ -50,6 +51,7 @@ class Address extends Model implements HasSchema
         $builder->string('city')->label('City')->filterable()->sortable()->searchable();
         $builder->string('county')->label('County')->filterable();
         $builder->string('postcode')->label('Postcode')->filterable()->searchable();
+        $builder->string('what3words')->label('what3words')->searchable()->filterable();
         $builder->relation('country_id')->label('Country')
             ->relation('country', 'belongsTo', Country::class, 'name')
             ->filterable();

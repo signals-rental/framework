@@ -81,6 +81,8 @@ use Illuminate\Support\Carbon;
  * @property bool $customer_returning
  * @property string|null $delivery_instructions
  * @property string|null $collection_instructions
+ * @property int|null $delivery_address_id
+ * @property int|null $collection_address_id
  * @property int|null $source_opportunity_id
  * @property bool $invoiced
  * @property Carbon|null $created_at
@@ -149,6 +151,8 @@ class Opportunity extends Model implements HasSchema
         'customer_returning',
         'delivery_instructions',
         'collection_instructions',
+        'delivery_address_id',
+        'collection_address_id',
         'source_opportunity_id',
         'currency_code',
         'exchange_rate',
@@ -210,6 +214,8 @@ class Opportunity extends Model implements HasSchema
             'open_ended_rental' => 'boolean',
             'customer_collecting' => 'boolean',
             'customer_returning' => 'boolean',
+            'delivery_address_id' => 'integer',
+            'collection_address_id' => 'integer',
             'source_opportunity_id' => 'integer',
             'exchange_rate' => 'decimal:10',
             'exchange_rate_locked' => 'boolean',
@@ -246,6 +252,12 @@ class Opportunity extends Model implements HasSchema
             ->filterable();
         $builder->relation('owned_by')->label('Owner')
             ->relation('owner', 'belongsTo', Member::class, 'name')
+            ->filterable();
+        $builder->relation('delivery_address_id')->label('Delivery Address')
+            ->relation('deliveryAddress', 'belongsTo', Address::class, 'name')
+            ->filterable();
+        $builder->relation('collection_address_id')->label('Collection Address')
+            ->relation('collectionAddress', 'belongsTo', Address::class, 'name')
             ->filterable();
         $builder->datetime('starts_at')->label('Starts')->sortable()->filterable();
         $builder->datetime('ends_at')->label('Ends')->sortable()->filterable();
@@ -309,6 +321,28 @@ class Opportunity extends Model implements HasSchema
     public function sourceOpportunity(): BelongsTo
     {
         return $this->belongsTo(self::class, 'source_opportunity_id');
+    }
+
+    /**
+     * The delivery address for this opportunity (one of the member's addresses),
+     * or null when none is set (C-data-2).
+     *
+     * @return BelongsTo<Address, $this>
+     */
+    public function deliveryAddress(): BelongsTo
+    {
+        return $this->belongsTo(Address::class, 'delivery_address_id');
+    }
+
+    /**
+     * The collection address for this opportunity (one of the member's
+     * addresses), or null when none is set (C-data-2).
+     *
+     * @return BelongsTo<Address, $this>
+     */
+    public function collectionAddress(): BelongsTo
+    {
+        return $this->belongsTo(Address::class, 'collection_address_id');
     }
 
     /**

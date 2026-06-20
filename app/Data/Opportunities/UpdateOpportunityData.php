@@ -2,9 +2,11 @@
 
 namespace App\Data\Opportunities;
 
+use App\Models\Member;
 use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Optional;
+use Spatie\LaravelData\Support\Validation\ValidationContext;
 
 class UpdateOpportunityData extends Data
 {
@@ -60,6 +62,11 @@ class UpdateOpportunityData extends Data
         public string|null|Optional $chargeable_days = new Optional,
         public string|null|Optional $delivery_instructions = new Optional,
         public string|null|Optional $collection_instructions = new Optional,
+        // Delivery/collection address FKs (C-data-2). Optional so an absent key
+        // (unchanged) is told apart from an explicit null (clear the column),
+        // mirroring venue_id.
+        public int|null|Optional $delivery_address_id = new Optional,
+        public int|null|Optional $collection_address_id = new Optional,
         /** @var list<string>|null|Optional */
         public array|null|Optional $tag_list = new Optional,
         /** @var array<string, mixed>|null */
@@ -69,8 +76,22 @@ class UpdateOpportunityData extends Data
     /**
      * @return array<string, mixed>
      */
-    public static function rules(): array
+    public static function rules(?ValidationContext $context = null): array
     {
+        // Scope the delivery/collection address rule to a Member-owned address
+        // (addressable_type = Member). On update the opportunity's member is not
+        // necessarily in the payload, so only further constrain to a member when
+        // member_id is supplied AND the validation context exposes it. The action
+        // authoritatively enforces that the address belongs to the opportunity's
+        // actual member — this rule is only the first (spoofable) layer of defence.
+        $addressExists = Rule::exists('addresses', 'id')
+            ->where('addressable_type', Member::class);
+
+        $payloadMemberId = is_array($context?->payload) ? ($context->payload['member_id'] ?? null) : null;
+        if ($payloadMemberId !== null) {
+            $addressExists->where('addressable_id', $payloadMemberId);
+        }
+
         return [
             'subject' => ['sometimes', 'nullable', 'string', 'max:255'],
             'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
@@ -112,6 +133,8 @@ class UpdateOpportunityData extends Data
             'invoiced' => ['sometimes', 'boolean'],
             'delivery_instructions' => ['sometimes', 'nullable', 'string'],
             'collection_instructions' => ['sometimes', 'nullable', 'string'],
+            'delivery_address_id' => ['sometimes', 'nullable', 'integer', $addressExists],
+            'collection_address_id' => ['sometimes', 'nullable', 'integer', $addressExists],
             'tag_list' => ['sometimes', 'nullable', 'array'],
             'tag_list.*' => ['string', 'max:255'],
             'custom_fields' => ['sometimes', 'nullable', 'array'],

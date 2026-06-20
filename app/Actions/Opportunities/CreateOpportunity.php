@@ -5,6 +5,8 @@ namespace App\Actions\Opportunities;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
+use App\Models\Address;
+use App\Models\Member;
 use App\Models\Opportunity;
 use App\Services\CurrencyService;
 use App\Services\Opportunities\OpportunityNumberGenerator;
@@ -24,6 +26,14 @@ class CreateOpportunity
     public function __invoke(CreateOpportunityData $data): OpportunityData
     {
         Gate::authorize('opportunities.create');
+
+        // Authoritative IDOR guard: a supplied delivery/collection address must
+        // belong to this opportunity's member. The DTO scopes the exists rule too,
+        // but a caller can spoof or omit member_id past it, so this is the real gate.
+        $this->assertAddressesBelongToMember($data->member_id, [
+            'delivery_address_id' => $data->delivery_address_id,
+            'collection_address_id' => $data->collection_address_id,
+        ]);
 
         $opportunityId = $this->commitVerbs(function () use ($data): int {
             // Allocate the replay-stable small PK and bake it into the event so a
@@ -85,6 +95,8 @@ class CreateOpportunity
                 customer_returning: $data->customer_returning,
                 delivery_instructions: $data->delivery_instructions,
                 collection_instructions: $data->collection_instructions,
+                delivery_address_id: $data->delivery_address_id,
+                collection_address_id: $data->collection_address_id,
                 charge_total: $data->charge_total,
                 currency_code: $currency,
                 exchange_rate: $this->resolveExchangeRate($currency),
@@ -104,6 +116,36 @@ class CreateOpportunity
         $opportunity->syncCustomFields($data->custom_fields ?? [], applyDefaults: true);
 
         return OpportunityData::fromModel($opportunity->load('customFieldValues'));
+    }
+
+    /**
+     * Assert that every supplied address FK points at an {@see Address} owned by
+     * the given member (polymorphic addressable_type = Member, addressable_id =
+     * member_id). Closes the IDOR where an API caller targets another member's
+     * address. A mismatch (including a non-Member-owned address, or any address when
+     * no member is set) is surfaced as a 422 rather than silently dropped.
+     *
+     * @param  array<string, int|null>  $addressIds  field name => supplied id
+     */
+    private function assertAddressesBelongToMember(?int $memberId, array $addressIds): void
+    {
+        foreach ($addressIds as $field => $addressId) {
+            if ($addressId === null) {
+                continue;
+            }
+
+            $belongs = $memberId !== null && Address::query()
+                ->whereKey($addressId)
+                ->where('addressable_type', Member::class)
+                ->where('addressable_id', $memberId)
+                ->exists();
+
+            if (! $belongs) {
+                throw ValidationException::withMessages([
+                    $field => ['The selected address does not belong to this opportunity\'s member.'],
+                ]);
+            }
+        }
     }
 
     /**

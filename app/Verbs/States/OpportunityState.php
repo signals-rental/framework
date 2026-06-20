@@ -124,6 +124,12 @@ class OpportunityState extends State
 
     public ?string $collection_instructions = null;
 
+    /** FK to the chosen delivery address on the `addresses` table (C-data-2). */
+    public ?int $delivery_address_id = null;
+
+    /** FK to the chosen collection address on the `addresses` table (C-data-2). */
+    public ?int $collection_address_id = null;
+
     /**
      * Free-form tag labels (RMS `tag_list`), projected to the JSONB
      * `opportunities.tag_list` column.
