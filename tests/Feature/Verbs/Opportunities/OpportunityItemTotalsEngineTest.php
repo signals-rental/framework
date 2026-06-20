@@ -57,7 +57,7 @@ function wirePricedProduct(int $unitPriceMinor = 10000): array
         'is_active' => true,
     ]);
 
-    $member = Member::factory()->create(['sale_tax_class_id' => $orgClass->id]);
+    $member = Member::factory()->organisation()->create(['sale_tax_class_id' => $orgClass->id]);
     $product = Product::factory()->rental()->create(['tax_class_id' => $productClass->id]);
 
     $definition = RateDefinition::factory()->create([

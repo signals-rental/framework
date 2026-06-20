@@ -2,6 +2,7 @@
 
 namespace App\Data\Opportunities;
 
+use App\Enums\MembershipType;
 use App\Models\Member;
 use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Data;
@@ -97,7 +98,12 @@ class UpdateOpportunityData extends Data
 
         return [
             'subject' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
+            // When the customer is changed it must be an Organisation member. The
+            // action re-asserts authoritatively (::rules() runs context-free on the
+            // manual validate() path).
+            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')
+                ->where('membership_type', MembershipType::Organisation->value)
+                ->withoutTrashed()],
             'venue_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
             'owned_by' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
             'store_id' => ['sometimes', 'nullable', 'integer', 'exists:stores,id'],

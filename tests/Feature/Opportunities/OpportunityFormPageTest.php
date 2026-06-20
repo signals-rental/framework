@@ -54,7 +54,7 @@ it('forbids the create form for a user without opportunities.create', function (
 });
 
 it('persists a new opportunity through the CreateOpportunity action and redirects', function () {
-    $member = Member::factory()->create();
+    $member = Member::factory()->organisation()->create();
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.form')
@@ -210,7 +210,7 @@ it('forbids the edit form for a user without opportunities.edit', function () {
 });
 
 it('selects a member via the autocomplete picker', function () {
-    $member = Member::factory()->create(['name' => 'Acme Events Ltd', 'is_active' => true]);
+    $member = Member::factory()->organisation()->create(['name' => 'Acme Events Ltd', 'is_active' => true]);
 
     $this->actingAs($this->owner);
 
@@ -280,4 +280,33 @@ it('drops a stale address selection when the member changes', function () {
     // Switching to a member that does not own that address clears the selection.
     $component->call('selectMember', $memberB->id)
         ->assertSet('deliveryAddressId', null);
+});
+
+it('lists only Organisation members in the member picker (B7)', function () {
+    $org = Member::factory()->organisation()->create(['name' => 'Picker Org Ltd', 'is_active' => true]);
+    $contact = Member::factory()->contact()->create(['name' => 'Picker Contact', 'is_active' => true]);
+    $venue = Member::factory()->venue()->create(['name' => 'Picker Venue', 'is_active' => true]);
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.form')->set('memberSearch', 'Picker');
+
+    $ids = collect($component->get('memberOptions'))->pluck('id')->all();
+
+    expect($ids)->toContain($org->id);
+    expect($ids)->not->toContain($contact->id);
+    expect($ids)->not->toContain($venue->id);
+});
+
+it('refuses to select a non-organisation member through the picker (B7)', function () {
+    $contact = Member::factory()->contact()->create(['name' => 'Sneaky Contact', 'is_active' => true]);
+
+    $this->actingAs($this->owner);
+
+    // Even if a non-org id is posted, selectMember scopes to organisations, so the
+    // selection is silently rejected (memberId stays null).
+    Volt::test('opportunities.form')
+        ->call('selectMember', $contact->id)
+        ->assertSet('memberId', null)
+        ->assertSet('memberSelectedName', '');
 });

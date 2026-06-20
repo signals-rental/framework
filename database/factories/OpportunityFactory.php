@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
+use App\Models\Member;
 use App\Models\Opportunity;
 use App\Services\SequenceAllocator;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -27,6 +28,10 @@ class OpportunityFactory extends Factory
             // Factory rows bypass the event stream, so synthesise a unique
             // snowflake-shaped state id to satisfy the unique link column.
             'state_id' => snowflake_id(),
+            // The opportunity customer must be an Organisation member (B7). Lazily
+            // create one by default so factory rows are valid customers; callers
+            // override member_id (including with null) as needed.
+            'member_id' => Member::factory()->organisation(),
             'subject' => fake()->unique()->words(3, true),
             'state' => OpportunityState::Draft->value,
             'status' => OpportunityState::Draft->defaultStatus()->statusValue(),

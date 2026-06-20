@@ -3,6 +3,7 @@
 namespace App\Data\Opportunities;
 
 use App\Data\Casts\MoneyInput;
+use App\Enums\MembershipType;
 use App\Models\Member;
 use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Attributes\WithCast;
@@ -97,7 +98,13 @@ class CreateOpportunityData extends Data
 
         return [
             'subject' => ['required', 'string', 'max:255'],
-            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
+            // The opportunity customer must be an Organisation member (not a
+            // Contact/User/Venue). Scoped here for early UX feedback; the action
+            // re-asserts authoritatively because ::rules() is called context-free
+            // on the manual validate() path.
+            'member_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')
+                ->where('membership_type', MembershipType::Organisation->value)
+                ->withoutTrashed()],
             'venue_id' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
             'owned_by' => ['sometimes', 'nullable', 'integer', Rule::exists('members', 'id')->withoutTrashed()],
             'store_id' => ['sometimes', 'nullable', 'integer', 'exists:stores,id'],

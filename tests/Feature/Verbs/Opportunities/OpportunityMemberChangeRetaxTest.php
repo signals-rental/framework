@@ -50,8 +50,8 @@ it('recomputes tax_total when the member changes to one with a different tax cla
     ]);
 
     // Taxed member (20%) vs an untaxed member (no sale tax class → no rule → 0 tax).
-    $taxedMember = Member::factory()->create(['sale_tax_class_id' => $orgClass->id]);
-    $untaxedMember = Member::factory()->create(['sale_tax_class_id' => null]);
+    $taxedMember = Member::factory()->organisation()->create(['sale_tax_class_id' => $orgClass->id]);
+    $untaxedMember = Member::factory()->organisation()->create(['sale_tax_class_id' => null]);
 
     $product = Product::factory()->rental()->create(['tax_class_id' => $productClass->id]);
     $definition = RateDefinition::factory()->create([
@@ -111,7 +111,7 @@ it('does not move tax on a non-member header update', function () {
         'is_active' => true,
     ]);
 
-    $member = Member::factory()->create(['sale_tax_class_id' => $orgClass->id]);
+    $member = Member::factory()->organisation()->create(['sale_tax_class_id' => $orgClass->id]);
     $store = Store::factory()->create();
     $product = Product::factory()->rental()->create(['tax_class_id' => $productClass->id]);
     $definition = RateDefinition::factory()->create([

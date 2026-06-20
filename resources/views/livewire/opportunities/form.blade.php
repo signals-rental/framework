@@ -6,6 +6,7 @@ use App\Actions\Opportunities\UpdateOpportunity;
 use App\Data\Members\CreateAddressData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
+use App\Enums\MembershipType;
 use App\Livewire\Concerns\LoadsCustomFieldValues;
 use App\Livewire\Concerns\ReKeysCustomFieldErrors;
 use App\Models\Address;
@@ -259,7 +260,8 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 
     /**
-     * Member autocomplete results (organisations/contacts).
+     * Member autocomplete results — Organisation members only, since an
+     * opportunity's customer must be an organisation (enforced in the action/DTO).
      *
      * @return Collection<int, Member>
      */
@@ -272,6 +274,7 @@ new #[Layout('components.layouts.app')] class extends Component
         $like = Member::query()->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
         return Member::query()
+            ->ofType(MembershipType::Organisation)
             ->where('is_active', true)
             ->where('name', $like, '%'.RansackFilter::escapeLike($this->memberSearch).'%')
             ->orderBy('name')
@@ -281,7 +284,10 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function selectMember(int $id): void
     {
-        $member = Member::query()->where('is_active', true)->find($id);
+        $member = Member::query()
+            ->ofType(MembershipType::Organisation)
+            ->where('is_active', true)
+            ->find($id);
 
         if ($member === null) {
             return;
@@ -872,9 +878,9 @@ new #[Layout('components.layouts.app')] class extends Component
                 <div class="space-y-6" style="position: sticky; top: 24px;">
                     <x-signals.form-section title="Parties">
                         <div class="space-y-3">
-                            {{-- Member picker --}}
+                            {{-- Member picker — Organisation customers only --}}
                             <div>
-                                <label class="block text-sm font-medium mb-1">Member</label>
+                                <label class="block text-sm font-medium mb-1">Organisation</label>
                                 @if($memberSelectedName)
                                     <div class="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
                                         <span class="flex-1 truncate">{{ $memberSelectedName }}</span>
@@ -884,7 +890,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                     <div x-data="{ open: false }" x-on:click.away="open = false" class="relative">
                                         <flux:input
                                             wire:model.live.debounce.300ms="memberSearch"
-                                            placeholder="Search members..."
+                                            placeholder="Search organisations..."
                                             x-on:focus="open = true"
                                             x-on:input="open = true"
                                             autocomplete="off"

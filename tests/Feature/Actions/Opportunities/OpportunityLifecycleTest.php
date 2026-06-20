@@ -12,8 +12,10 @@ use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Enums\DemandPhase;
 use App\Enums\LineItemTransactionType;
+use App\Enums\MembershipType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
+use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\Product;
 use App\Models\User;
@@ -21,6 +23,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Thunk\Verbs\Exceptions\EventNotValidForCurrentState;
 use Thunk\Verbs\Facades\Verbs;
 use Thunk\Verbs\Models\VerbEvent;
@@ -384,4 +387,114 @@ it('round-trips money input into integer minor units', function () {
     // And the response DTO emits it as a decimal string.
     expect($fromString->charge_total)->toBe('125.50')
         ->and($fromInt->charge_total)->toBe('125.50');
+});
+
+describe('B7 — opportunity customer must be an organisation', function () {
+    it('creates an opportunity with an Organisation member', function () {
+        $org = Member::factory()->organisation()->create();
+
+        $result = (new CreateOpportunity)(CreateOpportunityData::from([
+            'subject' => 'Org-backed opportunity',
+            'member_id' => $org->id,
+        ]));
+
+        expect($result->member_id)->toBe($org->id);
+        $this->assertDatabaseHas('opportunities', ['id' => $result->id, 'member_id' => $org->id]);
+    });
+
+    it('rejects creating an opportunity with a non-organisation member via the action', function (string $state) {
+        $member = Member::factory()->{$state}()->create();
+
+        expect(fn () => (new CreateOpportunity)(CreateOpportunityData::from([
+            'subject' => 'Bad customer',
+            'member_id' => $member->id,
+        ])))
+            ->toThrow(
+                ValidationException::class,
+                'The opportunity customer must be an organisation.',
+            );
+
+        // The genesis event must NOT have been committed.
+        $this->assertDatabaseMissing('opportunities', ['subject' => 'Bad customer']);
+    })->with(['contact', 'venue', 'user']);
+
+    it('rejects creating an opportunity with a member_id that does not exist', function () {
+        expect(fn () => (new CreateOpportunity)(CreateOpportunityData::from([
+            'subject' => 'Ghost customer',
+            'member_id' => 999999,
+        ])))->toThrow(ValidationException::class, 'The opportunity customer must be an organisation.');
+    });
+
+    it('rejects the CreateOpportunityData DTO validation for a non-organisation member', function () {
+        $contact = Member::factory()->contact()->create();
+
+        expect(fn () => CreateOpportunityData::validate([
+            'subject' => 'DTO check',
+            'member_id' => $contact->id,
+        ]))->toThrow(ValidationException::class);
+
+        // An organisation member passes DTO validation.
+        $org = Member::factory()->organisation()->create();
+        $validated = CreateOpportunityData::validate(['subject' => 'DTO ok', 'member_id' => $org->id]);
+        expect($validated['member_id'])->toBe($org->id);
+    });
+
+    it('allows changing the customer to another Organisation via update', function () {
+        $org = Member::factory()->organisation()->create();
+        $newOrg = Member::factory()->organisation()->create();
+
+        $opportunity = Opportunity::query()->whereKey(
+            (new CreateOpportunity)(CreateOpportunityData::from([
+                'subject' => 'Switchable',
+                'member_id' => $org->id,
+            ]))->id
+        )->firstOrFail();
+
+        $result = (new UpdateOpportunity)($opportunity, UpdateOpportunityData::from([
+            'member_id' => $newOrg->id,
+        ]));
+
+        expect($result->member_id)->toBe($newOrg->id);
+    });
+
+    it('rejects changing the customer to a non-organisation via update', function () {
+        $org = Member::factory()->organisation()->create();
+        $contact = Member::factory()->contact()->create();
+
+        $opportunity = Opportunity::query()->whereKey(
+            (new CreateOpportunity)(CreateOpportunityData::from([
+                'subject' => 'Locked customer',
+                'member_id' => $org->id,
+            ]))->id
+        )->firstOrFail();
+
+        expect(fn () => (new UpdateOpportunity)($opportunity, UpdateOpportunityData::from([
+            'member_id' => $contact->id,
+        ])))->toThrow(
+            ValidationException::class,
+            'The opportunity customer must be an organisation.',
+        );
+
+        // The customer is unchanged.
+        expect($opportunity->refresh()->member_id)->toBe($org->id);
+    });
+
+    it('leaves the customer unchanged on an update that omits member_id', function () {
+        $org = Member::factory()->organisation()->create();
+
+        $opportunity = Opportunity::query()->whereKey(
+            (new CreateOpportunity)(CreateOpportunityData::from([
+                'subject' => 'Untouched customer',
+                'member_id' => $org->id,
+            ]))->id
+        )->firstOrFail();
+
+        (new UpdateOpportunity)($opportunity, UpdateOpportunityData::from(['reference' => 'PO-NEW']));
+
+        expect($opportunity->refresh()->member_id)->toBe($org->id);
+    });
+
+    it('confirms the membership type used is Organisation', function () {
+        expect(MembershipType::Organisation->value)->toBe('organisation');
+    });
 });

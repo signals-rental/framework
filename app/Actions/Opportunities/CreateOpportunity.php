@@ -5,6 +5,7 @@ namespace App\Actions\Opportunities;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
+use App\Enums\MembershipType;
 use App\Models\Address;
 use App\Models\Member;
 use App\Models\Opportunity;
@@ -26,6 +27,11 @@ class CreateOpportunity
     public function __invoke(CreateOpportunityData $data): OpportunityData
     {
         Gate::authorize('opportunities.create');
+
+        // Authoritative customer-type guard: the opportunity customer must be an
+        // Organisation member. The DTO scopes the exists rule too, but ::rules() is
+        // called context-free on the manual validate() path, so this is the real gate.
+        $this->assertMemberIsOrganisation($data->member_id);
 
         // Authoritative IDOR guard: a supplied delivery/collection address must
         // belong to this opportunity's member. The DTO scopes the exists rule too,
@@ -146,6 +152,30 @@ class CreateOpportunity
                     $field => ['The selected address does not belong to this opportunity\'s member.'],
                 ]);
             }
+        }
+    }
+
+    /**
+     * Assert that the supplied opportunity customer (when one is set) is an
+     * Organisation member. A Contact/User/Venue — or a missing member — is rejected
+     * with a 422 so an opportunity cannot be created against a non-organisation
+     * customer. A null member_id is allowed (the header customer is optional).
+     */
+    private function assertMemberIsOrganisation(?int $memberId): void
+    {
+        if ($memberId === null) {
+            return;
+        }
+
+        $isOrganisation = Member::query()
+            ->whereKey($memberId)
+            ->where('membership_type', MembershipType::Organisation->value)
+            ->exists();
+
+        if (! $isOrganisation) {
+            throw ValidationException::withMessages([
+                'member_id' => ['The opportunity customer must be an organisation.'],
+            ]);
         }
     }
 

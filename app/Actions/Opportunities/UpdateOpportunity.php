@@ -5,6 +5,7 @@ namespace App\Actions\Opportunities;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
+use App\Enums\MembershipType;
 use App\Models\Address;
 use App\Models\Member;
 use App\Models\Opportunity;
@@ -61,6 +62,11 @@ class UpdateOpportunity
         Gate::authorize('opportunities.edit');
 
         $provided = $this->providedFields($data);
+
+        // Authoritative customer-type guard: when the customer is being changed
+        // (member_id supplied, non-null = "set this member"), it must be an
+        // Organisation. member_id null = leave unchanged, so no re-check is needed.
+        $this->assertMemberIsOrganisation($data->member_id);
 
         // Authoritative IDOR guard: a supplied delivery/collection address must
         // belong to the opportunity's member. When the member is being changed in
@@ -160,6 +166,30 @@ class UpdateOpportunity
                     $field => ['The selected address does not belong to this opportunity\'s member.'],
                 ]);
             }
+        }
+    }
+
+    /**
+     * Assert that a newly-supplied opportunity customer is an Organisation member.
+     * A null member_id means "leave unchanged" on this update path and is skipped;
+     * a non-null value that is not an Organisation (Contact/User/Venue, or missing)
+     * is rejected with a 422.
+     */
+    private function assertMemberIsOrganisation(?int $memberId): void
+    {
+        if ($memberId === null) {
+            return;
+        }
+
+        $isOrganisation = Member::query()
+            ->whereKey($memberId)
+            ->where('membership_type', MembershipType::Organisation->value)
+            ->exists();
+
+        if (! $isOrganisation) {
+            throw ValidationException::withMessages([
+                'member_id' => ['The opportunity customer must be an organisation.'],
+            ]);
         }
     }
 

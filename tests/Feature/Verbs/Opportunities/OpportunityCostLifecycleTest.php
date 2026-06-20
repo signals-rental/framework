@@ -51,7 +51,7 @@ function wireCostTax(): Member
         'is_active' => true,
     ]);
 
-    return Member::factory()->create(['sale_tax_class_id' => $orgClass->id]);
+    return Member::factory()->organisation()->create(['sale_tax_class_id' => $orgClass->id]);
 }
 
 /**
