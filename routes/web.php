@@ -114,18 +114,25 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     // route so /opportunities/create is never matched as an opportunity id.
     Volt::route('opportunities', 'opportunities.index')->name('opportunities.index');
     Volt::route('opportunities/create', 'opportunities.form')->name('opportunities.create');
-    Volt::route('opportunities/{opportunity}', 'opportunities.show')->name('opportunities.show');
-    Volt::route('opportunities/{opportunity}/edit', 'opportunities.form')->name('opportunities.edit');
+    // The Show page + all of its sub-tabs/edit resolve the {opportunity} binding
+    // with ->withTrashed() so ARCHIVED (soft-deleted) opportunities remain viewable
+    // (read-only, with a Restore action) rather than 404'ing. Mutating an archived
+    // record is blocked at the action layer; the Show header surfaces an archived
+    // banner + Restore.
+    Volt::route('opportunities/{opportunity}', 'opportunities.show')->name('opportunities.show')->withTrashed();
+    Volt::route('opportunities/{opportunity}/edit', 'opportunities.form')->name('opportunities.edit')->withTrashed();
     // Show sub-page tabs (M8-2), mirroring the Products tab convention — one Volt
-    // page per tab, each @include-ing the shared header + tabs partials.
-    // The Versions tab (M8-5) and Availability/Shortage tab (M8-4) slot in here later.
-    Volt::route('opportunities/{opportunity}/items', 'opportunities.items')->name('opportunities.items');
-    Volt::route('opportunities/{opportunity}/costs', 'opportunities.costs')->name('opportunities.costs');
-    Volt::route('opportunities/{opportunity}/shortages', 'opportunities.shortages')->name('opportunities.shortages');
-    Volt::route('opportunities/{opportunity}/versions', 'opportunities.versions')->name('opportunities.versions');
-    Volt::route('opportunities/{opportunity}/activities', 'opportunities.activities')->name('opportunities.activities');
-    Volt::route('opportunities/{opportunity}/custom-fields', 'opportunities.custom-fields')->name('opportunities.custom-fields');
-    Volt::route('opportunities/{opportunity}/files', 'opportunities.files')->name('opportunities.files');
+    // page per tab, each @include-ing the shared header + tabs partials. The Overview
+    // page embeds the line-item editor (no standalone "items" route) and the
+    // "Versions & Timeline" tab folds in the activity timeline (no standalone
+    // "activities" route) — see the show-page restructure. All resolve withTrashed()
+    // so an archived opportunity's tabs remain reachable.
+    Volt::route('opportunities/{opportunity}/assets', 'opportunities.assets')->name('opportunities.assets')->withTrashed();
+    Volt::route('opportunities/{opportunity}/costs', 'opportunities.costs')->name('opportunities.costs')->withTrashed();
+    Volt::route('opportunities/{opportunity}/shortages', 'opportunities.shortages')->name('opportunities.shortages')->withTrashed();
+    Volt::route('opportunities/{opportunity}/versions', 'opportunities.versions')->name('opportunities.versions')->withTrashed();
+    Volt::route('opportunities/{opportunity}/custom-fields', 'opportunities.custom-fields')->name('opportunities.custom-fields')->withTrashed();
+    Volt::route('opportunities/{opportunity}/files', 'opportunities.files')->name('opportunities.files')->withTrashed();
 
     // Availability
     //

@@ -64,9 +64,10 @@ it('renders the editable items tab for an editor', function () {
     $this->actingAs($this->owner);
 
     // The "+ Section" toolbar button is only rendered when the component is editable.
+    // (The editor is now embedded in the Overview, so it no longer renders the
+    // standalone page header — "+ Section" uniquely identifies the editable render.)
     Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->assertOk()
-        ->assertSee('Line Items')
         ->assertSee('+ Section');
 });
 
@@ -86,10 +87,11 @@ it('renders read-only (non-editable) for a view-only user', function () {
     $viewer->givePermissionTo('opportunities.access', 'opportunities.view');
     $this->actingAs($viewer);
 
-    // A view-only user gets the read-only render: no editor toolbar.
+    // A view-only user gets the read-only render: no editor toolbar. The embedded
+    // editor renders the empty-state body (no page header) for an item-less opp.
     Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->assertOk()
-        ->assertSee('Line Items')
+        ->assertSee('No line items')
         ->assertDontSee('+ Section');
 });
 
@@ -193,7 +195,10 @@ it('creates a section and assigns a line to it', function () {
 
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
-        ->call('createSection', 'Front of House')
+        // createSection() reads the bound $newSectionName property (bug #2 fix —
+        // it no longer takes the name as a call argument).
+        ->set('newSectionName', 'Front of House')
+        ->call('createSection')
         ->assertHasNoErrors();
 
     $section = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
@@ -206,6 +211,42 @@ it('creates a section and assigns a line to it', function () {
     expect($item->fresh()->section_id)->toBe($section->id);
 });
 
+it('creates a section from the bound newSectionName property (bug #2)', function () {
+    // The "New section" modal's Create button does `wire:click="createSection"`,
+    // reading the wire:model-bound $newSectionName. Pre-fix the button did nothing
+    // because the name lived only in an Alpine binding outside the modal's x-data.
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->set('newSectionName', 'Backstage')
+        ->call('createSection')
+        ->assertHasNoErrors();
+
+    expect(OpportunitySection::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('name', 'Backstage')
+        ->exists())->toBeTrue();
+
+    // The field is cleared after a successful create.
+    $component->assertSet('newSectionName', '');
+});
+
+it('does not create a section for an empty or whitespace-only name (bug #2)', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->set('newSectionName', '   ')
+        ->call('createSection')
+        ->assertHasNoErrors();
+
+    expect(OpportunitySection::query()->where('opportunity_id', $opportunity->id)->exists())
+        ->toBeFalse();
+});
+
 it('groups an assigned line under its custom section in the rendered editor', function () {
     $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
     $product = Product::factory()->create(['name' => 'Sectioned Product']);
@@ -214,7 +255,8 @@ it('groups an assigned line under its custom section in the rendered editor', fu
 
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
-        ->call('createSection', 'Stage Left');
+        ->set('newSectionName', 'Stage Left')
+        ->call('createSection');
 
     $section = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
     $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();

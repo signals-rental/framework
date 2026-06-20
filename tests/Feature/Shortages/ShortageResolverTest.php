@@ -10,8 +10,10 @@ use App\Models\AvailabilityEvent;
 use App\Models\Demand;
 use App\Models\OpportunityItem;
 use App\Models\Product;
+use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Shortages\Resolvers\DateShiftResolver;
 use App\Services\Shortages\Resolvers\PartialFulfilmentResolver;
 use App\Services\Shortages\Resolvers\QuoteReallocationResolver;
 use App\Services\Shortages\Resolvers\SubstitutionResolver;
@@ -282,4 +284,105 @@ it('emits a shortage.resolution.created event when a resolution is applied', fun
             ->where('source_type', 'shortage_resolution')
             ->exists()
     )->toBeTrue();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Bug #4 — DateShiftResolver reversed-window regression (Carbon-3 signed diff)
+|--------------------------------------------------------------------------
+|
+| Carbon 3's diffInSeconds is SIGNED. The resolver derived the shift duration
+| with `endsAt->diffInSeconds(startsAt)` which is NEGATIVE for a forward window,
+| so each candidate window was built as `start->addSeconds(negative)` → end BEFORE
+| start. That reversed window was handed to AvailabilityService::availableForItem,
+| whose Demand::overlapping() scope builds `tstzrange(start, end)` on Postgres and
+| threw `SQLSTATE[22000] range lower bound must be less than or equal to range
+| upper bound`. The PG reproduction lives in tests/Pgsql; here we lock the
+| driver-agnostic logic: every candidate window must be forward (start <= end).
+*/
+
+it('builds only forward (start <= end) candidate windows for a valid shortage', function () {
+    // Real stock so the resolver actually returns options (it only offers a window
+    // where the full quantity is free) — exercising the metadata window builder.
+    $store = Store::factory()->create(['timezone' => 'UTC']);
+    $product = Product::factory()->rental()->bulk()->create(['track_availability' => true]);
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $store->id,
+        'quantity_held' => 10,
+    ]);
+    $item = OpportunityItem::factory()->create([
+        'item_type' => 'product',
+        'item_id' => $product->id,
+    ]);
+
+    $shortage = Shortage::make(
+        opportunityItemId: $item->id,
+        opportunityId: $item->opportunity_id,
+        productId: $product->id,
+        productName: $product->name,
+        storeId: $store->id,
+        requestedQuantity: 3,
+        availableQuantity: 1,
+        trackingType: StockMethod::Bulk,
+        startsAt: Carbon::parse('2026-07-10T09:00:00Z'),
+        endsAt: Carbon::parse('2026-07-12T17:00:00Z'),
+        isCritical: false,
+    );
+
+    $resolver = app(DateShiftResolver::class);
+
+    // Pre-fix this loop built reversed windows; the resolver must not throw and
+    // every returned window's shifted range must be forward.
+    $options = $resolver->getOptions($shortage);
+
+    expect($options)->not->toBeEmpty();
+
+    foreach ($options as $option) {
+        $start = Carbon::parse($option->metadata['shifted_starts_at']);
+        $end = Carbon::parse($option->metadata['shifted_ends_at']);
+
+        expect($start->lessThanOrEqualTo($end))->toBeTrue()
+            // The window must preserve the requested span (2 days 8 hours), proving
+            // the abs() duration is positive (a negative duration would collapse it).
+            ->and($start->diffInSeconds($end, absolute: true))->toBe(
+                Carbon::parse('2026-07-10T09:00:00Z')->diffInSeconds('2026-07-12T17:00:00Z', absolute: true),
+            );
+    }
+});
+
+it('runs getOptions for a single-day (today→tomorrow) shortage without throwing', function () {
+    // The demo opportunity had NULL dates, defaulting to a today→tomorrow window —
+    // the exact case that previously produced the reversed tstzrange.
+    $store = Store::factory()->create(['timezone' => 'UTC']);
+    $product = Product::factory()->rental()->bulk()->create(['track_availability' => true]);
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $store->id,
+        'quantity_held' => 5,
+    ]);
+    $item = OpportunityItem::factory()->create([
+        'item_type' => 'product',
+        'item_id' => $product->id,
+    ]);
+
+    $today = Carbon::today('UTC')->setTime(9, 0);
+
+    $shortage = Shortage::make(
+        opportunityItemId: $item->id,
+        opportunityId: $item->opportunity_id,
+        productId: $product->id,
+        productName: $product->name,
+        storeId: $store->id,
+        requestedQuantity: 2,
+        availableQuantity: 0,
+        trackingType: StockMethod::Bulk,
+        startsAt: $today->copy(),
+        endsAt: $today->copy()->addDay(),
+        isCritical: false,
+    );
+
+    $resolver = app(DateShiftResolver::class);
+
+    expect(fn () => $resolver->getOptions($shortage))->not->toThrow(Throwable::class);
 });

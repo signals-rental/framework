@@ -71,7 +71,9 @@ class DateShiftResolver extends AbstractShortageResolver
             return [];
         }
 
-        $durationSeconds = $shortage->endsAt->diffInSeconds($shortage->startsAt);
+        // diffInSeconds is signed in Carbon 3 — take the absolute span so a shifted
+        // window never ends before it starts (which would build an invalid tstzrange).
+        $durationSeconds = abs($shortage->startsAt->diffInSeconds($shortage->endsAt));
         $options = [];
 
         foreach ($this->candidateOffsets() as $offsetDays) {

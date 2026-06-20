@@ -14,6 +14,7 @@ use App\Data\Opportunities\VersionDiffData;
 use App\Enums\OpportunityState;
 use App\Enums\VersionStatus;
 use App\Enums\VersionType;
+use App\Livewire\Concerns\HasActivityActions;
 use App\Models\Opportunity;
 use App\Models\OpportunityVersion;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -44,6 +45,8 @@ use Livewire\Volt\Component;
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
+    use HasActivityActions;
+
     public Opportunity $opportunity;
 
     /** Whether the actor may mutate versions (vs a read-only view). */
@@ -82,7 +85,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function rendering(View $view): void
     {
-        $view->title($this->opportunity->subject.' — Versions');
+        $view->title($this->opportunity->subject.' — Versions & Timeline');
     }
 
     /**
@@ -320,12 +323,15 @@ new #[Layout('components.layouts.app')] class extends Component
             'versions' => $versions,
             'versionCount' => $versions->count(),
             'diff' => $this->diff($versions),
+            // Activity timeline (folded in from the former standalone Activities tab).
+            'activityColumns' => $this->activityColumns(),
+            'activityScopes' => ['forOpportunity' => $this->opportunity->id],
         ];
     }
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Versions'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Versions & Timeline'])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'versions'])
 
     @php
@@ -352,6 +358,15 @@ new #[Layout('components.layouts.app')] class extends Component
                 {{ __('Versions can only be edited while the opportunity is a Quotation. They are read-only in the current state.') }}
             </x-signals.alert>
         @endunless
+
+        {{-- ============================================================ --}}
+        {{--  TWO-COLUMN LAYOUT — versions LEFT, timeline RIGHT.           --}}
+        {{--  Collapses to a single stacked column on small screens.      --}}
+        {{-- ============================================================ --}}
+        <div class="grid grid-cols-[1fr_minmax(320px,28rem)] items-start gap-6 max-lg:grid-cols-1">
+
+        {{-- ---------- LEFT: version tree + diff ---------- --}}
+        <div class="min-w-0 space-y-6">
 
         {{-- ============================================================ --}}
         {{--  VERSION TREE (revisions + alternatives, active marked)       --}}
@@ -550,6 +565,40 @@ new #[Layout('components.layouts.app')] class extends Component
                 @endif
             </x-signals.panel>
         @endif
+
+        </div>{{-- /LEFT column --}}
+
+        {{-- ---------- RIGHT: activity timeline ---------- --}}
+        <div class="min-w-0 space-y-6">
+
+        {{-- ============================================================ --}}
+        {{--  TIMELINE (folded in from the former Activities tab)          --}}
+        {{-- ============================================================ --}}
+        <x-signals.panel title="{{ __('Timeline') }}">
+            <x-slot:headerActions>
+                <a href="{{ route('activities.create', ['regarding_type' => 'Opportunity', 'regarding_id' => $opportunity->id]) }}" wire:navigate class="s-btn s-btn-sm s-btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    {{ __('New Activity') }}
+                </a>
+            </x-slot:headerActions>
+
+            <livewire:components.data-table
+                :columns="$activityColumns"
+                :model="\App\Models\Activity::class"
+                :searchable="['subject']"
+                :with="['owner']"
+                :scopes="$activityScopes"
+                :refresh-events="['activity-completed', 'activity-deleted']"
+                default-sort="-created_at"
+                empty-message="No activities for this opportunity."
+                actions-view="livewire.activities.partials.row-actions"
+                :key="'opportunity-activities-' . $opportunity->id"
+            />
+        </x-signals.panel>
+
+        </div>{{-- /RIGHT column --}}
+
+        </div>{{-- /two-column grid --}}
     </div>
 
     {{-- ============================================================ --}}

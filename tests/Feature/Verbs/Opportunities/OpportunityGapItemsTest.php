@@ -165,6 +165,14 @@ it('rebuilds the clone identically on replay', function () {
         ->and($itemsAfter)->toEqual($itemsBefore);
 });
 
+it('appends (cloned) to the cloned opportunity subject', function () {
+    $source = makeGapOpportunity();
+
+    $clone = Opportunity::findOrFail((new CloneOpportunity)($source)->id);
+
+    expect($clone->subject)->toBe($source->subject.' (cloned)');
+});
+
 it('denies cloning without the create permission', function () {
     $source = makeGapOpportunity();
 

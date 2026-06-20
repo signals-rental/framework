@@ -19,9 +19,6 @@
     $status = $opportunity->statusEnum();
 @endphp
 <x-signals.page-header :title="$opportunity->subject">
-    <x-slot:icon>
-        <x-signals.entity-icon :model="$opportunity" :size="44" />
-    </x-slot:icon>
     <x-slot:breadcrumbs>
         <a href="{{ route('opportunities.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Opportunities</a>
         <span class="mx-1 text-[var(--text-muted)]">/</span>
@@ -63,8 +60,33 @@
                     'clone' => 'cloneOpportunity',
                     'delete' => 'archive',
                 ];
+                // Every Actions item requires confirmation before it fires (an extra
+                // gate on top of the guard/permission dry-run). Mirrors the index-page
+                // archive-confirm intent using Livewire's native wire:confirm so the
+                // dropdown-item action is blocked until the user accepts.
+                $actionConfirms = [
+                    'convert_to_quotation' => __('Convert this opportunity to a quotation?'),
+                    'convert_to_order' => __('Convert this quotation to an order? Reserved demand becomes confirmed.'),
+                    'reinstate' => __('Reinstate this opportunity?'),
+                    'revert_to_quotation' => __('Revert this order back to a quotation?'),
+                    'unlock_locks' => __('Release the FX/tax locks on this opportunity? Rates will be recalculated.'),
+                    'clone' => __('Clone this opportunity into a new draft?'),
+                    'delete' => __('Archive this opportunity? It can be restored later.'),
+                ];
             @endphp
             <x-signals.split-button label="Actions" size="sm">
+                @if($canChangeStatus ?? false)
+                    <button
+                        type="button"
+                        x-on:click="open = false; $dispatch('open-modal', 'change-status')"
+                        class="s-dropdown-item"
+                        style="width: 100%; text-align: left;"
+                        wire:key="action-change-status"
+                    >
+                        Change status…
+                    </button>
+                    <div class="s-dropdown-divider"></div>
+                @endif
                 @foreach(($availableActions ?? []) as $action)
                     @php $method = $actionMethods[$action['key']] ?? null; @endphp
                     @if($action['key'] === 'clone')
@@ -74,6 +96,7 @@
                         <button
                             type="button"
                             wire:click="{{ $method }}"
+                            wire:confirm="{{ $actionConfirms[$action['key']] ?? __('Are you sure?') }}"
                             x-on:click="open = false"
                             class="s-dropdown-item"
                             style="width: 100%; text-align: left;"

@@ -444,6 +444,12 @@ class AvailabilityService
         string $excludeSourceType,
         int $excludeSourceId,
     ): int {
+        // Defensive: a reversed window (from > to) would build an invalid
+        // tstzrange and throw at the DB — normalise the bounds.
+        if ($from->greaterThan($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
         $product = Product::query()->find($productId);
 
         if ($product === null) {

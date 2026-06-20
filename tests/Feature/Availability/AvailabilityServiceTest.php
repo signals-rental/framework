@@ -192,6 +192,49 @@ describe('checkAvailability', function () {
     });
 });
 
+describe('availableForItem reversed-window guard (bug #4)', function () {
+    // The DateShiftResolver could hand availableForItem a reversed window (from >
+    // to) when Carbon-3's signed diff produced a negative duration. On Postgres
+    // that built `tstzrange(lower, upper)` with lower > upper and threw
+    // SQLSTATE[22000]. availableForItem now normalises the bounds defensively so a
+    // reversed window never reaches the DB — this guard is driver-agnostic.
+    beforeEach(function () {
+        $this->product = Product::factory()->bulk()->create();
+        StockLevel::factory()->bulk()->create([
+            'product_id' => $this->product->id,
+            'store_id' => $this->store->id,
+            'quantity_held' => 8,
+        ]);
+        makeDemand($this->product->id, $this->store->id, 3, '2026-05-10T09:00:00Z', '2026-05-12T17:00:00Z');
+    });
+
+    it('returns the same figure for a reversed window as for its forward equivalent', function () {
+        $from = Carbon::parse('2026-05-10T09:00:00Z');
+        $to = Carbon::parse('2026-05-12T17:00:00Z');
+
+        $forward = $this->service->availableForItem(
+            $this->product->id, $this->store->id, $from, $to, 'opportunity_item', 999999,
+        );
+
+        // Same window, bounds swapped — must be normalised, not throw, not differ.
+        $reversed = $this->service->availableForItem(
+            $this->product->id, $this->store->id, $to, $from, 'opportunity_item', 999999,
+        );
+
+        expect($reversed)->toBe($forward)
+            ->and($forward)->toBe(5); // 8 held - 3 demanded
+    });
+
+    it('does not throw for a reversed window', function () {
+        $from = Carbon::parse('2026-05-10T09:00:00Z');
+        $to = Carbon::parse('2026-05-12T17:00:00Z');
+
+        expect(fn () => $this->service->availableForItem(
+            $this->product->id, $this->store->id, $to, $from, 'opportunity_item', 999999,
+        ))->not->toThrow(Throwable::class);
+    });
+});
+
 describe('deferred methods', function () {
     it('returns a store-wide shortage sweep (implemented in P2)', function () {
         // getShortages was a BadMethodCallException stub until P2 implemented the

@@ -16,7 +16,10 @@
     }
 @endphp
 {{--
-    The Versions tab (M8-5) renders the quote-versioning UI; it is gated on
+    The Overview tab embeds the live line-item editor (the standalone "Line Items"
+    tab/route was removed in the show-page restructure). The "Versions & Timeline"
+    tab (M8-5) renders the quote-versioning UI alongside the activity timeline (the
+    standalone "Activities" tab/route was likewise removed); it is gated on
     `opportunities.view` (a version is an aspect of an opportunity, not a standalone
     resource) and carries the opportunity's `version_count` as its badge. The
     Shortages tab (M8-4c) is gated on `shortages.view` and only appears for users
@@ -25,15 +28,14 @@
 <x-signals.module-tabs
     :tabs="array_values(array_filter([
         ['name' => 'overview', 'label' => 'Overview', 'route' => route('opportunities.show', $opportunity)],
-        ['name' => 'items', 'label' => 'Line Items', 'route' => route('opportunities.items', $opportunity), 'count' => $opportunity->items_count ?? 0],
+        ['name' => 'assets', 'label' => 'Assets', 'route' => route('opportunities.assets', $opportunity)],
         \Illuminate\Support\Facades\Gate::allows('opportunities.view')
-            ? ['name' => 'versions', 'label' => 'Versions', 'route' => route('opportunities.versions', $opportunity), 'count' => $opportunity->version_count ?? 0]
+            ? ['name' => 'versions', 'label' => 'Versions & Timeline', 'route' => route('opportunities.versions', $opportunity), 'count' => $opportunity->version_count ?? 0]
             : null,
         \Illuminate\Support\Facades\Gate::allows('shortages.view')
             ? ['name' => 'shortages', 'label' => 'Shortages', 'route' => route('opportunities.shortages', $opportunity), 'count' => $shortageTabCount]
             : null,
         ['name' => 'costs', 'label' => 'Costs', 'route' => route('opportunities.costs', $opportunity), 'count' => $opportunity->costs_count ?? 0],
-        ['name' => 'activities', 'label' => 'Activities', 'route' => route('opportunities.activities', $opportunity)],
         ['name' => 'custom-fields', 'label' => 'Custom Fields', 'route' => route('opportunities.custom-fields', $opportunity)],
         ['name' => 'files', 'label' => 'Files', 'route' => route('opportunities.files', $opportunity), 'count' => $opportunity->attachments_count ?? 0],
     ]))"

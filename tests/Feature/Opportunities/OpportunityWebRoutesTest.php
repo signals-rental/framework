@@ -74,3 +74,47 @@ it('forbids the show placeholder for a user without opportunities.view', functio
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity])->assertForbidden();
 });
+
+it('shows an archived (soft-deleted) opportunity instead of 404ing', function () {
+    // Regression: the Show route binding excluded trashed rows, so an archived
+    // opportunity 404'd. The binding now resolves ->withTrashed(); the HTTP request
+    // (which runs route-model binding, unlike Volt::test) must return 200, surface
+    // the archived banner, and offer Restore.
+    $opportunity = Opportunity::factory()->create(['subject' => 'Archived Opportunity']);
+    $opportunity->delete();
+
+    expect($opportunity->fresh()->trashed())->toBeTrue();
+
+    $this->actingAs($this->owner);
+
+    $this->get(route('opportunities.show', $opportunity->id))
+        ->assertOk()
+        ->assertSee('Archived Opportunity')
+        ->assertSee('This opportunity is archived')
+        ->assertSee('Restore');
+});
+
+it('keeps an archived opportunity read-only — no transition actions, only Restore', function () {
+    $opportunity = Opportunity::factory()->create();
+    $opportunity->delete();
+
+    $this->actingAs($this->owner);
+
+    // While archived the transition actions + status picker are suppressed; the
+    // only mutating affordance is Restore (gated on opportunities.delete).
+    Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
+        ->assertOk()
+        ->assertViewHas('isArchived', true)
+        ->assertViewHas('canRestore', true)
+        ->assertViewHas('availableActions', [])
+        ->assertViewHas('canChangeStatus', false);
+});
+
+it('renders an archived opportunity sub-tab (versions) instead of 404ing', function () {
+    $opportunity = Opportunity::factory()->create();
+    $opportunity->delete();
+
+    $this->actingAs($this->owner);
+
+    $this->get(route('opportunities.versions', $opportunity->id))->assertOk();
+});

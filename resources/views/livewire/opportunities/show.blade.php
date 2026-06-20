@@ -1,18 +1,20 @@
 <?php
 
+use App\Actions\Opportunities\ChangeOpportunityStatus;
 use App\Actions\Opportunities\CloneOpportunity;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\DeleteOpportunity;
 use App\Actions\Opportunities\ReinstateOpportunity;
+use App\Actions\Opportunities\RestoreOpportunity;
 use App\Actions\Opportunities\RevertToQuotation;
 use App\Actions\Opportunities\UnlockOpportunity;
 use App\Enums\AssetAssignmentStatus;
 use App\Enums\OpportunityState;
+use App\Enums\OpportunityStatus;
 use App\Guards\Opportunities\GuardPipeline;
 use App\Guards\Opportunities\Rules\ShortageConfirmationRule;
 use App\Guards\Opportunities\TransitionContext;
-use App\Livewire\Concerns\HasAuditTimeline;
 use App\Models\Opportunity;
 use App\Models\OpportunityItemAsset;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -35,15 +37,13 @@ use Livewire\Volt\Component;
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
-    use HasAuditTimeline;
-
     public Opportunity $opportunity;
 
     public function mount(Opportunity $opportunity): void
     {
         Gate::authorize('opportunities.view');
 
-        $this->opportunity = $opportunity->load(['member', 'venue', 'store', 'owner', 'items']);
+        $this->opportunity = $opportunity->load(['member', 'venue', 'store', 'owner', 'activeVersion']);
     }
 
     public function rendering(View $view): void
@@ -94,6 +94,53 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->runTransition(fn () => (new UnlockOpportunity)($this->opportunity, null));
     }
 
+    /**
+     * Move the opportunity to a different status WITHIN its current state (the
+     * change_status picker). The legal candidates are derived generically from the
+     * OpportunityStatus enum (every status of the current state, minus the current
+     * one) — never a hardcoded named matrix; the OpportunityStatusChanged event's
+     * own invariants (closed, cancel-with-stock-out, complete-with-unreturned)
+     * remain the source of truth and surface as a flashed 422.
+     */
+    public function changeStatus(int $status): void
+    {
+        $target = OpportunityStatus::tryFrom($this->opportunity->state->value * 100 + $status);
+
+        if ($target === null || $target->state() !== $this->opportunity->state) {
+            session()->flash('error', 'The given status is not valid for the opportunity\'s current state.');
+
+            return;
+        }
+
+        $this->runTransition(fn () => (new ChangeOpportunityStatus)($this->opportunity, $target));
+
+        $this->dispatch('close-modal', 'change-status');
+    }
+
+    /**
+     * The legal target statuses for the change_status picker: every status that
+     * belongs to the opportunity's current state, except the current one. Derived
+     * from the enum so configurable/custom statuses are inherited automatically.
+     * Empty when the opportunity is closed (no status moves are permitted).
+     *
+     * @return list<array{value: int, label: string}>
+     */
+    protected function statusOptions(): array
+    {
+        if ($this->opportunity->statusEnum()->isClosed()) {
+            return [];
+        }
+
+        $state = $this->opportunity->state;
+        $current = $this->opportunity->statusEnum();
+
+        return collect(OpportunityStatus::cases())
+            ->filter(fn (OpportunityStatus $s): bool => $s->state() === $state && $s !== $current)
+            ->map(fn (OpportunityStatus $s): array => ['value' => $s->statusValue(), 'label' => $s->label()])
+            ->values()
+            ->all();
+    }
+
     public function cloneOpportunity(): mixed
     {
         try {
@@ -129,6 +176,24 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 
     /**
+     * Restore (un-archive) a soft-deleted opportunity. Archived opportunities remain
+     * viewable (the route binding resolves withTrashed()) but are read-only except
+     * for this Restore. On success the projection is refreshed in place so the
+     * archived banner clears and the normal actions return.
+     */
+    public function restore(): void
+    {
+        try {
+            (new RestoreOpportunity)($this->opportunity);
+            $this->opportunity->refresh();
+        } catch (AuthorizationException $e) {
+            session()->flash('error', 'You do not have permission to restore this opportunity.');
+        } catch (ValidationException $e) {
+            session()->flash('error', collect($e->errors())->flatten()->first() ?? 'Unable to restore the opportunity.');
+        }
+    }
+
+    /**
      * Run a state-transition action, catching the user-facing failures the action
      * classes raise (authorisation 403s and guard/shortage 422s) and flashing the
      * first message. On success the projection is refreshed in place; with()
@@ -149,36 +214,29 @@ new #[Layout('components.layouts.app')] class extends Component
     }
 
     /**
-     * Opportunity timeline colours: lifecycle progressions read green, terminal /
-     * destructive events red, within-state changes blue.
-     *
-     * @return array<string, list<string>>
-     */
-    protected function timelineColorMap(): array
-    {
-        return [
-            'green' => ['.created', '.quoted', '.converted_to_order', '.reinstated', '.restored'],
-            'red' => ['.deleted', '.cancelled', '.lost', '.dead'],
-            'blue' => ['.updated', '.status_changed', '.reverted_to_quotation'],
-        ];
-    }
-
-    /**
      * @return array<string, mixed>
      */
     public function with(): array
     {
+        // An archived (soft-deleted) opportunity is READ-ONLY: the only mutating
+        // affordance is Restore. Suppress the transition actions + status picker so
+        // the UI matches the action-layer guards.
+        $isArchived = $this->opportunity->trashed();
+
         return [
-            'availableActions' => $this->buildAvailableActions(),
-            'timeline' => $this->auditTimelineFor($this->opportunity),
+            'isArchived' => $isArchived,
+            'canRestore' => $isArchived && Gate::allows('opportunities.delete'),
+            'availableActions' => $isArchived ? [] : $this->buildAvailableActions(),
+            'statusOptions' => $isArchived ? [] : $this->statusOptions(),
+            'canChangeStatus' => ! $isArchived && Gate::allows('opportunities.edit') && ! $this->opportunity->statusEnum()->isClosed(),
         ];
     }
 
     /**
      * The subset of state-transition actions the Show UI surfaces, computed the
-     * same way as OpportunityController::availableActions. change_status and
-     * dispatch are intentionally omitted — those are not simple menu items here
-     * (status-change UI + dispatch flows land in later milestones).
+     * same way as OpportunityController::availableActions. change_status is a
+     * separate picker (it opens the change-status modal rather than firing a single
+     * transition); the dispatch/fulfilment flows live on the Assets tab.
      *
      * @return list<array{key: string, label: string, allowed: bool, reason: string|null, code: string|null}>
      */
@@ -298,9 +356,31 @@ new #[Layout('components.layouts.app')] class extends Component
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'showActions' => true])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
 
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'overview'])
+
+    {{-- Archived (soft-deleted) opportunities are viewable but read-only. Surface a
+         clear banner + a Restore action; the transition actions/status picker are
+         suppressed in with() while archived. --}}
+    @if($isArchived)
+        <div class="px-6 pt-4 max-md:px-5 max-sm:px-3">
+            <x-signals.alert type="warning">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <span>{{ __('This opportunity is archived. It is read-only until restored.') }}</span>
+                    @if($canRestore)
+                        <button type="button"
+                                wire:click="restore"
+                                wire:confirm="{{ __('Restore this opportunity? It will become active and editable again.') }}"
+                                class="s-btn s-btn-sm s-btn-outline-green shrink-0">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                            {{ __('Restore') }}
+                        </button>
+                    @endif
+                </div>
+            </x-signals.alert>
+        </div>
+    @endif
 
     @if(session('error'))
         <div class="px-6 pt-4 max-md:px-5 max-sm:px-3">
@@ -317,18 +397,37 @@ new #[Layout('components.layouts.app')] class extends Component
             default => 's-badge-zinc',
         };
         $status = $opportunity->statusEnum();
+
+        // Active quote version (if the opportunity has been split into versions).
+        // Surfaced under "Number" in Key Attributes as `v{n}` + its timestamp.
+        $activeVersion = $opportunity->activeVersion;
+        $versionRow = $activeVersion
+            ? ['label' => 'Version', 'value' => 'v'.$activeVersion->version_number.($activeVersion->created_at ? ' · '.$activeVersion->created_at->format('d M Y') : '')]
+            : null;
     @endphp
 
-    {{-- 3-column layout --}}
-    <div class="grid grid-cols-[240px_1fr_280px] gap-6 px-6 py-4 max-lg:grid-cols-[240px_1fr] max-md:grid-cols-1 max-md:px-5 max-sm:px-3">
+    {{-- 2-column layout: ~25% Key-Attributes sidebar + ~75% live line-item editor. --}}
+    <div class="grid grid-cols-[minmax(240px,1fr)_3fr] gap-6 px-6 py-4 max-md:grid-cols-1 max-md:px-5 max-sm:px-3">
 
         {{-- ============================================================ --}}
-        {{-- LEFT SIDEBAR --}}
+        {{-- LEFT SIDEBAR — totals, key attributes, dates, member         --}}
         {{-- ============================================================ --}}
-        <div class="space-y-6">
+        <div class="min-w-0 space-y-6">
+            {{-- Compact totals stacked ABOVE Key Attributes (the live ex-tax breakdown
+                 also renders in the editor footer; this keeps the headline figures
+                 visible alongside attributes). --}}
+            <x-signals.panel title="Totals">
+                <x-signals.data-list layout="vertical" :items="[
+                    ['label' => 'Charge Total', 'value' => $formatter->money($opportunity->charge_total ?? 0), 'mono' => true],
+                    ['label' => 'Excl. Tax', 'value' => $formatter->money($opportunity->charge_excluding_tax_total ?? 0), 'mono' => true],
+                    ['label' => 'Tax', 'value' => $formatter->money($opportunity->tax_total ?? 0), 'mono' => true],
+                ]" />
+            </x-signals.panel>
+
             <x-signals.panel title="Key Attributes">
                 <x-signals.data-list layout="vertical" :items="array_filter([
                     $opportunity->number ? ['label' => 'Number', 'value' => $opportunity->number, 'mono' => true] : null,
+                    $versionRow,
                     $opportunity->reference ? ['label' => 'Reference', 'value' => $opportunity->reference] : null,
                     ['label' => 'State', 'value' => $opportunity->state->label(), 'badge' => $stateBadgeClass],
                     ['label' => 'Status', 'value' => $status->label()],
@@ -337,78 +436,7 @@ new #[Layout('components.layouts.app')] class extends Component
                     ['label' => 'Updated', 'value' => $opportunity->updated_at?->format('d M Y') ?? '—'],
                 ])" />
             </x-signals.panel>
-        </div>
 
-        {{-- ============================================================ --}}
-        {{-- CENTER CONTENT --}}
-        {{-- ============================================================ --}}
-        <div class="space-y-6">
-            {{-- Totals --}}
-            <x-signals.stat-grid style="grid-template-columns: repeat(3, 1fr);">
-                <x-signals.stat-card color="green" label="Charge Total" :value="$formatter->money($opportunity->charge_total ?? 0)" />
-                <x-signals.stat-card color="blue" label="Excl. Tax" :value="$formatter->money($opportunity->charge_excluding_tax_total ?? 0)" />
-                <x-signals.stat-card color="amber" label="Tax" :value="$formatter->money($opportunity->tax_total ?? 0)" />
-            </x-signals.stat-grid>
-
-            {{-- Line items summary (read-only — full read-only tab is /items, the
-                 editable editor is M8-3). --}}
-            <x-signals.panel title="Line Items">
-                @if($opportunity->items->isNotEmpty())
-                    <x-signals.table-wrap>
-                        <table class="s-table">
-                            <thead>
-                                <tr>
-                                    <th>Item</th>
-                                    <th class="text-right">Qty</th>
-                                    <th class="text-right">Unit Price</th>
-                                    <th class="text-right">Line Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($opportunity->items as $item)
-                                    <tr wire:key="item-{{ $item->id }}">
-                                        <td>{{ $item->name }}</td>
-                                        <td class="text-right" style="font-family: var(--font-mono);">{{ rtrim(rtrim(number_format((float) $item->quantity, 2), '0'), '.') }}</td>
-                                        <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($item->unit_price ?? 0) }}</td>
-                                        <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($item->total ?? 0) }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </x-signals.table-wrap>
-                @else
-                    <p class="text-sm text-[var(--text-muted)]">No line items.</p>
-                @endif
-            </x-signals.panel>
-
-            {{-- Activity Timeline (live audit trail) --}}
-            <x-signals.panel title="Activity Timeline">
-                @if($timeline->isEmpty())
-                    <div class="text-sm text-[var(--text-muted)] py-4">No recorded activity for this opportunity yet.</div>
-                @else
-                    <x-signals.timeline>
-                        @foreach($timeline as $event)
-                            <x-signals.timeline-item
-                                :color="$event['color']"
-                                :title="$event['title']"
-                                :meta="$event['meta']"
-                                wire:key="timeline-{{ $loop->index }}"
-                            >
-                                @if($event['body'])
-                                    {{ $event['body'] }}
-                                @endif
-                            </x-signals.timeline-item>
-                        @endforeach
-                    </x-signals.timeline>
-                @endif
-            </x-signals.panel>
-        </div>
-
-        {{-- ============================================================ --}}
-        {{-- RIGHT SIDEBAR --}}
-        {{-- ============================================================ --}}
-        <div class="space-y-6 max-lg:col-span-full max-lg:grid max-lg:grid-cols-2 max-lg:gap-6 max-md:grid-cols-1">
-            {{-- Dates --}}
             <x-signals.panel title="Dates">
                 <x-signals.data-list layout="vertical" :items="[
                     ['label' => 'Starts', 'value' => $opportunity->starts_at ? $formatter->dateTime($opportunity->starts_at) : '—'],
@@ -418,7 +446,6 @@ new #[Layout('components.layouts.app')] class extends Component
                 ]" />
             </x-signals.panel>
 
-            {{-- Member & Store --}}
             <x-signals.panel title="Member & Store">
                 <x-signals.data-list layout="vertical" :items="array_filter([
                     $opportunity->member
@@ -430,5 +457,47 @@ new #[Layout('components.layouts.app')] class extends Component
                 ])" />
             </x-signals.panel>
         </div>
+
+        {{-- ============================================================ --}}
+        {{-- MAIN — the live line-item editor (nested Volt component) --}}
+        {{-- ============================================================ --}}
+        <div class="min-w-0">
+            <livewire:opportunities.items :opportunity="$opportunity" :key="'opp-items-'.$opportunity->id" />
+        </div>
     </div>
+
+    {{-- ============================================================ --}}
+    {{--  CHANGE-STATUS PICKER MODAL                                   --}}
+    {{--                                                               --}}
+    {{--  Offers the legal target statuses for the CURRENT state       --}}
+    {{--  (derived from the OpportunityStatus enum, never a hardcoded  --}}
+    {{--  matrix). Calls ChangeOpportunityStatus; an illegal move the  --}}
+    {{--  event guard rejects surfaces as a flashed 422.               --}}
+    {{-- ============================================================ --}}
+    @if($canChangeStatus)
+        <x-signals.modal name="change-status" title="{{ __('Change status') }}">
+            @if(empty($statusOptions))
+                <p class="text-sm text-[var(--text-muted)]">{{ __('There are no other statuses available for the current state.') }}</p>
+            @else
+                <p class="mb-3 text-sm text-[var(--text-muted)]">
+                    {{ __('Move this :state to a different status.', ['state' => strtolower($opportunity->state->label())]) }}
+                </p>
+                <div class="space-y-2">
+                    @foreach($statusOptions as $option)
+                        <button type="button"
+                                wire:key="status-option-{{ $option['value'] }}"
+                                wire:click="changeStatus({{ $option['value'] }})"
+                                wire:confirm="{{ __('Change the status to :label?', ['label' => $option['label']]) }}"
+                                class="s-btn s-btn-outline-blue w-full justify-start">
+                            {{ $option['label'] }}
+                        </button>
+                    @endforeach
+                </div>
+            @endif
+
+            <x-slot:footer>
+                <button type="button" x-on:click="$dispatch('close-modal', 'change-status')" class="s-btn s-btn-ghost">{{ __('Cancel') }}</button>
+            </x-slot:footer>
+        </x-signals.modal>
+    @endif
 </section>

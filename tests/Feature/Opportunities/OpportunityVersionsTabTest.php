@@ -9,6 +9,7 @@ use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\CreateVersionData;
 use App\Enums\VersionStatus;
 use App\Enums\VersionType;
+use App\Models\Activity;
 use App\Models\Opportunity;
 use App\Models\OpportunityVersion;
 use App\Models\User;
@@ -103,6 +104,30 @@ it('renders the versions tab for a user with opportunities.view', function () {
     Volt::test('opportunities.versions', ['opportunity' => $opportunity->refresh()])
         ->assertOk()
         ->assertSee('Quote Versions');
+});
+
+it('renders both the version tree and the timeline on the merged tab', function () {
+    // The show-page restructure folded the standalone Activities tab into the
+    // Versions tab (renamed "Versions & Timeline"): the component now renders the
+    // quote-version tree (LEFT) AND the opportunity's activity timeline (RIGHT,
+    // labelled "Timeline") together in a two-column layout.
+    $opportunity = quotationForVersionsTab($this->owner);
+    makeTabVersion($this->owner, $opportunity);
+
+    Activity::factory()->create([
+        'subject' => 'Follow up with client',
+        'regarding_type' => Opportunity::class,
+        'regarding_id' => $opportunity->id,
+        'owned_by' => $this->owner->id,
+    ]);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.versions', ['opportunity' => $opportunity->refresh()])
+        ->assertOk()
+        ->assertSee('Quote Versions')
+        ->assertSee('Timeline')
+        ->assertSee('Follow up with client');
 });
 
 it('forbids the versions tab for a user without opportunities.view', function () {

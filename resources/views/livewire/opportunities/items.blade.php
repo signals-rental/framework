@@ -33,15 +33,16 @@ use App\Services\Opportunities\ProductSearchService;
 use App\Support\Formatter;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
-use Illuminate\View\View;
 use Livewire\Attributes\Computed;
-use Livewire\Attributes\Layout;
 use Livewire\Attributes\Renderless;
 use Livewire\Volt\Component;
 
 /**
  * Editable line-item editor for an opportunity (M8-3d-ii) — the centrepiece of the
- * opportunity module. Replaces the M8-2 read-only items tab.
+ * opportunity module. Embedded as the Overview tab's main content (the standalone
+ * "Line Items" tab/route was removed in the show-page restructure); it nests inside
+ * the Show page via `<livewire:opportunities.items :opportunity="…">` and reads as a
+ * section, not a second page (the shared header + tabs are owned by the Show page).
  *
  * Every line mutation flows through the SAME event-sourced action classes the API
  * uses (AddOpportunityItem / ChangeItemQuantity / OverrideItemPrice / … ), which
@@ -59,7 +60,7 @@ use Livewire\Volt\Component;
  * method (the first `#[Renderless]` use in the codebase) backed by the Postgres
  * `pg_trgm` index (degrades to ilike on SQLite).
  */
-new #[Layout('components.layouts.app')] class extends Component
+new class extends Component
 {
     public Opportunity $opportunity;
 
@@ -85,11 +86,6 @@ new #[Layout('components.layouts.app')] class extends Component
 
         // Embed the catalogue index once so the client MiniSearch tier is instant.
         $this->catalogue = app(ProductSearchService::class)->catalogueIndex($opportunity->store_id);
-    }
-
-    public function rendering(View $view): void
-    {
-        $view->title($this->opportunity->subject.' — Line Items');
     }
 
     /**
@@ -248,9 +244,17 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->refreshOpportunity();
     }
 
-    public function createSection(string $name): void
+    public string $newSectionName = '';
+
+    public function createSection(): void
     {
         $this->guardEditable();
+
+        $name = trim($this->newSectionName);
+
+        if ($name === '') {
+            return;
+        }
 
         $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
         $nextOrder = (int) $opportunity->sections()->max('sort_order') + 1;
@@ -260,7 +264,9 @@ new #[Layout('components.layouts.app')] class extends Component
             'sort_order' => $nextOrder,
         ]));
 
+        $this->newSectionName = '';
         $this->refreshOpportunity();
+        $this->dispatch('close-modal', name: 'create-section');
     }
 
     public function renameSection(int $sectionId, string $name): void
@@ -736,10 +742,9 @@ new #[Layout('components.layouts.app')] class extends Component
     class="w-full"
     x-data="opportunityItemsEditor(@js($catalogue), @js($editable))"
 >
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opp, 'subpage' => 'Line Items'])
-    @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opp, 'activeTab' => 'items'])
-
-    <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
+    {{-- Embedded line-item editor: the shared header + tabs are owned by the Show
+         page that nests this component, so it renders as a section, not a page. --}}
+    <div class="flex-1">
         {{-- Quick-add bar + section toolbar --}}
         @if($editable)
             <div class="flex flex-wrap items-center gap-3 mb-4">
@@ -815,21 +820,28 @@ new #[Layout('components.layouts.app')] class extends Component
                                 <td class="text-right font-mono font-semibold">{{ $group['subtotal_formatted'] }}</td>
                                 <td class="text-center">
                                     @if($editable && $group['kind'] === 'section')
-                                        <div class="relative inline-block" x-data="{ open: false }">
-                                            <button type="button" class="s-btn-icon" x-on:click="open = !open">⋯</button>
-                                            <div class="s-dropdown" x-show="open" x-cloak x-on:click.outside="open = false"
-                                                style="position: absolute; top: 100%; right: 0; z-index: 50; margin-top: 4px; min-width: 180px;">
-                                                <button type="button" class="s-dropdown-item w-full text-left"
-                                                    x-on:click="open = false; $dispatch('open-modal', { id: 'rename-section', sectionId: {{ $group['section_id'] }}, name: @js($group['label']) })">
-                                                    Rename
-                                                </button>
-                                                <button type="button" class="s-dropdown-item w-full text-left" style="color: var(--red);"
-                                                    x-on:click="open = false"
-                                                    wire:click="deleteSection({{ $group['section_id'] }})"
-                                                    wire:confirm="Delete this section? Its line items move back to auto-grouping.">
-                                                    Delete
-                                                </button>
-                                            </div>
+                                        <div class="relative inline-block" x-data="rowActionsMenu()">
+                                            <button type="button" class="s-btn-icon" x-ref="trigger" x-on:click="toggle()">⋯</button>
+                                            {{-- Teleported to <body> so the table-wrap overflow can't clip it; positioned
+                                                 fixed against the trigger's rect, right-aligned and above content. --}}
+                                            <template x-teleport="body">
+                                                <div class="s-dropdown" x-show="open" x-cloak
+                                                    x-on:click.outside="open = false"
+                                                    x-on:keydown.escape.window="open = false"
+                                                    :style="menuStyle"
+                                                    style="position: fixed; z-index: 1000; min-width: 180px;">
+                                                    <button type="button" class="s-dropdown-item w-full text-left"
+                                                        x-on:click="open = false; $dispatch('open-modal', { id: 'rename-section', sectionId: {{ $group['section_id'] }}, name: @js($group['label']) })">
+                                                        Rename
+                                                    </button>
+                                                    <button type="button" class="s-dropdown-item w-full text-left" style="color: var(--red);"
+                                                        x-on:click="open = false"
+                                                        wire:click="deleteSection({{ $group['section_id'] }})"
+                                                        wire:confirm="Delete this section? Its line items move back to auto-grouping.">
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </template>
                                         </div>
                                     @endif
                                 </td>
@@ -907,41 +919,48 @@ new #[Layout('components.layouts.app')] class extends Component
                                             <td class="text-right font-mono">{{ $line['total'] }}</td>
                                             <td class="text-center" wire:sort:ignore>
                                                 @if($editable)
-                                                    <div class="relative inline-block" x-data="{ open: false }">
-                                                        <button type="button" class="s-btn-icon" x-on:click="open = !open">⋯</button>
-                                                        <div class="s-dropdown" x-show="open" x-cloak x-on:click.outside="open = false"
-                                                            style="position: absolute; top: 100%; right: 0; z-index: 50; margin-top: 4px; min-width: 220px; max-height: 320px; overflow-y: auto;">
-                                                            <button type="button" class="s-dropdown-item w-full text-left"
-                                                                x-on:click="open = false; $dispatch('open-modal', { id: 'edit-line', line: @js($line) })">
-                                                                Edit price / discount / dates
-                                                            </button>
-                                                            <button type="button" class="s-dropdown-item w-full text-left" x-on:click="open = false" wire:click="toggleOptional({{ $line['id'] }})">
-                                                                {{ $line['is_optional'] ? 'Mark required' : 'Mark optional' }}
-                                                            </button>
-                                                            <hr class="s-dropdown-sep">
-                                                            @if($line['section_id'] !== null)
-                                                                <button type="button" class="s-dropdown-item w-full text-left" x-on:click="open = false" wire:click="assignToSection({{ $line['id'] }}, null)">
-                                                                    Move to auto group
+                                                    <div class="relative inline-block" x-data="rowActionsMenu()">
+                                                        <button type="button" class="s-btn-icon" x-ref="trigger" x-on:click="toggle()">⋯</button>
+                                                        {{-- Teleported to <body> so the table-wrap overflow can't clip it; positioned
+                                                             fixed against the trigger's rect, right-aligned and above content. --}}
+                                                        <template x-teleport="body">
+                                                            <div class="s-dropdown" x-show="open" x-cloak
+                                                                x-on:click.outside="open = false"
+                                                                x-on:keydown.escape.window="open = false"
+                                                                :style="menuStyle"
+                                                                style="position: fixed; z-index: 1000; min-width: 220px; max-height: 320px; overflow-y: auto;">
+                                                                <button type="button" class="s-dropdown-item w-full text-left"
+                                                                    x-on:click="open = false; $dispatch('open-modal', { id: 'edit-line', line: @js($line) })">
+                                                                    Edit price / discount / dates
                                                                 </button>
-                                                            @endif
-                                                            @foreach($this->groups as $g)
-                                                                @if($g['kind'] === 'section' && $g['section_id'] !== $line['section_id'])
-                                                                    <button type="button" class="s-dropdown-item w-full text-left"
-                                                                        wire:key="assign-{{ $line['id'] }}-{{ $g['section_id'] }}"
-                                                                        x-on:click="open = false"
-                                                                        wire:click="assignToSection({{ $line['id'] }}, {{ $g['section_id'] }})">
-                                                                        Move to &ldquo;{{ $g['label'] }}&rdquo;
+                                                                <button type="button" class="s-dropdown-item w-full text-left" x-on:click="open = false" wire:click="toggleOptional({{ $line['id'] }})">
+                                                                    {{ $line['is_optional'] ? 'Mark required' : 'Mark optional' }}
+                                                                </button>
+                                                                <hr class="s-dropdown-sep">
+                                                                @if($line['section_id'] !== null)
+                                                                    <button type="button" class="s-dropdown-item w-full text-left" x-on:click="open = false" wire:click="assignToSection({{ $line['id'] }}, null)">
+                                                                        Move to auto group
                                                                     </button>
                                                                 @endif
-                                                            @endforeach
-                                                            <hr class="s-dropdown-sep">
-                                                            <button type="button" class="s-dropdown-item w-full text-left" style="color: var(--red);"
-                                                                x-on:click="open = false"
-                                                                wire:click="removeItem({{ $line['id'] }})"
-                                                                wire:confirm="Remove this line item?">
-                                                                Remove
-                                                            </button>
-                                                        </div>
+                                                                @foreach($this->groups as $g)
+                                                                    @if($g['kind'] === 'section' && $g['section_id'] !== $line['section_id'])
+                                                                        <button type="button" class="s-dropdown-item w-full text-left"
+                                                                            wire:key="assign-{{ $line['id'] }}-{{ $g['section_id'] }}"
+                                                                            x-on:click="open = false"
+                                                                            wire:click="assignToSection({{ $line['id'] }}, {{ $g['section_id'] }})">
+                                                                            Move to &ldquo;{{ $g['label'] }}&rdquo;
+                                                                        </button>
+                                                                    @endif
+                                                                @endforeach
+                                                                <hr class="s-dropdown-sep">
+                                                                <button type="button" class="s-dropdown-item w-full text-left" style="color: var(--red);"
+                                                                    x-on:click="open = false"
+                                                                    wire:click="removeItem({{ $line['id'] }})"
+                                                                    wire:confirm="Remove this line item?">
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        </template>
                                                     </div>
                                                 @endif
                                             </td>
@@ -1026,13 +1045,13 @@ new #[Layout('components.layouts.app')] class extends Component
 
     {{-- Create section modal --}}
     <x-signals.modal name="create-section" title="New section" id="create-section-modal">
-        <div x-data="{ name: '' }">
+        <div>
             <label class="block text-sm font-medium mb-1">Section name</label>
-            <input type="text" class="s-input w-full" x-model="name" placeholder="e.g. Front of House">
+            <input type="text" class="s-input w-full" wire:model="newSectionName"
+                wire:keydown.enter.prevent="createSection" placeholder="e.g. Front of House">
             <x-slot:footer>
                 <button type="button" class="s-btn s-btn-ghost" x-on:click="$dispatch('close-modal', 'create-section')">Cancel</button>
-                <button type="button" class="s-btn s-btn-primary"
-                    x-on:click="if (name.trim()) { $wire.createSection(name.trim()); name = ''; $dispatch('close-modal', 'create-section'); }">
+                <button type="button" class="s-btn s-btn-primary" wire:click="createSection">
                     Create
                 </button>
             </x-slot:footer>
@@ -1281,6 +1300,43 @@ new #[Layout('components.layouts.app')] class extends Component
 
         closePickerSoon() {
             setTimeout(() => { this.picker.open = false; }, 150);
+        },
+    }));
+
+    // Row-actions ("⋯") dropdown. Its menu is teleported to <body> so the
+    // table-wrap's overflow can never clip it; on open we measure the trigger's
+    // viewport rect and position the fixed menu right-aligned beneath it. Scroll
+    // / resize closes it (cheaper and simpler than re-anchoring a moving table).
+    Alpine.data('rowActionsMenu', () => ({
+        open: false,
+        menuStyle: '',
+
+        toggle() {
+            this.open ? this.close() : this.openMenu();
+        },
+
+        openMenu() {
+            const rect = this.$refs.trigger.getBoundingClientRect();
+            // Right-align the menu's right edge to the trigger's right edge.
+            const right = Math.max(8, window.innerWidth - rect.right);
+            const top = rect.bottom + 4;
+            this.menuStyle = `top: ${top}px; right: ${right}px;`;
+            this.open = true;
+        },
+
+        close() {
+            this.open = false;
+        },
+
+        init() {
+            this._onViewportChange = () => { if (this.open) this.close(); };
+            window.addEventListener('scroll', this._onViewportChange, true);
+            window.addEventListener('resize', this._onViewportChange);
+        },
+
+        destroy() {
+            window.removeEventListener('scroll', this._onViewportChange, true);
+            window.removeEventListener('resize', this._onViewportChange);
         },
     }));
 </script>

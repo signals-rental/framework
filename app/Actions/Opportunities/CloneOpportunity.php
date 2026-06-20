@@ -80,7 +80,9 @@ class CloneOpportunity
     private function headerDataFrom(Opportunity $source): CreateOpportunityData
     {
         return CreateOpportunityData::from([
-            'subject' => $source->subject,
+            // Distinguish the clone in lists/headers; cap the base so the appended
+            // suffix can never breach the subject's 255-char limit.
+            'subject' => mb_substr($source->subject, 0, 246).' (cloned)',
             'member_id' => $source->member_id,
             'store_id' => $source->store_id,
             'owned_by' => $source->owned_by,
