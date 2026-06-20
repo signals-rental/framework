@@ -88,15 +88,20 @@ it('enumerates the action set with allowed flags for a quotation', function () {
     $actions = $response->json('available_actions');
     $keys = array_column($actions, 'key');
 
-    expect($keys)->toContain('convert_to_quotation', 'convert_to_order', 'change_status', 'reinstate', 'revert_to_quotation', 'unlock_locks', 'clone', 'dispatch', 'delete');
+    expect($keys)->toContain('convert_to_quotation', 'convert_to_order', 'change_status', 'reinstate', 'reopen', 'revert_to_quotation', 'revert_to_draft', 'unlock_locks', 'clone', 'dispatch', 'delete');
 
     // A quotation CAN convert to order, but cannot convert to quotation again
-    // (not a draft), cannot reinstate (active), cannot revert (not an order).
+    // (not a draft), cannot reinstate (active), cannot revert to an order
+    // (not an order), and cannot reopen (not a completed order). A provisional
+    // quotation CAN, however, be reverted back to a draft.
     expect(actionByKey($actions, 'convert_to_order')['allowed'])->toBeTrue()
         ->and(actionByKey($actions, 'convert_to_quotation')['allowed'])->toBeFalse()
         ->and(actionByKey($actions, 'convert_to_quotation')['code'])->toBe('invalid_state')
         ->and(actionByKey($actions, 'reinstate')['allowed'])->toBeFalse()
-        ->and(actionByKey($actions, 'revert_to_quotation')['allowed'])->toBeFalse();
+        ->and(actionByKey($actions, 'reopen')['allowed'])->toBeFalse()
+        ->and(actionByKey($actions, 'reopen')['code'])->toBe('invalid_state')
+        ->and(actionByKey($actions, 'revert_to_quotation')['allowed'])->toBeFalse()
+        ->and(actionByKey($actions, 'revert_to_draft')['allowed'])->toBeTrue();
 });
 
 it('reports fx_tax_locked is unlockable and revert/reinstate verdicts for an order', function () {
@@ -109,10 +114,33 @@ it('reports fx_tax_locked is unlockable and revert/reinstate verdicts for an ord
         ->assertOk()
         ->json('available_actions');
 
-    // An undispatched order can be reverted; the locks can be released.
+    // An undispatched order can be reverted to a quotation; the locks can be
+    // released. It cannot be reverted to a draft (that is a Quotation move) nor
+    // re-opened (it is active, not completed).
     expect(actionByKey($actions, 'revert_to_quotation')['allowed'])->toBeTrue()
         ->and(actionByKey($actions, 'unlock_locks')['allowed'])->toBeTrue()
-        ->and(actionByKey($actions, 'convert_to_order')['allowed'])->toBeFalse();
+        ->and(actionByKey($actions, 'convert_to_order')['allowed'])->toBeFalse()
+        ->and(actionByKey($actions, 'revert_to_draft')['allowed'])->toBeFalse()
+        ->and(actionByKey($actions, 'revert_to_draft')['code'])->toBe('invalid_state')
+        ->and(actionByKey($actions, 'reopen')['allowed'])->toBeFalse();
+});
+
+it('reports reopen as allowed for a completed order', function () {
+    $opportunity = actionsQuotation($this->owner, $this->store);
+    (new ConvertToOrder)($opportunity->refresh());
+    (new ChangeOpportunityStatus)($opportunity->refresh(), OpportunityStatus::OrderComplete);
+
+    $token = $this->owner->createToken('test', ['opportunities:read'])->plainTextToken;
+    $actions = $this->withHeader('Authorization', "Bearer {$token}")
+        ->getJson("/api/v1/opportunities/{$opportunity->id}/available_actions")
+        ->assertOk()
+        ->json('available_actions');
+
+    // A completed order can be re-opened but cannot reinstate (Void/Held only) or
+    // change status (closed).
+    expect(actionByKey($actions, 'reopen')['allowed'])->toBeTrue()
+        ->and(actionByKey($actions, 'reinstate')['allowed'])->toBeFalse()
+        ->and(actionByKey($actions, 'change_status')['allowed'])->toBeFalse();
 });
 
 it('reports reinstate as allowed for a lost quotation', function () {

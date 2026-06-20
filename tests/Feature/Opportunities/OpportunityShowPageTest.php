@@ -1,8 +1,12 @@
 <?php
 
+use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\ChangeOpportunityStatus;
+use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\DeleteOpportunity;
+use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Enums\CustomFieldType;
 use App\Enums\OpportunityState;
@@ -166,6 +170,48 @@ it('runs the staged Actions item through confirmPendingAction (convert_to_quotat
         ->assertSet('pendingAction', null);
 
     expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
+});
+
+it('runs the staged Actions item through confirmPendingAction (revert_to_draft)', function () {
+    // Staging `revert_to_draft` then confirming must dispatch to the revertToDraft
+    // transition, moving the open quotation back to a draft.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Revert To Draft Via Modal');
+    (new ConvertToQuotation)($opportunity);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
+        ->call('prepareAction', 'revert_to_draft', 'Revert to Draft', 'Revert this quotation back to a draft?')
+        ->call('confirmPendingAction')
+        ->assertSet('pendingAction', null);
+
+    expect($opportunity->fresh()->state)->toBe(OpportunityState::Draft)
+        ->and($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::DraftOpen);
+});
+
+it('runs the staged Actions item through confirmPendingAction (reopen)', function () {
+    // Staging `reopen` then confirming must dispatch to the reopen transition,
+    // moving the completed order back to an active order.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Reopen Via Modal');
+    (new ConvertToQuotation)($opportunity);
+    (new AddOpportunityItem)($opportunity->fresh(), AddOpportunityItemData::from([
+        'name' => 'PA Stack',
+        'quantity' => '1',
+        'unit_price' => 5000,
+    ]));
+    (new ConvertToOrder)($opportunity->fresh());
+    (new ChangeOpportunityStatus)($opportunity->fresh(), OpportunityStatus::OrderComplete);
+
+    expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::OrderComplete);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
+        ->call('prepareAction', 'reopen', 'Re-open', 'Re-open this completed order back to an active order?')
+        ->call('confirmPendingAction')
+        ->assertSet('pendingAction', null);
+
+    expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::OrderActive);
 });
 
 it('ignores a confirmPendingAction call with no staged action', function () {

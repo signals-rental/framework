@@ -6,7 +6,9 @@ use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\DeleteOpportunity;
 use App\Actions\Opportunities\ReinstateOpportunity;
+use App\Actions\Opportunities\ReopenOpportunity;
 use App\Actions\Opportunities\RestoreOpportunity;
+use App\Actions\Opportunities\RevertToDraft;
 use App\Actions\Opportunities\RevertToQuotation;
 use App\Actions\Opportunities\UnlockOpportunity;
 use App\Enums\AssetAssignmentStatus;
@@ -72,7 +74,9 @@ new #[Layout('components.layouts.app')] class extends Component
             'convert_to_quotation' => 'convertToQuotation',
             'convert_to_order' => 'convertToOrder',
             'reinstate' => 'reinstate',
+            'reopen' => 'reopen',
             'revert_to_quotation' => 'revertToQuotation',
+            'revert_to_draft' => 'revertToDraft',
             'unlock_locks' => 'unlockRates',
             'clone' => 'cloneOpportunity',
             'delete' => 'archive',
@@ -152,9 +156,19 @@ new #[Layout('components.layouts.app')] class extends Component
         $this->runTransition(fn () => (new ReinstateOpportunity)($this->opportunity));
     }
 
+    public function reopen(): void
+    {
+        $this->runTransition(fn () => (new ReopenOpportunity)($this->opportunity));
+    }
+
     public function revertToQuotation(): void
     {
         $this->runTransition(fn () => (new RevertToQuotation)($this->opportunity));
+    }
+
+    public function revertToDraft(): void
+    {
+        $this->runTransition(fn () => (new RevertToDraft)($this->opportunity));
     }
 
     public function unlockRates(): void
@@ -333,8 +347,14 @@ new #[Layout('components.layouts.app')] class extends Component
             $this->describeAction($opportunity, 'reinstate', 'Reinstate', 'opportunities.edit', ReinstateOpportunity::TRANSITION,
                 statePrecondition: fn (): ?array => $status->isReinstatable() ? null : ['Only a lost, dead, postponed, or cancelled opportunity can be reinstated.', 'invalid_state']),
 
+            $this->describeAction($opportunity, 'reopen', 'Re-open', 'opportunities.edit', ReopenOpportunity::TRANSITION,
+                statePrecondition: fn (): ?array => $status->isTerminalComplete() ? null : ['Only a completed order can be re-opened.', 'invalid_state']),
+
             $this->describeAction($opportunity, 'revert_to_quotation', 'Revert to Quotation', 'opportunities.edit', RevertToQuotation::TRANSITION,
                 statePrecondition: fn (): ?array => $this->revertToQuotationPrecondition($opportunity, $isOrder, $status->isClosed())),
+
+            $this->describeAction($opportunity, 'revert_to_draft', 'Revert to Draft', 'opportunities.edit', RevertToDraft::TRANSITION,
+                statePrecondition: fn (): ?array => $isQuotation && $status->isRevertibleToDraft() ? null : ['Only an open, provisional quotation can be reverted to a draft.', 'invalid_state']),
 
             $this->describeAction($opportunity, 'unlock_locks', 'Unlock Rates', 'opportunities.unlock_rates', null,
                 statePrecondition: fn (): ?array => $hasLocks ? null : ['The opportunity has no active FX/tax locks to release.', 'nothing_to_unlock']),

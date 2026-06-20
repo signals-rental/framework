@@ -32,10 +32,12 @@ use App\Actions\Opportunities\ReinstateOpportunity;
 use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\RemoveOpportunityParticipant;
+use App\Actions\Opportunities\ReopenOpportunity;
 use App\Actions\Opportunities\ReturnAsset;
 use App\Actions\Opportunities\ReturnBulkQuantity;
 use App\Actions\Opportunities\RevertAssetPreparation;
 use App\Actions\Opportunities\RevertAssetStatus;
+use App\Actions\Opportunities\RevertToDraft;
 use App\Actions\Opportunities\RevertToQuotation;
 use App\Actions\Opportunities\SetAssetContainer;
 use App\Actions\Opportunities\SetDealPrice;
@@ -464,9 +466,17 @@ class OpportunityController extends Controller
             $this->describeAction($opportunity, 'reinstate', 'Reinstate', 'opportunities.edit', ReinstateOpportunity::TRANSITION,
                 statePrecondition: fn (): ?array => $status->isReinstatable() ? null : ['Only a lost, dead, postponed, or cancelled opportunity can be reinstated.', 'invalid_state']),
 
+            // Complete (terminal) → active order.
+            $this->describeAction($opportunity, 'reopen', 'Re-open', 'opportunities.edit', ReopenOpportunity::TRANSITION,
+                statePrecondition: fn (): ?array => $status->isTerminalComplete() ? null : ['Only a completed order can be re-opened.', 'invalid_state']),
+
             // Order → Quotation (nothing dispatched).
             $this->describeAction($opportunity, 'revert_to_quotation', 'Revert to Quotation', 'opportunities.edit', RevertToQuotation::TRANSITION,
                 statePrecondition: fn (): ?array => $this->revertToQuotationPrecondition($opportunity, $isOrder, $status->isClosed())),
+
+            // Quotation → Draft (open/provisional quote only).
+            $this->describeAction($opportunity, 'revert_to_draft', 'Revert to Draft', 'opportunities.edit', RevertToDraft::TRANSITION,
+                statePrecondition: fn (): ?array => $isQuotation && $status->isRevertibleToDraft() ? null : ['Only an open, provisional quotation can be reverted to a draft.', 'invalid_state']),
 
             // Release FX/tax locks.
             $this->describeAction($opportunity, 'unlock_locks', 'Unlock Rates', 'opportunities.unlock_rates', null,
@@ -679,6 +689,50 @@ class OpportunityController extends Controller
         ]);
 
         $result = (new RevertToQuotation)($opportunity, $validated['reason'] ?? null);
+
+        return $this->respondWithIncludes($request, $result, $opportunity);
+    }
+
+    /**
+     * Revert an open Quotation back to a Draft (the state-axis backward
+     * transition, the inverse of convert-to-quotation; RMS `convert_to_draft`).
+     *
+     * Fires the OpportunityRevertedToDraft event via the guard pipeline. Only
+     * valid from an open/provisional Quotation — a 422 otherwise. An optional
+     * `reason` is audited.
+     */
+    #[ApiResponse(200, 'Opportunity reverted to draft')]
+    public function revertToDraft(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string'],
+        ]);
+
+        $result = (new RevertToDraft)($opportunity, $validated['reason'] ?? null);
+
+        return $this->respondWithIncludes($request, $result, $opportunity);
+    }
+
+    /**
+     * Re-open a terminally COMPLETE order back to an active status (RMS
+     * `re_open`) — the backward-transition complement to the terminal "complete"
+     * close, distinct from reinstate (which handles Void/Held closes).
+     *
+     * Fires the OpportunityReopened event via the guard pipeline. Only valid from
+     * a completed order — a 422 otherwise. An optional `reason` is audited.
+     */
+    #[ApiResponse(200, 'Opportunity re-opened')]
+    public function reopen(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string'],
+        ]);
+
+        $result = (new ReopenOpportunity)($opportunity, $validated['reason'] ?? null);
 
         return $this->respondWithIncludes($request, $result, $opportunity);
     }

@@ -196,6 +196,25 @@ enum OpportunityStatus: int
     }
 
     /**
+     * Whether an opportunity in this status can be REVERTED back to a Draft
+     * (opportunity-lifecycle.md §5.2 OpportunityRevertedToDraft, RMS
+     * `convert_to_draft`).
+     *
+     * Derived generically rather than name-matched (Ben's locked steer): it is a
+     * Quotation-state status that is still in its draft-equivalent open phase —
+     * {@see DemandPhase::Draft} (the provisional, not-yet-reserved quote that
+     * carries no committed demand). A quote that has progressed (Reserved →
+     * Committed) or been parked/closed (Lost/Dead/Postponed → Void/Held) has moved
+     * on and is NOT freely reverted to a draft. Configurable/custom Quotation
+     * statuses inherit the predicate through their phase mapping.
+     */
+    public function isRevertibleToDraft(): bool
+    {
+        return $this->state() === OpportunityState::Quotation
+            && $this->phase() === DemandPhase::Draft;
+    }
+
+    /**
      * Whether this status is the terminal "complete" close of the order
      * lifecycle — the point at which all assets must already be finalised/returned
      * (opportunity-lifecycle.md §5.2: OpportunityCompleted "all assets finalised or

@@ -116,7 +116,9 @@ when the event store is rebuilt.
 | `opportunity.quoted` | An opportunity is marked as quoted |
 | `opportunity.converted_to_order` | A quote is converted to an order |
 | `opportunity.reverted_to_quotation` | An order is reverted back to a quotation |
+| `opportunity.reverted_to_draft` | A quotation is reverted back to a draft |
 | `opportunity.reinstated` | A lost, dead, postponed, or cancelled opportunity is reinstated |
+| `opportunity.reopened` | A completed order is re-opened back to an active order |
 | `opportunity.locks_released` | An order's FX/tax locks are released for re-pricing |
 | `opportunity.status_changed` | An opportunity's status changes |
 | `opportunity.status_promoted` | An opportunity's status is promoted along its workflow |
