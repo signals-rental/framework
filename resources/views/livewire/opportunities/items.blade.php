@@ -10,6 +10,7 @@ use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\RenameOpportunitySection;
 use App\Actions\Opportunities\ReorderOpportunityItems;
+use App\Actions\Opportunities\ReorderOpportunitySections;
 use App\Actions\Opportunities\SetItemDiscount;
 use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
@@ -21,6 +22,7 @@ use App\Data\Opportunities\CreateOpportunitySectionData;
 use App\Data\Opportunities\OverrideItemPriceData;
 use App\Data\Opportunities\RenameOpportunitySectionData;
 use App\Data\Opportunities\ReorderOpportunityItemsData;
+use App\Data\Opportunities\ReorderOpportunitySectionsData;
 use App\Data\Opportunities\SetItemDiscountData;
 use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
@@ -246,6 +248,9 @@ new class extends Component
 
     public string $newSectionName = '';
 
+    /** Optional parent section for the new section (sub-group nesting). '' = top level. */
+    public string $newSectionParent = '';
+
     public function createSection(): void
     {
         $this->guardEditable();
@@ -257,16 +262,48 @@ new class extends Component
         }
 
         $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
-        $nextOrder = (int) $opportunity->sections()->max('sort_order') + 1;
+        $parentId = $this->newSectionParent === '' ? null : (int) $this->newSectionParent;
+        $nextOrder = (int) $opportunity->sections()
+            ->where('parent_id', $parentId)
+            ->max('sort_order') + 1;
 
         (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from([
             'name' => $name,
             'sort_order' => $nextOrder,
+            'parent_id' => $parentId,
         ]));
 
         $this->newSectionName = '';
+        $this->newSectionParent = '';
         $this->refreshOpportunity();
         $this->dispatch('close-modal', name: 'create-section');
+    }
+
+    /**
+     * Persist a new ordering of sibling sections after a drag. `sectionIds` is the
+     * desired order of the dragged section among its siblings; the action writes
+     * each section's sort_order to its index. Sections are plain (non-event-sourced)
+     * rows, so this never touches the Verbs stream.
+     *
+     * @param  array<int, int|string>  $sectionIds
+     */
+    public function reorderSections(array $sectionIds): void
+    {
+        $this->guardEditable();
+
+        $ids = array_values(array_map('intval', $sectionIds));
+
+        if ($ids === []) {
+            return;
+        }
+
+        $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
+
+        (new ReorderOpportunitySections)($opportunity, ReorderOpportunitySectionsData::from([
+            'section_ids' => $ids,
+        ]));
+
+        $this->refreshOpportunity();
     }
 
     public function renameSection(int $sectionId, string $name): void
@@ -357,13 +394,18 @@ new class extends Component
 
         $groups = [];
 
-        // 1. Custom sections, in their sort order — always shown even when empty so
-        //    operators can drag lines into a freshly created section.
-        foreach ($opportunity->sections as $section) {
+        // 1. Custom sections, in a parent -> child pre-order so nested sub-groups
+        //    render directly beneath their parent (indented by `depth`). Always
+        //    shown even when empty so operators can drag lines into a fresh section.
+        foreach ($this->orderedSections($opportunity->sections) as $entry) {
+            $section = $entry['section'];
+
             $groups['section:'.$section->id] = [
                 'key' => 'section:'.$section->id,
                 'kind' => 'section',
                 'section_id' => $section->id,
+                'parent_id' => $section->parent_id,
+                'depth' => $entry['depth'],
                 'label' => $section->name,
                 'lines' => [],
                 'subtotal' => 0,
@@ -390,6 +432,8 @@ new class extends Component
                     'key' => $bucketKey,
                     'kind' => 'auto',
                     'section_id' => null,
+                    'parent_id' => null,
+                    'depth' => 0,
                     'label' => $bucketLabel,
                     'lines' => [],
                     'subtotal' => 0,
@@ -437,9 +481,78 @@ new class extends Component
         return $options;
     }
 
+    /**
+     * Parent-section options for the "New section" modal — every existing section,
+     * indented by depth, plus a top-level choice. Lets operators nest a new section
+     * under an existing one (sub-groups).
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    #[Computed]
+    public function sectionOptions(): array
+    {
+        $this->opportunity->load('sections');
+
+        $options = [['value' => '', 'label' => '— Top level —']];
+
+        foreach ($this->orderedSections($this->opportunity->sections) as $entry) {
+            $section = $entry['section'];
+            $options[] = [
+                'value' => (string) $section->id,
+                'label' => str_repeat('— ', $entry['depth']).$section->name,
+            ];
+        }
+
+        return $options;
+    }
+
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Flatten the opportunity's sections into a parent -> child pre-order list,
+     * each carrying its nesting depth. Sibling order follows sort_order then id;
+     * orphaned children (a missing/foreign parent) are treated as top-level so they
+     * never vanish from the editor.
+     *
+     * @param  \Illuminate\Support\Collection<int, OpportunitySection>  $sections
+     * @return array<int, array{section: OpportunitySection, depth: int}>
+     */
+    private function orderedSections(\Illuminate\Support\Collection $sections): array
+    {
+        $byParent = $sections
+            ->sortBy([['sort_order', 'asc'], ['id', 'asc']])
+            ->groupBy(fn (OpportunitySection $s) => $s->parent_id ?? 0);
+
+        $ids = $sections->pluck('id')->all();
+        $ordered = [];
+
+        $walk = function (int $parentKey, int $depth) use (&$walk, $byParent, $ids, &$ordered): void {
+            foreach ($byParent->get($parentKey, collect()) as $section) {
+                $ordered[] = ['section' => $section, 'depth' => $depth];
+                $walk($section->id, $depth + 1);
+            }
+        };
+
+        // Real top-level sections first (parent_id null).
+        $walk(0, 0);
+
+        // Then any orphans whose parent_id points at a row that no longer exists —
+        // surface them at the top level rather than dropping them.
+        foreach ($byParent as $parentKey => $children) {
+            if ($parentKey === 0 || in_array($parentKey, $ids, true)) {
+                continue;
+            }
+
+            foreach ($children as $section) {
+                $ordered[] = ['section' => $section, 'depth' => 0];
+                $walk($section->id, 1);
+            }
+        }
+
+        return $ordered;
+    }
 
     /**
      * @param  array<int, \App\Data\Availability\OpportunityItemAvailabilityData>  $availability
@@ -449,10 +562,14 @@ new class extends Component
     {
         $avail = $availability[$item->id] ?? null;
 
+        $productId = ($item->item_type === Product::class) ? $item->item_id : null;
+
         return [
             'id' => $item->id,
             'name' => $item->name,
             'description' => $item->description,
+            'product_id' => $productId,
+            'availability_url' => $productId !== null ? $this->availabilityUrlFor($productId) : null,
             'quantity' => $this->formatQuantity($item->quantity),
             'quantity_raw' => (string) $item->quantity,
             'unit_price' => $formatter->money($item->unit_price ?? 0),
@@ -469,6 +586,27 @@ new class extends Component
                 : ['status' => null, 'has_shortage' => false],
             'accessories' => $this->accessoriesFor($item),
         ];
+    }
+
+    /**
+     * Build the deep link to the Gantt availability view for a single product over
+     * the opportunity's hire period — the per-line "View availability" menu action.
+     * Falls back to the line dates / today when the opportunity carries no period.
+     */
+    private function availabilityUrlFor(int $productId): string
+    {
+        $from = optional($this->opportunity->starts_at)?->toDateString();
+        $to = optional($this->opportunity->ends_at)?->toDateString();
+
+        $params = array_filter([
+            'view' => 'gantt',
+            'product' => $productId,
+            'store' => $this->opportunity->store_id,
+            'from' => $from,
+            'to' => $to,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        return route('availability.index', $params);
     }
 
     /**
@@ -724,7 +862,7 @@ new class extends Component
     {
         $this->opportunity = $this->opportunity->fresh() ?? $this->opportunity;
 
-        unset($this->groups, $this->destinations);
+        unset($this->groups, $this->destinations, $this->sectionOptions);
     }
 
     private function formatQuantity(float|string $value): string
@@ -736,11 +874,12 @@ new class extends Component
 @php
     $opp = $this->opportunity;
     $grandTotal = app(\App\Support\Formatter::class)->money($opp->charge_total ?? 0);
+    $groupKeys = array_map(fn ($g) => $g['key'], $this->groups);
 @endphp
 
 <section
     class="w-full"
-    x-data="opportunityItemsEditor(@js($catalogue), @js($editable))"
+    x-data="opportunityItemsEditor(@js($catalogue), @js($editable), @js($groupKeys))"
 >
     {{-- Embedded line-item editor: the shared header + tabs are owned by the Show
          page that nests this component, so it renders as a section, not a page. --}}
@@ -748,7 +887,7 @@ new class extends Component
         {{-- Quick-add bar + section toolbar --}}
         @if($editable)
             <div class="flex flex-wrap items-center gap-3 mb-4">
-                <div class="flex items-center gap-2 flex-1 min-w-[280px] s-panel" style="padding: 8px 10px;">
+                <div class="flex items-center gap-2 flex-1 min-w-[320px] s-panel" style="padding: 8px 10px;">
                     <span class="text-[var(--accent)] font-bold">+</span>
                     <div class="relative flex-1" x-data="{ q: '' }">
                         <input
@@ -765,12 +904,27 @@ new class extends Component
                         >
                         <span class="text-xs text-[var(--text-faint)] font-mono" x-show="quickAddQtyHint" x-text="quickAddQtyHint"></span>
                     </div>
+                    {{-- Qty for the quick-add: defaults to 1, overrides any "6 ×" parsed
+                         from the search term when a product is chosen from the picker. --}}
+                    <label class="text-xs text-[var(--text-faint)]">qty</label>
+                    <input
+                        type="number" min="1" step="1"
+                        class="s-input text-center font-mono"
+                        style="width: 64px;"
+                        x-model.number="quickAddQty"
+                        title="Quantity to add"
+                    >
                     <span class="text-xs text-[var(--text-faint)]">into</span>
                     <select class="s-input" style="max-width: 230px;" wire:model="quickAddDestination">
                         @foreach($this->destinations as $dest)
                             <option value="{{ $dest['value'] }}" wire:key="dest-{{ $dest['value'] }}">{{ $dest['label'] }}</option>
                         @endforeach
                     </select>
+                </div>
+
+                <div class="flex items-center gap-1">
+                    <button type="button" class="s-btn s-btn-ghost" x-on:click="expandAll()" title="Expand all groups">Expand all</button>
+                    <button type="button" class="s-btn s-btn-ghost" x-on:click="collapseAll()" title="Collapse all groups">Collapse all</button>
                 </div>
 
                 <button type="button" class="s-btn s-btn-ghost" x-on:click="$dispatch('open-modal', 'create-section')">
@@ -785,39 +939,88 @@ new class extends Component
                 description="{{ $editable ? 'Use the quick-add bar above or a blank cell to start building this kit list.' : 'This opportunity has no line items yet.' }}"
             />
         @else
+            @php
+                // Sibling ordering for the section move up/down controls: section ids
+                // grouped by parent, in display order. Lets each section header offer
+                // a reorder among its peers (persisted via reorderSections()).
+                $sectionSiblings = [];
+                foreach ($this->groups as $g) {
+                    if ($g['kind'] === 'section') {
+                        $sectionSiblings[$g['parent_id'] ?? 0][] = $g['section_id'];
+                    }
+                }
+            @endphp
             <x-signals.table-wrap>
                 <table class="s-table">
                     <thead>
                         <tr>
                             <th style="width: 20px;"></th>
-                            <th class="text-center" style="width: 70px;">Qty</th>
                             <th>Product</th>
-                            <th class="text-center" style="width: 120px;">Status</th>
-                            <th class="text-right" style="width: 100px;">Rate</th>
-                            <th class="text-right" style="width: 120px;">Total</th>
+                            <th class="text-center" style="width: 96px;">Qty</th>
+                            <th class="text-left" style="width: 110px;">Rate</th>
+                            <th class="text-left" style="width: 110px;">Discount</th>
+                            <th class="text-left" style="width: 120px;">Total</th>
                             <th style="width: 40px;"></th>
                         </tr>
                     </thead>
                     @foreach($this->groups as $group)
-                        @php $collapsedKey = $group['key']; @endphp
+                        @php
+                            $collapsedKey = $group['key'];
+                            $depth = $group['depth'] ?? 0;
+                            // Sibling order for this section's move controls.
+                            $siblings = $group['kind'] === 'section'
+                                ? ($sectionSiblings[$group['parent_id'] ?? 0] ?? [])
+                                : [];
+                            $sibIndex = array_search($group['section_id'] ?? null, $siblings, true);
+                            $canMoveUp = $sibIndex !== false && $sibIndex > 0;
+                            $canMoveDown = $sibIndex !== false && $sibIndex < count($siblings) - 1;
+                            $moveUpOrder = $canMoveUp
+                                ? (function () use ($siblings, $sibIndex) {
+                                    $o = $siblings;
+                                    [$o[$sibIndex - 1], $o[$sibIndex]] = [$o[$sibIndex], $o[$sibIndex - 1]];
+                                    return $o;
+                                })()
+                                : $siblings;
+                            $moveDownOrder = $canMoveDown
+                                ? (function () use ($siblings, $sibIndex) {
+                                    $o = $siblings;
+                                    [$o[$sibIndex + 1], $o[$sibIndex]] = [$o[$sibIndex], $o[$sibIndex + 1]];
+                                    return $o;
+                                })()
+                                : $siblings;
+                        @endphp
                         {{-- Group / section header (its own tbody — valid as a direct table child) --}}
                         <tbody wire:key="grp-{{ $group['key'] }}">
                             <tr class="s-table-group-row">
                                 <td colspan="5">
-                                    <button
-                                        type="button"
-                                        class="inline-flex items-center gap-2 font-semibold"
-                                        x-on:click="toggleGroup('{{ $collapsedKey }}')"
-                                    >
-                                        <span class="text-xs text-[var(--text-faint)]" x-text="isCollapsed('{{ $collapsedKey }}') ? '▸' : '▾'"></span>
-                                        @if($group['kind'] === 'section')
-                                            <span class="s-badge s-badge-blue">Section</span>
+                                    <div class="inline-flex items-center gap-2" style="padding-left: {{ $depth * 20 }}px;">
+                                        <button
+                                            type="button"
+                                            class="inline-flex items-center gap-2 font-semibold"
+                                            x-on:click="toggleGroup('{{ $collapsedKey }}')"
+                                        >
+                                            <span class="text-xs text-[var(--text-faint)]" x-text="isCollapsed('{{ $collapsedKey }}') ? '▸' : '▾'"></span>
+                                            @if($group['kind'] === 'section')
+                                                <span class="s-badge s-badge-blue">{{ $depth > 0 ? 'Sub-section' : 'Section' }}</span>
+                                            @endif
+                                            <span>{{ $group['label'] }}</span>
+                                            <span class="text-xs text-[var(--text-faint)]">{{ count($group['lines']) }} {{ \Illuminate\Support\Str::plural('item', count($group['lines'])) }}</span>
+                                        </button>
+                                        @if($editable && $group['kind'] === 'section')
+                                            <span class="inline-flex items-center gap-0.5 ml-1">
+                                                <button type="button" class="s-btn-icon text-xs"
+                                                    @disabled(! $canMoveUp)
+                                                    title="Move section up"
+                                                    wire:click="reorderSections(@js($moveUpOrder))">▲</button>
+                                                <button type="button" class="s-btn-icon text-xs"
+                                                    @disabled(! $canMoveDown)
+                                                    title="Move section down"
+                                                    wire:click="reorderSections(@js($moveDownOrder))">▼</button>
+                                            </span>
                                         @endif
-                                        <span>{{ $group['label'] }}</span>
-                                        <span class="text-xs text-[var(--text-faint)]">{{ count($group['lines']) }} {{ \Illuminate\Support\Str::plural('item', count($group['lines'])) }}</span>
-                                    </button>
+                                    </div>
                                 </td>
-                                <td class="text-right font-mono font-semibold">{{ $group['subtotal_formatted'] }}</td>
+                                <td class="text-left font-mono font-semibold">{{ $group['subtotal_formatted'] }}</td>
                                 <td class="text-center">
                                     @if($editable && $group['kind'] === 'section')
                                         <div class="relative inline-block" x-data="rowActionsMenu()">
@@ -829,7 +1032,7 @@ new class extends Component
                                                     x-on:click.outside="open = false"
                                                     x-on:keydown.escape.window="open = false"
                                                     :style="menuStyle"
-                                                    style="position: fixed; z-index: 1000; min-width: 180px;">
+                                                    style="position: fixed; z-index: 1000; min-width: 180px; max-width: 240px;">
                                                     <button type="button" class="s-dropdown-item w-full text-left"
                                                         x-on:click="open = false; $dispatch('open-modal', { id: 'rename-section', sectionId: {{ $group['section_id'] }}, name: @js($group['label']) })">
                                                         Rename
@@ -864,30 +1067,28 @@ new class extends Component
                                                     <span wire:sort:handle class="cursor-grab text-[var(--text-faint)] select-none">⠿</span>
                                                 @endif
                                             </td>
-                                            <td class="text-center" wire:sort:ignore>
-                                                @if($editable)
-                                                    <input
-                                                        type="number" min="0.01" step="0.01"
-                                                        class="s-input text-center font-mono"
-                                                        style="width: 60px;"
-                                                        value="{{ $line['quantity_raw'] }}"
-                                                        wire:change="updateQuantity({{ $line['id'] }}, $event.target.value)"
-                                                    >
-                                                @else
-                                                    <span class="font-mono text-[var(--text-muted)]">{{ $line['quantity'] }}</span>
-                                                @endif
-                                            </td>
                                             <td>
-                                                <div class="flex items-center gap-2" wire:sort:ignore>
+                                                <div class="flex items-center gap-2" wire:sort:ignore style="padding-left: {{ $depth * 20 }}px;">
                                                     <div>
                                                         <div class="font-medium flex items-center gap-2">
                                                             {{ $line['name'] }}
+                                                            @php
+                                                                $chip = $line['availability']['status'];
+                                                                $chipMap = [
+                                                                    'available' => ['s-status-green', 'Available'],
+                                                                    'reserved' => ['s-status-blue', 'Reserved'],
+                                                                    'out' => ['s-status-red', 'Shortage'],
+                                                                ];
+                                                            @endphp
+                                                            @if($chip && isset($chipMap[$chip]))
+                                                                <span class="s-status {{ $chipMap[$chip][0] }}"><span class="s-status-dot"></span> {{ $chipMap[$chip][1] }}</span>
+                                                            @endif
                                                             @if(count($line['accessories']) > 0)
                                                                 <button type="button"
                                                                     class="s-chip text-xs"
                                                                     x-on:click="toggleLine({{ $line['id'] }})"
-                                                                    title="{{ count($line['accessories']) }} accessories">
-                                                                    +{{ count($line['accessories']) }}
+                                                                    :title="isLineExpanded({{ $line['id'] }}) ? 'Hide accessories' : 'Show {{ count($line['accessories']) }} accessories'">
+                                                                    <span x-text="isLineExpanded({{ $line['id'] }}) ? '−' : '+'"></span>{{ count($line['accessories']) }}
                                                                 </button>
                                                             @endif
                                                             @if($line['is_optional'])
@@ -901,22 +1102,52 @@ new class extends Component
                                                 </div>
                                             </td>
                                             <td class="text-center" wire:sort:ignore>
-                                                @php
-                                                    $chip = $line['availability']['status'];
-                                                    $chipMap = [
-                                                        'available' => ['s-status-green', 'Available'],
-                                                        'reserved' => ['s-status-blue', 'Reserved'],
-                                                        'out' => ['s-status-red', 'Shortage'],
-                                                    ];
-                                                @endphp
-                                                @if($chip && isset($chipMap[$chip]))
-                                                    <span class="s-status {{ $chipMap[$chip][0] }}"><span class="s-status-dot"></span> {{ $chipMap[$chip][1] }}</span>
+                                                @if($editable)
+                                                    <input
+                                                        type="number" min="0.01" step="0.01"
+                                                        class="s-input text-center font-mono"
+                                                        style="width: 84px;"
+                                                        value="{{ $line['quantity_raw'] }}"
+                                                        wire:change="updateQuantity({{ $line['id'] }}, $event.target.value)"
+                                                    >
                                                 @else
-                                                    <span class="text-[var(--text-faint)]">—</span>
+                                                    <span class="font-mono text-[var(--text-muted)]">{{ $line['quantity'] }}</span>
                                                 @endif
                                             </td>
-                                            <td class="text-right font-mono">{{ $line['unit_price'] }}</td>
-                                            <td class="text-right font-mono">{{ $line['total'] }}</td>
+                                            <td class="text-left font-mono" wire:sort:ignore>
+                                                @if($editable)
+                                                    <input
+                                                        type="text" inputmode="decimal"
+                                                        class="s-input font-mono"
+                                                        style="width: 96px;"
+                                                        value="{{ $line['unit_price_raw'] }}"
+                                                        placeholder="rate"
+                                                        title="Unit rate override (blank to use the rate engine)"
+                                                        wire:change="overridePrice({{ $line['id'] }}, $event.target.value)"
+                                                    >
+                                                @else
+                                                    {{ $line['unit_price'] }}
+                                                @endif
+                                            </td>
+                                            <td class="text-left font-mono" wire:sort:ignore>
+                                                @if($editable)
+                                                    <div class="inline-flex items-center gap-1">
+                                                        <input
+                                                            type="number" min="0" max="100" step="0.01"
+                                                            class="s-input text-right font-mono"
+                                                            style="width: 72px;"
+                                                            value="{{ $line['discount_percent'] }}"
+                                                            placeholder="0"
+                                                            title="Per-line discount %"
+                                                            wire:change="setDiscount({{ $line['id'] }}, $event.target.value)"
+                                                        >
+                                                        <span class="text-xs text-[var(--text-faint)]">%</span>
+                                                    </div>
+                                                @else
+                                                    {{ $line['discount_percent'] !== null ? $line['discount_percent'].'%' : '—' }}
+                                                @endif
+                                            </td>
+                                            <td class="text-left font-mono">{{ $line['total'] }}</td>
                                             <td class="text-center" wire:sort:ignore>
                                                 @if($editable)
                                                     <div class="relative inline-block" x-data="rowActionsMenu()">
@@ -928,11 +1159,16 @@ new class extends Component
                                                                 x-on:click.outside="open = false"
                                                                 x-on:keydown.escape.window="open = false"
                                                                 :style="menuStyle"
-                                                                style="position: fixed; z-index: 1000; min-width: 220px; max-height: 320px; overflow-y: auto;">
+                                                                style="position: fixed; z-index: 1000; min-width: 220px; max-width: 280px; max-height: 320px; overflow-y: auto;">
                                                                 <button type="button" class="s-dropdown-item w-full text-left"
                                                                     x-on:click="open = false; $dispatch('open-modal', { id: 'edit-line', line: @js($line) })">
                                                                     Edit price / discount / dates
                                                                 </button>
+                                                                @if($line['product_id'] !== null)
+                                                                    <a href="{{ $line['availability_url'] }}" class="s-dropdown-item w-full text-left block" x-on:click="open = false">
+                                                                        View availability
+                                                                    </a>
+                                                                @endif
                                                                 <button type="button" class="s-dropdown-item w-full text-left" x-on:click="open = false" wire:click="toggleOptional({{ $line['id'] }})">
                                                                     {{ $line['is_optional'] ? 'Mark required' : 'Mark optional' }}
                                                                 </button>
@@ -966,7 +1202,8 @@ new class extends Component
                                             </td>
                                         </tr>
 
-                                        {{-- Accessory sub-rows (display only): sibling rows, hidden via x-show --}}
+                                        {{-- Accessory sub-rows (display only): sibling rows, collapsed by
+                                             default, toggled per line via the +N chip. --}}
                                         @foreach($line['accessories'] as $accessory)
                                             <tr
                                                 class="s-table-accessory"
@@ -976,32 +1213,35 @@ new class extends Component
                                                 x-cloak
                                             >
                                                 <td></td>
-                                                <td class="text-center font-mono text-[var(--text-muted)]">{{ $accessory['quantity'] }}</td>
                                                 <td>
-                                                    <span class="text-[var(--text-muted)] text-sm pl-6">
+                                                    <span class="text-[var(--text-muted)] text-sm" style="padding-left: {{ $depth * 20 + 24 }}px;">
                                                         ↳ {{ $accessory['name'] }}
                                                         @if($accessory['sku'])
                                                             <span class="font-mono text-xs text-[var(--text-faint)] ml-2">{{ $accessory['sku'] }} · {{ $accessory['ratio'] }}×</span>
                                                         @endif
                                                     </span>
                                                 </td>
-                                                <td class="text-center"><span class="s-chip">incl.</span></td>
-                                                <td class="text-right font-mono text-[var(--text-faint)]">{{ app(\App\Support\Formatter::class)->money(0) }}</td>
-                                                <td class="text-right font-mono text-[var(--text-faint)]">{{ app(\App\Support\Formatter::class)->money(0) }}</td>
+                                                <td class="text-center font-mono text-[var(--text-muted)]">{{ $accessory['quantity'] }}</td>
+                                                <td class="text-left"><span class="s-chip">incl.</span></td>
+                                                <td class="text-left font-mono text-[var(--text-faint)]">—</td>
+                                                <td class="text-left font-mono text-[var(--text-faint)]">{{ app(\App\Support\Formatter::class)->money(0) }}</td>
                                                 <td></td>
                                             </tr>
                                         @endforeach
                             @endforeach
                         </tbody>
                     @endforeach
+
+                    {{-- Charge total — a final row in line with the Total column (ex-tax). --}}
+                    <tfoot>
+                        <tr class="s-table-total-row" style="border-top: 2px solid var(--card-border);">
+                            <td colspan="5" class="text-right font-semibold">Charge total (ex-tax)</td>
+                            <td class="text-left font-mono font-semibold text-lg">{{ $grandTotal }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </x-signals.table-wrap>
-
-            <div class="flex justify-end mt-4">
-                <div class="text-[var(--text-muted)]">
-                    Charge total (ex-tax) <b class="font-mono text-lg text-[var(--text)] ml-2">{{ $grandTotal }}</b>
-                </div>
-            </div>
         @endif
     </div>
 
@@ -1045,10 +1285,21 @@ new class extends Component
 
     {{-- Create section modal --}}
     <x-signals.modal name="create-section" title="New section" id="create-section-modal">
-        <div>
-            <label class="block text-sm font-medium mb-1">Section name</label>
-            <input type="text" class="s-input w-full" wire:model="newSectionName"
-                wire:keydown.enter.prevent="createSection" placeholder="e.g. Front of House">
+        <div class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium mb-1">Section name</label>
+                <input type="text" class="s-input w-full" wire:model="newSectionName"
+                    wire:keydown.enter.prevent="createSection" placeholder="e.g. Front of House">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Nest under (optional)</label>
+                <select class="s-input w-full" wire:model="newSectionParent">
+                    @foreach($this->sectionOptions as $option)
+                        <option value="{{ $option['value'] }}" wire:key="parent-opt-{{ $option['value'] }}">{{ $option['label'] }}</option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-[var(--text-muted)] mt-1">Choose a parent section to create a nested sub-group.</p>
+            </div>
             <x-slot:footer>
                 <button type="button" class="s-btn s-btn-ghost" x-on:click="$dispatch('close-modal', 'create-section')">Cancel</button>
                 <button type="button" class="s-btn s-btn-primary" wire:click="createSection">
@@ -1160,11 +1411,13 @@ new class extends Component
 
 @script
 <script>
-    Alpine.data('opportunityItemsEditor', (catalogue, editable) => ({
+    Alpine.data('opportunityItemsEditor', (catalogue, editable, groupKeys = []) => ({
         editable,
         controller: null,
+        groupKeys,
         collapsedGroups: {},
         expandedLines: {},
+        quickAddQty: 1,
         quickAddQtyHint: '',
         picker: {
             open: false,
@@ -1199,6 +1452,12 @@ new class extends Component
         // ---- collapse state ----
         isCollapsed(key) { return !!this.collapsedGroups[key]; },
         toggleGroup(key) { this.collapsedGroups[key] = !this.collapsedGroups[key]; },
+        expandAll() { this.collapsedGroups = {}; },
+        collapseAll() {
+            const next = {};
+            (this.groupKeys || []).forEach((k) => { next[k] = true; });
+            this.collapsedGroups = next;
+        },
         isLineExpanded(id) { return !!this.expandedLines[id]; },
         toggleLine(id) { this.expandedLines[id] = !this.expandedLines[id]; },
 
@@ -1213,6 +1472,11 @@ new class extends Component
             this.picker.substituteItemId = opts.itemId ?? null;
 
             if (isQuickAdd) {
+                // A parsed "6 ×" prefix overrides the qty box; otherwise keep the
+                // operator's typed quantity.
+                if (parsed.quantity > 1) {
+                    this.quickAddQty = parsed.quantity;
+                }
                 this.quickAddQtyHint = parsed.quantity > 1 ? parsed.quantity + '×' : '';
             }
 
@@ -1278,12 +1542,17 @@ new class extends Component
                 return;
             }
 
-            const qty = this.picker.quantity || 1;
+            // Quick-add uses the qty box (which a parsed "6 ×" already updated);
+            // the substitute/inline picker uses the parsed quantity.
+            const qty = this.picker.isQuickAdd
+                ? (Number(this.quickAddQty) > 0 ? Number(this.quickAddQty) : 1)
+                : (this.picker.quantity || 1);
             this.$wire.addProduct(hit.id, qty);
             this.picker.open = false;
             this.picker.results = [];
             if (this.picker.isQuickAdd && this.picker.target) {
                 this.picker.target.value = '';
+                this.quickAddQty = 1;
                 this.quickAddQtyHint = '';
                 this.$nextTick(() => this.picker.target.focus());
             }

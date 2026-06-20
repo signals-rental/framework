@@ -417,3 +417,198 @@ it('gates substituting a line product on opportunities.edit', function () {
 
     expect($item->fresh()->item_id)->toBe($product->id);
 });
+
+/*
+|--------------------------------------------------------------------------
+| B8 line-item editor overhaul (UAT)
+|--------------------------------------------------------------------------
+*/
+
+it('moves a line out of its section back to auto-grouping without deleting the section', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $group = ProductGroup::factory()->create(['name' => 'Rigging']);
+    $product = Product::factory()->create(['name' => 'Truss', 'product_group_id' => $group->id]);
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $product->id, 1)
+        ->set('newSectionName', 'Stage')
+        ->call('createSection');
+
+    $section = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+
+    $component->call('assignToSection', $item->id, $section->id)->assertHasNoErrors();
+    expect($item->fresh()->section_id)->toBe($section->id);
+
+    // Move the line OUT of the section (back to auto-grouping). The section row
+    // survives (becomes empty) — it is not deleted.
+    $component->call('assignToSection', $item->id, null)->assertHasNoErrors();
+
+    expect($item->fresh()->section_id)->toBeNull();
+    expect(OpportunitySection::query()->whereKey($section->id)->exists())->toBeTrue();
+
+    // The (now empty) section header + the line's auto group both still render.
+    $component->assertSee('Stage')->assertSee('Rigging');
+});
+
+it('creates a nested sub-section under a parent (parent_id)', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->set('newSectionName', 'Parent')
+        ->call('createSection');
+
+    $parent = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+
+    $component
+        ->set('newSectionName', 'Child')
+        ->set('newSectionParent', (string) $parent->id)
+        ->call('createSection')
+        ->assertHasNoErrors();
+
+    $child = OpportunitySection::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('name', 'Child')
+        ->firstOrFail();
+
+    expect($child->parent_id)->toBe($parent->id);
+
+    // The nested section renders with a Sub-section badge under the editor.
+    $component->assertSee('Sub-section')->assertSee('Child');
+});
+
+it('rejects a parent section that belongs to a different opportunity', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Owner opp');
+    $other = liveOpportunityForEditor($this->owner, $this->store->id, 'Other opp');
+
+    $foreignParent = OpportunitySection::factory()->create(['opportunity_id' => $other->id]);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->set('newSectionName', 'Bad')
+        ->set('newSectionParent', (string) $foreignParent->id)
+        ->call('createSection')
+        ->assertHasErrors('parent_id');
+
+    expect(OpportunitySection::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('name', 'Bad')
+        ->exists())->toBeFalse();
+});
+
+it('reorders sibling sections (sortable) via reorderSections', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->set('newSectionName', 'Alpha')
+        ->call('createSection')
+        ->set('newSectionName', 'Bravo')
+        ->call('createSection');
+
+    $alpha = OpportunitySection::query()->where('name', 'Alpha')->firstOrFail();
+    $bravo = OpportunitySection::query()->where('name', 'Bravo')->firstOrFail();
+
+    expect($alpha->sort_order)->toBeLessThan($bravo->sort_order);
+
+    // Swap them: Bravo first.
+    $component->call('reorderSections', [$bravo->id, $alpha->id])->assertHasNoErrors();
+
+    expect($bravo->fresh()->sort_order)->toBe(0)
+        ->and($alpha->fresh()->sort_order)->toBe(1);
+});
+
+it('edits the rate inline and re-totals the line', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $product = Product::factory()->create();
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $product->id, 2);
+
+    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+
+    // Inline rate edit -> OverrideItemPrice -> unit_price stored in minor units,
+    // the line total recomputes from the override (2 × 50.00 = 100.00).
+    $component->call('overridePrice', $item->id, '50.00')->assertHasNoErrors();
+
+    $updated = $item->fresh();
+
+    expect($updated->unit_price)->toBe(5000)
+        ->and($updated->total)->toBe(10000);
+});
+
+it('edits the discount inline and reduces the line total ex-tax', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $product = Product::factory()->create();
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $product->id, 1);
+
+    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+
+    // Fix the rate so the discount maths is deterministic (1 × 100.00 net).
+    $component->call('overridePrice', $item->id, '100.00')->assertHasNoErrors();
+    expect($item->fresh()->total)->toBe(10000);
+
+    // 10% discount on a 100.00 net line -> 90.00 stored on the line total (ex-tax).
+    $component->call('setDiscount', $item->id, '10')->assertHasNoErrors();
+
+    $discounted = $item->fresh();
+
+    expect($discounted->discount_percent)->toBe('10.00')
+        ->and($discounted->total)->toBe(9000)
+        ->and($opportunity->fresh()->charge_total)->toBe(9000);
+
+    // Clearing the discount restores the full line total.
+    $component->call('setDiscount', $item->id, null)->assertHasNoErrors();
+
+    expect($item->fresh()->total)->toBe(10000);
+});
+
+it('shows the accessories toggle and the charge-total footer row', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $clamp = Product::factory()->create(['name' => 'Hook Clamp', 'sku' => 'HK-1']);
+    $product = Product::factory()->create(['name' => 'Fixture A']);
+
+    Accessory::factory()->create([
+        'product_id' => $product->id,
+        'accessory_product_id' => $clamp->id,
+        'quantity' => 1,
+        'included' => true,
+        'zero_priced' => true,
+    ]);
+
+    $this->actingAs($this->owner);
+
+    // The accessory toggle (collapsed by default) + the charge-total footer render.
+    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $product->id, 1)
+        ->assertHasNoErrors()
+        ->assertSee('Hook Clamp')
+        ->assertSee('Charge total (ex-tax)');
+});
+
+it('renders a per-product View availability link over the opportunity period', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $product = Product::factory()->create(['name' => 'Linked Product']);
+
+    $this->actingAs($this->owner);
+
+    // The row-actions menu carries a View availability deep link to the gantt view
+    // filtered to this product + store.
+    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $product->id, 1)
+        ->assertHasNoErrors()
+        ->assertSee('View availability')
+        ->assertSee('product='.$product->id);
+});

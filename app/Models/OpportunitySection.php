@@ -21,8 +21,13 @@ use Illuminate\Support\Carbon;
  * assignments. Lines with no section fall back to automatic product-group
  * grouping in the UI.
  *
+ * Sections may also nest: a section can carry a `parent_id` pointing at another
+ * section on the same opportunity, giving the editor sub-groups. The hierarchy is
+ * a plain column too, so a Verbs replay never disturbs it.
+ *
  * @property int $id
  * @property int $opportunity_id
+ * @property int|null $parent_id
  * @property string $name
  * @property int $sort_order
  * @property Carbon|null $created_at
@@ -36,6 +41,7 @@ class OpportunitySection extends Model
     /** @var list<string> */
     protected $fillable = [
         'opportunity_id',
+        'parent_id',
         'name',
         'sort_order',
     ];
@@ -46,6 +52,7 @@ class OpportunitySection extends Model
     protected function casts(): array
     {
         return [
+            'parent_id' => 'integer',
             'sort_order' => 'integer',
         ];
     }
@@ -56,6 +63,26 @@ class OpportunitySection extends Model
     public function opportunity(): BelongsTo
     {
         return $this->belongsTo(Opportunity::class, 'opportunity_id');
+    }
+
+    /**
+     * The parent section this section nests under (null when top-level).
+     *
+     * @return BelongsTo<OpportunitySection, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(OpportunitySection::class, 'parent_id');
+    }
+
+    /**
+     * Child (nested) sections, in display order.
+     *
+     * @return HasMany<OpportunitySection, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(OpportunitySection::class, 'parent_id')->orderBy('sort_order');
     }
 
     /**

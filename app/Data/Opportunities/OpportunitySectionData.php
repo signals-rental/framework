@@ -19,6 +19,7 @@ class OpportunitySectionData extends Data
     public function __construct(
         public int $id,
         public int $opportunity_id,
+        public ?int $parent_id,
         public string $name,
         public int $sort_order,
         public string $created_at,
@@ -30,6 +31,7 @@ class OpportunitySectionData extends Data
         return new self(
             id: $section->id,
             opportunity_id: $section->opportunity_id,
+            parent_id: $section->parent_id,
             name: $section->name,
             sort_order: $section->sort_order,
             created_at: self::formatTimestamp($section->created_at),
