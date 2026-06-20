@@ -96,7 +96,7 @@ it('writes company settings', function () {
     expect(settings('company.name'))->toBe('Test Rentals')
         ->and(settings('company.country_code'))->toBe('GB')
         ->and(settings('company.timezone'))->toBe('Europe/London')
-        ->and(settings('company.currency'))->toBe('GBP')
+        ->and(settings('company.base_currency'))->toBe('GBP')
         ->and(settings('company.tax_rate'))->toBe('20.00')
         ->and(settings('company.tax_label'))->toBe('VAT')
         ->and(settings('company.date_format'))->toBe('d/m/Y')

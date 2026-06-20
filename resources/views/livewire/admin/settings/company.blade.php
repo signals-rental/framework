@@ -21,7 +21,7 @@ new #[Layout('components.layouts.app')] #[Title('Company Details')] class extend
         $this->name = (string) settings('company.name', '');
         $this->countryCode = (string) settings('company.country_code', '');
         $this->timezone = (string) settings('company.timezone', '');
-        $this->currency = (string) settings('company.currency', '');
+        $this->currency = (string) settings('company.base_currency', '');
         $this->taxRate = (string) settings('company.tax_rate', '');
         $this->taxLabel = (string) settings('company.tax_label', '');
         $this->dateFormat = (string) settings('company.date_format', '');
@@ -61,7 +61,7 @@ new #[Layout('components.layouts.app')] #[Title('Company Details')] class extend
             'company.name' => $validated['name'],
             'company.country_code' => $validated['countryCode'],
             'company.timezone' => $validated['timezone'],
-            'company.currency' => $validated['currency'],
+            'company.base_currency' => $validated['currency'],
             'company.tax_rate' => $validated['taxRate'],
             'company.tax_label' => $validated['taxLabel'],
             'company.date_format' => $validated['dateFormat'],

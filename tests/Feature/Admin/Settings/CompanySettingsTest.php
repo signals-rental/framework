@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Currency;
 use App\Models\User;
+use App\Support\Formatter;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -20,7 +22,7 @@ it('loads current settings values', function () {
         'company.name' => 'Test Company',
         'company.country_code' => 'GB',
         'company.timezone' => 'Europe/London',
-        'company.currency' => 'GBP',
+        'company.base_currency' => 'GBP',
     ]);
 
     Volt::test('admin.settings.company')
@@ -47,8 +49,36 @@ it('saves company settings', function () {
 
     expect(settings('company.name'))->toBe('Updated Company');
     expect(settings('company.country_code'))->toBe('US');
-    expect(settings('company.currency'))->toBe('USD');
+    expect(settings('company.base_currency'))->toBe('USD');
     expect(session('status'))->toBe('Company details saved.');
+});
+
+it('saves the base currency under the canonical key the money engine reads', function () {
+    Currency::factory()->create([
+        'code' => 'EUR',
+        'name' => 'Euro',
+        'symbol' => '€',
+        'decimal_places' => 2,
+    ]);
+
+    Volt::test('admin.settings.company')
+        ->set('name', 'Euro Co')
+        ->set('countryCode', 'DE')
+        ->set('timezone', 'Europe/Berlin')
+        ->set('currency', 'EUR')
+        ->set('taxRate', '19')
+        ->set('taxLabel', 'USt')
+        ->set('dateFormat', 'd.m.Y')
+        ->set('timeFormat', 'H:i')
+        ->set('fiscalYearStart', 1)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    // The admin page must persist to the key the entire money engine reads.
+    expect(settings('company.base_currency'))->toBe('EUR');
+
+    // And the money engine must pick it up rather than the hardcoded GBP default.
+    expect(app(Formatter::class)->money(12550))->toContain('€');
 });
 
 it('validates required fields', function () {

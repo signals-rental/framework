@@ -59,7 +59,7 @@ class CompleteSetup
             'company.name' => $data->companyName,
             'company.country_code' => $data->countryCode,
             'company.timezone' => $data->timezone,
-            'company.currency' => $data->currency,
+            'company.base_currency' => $data->currency,
             'company.tax_rate' => $data->taxRate,
             'company.tax_label' => $data->taxLabel,
             'company.date_format' => $data->dateFormat,

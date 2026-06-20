@@ -134,7 +134,7 @@ it('writes company settings from country defaults', function () {
     expect(settings('company.name'))->toBe('Acme Rentals');
     expect(settings('company.country_code'))->toBe('GB');
     expect(settings('company.timezone'))->toBe('Europe/London');
-    expect(settings('company.currency'))->toBe('GBP');
+    expect(settings('company.base_currency'))->toBe('GBP');
     expect(settings('company.tax_rate'))->toBe('20.00');
     expect(settings('company.tax_label'))->toBe('VAT');
 });
@@ -237,7 +237,7 @@ it('allows overriding country defaults for timezone and currency', function () {
     ])->assertSuccessful();
 
     expect(settings('company.timezone'))->toBe('America/New_York');
-    expect(settings('company.currency'))->toBe('USD');
+    expect(settings('company.base_currency'))->toBe('USD');
     expect(settings('company.tax_rate'))->toBe('8.50');
     expect(settings('company.tax_label'))->toBe('Sales Tax');
 });
