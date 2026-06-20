@@ -12,8 +12,15 @@ and *acknowledgements* are persisted.
 | Method | URL | Description |
 |--------|-----|-------------|
 | GET | `/api/v1/opportunities/{opportunity}/shortages` | Detect current shortages on an opportunity |
+| GET | `/api/v1/opportunities/{opportunity}/shortage_gate` | Pre-check the conversion gate (non-destructive) |
+| GET | `/api/v1/opportunities/{opportunity}/shortage_resolutions` | List persisted resolutions for an opportunity |
 | GET | `/api/v1/opportunities/{opportunity}/items/{item}/shortage_resolvers` | List resolver options for a line item's shortage |
 | POST | `/api/v1/shortage_resolutions` | Apply a resolver option to a line item's shortage |
+| PATCH | `/api/v1/shortage_resolutions/{resolution}/confirm` | Confirm a pending resolution |
+| PATCH | `/api/v1/shortage_resolutions/{resolution}/start` | Start fulfilment of a confirmed resolution |
+| PATCH | `/api/v1/shortage_resolutions/{resolution}/fulfill` | Mark a resolution fulfilled |
+| PATCH | `/api/v1/shortage_resolutions/{resolution}/cancel` | Cancel a resolution |
+| PATCH | `/api/v1/shortage_resolutions/{resolution}/fail` | Mark a resolution failed |
 | POST | `/api/v1/opportunities/{opportunity}/shortages/acknowledge` | Acknowledge an opportunity's shortages |
 
 ## Authentication
@@ -101,6 +108,94 @@ display priority.
 }
 ```
 
+## Shortage Gate Pre-Check
+
+```
+GET /api/v1/opportunities/42/shortage_gate
+```
+
+Returns a read-only, non-destructive pre-check of the **Block / Warn / Allow** shortage gate that would run when the quotation is converted to an order. This tells the UI whether the conversion would be blocked, warned, or allowed — and shows the current shortages — without committing anything, recording an acknowledgement, or triggering auto-resolution. The real gate runs (and may record an acknowledgement) when `POST /convert_to_order` is called.
+
+### Response
+
+```json
+{
+    "decision": "warn",
+    "store_policy": "warn",
+    "permission_used": false,
+    "would_block": false,
+    "acknowledgement_required": true,
+    "shortages": [
+        {
+            "opportunity_item_id": 1001,
+            "opportunity_id": 42,
+            "product_id": 5,
+            "product_name": "MegaPointe Moving Head",
+            "store_id": 1,
+            "requested_quantity": 6,
+            "available_quantity": 4,
+            "shortfall": 2,
+            "remaining_shortfall": 2,
+            "tracking_type": "serialised",
+            "starts_at": "2026-07-02T09:00:00.000Z",
+            "ends_at": "2026-07-05T17:00:00.000Z",
+            "is_critical": false
+        }
+    ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `decision` | string | Gate decision: `allow`, `warn`, or `block` |
+| `store_policy` | string | The store's base shortage policy (`allow`, `warn`, `block`) |
+| `permission_used` | boolean | Whether the actor's `shortages.ignore` permission relaxed the policy |
+| `would_block` | boolean | `true` when `decision` is `block` |
+| `acknowledgement_required` | boolean | `true` when proceeding would record an acknowledgement |
+| `shortages` | array | Array of current shortages (same shape as the detect endpoint) |
+
+Requires `shortages.view` / `shortages:read`.
+
+## List Shortage Resolutions
+
+```
+GET /api/v1/opportunities/42/shortage_resolutions
+```
+
+Returns the persisted shortage resolutions recorded against this opportunity's short line items, under the `shortage_resolutions` key. Supports `?q[field_predicate]=value` Ransack filtering (filterable on `status`, `resolver_key`, `resolution_type`) and `sort` / `page` / `per_page`.
+
+### Response
+
+```json
+{
+    "shortage_resolutions": [
+        {
+            "id": 7,
+            "resolver_key": "partial",
+            "resolution_type": "partial",
+            "status": "confirmed",
+            "status_label": "Confirmed",
+            "quantity_resolved": 4,
+            "cost": null,
+            "metadata": null,
+            "resolved_by": null,
+            "confirmed_at": "2026-07-01T10:15:00.000Z",
+            "cancelled_at": null,
+            "cancellation_reason": null,
+            "notes": "Reduced to 4 available units.",
+            "created_at": "2026-07-01T10:15:00.000Z",
+            "updated_at": "2026-07-01T10:15:00.000Z",
+            "items": [
+                { "id": 12, "opportunity_item_id": 1001, "quantity_allocated": 4 }
+            ]
+        }
+    ],
+    "meta": { "total": 1, "per_page": 20, "page": 1 }
+}
+```
+
+Requires `shortages.view` / `shortages:read`.
+
 ## Apply a Resolution
 
 ```
@@ -137,6 +232,44 @@ the resolution **intent** as `pending` and flag `requires_followup`.
     "requires_followup": false
 }
 ```
+
+## Resolution Lifecycle Transitions
+
+Once a resolution is recorded its status can be advanced through the lifecycle matrix:
+
+```
+PATCH /api/v1/shortage_resolutions/{resolution}/confirm
+PATCH /api/v1/shortage_resolutions/{resolution}/start
+PATCH /api/v1/shortage_resolutions/{resolution}/fulfill
+PATCH /api/v1/shortage_resolutions/{resolution}/cancel
+PATCH /api/v1/shortage_resolutions/{resolution}/fail
+```
+
+### Status Transition Matrix
+
+| Transition | Allowed from | Resulting status |
+|------------|-------------|-----------------|
+| `confirm` | `pending`, `monitoring` | `confirmed` |
+| `start` | `confirmed` | `in_progress` |
+| `fulfill` | `in_progress`, `partially_fulfilled` | `fulfilled` |
+| `cancel` | `pending`, `monitoring`, `confirmed` | `cancelled` |
+| `fail` | `pending`, `monitoring` | `failed` |
+
+An invalid transition (e.g. starting an already-fulfilled resolution) yields a `422`. The `cancel` and `fail` transitions accept an optional `reason` body field.
+
+### Response
+
+```json
+{
+    "resolution": {
+        "id": 7,
+        "status": "confirmed",
+        "status_label": "Confirmed"
+    }
+}
+```
+
+Requires `shortages.resolve` / `shortages:write`.
 
 ## Confirmation Gate
 

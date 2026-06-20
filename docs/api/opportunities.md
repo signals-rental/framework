@@ -13,12 +13,23 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 | GET | `/api/v1/opportunities/{id}/assets` | List every line's asset assignments (flat) |
 | GET | `/api/v1/opportunities/{id}/availability` | Per-line availability picture |
 | GET | `/api/v1/opportunities/{id}/activity` | Scoped audit timeline |
+| GET | `/api/v1/opportunities/{id}/available_actions` | Legal actions for the current state |
 | POST | `/api/v1/opportunities` | Create an opportunity (as a Draft) |
 | PUT | `/api/v1/opportunities/{id}` | Update an opportunity's header fields |
 | DELETE | `/api/v1/opportunities/{id}` | Delete (soft-delete) an opportunity |
+| POST | `/api/v1/opportunities/{id}/restore` | Restore a soft-deleted opportunity |
+| POST | `/api/v1/opportunities/{id}/clone` | Clone an opportunity into a new Draft |
 | POST | `/api/v1/opportunities/{id}/convert_to_quotation` | Convert a Draft into a Quotation |
 | POST | `/api/v1/opportunities/{id}/convert_to_order` | Convert a Quotation into an Order |
 | POST | `/api/v1/opportunities/{id}/change_status` | Move to another status within the current state |
+| POST | `/api/v1/opportunities/{id}/reinstate` | Reinstate a closed opportunity |
+| POST | `/api/v1/opportunities/{id}/reopen` | Re-open a completed order |
+| POST | `/api/v1/opportunities/{id}/revert_to_quotation` | Revert an Order back to a Quotation |
+| POST | `/api/v1/opportunities/{id}/revert_to_draft` | Revert a Quotation back to a Draft |
+| POST | `/api/v1/opportunities/{id}/unlock_locks` | Release FX/tax locks for re-pricing |
+| POST | `/api/v1/opportunities/{id}/participants` | Add a participant |
+| PATCH | `/api/v1/opportunities/{id}/participants/{participant}` | Update a participant's role or mute flag |
+| DELETE | `/api/v1/opportunities/{id}/participants/{participant}` | Remove a participant |
 | POST | `/api/v1/opportunities/{id}/items` | Add a line item |
 | PATCH | `/api/v1/opportunities/{id}/items/{item}` | Update a line item |
 | DELETE | `/api/v1/opportunities/{id}/items/{item}` | Remove a line item |
@@ -36,6 +47,152 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 ## Authentication
 
 Requires a Sanctum bearer token with `opportunities:read` (GET) or `opportunities:write` (POST/PUT/DELETE) ability, alongside the matching `opportunities.view` / `opportunities.create` / `opportunities.edit` / `opportunities.delete` permission.
+
+## Opportunity Field Reference
+
+All opportunity responses include the following fields under the `opportunity` key.
+
+### Identity & Header
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Opportunity identifier |
+| `subject` | string | Opportunity subject / title |
+| `number` | string\|null | Zero-padded RMS number (e.g. `"0000000042"`) |
+| `reference` | string\|null | External reference / PO number |
+| `description` | string\|null | Internal description |
+| `external_description` | string\|null | Customer-facing description |
+| `member_id` | integer\|null | Owning member (customer) id |
+| `venue_id` | integer\|null | Venue member id |
+| `store_id` | integer\|null | Home store id |
+| `owned_by` | integer\|null | Owner (staff member) id |
+| `source_opportunity_id` | integer\|null | Source opportunity id when this was cloned from another |
+| `rating` | integer\|null | Customer satisfaction rating (1–5) |
+| `tag_list` | string[] | Tag labels attached to the opportunity |
+| `custom_fields` | object | Custom field values as a flat key/value map (`{}` when none) |
+
+### State & Status
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | integer | RMS state integer: `0` Draft, `1` Quotation, `2` Order |
+| `state_label` | string | Human-readable state label (e.g. `"Quotation"`) |
+| `state_name` | string | Alias of `state_label` (RMS compatibility) |
+| `status` | integer | Per-state status integer (see the Two-Axis table below) |
+| `status_label` | string | Human-readable status label (e.g. `"Reserved"`) |
+| `status_name` | string | Alias of `status_label` (RMS compatibility) |
+| `availability_phase` | string | Demand phase implied by the current status (e.g. `"reserved"`, `"on_hire"`) |
+
+### Dates
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `starts_at` | string\|null | Hire start (ISO 8601 UTC) |
+| `ends_at` | string\|null | Hire end (ISO 8601 UTC) |
+| `charge_starts_at` | string\|null | Chargeable period start |
+| `charge_ends_at` | string\|null | Chargeable period end |
+| `ordered_at` | string\|null | Timestamp when the opportunity was converted to an order |
+| `quote_invalid_at` | string\|null | Date/time after which the quote expires |
+| `prep_starts_at` / `prep_ends_at` | string\|null | Warehouse preparation window |
+| `load_starts_at` / `load_ends_at` | string\|null | Loading window |
+| `deliver_starts_at` / `deliver_ends_at` | string\|null | Delivery window |
+| `setup_starts_at` / `setup_ends_at` | string\|null | Setup/rigging window |
+| `show_starts_at` / `show_ends_at` | string\|null | Show/event window |
+| `takedown_starts_at` / `takedown_ends_at` | string\|null | Takedown/de-rig window |
+| `collect_starts_at` / `collect_ends_at` | string\|null | Collection window |
+| `unload_starts_at` / `unload_ends_at` | string\|null | Unloading window |
+| `deprep_starts_at` / `deprep_ends_at` | string\|null | De-preparation window |
+
+### Fulfilment Flags
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `use_chargeable_days` | boolean | Whether chargeable days override the duration calculation |
+| `chargeable_days` | string\|null | Override chargeable day count (decimal string) |
+| `open_ended_rental` | boolean | Whether the hire has no fixed return date |
+| `customer_collecting` | boolean | Customer collects from store (affects delivery demand) |
+| `customer_returning` | boolean | Customer returns to store (affects return demand) |
+| `invoiced` | boolean | Whether the opportunity has been invoiced |
+| `has_shortage` | boolean | Whether any line item currently has a shortage |
+
+### Delivery & Collection Addresses
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `delivery_address_id` | integer\|null | Member address id for delivery |
+| `collection_address_id` | integer\|null | Member address id for collection |
+| `delivery_instructions` | string\|null | Free-text delivery instructions |
+| `collection_instructions` | string\|null | Free-text collection instructions |
+
+Include `delivery_address` and `collection_address` via `?include=delivery_address,collection_address` to embed the full address object (street, city, postcode, country, etc.).
+
+### Pricing & Totals
+
+All money values are returned as decimal strings (e.g. `"125.50"`).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `currency_code` | string\|null | ISO 4217 currency code (e.g. `"GBP"`) |
+| `exchange_rate` | string | Exchange rate snapshot at creation or last unlock (decimal string) |
+| `exchange_rate_locked` | boolean | Whether the exchange rate is locked |
+| `tax_locked` | boolean | Whether the tax snapshot is locked |
+| `pricing_locked` | boolean | Computed: `true` when either `exchange_rate_locked` or `tax_locked` is set |
+| `prices_include_tax` | boolean | Whether prices are tax-inclusive |
+| `charge_total` | string | Gross headline total (net when no deal override) |
+| `deal_total` | string\|null | Manual deal-total override when set |
+| `rental_charge_total` | string | Total for rental lines |
+| `sale_charge_total` | string | Total for sale lines |
+| `service_charge_total` | string | Total for service, labour, and surcharge lines |
+| `sub_rental_charge_total` | string | Total for sub-rental lines |
+| `transit_charge_total` | string | Total for delivery costs |
+| `loss_damage_charge_total` | string | Total for loss/damage costs |
+| `charge_excluding_tax_total` | string | Net total (all lines and costs, tax excluded) |
+| `tax_total` | string | Total tax |
+| `charge_including_tax_total` | string | Gross total including tax |
+
+### Quote Version Summary
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `active_version_id` | integer | Id of the currently active quote version |
+| `version_count` | integer | Total number of versions |
+| `has_alternatives` | boolean | Whether there is more than one non-superseded version |
+
+### Lazy Includes
+
+These fields are `null` unless the relationship is eager-loaded via `?include=`:
+
+| Include key | Field | Description |
+|-------------|-------|-------------|
+| `member` | `member` | `{id, name}` reference for the owning member |
+| `venue` | `venue` | `{id, name}` reference for the venue member |
+| `store` | `store` | `{id, name}` reference for the store |
+| `owner` | `owner` | `{id, name}` reference for the owning user/member |
+| `delivery_address` | `delivery_address` | Full address object |
+| `collection_address` | `collection_address` | Full address object |
+| `items` | `items` | Array of line item objects |
+| `costs` | `costs` | Array of cost objects |
+| `versions` | `versions` | Array of quote version objects |
+| `participants` | `participants` | Array of participant objects |
+
+### Response Meta Block
+
+Every show/write response includes a top-level `meta` block alongside `opportunity`:
+
+```json
+{
+    "opportunity": { ... },
+    "meta": {
+        "can_edit": true,
+        "can_destroy": false
+    }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `can_edit` | boolean | Whether the authenticated user can update this opportunity (respects policy + closed state) |
+| `can_destroy` | boolean | Whether the authenticated user can delete (soft-delete) this opportunity |
 
 ## Two-Axis State Model
 
@@ -224,6 +381,176 @@ Returns the updated opportunity under the `opportunity` key.
 | 403 | Token lacks `opportunities:read`/`opportunities:write`, or the user lacks the permission |
 | 404 | Opportunity not found (or soft-deleted) |
 | 422 | Validation failure, or an invalid state/status transition |
+
+## Available Actions
+
+```
+GET /api/v1/opportunities/{id}/available_actions
+```
+
+Returns the set of legal lifecycle actions for the current state/status combination, resolving each action's feasibility given the current state, the actor's permissions, and system checks (shortage gate, lock state, dispatch state). The UI uses this to show/hide action buttons without needing to reproduce the guard logic.
+
+Requires `opportunities.view` / `opportunities:read`.
+
+### Response
+
+```json
+{
+    "available_actions": [
+        {
+            "action": "convert_to_order",
+            "label": "Convert to Order",
+            "available": true,
+            "disabled": false,
+            "reason": null,
+            "reason_code": null
+        },
+        {
+            "action": "revert_to_draft",
+            "label": "Revert to Draft",
+            "available": false,
+            "disabled": true,
+            "reason": "Only an open, provisional quotation can be reverted to a draft.",
+            "reason_code": "invalid_state"
+        }
+    ]
+}
+```
+
+Each entry has `action` (the endpoint slug), `label`, `available` (boolean — the actor has permission and the state allows it), `disabled`, `reason` (human-readable explanation when not available), and `reason_code` (machine-readable, e.g. `invalid_state`, `nothing_to_unlock`, `dispatched`, `permission`).
+
+## Restore Opportunity
+
+```
+POST /api/v1/opportunities/{id}/restore
+```
+
+Restores a soft-deleted opportunity. The `{id}` must identify a soft-deleted record (use `trashed=true` on the list or the Delete/Restore flow from the UI). Returns the restored opportunity under the `opportunity` key (`200 OK`).
+
+Requires `opportunities.delete` / `opportunities:write`.
+
+## Clone Opportunity
+
+```
+POST /api/v1/opportunities/{id}/clone
+```
+
+Creates a copy of the opportunity as a new **Draft**, including its line items, costs, and custom fields. The clone gets a fresh RMS number and is otherwise independent of the source; its `source_opportunity_id` points back to the original. Returns the new opportunity under the `opportunity` key (`201 Created`).
+
+Requires `opportunities.create` / `opportunities:write`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `subject` | string | No | Subject for the clone (defaults to `"Copy of [original subject]"`) |
+
+## Reinstate
+
+```
+POST /api/v1/opportunities/{id}/reinstate
+```
+
+Reinstates a **Lost**, **Dead**, **Postponed**, or **Cancelled** opportunity back to its default open status (`Quotation/Provisional` or `Order/Active`). Returns the updated opportunity. A `422` is returned for any other state/status.
+
+Requires `opportunities.edit` / `opportunities:write`.
+
+## Revert to Quotation
+
+```
+POST /api/v1/opportunities/{id}/revert_to_quotation
+```
+
+Reverts an **open Order** (Active) back to a **Quotation / Provisional**. The opportunity must not have any dispatched assets — if assets have been dispatched, the transition is rejected (`422`) until they are returned and all quantity demand is unwound.
+
+Requires `opportunities.edit` / `opportunities:write`.
+
+## Revert to Draft
+
+```
+POST /api/v1/opportunities/{id}/revert_to_draft
+```
+
+Reverts an **open, provisional Quotation** back to a **Draft / Open**. Only allowed while the quotation is in the Provisional (open) status — a Reserved or closed quotation cannot be reverted. Returns the updated opportunity.
+
+Requires `opportunities.edit` / `opportunities:write`.
+
+## Reopen
+
+```
+POST /api/v1/opportunities/{id}/reopen
+```
+
+Re-opens a **Completed** order back to **Order / Active**. `Complete` is the only terminal order status that can be re-opened (Cancelled orders use `reinstate`). Returns the updated opportunity.
+
+Requires `opportunities.edit` / `opportunities:write`.
+
+## Unlock Locks
+
+```
+POST /api/v1/opportunities/{id}/unlock_locks
+```
+
+Releases any FX rate lock and/or tax lock currently in place on an order. Once unlocked, the next write (line edit, cost add, deal-price change) will re-snapshot the current exchange rates and tax rules. Returns the updated opportunity.
+
+Requires the `opportunities.unlock_rates` permission and `opportunities:write` ability. Returns `422` when neither lock is set.
+
+## Opportunity Participants
+
+Participants are members (contacts or staff) attached to an opportunity in a named role — for example, a site contact, a crew chief, or an on-site supervisor. They are RMS-compatible (`participants[]` in the field set) and returned via `?include=participants`.
+
+### List (via include)
+
+```
+GET /api/v1/opportunities/{id}?include=participants
+```
+
+Participants are returned in the `participants` array on the opportunity. Each entry:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Participant record id |
+| `opportunity_id` | integer | Parent opportunity id |
+| `member_id` | integer | The member record attached |
+| `role` | string\|null | Named role (free text, e.g. `"Site Contact"`) |
+| `mute` | boolean | Whether notifications are suppressed for this participant |
+| `created_at` / `updated_at` | string | ISO 8601 UTC timestamps |
+| `member` | object\|null | `{id, name}` reference when `include=participants.member` is also requested |
+
+### Add Participant
+
+```
+POST /api/v1/opportunities/{id}/participants
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `member_id` | integer | Yes | The member to attach (must exist) |
+| `role` | string | No | Named role label |
+| `mute` | boolean | No | Suppress notifications (default `false`) |
+
+Returns the new participant under the `participant` key (`201 Created`).
+
+Requires `opportunities.edit` / `opportunities:write`.
+
+### Update Participant
+
+```
+PATCH /api/v1/opportunities/{id}/participants/{participant}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `role` | string\|null | New role (set `null` to clear) |
+| `mute` | boolean | Updated notification-mute flag |
+
+Returns the updated participant under the `participant` key. The `{participant}` must belong to the opportunity (`404` otherwise).
+
+### Remove Participant
+
+```
+DELETE /api/v1/opportunities/{id}/participants/{participant}
+```
+
+Removes the participant. Returns `204 No Content`. The `{participant}` must belong to the opportunity.
 
 ## Opportunity Items
 
