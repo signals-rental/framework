@@ -116,6 +116,14 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('opportunities/create', 'opportunities.form')->name('opportunities.create');
     Volt::route('opportunities/{opportunity}', 'opportunities.show')->name('opportunities.show');
     Volt::route('opportunities/{opportunity}/edit', 'opportunities.form')->name('opportunities.edit');
+    // Show sub-page tabs (M8-2), mirroring the Products tab convention — one Volt
+    // page per tab, each @include-ing the shared header + tabs partials.
+    // The Versions tab (M8-5) and Availability/Shortage tab (M8-4) slot in here later.
+    Volt::route('opportunities/{opportunity}/items', 'opportunities.items')->name('opportunities.items');
+    Volt::route('opportunities/{opportunity}/costs', 'opportunities.costs')->name('opportunities.costs');
+    Volt::route('opportunities/{opportunity}/activities', 'opportunities.activities')->name('opportunities.activities');
+    Volt::route('opportunities/{opportunity}/custom-fields', 'opportunities.custom-fields')->name('opportunities.custom-fields');
+    Volt::route('opportunities/{opportunity}/files', 'opportunities.files')->name('opportunities.files');
 
     // Activities
     Volt::route('activities', 'activities.index')->name('activities.index');

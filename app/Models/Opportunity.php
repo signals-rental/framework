@@ -10,6 +10,7 @@ use App\Models\Traits\HasAttachments;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
 use Database\Factories\OpportunityFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -275,6 +276,17 @@ class Opportunity extends Model implements HasSchema
     }
 
     /**
+     * Custom line-item groupings (sections) belonging to this opportunity, in
+     * display order. Plain, NON-event-sourced rows (M8-3 grouping decision).
+     *
+     * @return HasMany<OpportunitySection, $this>
+     */
+    public function sections(): HasMany
+    {
+        return $this->hasMany(OpportunitySection::class, 'opportunity_id')->orderBy('sort_order');
+    }
+
+    /**
      * Ad-hoc costs (delivery, labour, surcharges, etc.) belonging to this
      * opportunity, in display order.
      *
@@ -283,6 +295,40 @@ class Opportunity extends Model implements HasSchema
     public function costs(): HasMany
     {
         return $this->hasMany(OpportunityCost::class, 'opportunity_id')->orderBy('sort_order');
+    }
+
+    /**
+     * Scope to opportunities of a given document-type state (Draft / Quotation /
+     * Order). Drives the index page's state-filter chips.
+     *
+     * @param  Builder<Opportunity>  $query
+     * @return Builder<Opportunity>
+     */
+    public function scopeOfState(Builder $query, OpportunityState $state): Builder
+    {
+        return $query->where('state', $state);
+    }
+
+    /**
+     * Scope to archived (soft-deleted) opportunities only.
+     *
+     * @param  Builder<Opportunity>  $query
+     * @return Builder<Opportunity>
+     */
+    public function scopeArchived(Builder $query): Builder
+    {
+        return $query->onlyTrashed();
+    }
+
+    /**
+     * Scope to include archived (soft-deleted) opportunities.
+     *
+     * @param  Builder<Opportunity>  $query
+     * @return Builder<Opportunity>
+     */
+    public function scopeWithArchived(Builder $query): Builder
+    {
+        return $query->withTrashed();
     }
 
     /**

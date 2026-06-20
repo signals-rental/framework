@@ -28,6 +28,7 @@ class Activity extends Model implements HasSchema
         'Member' => Member::class,
         'Product' => Product::class,
         'StockLevel' => StockLevel::class,
+        'Opportunity' => Opportunity::class,
     ];
 
     /**
@@ -211,6 +212,17 @@ class Activity extends Model implements HasSchema
     public function scopeForStockLevel(Builder $query, int $stockLevelId): Builder
     {
         return $query->where('regarding_type', StockLevel::class)->where('regarding_id', $stockLevelId);
+    }
+
+    /**
+     * Scope to activities for a specific opportunity (as regarding).
+     *
+     * @param  Builder<Activity>  $query
+     * @return Builder<Activity>
+     */
+    public function scopeForOpportunity(Builder $query, int $opportunityId): Builder
+    {
+        return $query->where('regarding_type', Opportunity::class)->where('regarding_id', $opportunityId);
     }
 
     /**

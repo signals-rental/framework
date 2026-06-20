@@ -83,6 +83,7 @@ class WebhookService
         'opportunity.item_optional_toggled',
         'opportunity.item_price_overridden',
         'opportunity.item_substituted',
+        'opportunity.items_reordered',
         'opportunity.cost_added',
         'opportunity.cost_updated',
         'opportunity.cost_removed',

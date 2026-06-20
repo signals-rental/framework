@@ -442,7 +442,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                                     <button
                                                         type="button"
                                                         wire:key="owner-{{ $option->id }}"
-                                                        wire:click="selectOwner({{ $option->id }}, '{{ str_replace("'", "\\'", $option->name) }}')"
+                                                        wire:click="selectOwner({{ $option->id }}, {{ \Illuminate\Support\Js::from($option->name) }})"
                                                         x-on:click="open = false"
                                                         class="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)] transition-colors"
                                                     >
@@ -491,7 +491,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                                         <button
                                                             type="button"
                                                             wire:key="regarding-{{ $option->id }}"
-                                                            wire:click="selectRegarding({{ $option->id }}, '{{ str_replace("'", "\\'", $option->name) }}')"
+                                                            wire:click="selectRegarding({{ $option->id }}, {{ \Illuminate\Support\Js::from($option->name) }})"
                                                             x-on:click="open = false"
                                                             class="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)] transition-colors"
                                                         >

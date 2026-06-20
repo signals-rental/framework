@@ -132,6 +132,7 @@ when the event store is rebuilt.
 | `opportunity.item_optional_toggled` | A line item is toggled optional/required |
 | `opportunity.item_price_overridden` | A line item unit price is overridden |
 | `opportunity.item_substituted` | A line item product is substituted |
+| `opportunity.items_reordered` | An opportunity's line items are reordered |
 | `opportunity.cost_added` | An additional cost is added |
 | `opportunity.cost_updated` | An additional cost is updated |
 | `opportunity.cost_removed` | An additional cost is removed |

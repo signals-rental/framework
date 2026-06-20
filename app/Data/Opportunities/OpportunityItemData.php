@@ -25,6 +25,7 @@ class OpportunityItemData extends Data
     public function __construct(
         public int $id,
         public int $opportunity_id,
+        public ?int $section_id,
         public ?int $version_id,
         public ?int $item_id,
         public ?string $item_type,
@@ -58,6 +59,7 @@ class OpportunityItemData extends Data
         return new self(
             id: $item->id,
             opportunity_id: $item->opportunity_id,
+            section_id: $item->section_id,
             version_id: $item->version_id,
             item_id: $item->item_id,
             item_type: $item->item_type,

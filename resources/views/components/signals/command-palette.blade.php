@@ -13,6 +13,7 @@
         stockLevelResults: [],
         productGroupResults: [],
         activityResults: [],
+        opportunityResults: [],
         badgeColors: { 'organisation': 's-badge-blue', 'venue': 's-badge-amber', 'contact': 's-badge-green' },
         avatarColors: { 'organisation': 's-avatar-blue', 'venue': 's-avatar-amber', 'contact': 's-avatar-green' },
         searching: false,
@@ -35,6 +36,9 @@
             @can('activities.access')
             { group: 'Navigation', label: 'Calendar', icon: 'calendar', url: '{{ route('calendar.index') }}', keywords: 'calendar schedule activities planner day week month' },
             @endcan
+            @can('opportunities.access')
+            { group: 'Navigation', label: 'Opportunities', icon: 'briefcase', url: '{{ route('opportunities.index') }}', keywords: 'quotes orders hires opportunities jobs' },
+            @endcan
             { group: 'Navigation', label: 'Admin Settings', icon: 'cog', url: '{{ route('admin.settings.company') }}', keywords: 'setup configuration company' },
             @can('members.create')
             { group: 'Create', label: 'New Member', icon: 'plus', url: '{{ route('members.create') }}', keywords: 'add create organisation contact venue' },
@@ -45,6 +49,9 @@
             @endcan
             @can('activities.create')
             { group: 'Create', label: 'New Activity', icon: 'plus', url: '{{ route('activities.create') }}', keywords: 'add create activity task call meeting' },
+            @endcan
+            @can('opportunities.create')
+            { group: 'Create', label: 'New Opportunity', icon: 'plus', url: '{{ route('opportunities.create') }}', keywords: 'add create quote order hire opportunity' },
             @endcan
             { group: 'Settings', label: 'Profile Settings', icon: 'user', url: '{{ route('settings.profile') }}', keywords: 'account name email' },
             { group: 'Settings', label: 'Change Password', icon: 'lock', url: '{{ route('settings.password') }}', keywords: 'security password' },
@@ -87,6 +94,9 @@
             this.stockLevelResults.forEach(s => results.push({ group: 'Stock Levels', label: s.name, hint: s.type, icon: 'archive', url: s.url }));
             this.productGroupResults.forEach(g => results.push({ group: 'Product Groups', label: g.name, hint: g.type, icon: 'folder', url: g.url }));
             this.activityResults.forEach(a => results.push({ group: 'Activities', label: a.name, hint: a.type, icon: 'calendar', url: a.url }));
+            @can('opportunities.view')
+            this.opportunityResults.forEach(o => results.push({ group: 'Opportunities', label: o.name, hint: o.number, icon: 'briefcase', url: o.url }));
+            @endcan
             this.filteredCommands.forEach(c => results.push(c));
             return results;
         },
@@ -116,6 +126,7 @@
                     this.stockLevelResults = data.stock_levels || [];
                     this.productGroupResults = data.product_groups || [];
                     this.activityResults = data.activities || [];
+                    this.opportunityResults = data.opportunities || [];
                     this.searching = false;
                 })
                 .catch(() => {
@@ -124,6 +135,7 @@
                     this.stockLevelResults = [];
                     this.productGroupResults = [];
                     this.activityResults = [];
+                    this.opportunityResults = [];
                     this.searching = false;
                 });
             }, 200);
@@ -138,6 +150,7 @@
                 this.stockLevelResults = [];
                 this.productGroupResults = [];
                 this.activityResults = [];
+                this.opportunityResults = [];
                 this.$nextTick(() => this.$refs.searchInput?.focus());
             }
         },
@@ -248,6 +261,7 @@
                                                 <template x-if="cmd.icon === 'archive'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></template>
                                                 <template x-if="cmd.icon === 'folder'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></template>
                                                 <template x-if="cmd.icon === 'calendar'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></template>
+                                                <template x-if="cmd.icon === 'briefcase'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></template>
                                             </span>
                                             </template>
                                             <span class="s-command-item-label" x-text="cmd.label"></span>

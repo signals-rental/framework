@@ -102,10 +102,11 @@
                 @endcanany
 
                 {{-- Job Planning mega dropdown.
-                     Placeholder links are ungated for now; they gain
+                     Opportunities is live and gated on opportunities.access; the
+                     remaining links are ungated placeholders that gain their
                      opportunities.* / projects.* gates when those modules ship. --}}
                 <div class="nav-dropdown-wrapper">
-                    <button class="header-nav-item" type="button">
+                    <button class="header-nav-item {{ ActiveRoute::is('opportunities.*') ? 'active' : '' }}" type="button">
                         Job Planning
                         <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
                     </button>
@@ -113,13 +114,15 @@
                         <div class="mega-grid grid gap-x-8 gap-y-5">
                             <div>
                                 <div class="mega-group-label">Opportunities</div>
-                                <a href="#" class="mega-item">
+                                @can('opportunities.access')
+                                <a href="{{ route('opportunities.index') }}" class="mega-item {{ ActiveRoute::is('opportunities.*') ? 'active' : '' }}" wire:navigate>
                                     <flux:icon.briefcase class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
                                         <span class="mega-item-label">Opportunities</span>
                                         <span class="mega-item-desc">Quotes, orders &amp; hires</span>
                                     </div>
                                 </a>
+                                @endcan
                                 <a href="#" class="mega-item">
                                     <flux:icon.calendar-days class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
@@ -535,11 +538,14 @@
                     </a>
                 @endcan
 
-                {{-- Job Planning placeholders (ungated until modules ship). --}}
+                {{-- Job Planning: Opportunities is live (gated on opportunities.access);
+                     the rest are ungated placeholders until those modules ship. --}}
                 <div class="sidebar-group-label">Job Planning</div>
-                <a class="sidebar-item" href="#">
-                    <flux:icon.briefcase class="!size-[15px]" /> Opportunities
-                </a>
+                @can('opportunities.access')
+                    <a class="sidebar-item {{ ActiveRoute::is('opportunities.*') ? 'active' : '' }}" href="{{ route('opportunities.index') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.briefcase class="!size-[15px]" /> Opportunities
+                    </a>
+                @endcan
                 <a class="sidebar-item" href="#">
                     <flux:icon.calendar-days class="!size-[15px]" /> Planner
                 </a>

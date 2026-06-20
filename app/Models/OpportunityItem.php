@@ -31,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $state_id
  * @property int $opportunity_id
+ * @property int|null $section_id
  * @property int|null $version_id
  * @property int|null $item_id
  * @property string|null $item_type
@@ -76,6 +77,7 @@ class OpportunityItem extends Model implements HasSchema
         'id',
         'state_id',
         'opportunity_id',
+        'section_id',
         'version_id',
         'item_id',
         'item_type',
@@ -107,6 +109,7 @@ class OpportunityItem extends Model implements HasSchema
     protected function casts(): array
     {
         return [
+            'section_id' => 'integer',
             'quantity' => 'decimal:2',
             'unit_price' => 'integer',
             'charge_period' => ChargePeriod::class,
@@ -131,6 +134,9 @@ class OpportunityItem extends Model implements HasSchema
         $builder->relation('opportunity_id')->label('Opportunity')
             ->relation('opportunity', 'belongsTo', Opportunity::class, 'subject')
             ->filterable();
+        $builder->relation('section_id')->label('Section')
+            ->relation('section', 'belongsTo', OpportunitySection::class, 'name')
+            ->filterable();
         $builder->integer('item_id')->label('Item')->filterable();
         $builder->string('item_type')->label('Item Type')->filterable()->groupable();
         $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
@@ -153,6 +159,19 @@ class OpportunityItem extends Model implements HasSchema
     public function opportunity(): BelongsTo
     {
         return $this->belongsTo(Opportunity::class, 'opportunity_id');
+    }
+
+    /**
+     * The custom grouping (section) this line is assigned to, if any. The link
+     * is a plain, NON-event-sourced column: it is written only by plain actions,
+     * never by a Verbs event/apply()/handle(), so a replay never disturbs it.
+     * Null = the line falls back to automatic product-group grouping in the UI.
+     *
+     * @return BelongsTo<OpportunitySection, $this>
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(OpportunitySection::class, 'section_id');
     }
 
     /**
