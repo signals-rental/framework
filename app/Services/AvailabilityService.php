@@ -589,6 +589,42 @@ class AvailabilityService
     }
 
     /**
+     * The total sellable stock for several products at a store, keyed by product
+     * id — the batched basis the product-group availability grid uses to derive
+     * "held" per cell ({@see getCalendar()} returns availability, not held).
+     *
+     * Held on a day = total stock − available, so the grid needs each product's
+     * total stock exactly once for the whole window rather than recomputing it per
+     * cell. The figure is store-scoped and window-independent (stock totals do not
+     * vary by date), so one call covers every day column.
+     *
+     * Composed/kit products hold no plain stock rows of their own and never appear
+     * in the daily-summary grid, so they are naturally absent here too.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, int> product id => total stock
+     */
+    public function productTotalStock(array $productIds, int $storeId): array
+    {
+        $normalised = array_values(array_unique(array_map('intval', $productIds)));
+
+        if ($normalised === []) {
+            return [];
+        }
+
+        /** @var Collection<int, Product> $products */
+        $products = Product::query()->whereIn('id', $normalised)->get();
+
+        $totals = [];
+
+        foreach ($products as $product) {
+            $totals[(int) $product->id] = $this->pipeline->totalStock($product, $storeId);
+        }
+
+        return $totals;
+    }
+
+    /**
      * The Gantt read model for one product at a store over `[$from, $to]`:
      * the individual demand bars (decomposed into prep / on-hire / turnaround
      * zones) and the shortage windows, read directly from the authoritative

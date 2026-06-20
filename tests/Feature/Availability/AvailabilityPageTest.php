@@ -90,7 +90,9 @@ it('renders calendar cells from the daily-summary read model', function () {
     $this->actingAs($this->user);
 
     // The grid renders the product row and the worst-available figure per cell.
+    // The default landing is the by-group view, so switch to the calendar grid.
     Volt::test('availability.index')
+        ->call('showCalendar')
         ->assertOk()
         ->assertSee('JBL EON615 Speaker')
         ->assertSee('cell-'.$product->id.'-2026-06-21', false)
@@ -108,6 +110,7 @@ it('reflects the pending check-in count in a calendar cell', function () {
     $this->actingAs($this->user);
 
     Volt::test('availability.index')
+        ->call('showCalendar')
         ->assertOk()
         ->assertSee('Returning Product')
         ->assertSee('Pending check-in');
@@ -126,6 +129,7 @@ it('narrows the calendar to the selected product filter', function () {
     $this->actingAs($this->user);
 
     Volt::test('availability.index')
+        ->call('showCalendar')
         ->set('productIds', [$shown->id])
         ->assertSee('row-'.$shown->id, false)
         ->assertDontSee('row-'.$hidden->id, false);
@@ -197,6 +201,7 @@ it('surfaces the kit/composed-product calendar caveat', function () {
     $this->actingAs($this->user);
 
     Volt::test('availability.index')
+        ->call('showCalendar')
         ->assertOk()
         ->assertSee('not shown on the calendar');
 });
@@ -206,7 +211,7 @@ it('re-renders without error when the store availability changes', function () {
 
     $this->actingAs($this->user);
 
-    $component = Volt::test('availability.index');
+    $component = Volt::test('availability.index')->call('showCalendar');
     $component->assertOk();
 
     // Availability data appears, then the broadcast handler fires and the grid
