@@ -67,6 +67,9 @@ class UpdateOpportunityData extends Data
         // mirroring venue_id.
         public int|null|Optional $delivery_address_id = new Optional,
         public int|null|Optional $collection_address_id = new Optional,
+        // Sales priority/quality rating 0–5 (C3i). Optional so an absent key
+        // (unchanged) is told apart from an explicit null (clear the rating).
+        public int|null|Optional $rating = new Optional,
         /** @var list<string>|null|Optional */
         public array|null|Optional $tag_list = new Optional,
         /** @var array<string, mixed>|null */
@@ -135,6 +138,7 @@ class UpdateOpportunityData extends Data
             'collection_instructions' => ['sometimes', 'nullable', 'string'],
             'delivery_address_id' => ['sometimes', 'nullable', 'integer', $addressExists],
             'collection_address_id' => ['sometimes', 'nullable', 'integer', $addressExists],
+            'rating' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:5'],
             'tag_list' => ['sometimes', 'nullable', 'array'],
             'tag_list.*' => ['string', 'max:255'],
             'custom_fields' => ['sometimes', 'nullable', 'array'],

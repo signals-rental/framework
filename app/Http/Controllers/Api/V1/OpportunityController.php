@@ -314,7 +314,14 @@ class OpportunityController extends Controller
     #[ApiResponse(200, 'Opportunity details', type: 'array{opportunity: array{id: int, subject: string, number: string|null, reference: string|null, state: int, state_label: string, status: int, status_label: string, availability_phase: string, member_id: int|null, store_id: int|null, charge_total: string, invoiced: bool, custom_fields: array<string, mixed>, created_at: string, updated_at: string}}')]
     public function show(Request $request, Opportunity $opportunity): JsonResponse
     {
-        return $this->resourceShow($request, $opportunity);
+        $this->authorizeApi('opportunities.view', 'opportunities:read');
+
+        $this->applyIncludes(Opportunity::query(), $request, $opportunity);
+
+        return $this->respondWithOpportunityMeta(
+            OpportunityData::fromModel($opportunity)->toArray(),
+            $opportunity,
+        );
     }
 
     /**
@@ -487,7 +494,12 @@ class OpportunityController extends Controller
     #[ApiResponse(201, 'Opportunity created')]
     public function store(Request $request): JsonResponse
     {
-        return $this->resourceStore($request);
+        $this->authorizeApi('opportunities.create', 'opportunities:write');
+
+        $validated = $request->validate(CreateOpportunityData::rules());
+        $result = (new CreateOpportunity)(CreateOpportunityData::from($validated));
+
+        return $this->respondWithFreshOpportunity($result->id, Response::HTTP_CREATED);
     }
 
     /**
@@ -499,7 +511,12 @@ class OpportunityController extends Controller
     #[ApiResponse(200, 'Opportunity updated')]
     public function update(Request $request, Opportunity $opportunity): JsonResponse
     {
-        return $this->resourceUpdate($request, $opportunity);
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $validated = $request->validate(UpdateOpportunityData::rules());
+        (new UpdateOpportunity)($opportunity, UpdateOpportunityData::from($validated));
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
     }
 
     /**
@@ -1262,11 +1279,31 @@ class OpportunityController extends Controller
     {
         $fresh = Opportunity::query()->whereKey($opportunityId)->with(['items', 'costs', 'customFieldValues'])->firstOrFail();
 
-        return $this->respondWith(
+        return $this->respondWithOpportunityMeta(
             OpportunityData::fromModel($fresh)->toArray(),
-            'opportunity',
+            $fresh,
             $status,
         );
+    }
+
+    /**
+     * Wrap a serialised opportunity under the `opportunity` key and attach the RMS
+     * `meta` block — `{can_edit, can_destroy}` resolved from the opportunity policy
+     * for the current actor — as a sibling of the resource. A closed/terminal
+     * opportunity reports `can_edit = false` so a consumer can hide edit controls
+     * without re-deriving the lifecycle rules.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function respondWithOpportunityMeta(array $data, Opportunity $opportunity, int $status = Response::HTTP_OK): JsonResponse
+    {
+        return response()->json([
+            'opportunity' => $data,
+            'meta' => [
+                'can_edit' => Gate::allows('update', $opportunity) && ! $opportunity->statusEnum()->isClosed(),
+                'can_destroy' => Gate::allows('delete', $opportunity),
+            ],
+        ], $status);
     }
 
     /**
@@ -1278,9 +1315,9 @@ class OpportunityController extends Controller
         $fresh = Opportunity::query()->whereKey($result->id)->firstOrFail();
         $this->applyIncludes(Opportunity::query(), $request, $fresh);
 
-        return $this->respondWith(
+        return $this->respondWithOpportunityMeta(
             OpportunityData::fromModel($fresh)->toArray(),
-            'opportunity',
+            $fresh,
         );
     }
 

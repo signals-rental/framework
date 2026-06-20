@@ -124,6 +124,9 @@ class OpportunityState extends State
 
     public ?string $collection_instructions = null;
 
+    /** Sales priority/quality rating 0–5 (RMS `rating`), nullable (C3i). */
+    public ?int $rating = null;
+
     /** FK to the chosen delivery address on the `addresses` table (C-data-2). */
     public ?int $delivery_address_id = null;
 

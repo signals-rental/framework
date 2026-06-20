@@ -28,7 +28,7 @@ class UpdateOpportunity
     private const OPTIONAL_FIELDS = [
         'venue_id', 'reference', 'description', 'external_description',
         'chargeable_days', 'delivery_instructions', 'collection_instructions',
-        'delivery_address_id', 'collection_address_id', 'tag_list',
+        'delivery_address_id', 'collection_address_id', 'rating', 'tag_list',
     ];
 
     /**
@@ -113,6 +113,7 @@ class UpdateOpportunity
                 collection_instructions: $this->resolveOptional($data->collection_instructions),
                 delivery_address_id: $this->resolveOptional($data->delivery_address_id),
                 collection_address_id: $this->resolveOptional($data->collection_address_id),
+                rating: $this->resolveOptional($data->rating),
                 is_invoiced: $data->invoiced,
                 tag_list: $this->resolveTagList($data->tag_list),
             );

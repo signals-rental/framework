@@ -97,6 +97,7 @@ class CreateOpportunity
                 collection_instructions: $data->collection_instructions,
                 delivery_address_id: $data->delivery_address_id,
                 collection_address_id: $data->collection_address_id,
+                rating: $data->rating,
                 charge_total: $data->charge_total,
                 currency_code: $currency,
                 exchange_rate: $this->resolveExchangeRate($currency),

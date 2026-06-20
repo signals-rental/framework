@@ -84,7 +84,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $delivery_address_id
  * @property int|null $collection_address_id
  * @property int|null $source_opportunity_id
+ * @property int|null $rating
  * @property bool $invoiced
+ * @property-read bool $pricing_locked
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -154,6 +156,7 @@ class Opportunity extends Model implements HasSchema
         'delivery_address_id',
         'collection_address_id',
         'source_opportunity_id',
+        'rating',
         'currency_code',
         'exchange_rate',
         'exchange_rate_locked',
@@ -217,6 +220,7 @@ class Opportunity extends Model implements HasSchema
             'delivery_address_id' => 'integer',
             'collection_address_id' => 'integer',
             'source_opportunity_id' => 'integer',
+            'rating' => 'integer',
             'exchange_rate' => 'decimal:10',
             'exchange_rate_locked' => 'boolean',
             'tax_locked' => 'boolean',
@@ -235,6 +239,17 @@ class Opportunity extends Model implements HasSchema
     public function statusEnum(): OpportunityStatus
     {
         return OpportunityStatus::fromStateAndStatus($this->state, $this->status);
+    }
+
+    /**
+     * Whether the opportunity's pricing is frozen (RMS `pricing_locked`). Derived
+     * from the FX and tax lock flags, both of which lock at quote → order
+     * conversion: once either is set the stored totals are preserved rather than
+     * re-derived. Read-only — there is no `pricing_locked` column.
+     */
+    public function pricingLocked(): bool
+    {
+        return (bool) $this->exchange_rate_locked || (bool) $this->tax_locked;
     }
 
     public static function defineSchema(SchemaBuilder $builder): void

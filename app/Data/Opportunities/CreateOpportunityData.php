@@ -57,6 +57,8 @@ class CreateOpportunityData extends Data
         // Delivery/collection address FKs (C-data-2), each one of the member's addresses.
         public ?int $delivery_address_id = null,
         public ?int $collection_address_id = null,
+        // Sales priority/quality rating 0–5 (C3i).
+        public ?int $rating = null,
         public string $currency = 'GBP',
         public bool $prices_include_tax = false,
         /**
@@ -135,6 +137,7 @@ class CreateOpportunityData extends Data
             'collection_instructions' => ['sometimes', 'nullable', 'string'],
             'delivery_address_id' => ['sometimes', 'nullable', 'integer', $memberAddressExists],
             'collection_address_id' => ['sometimes', 'nullable', 'integer', $memberAddressExists],
+            'rating' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:5'],
             'currency' => ['sometimes', 'string', 'size:3'],
             'prices_include_tax' => ['sometimes', 'boolean'],
             'charge_total' => ['sometimes', 'numeric'],

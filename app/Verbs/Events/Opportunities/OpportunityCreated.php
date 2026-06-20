@@ -74,6 +74,7 @@ class OpportunityCreated extends Event
         public ?string $collection_instructions = null,
         public ?int $delivery_address_id = null,
         public ?int $collection_address_id = null,
+        public ?int $rating = null,
         public int $charge_total = 0,
         public ?string $currency_code = null,
         public ?string $exchange_rate = null,
@@ -132,6 +133,7 @@ class OpportunityCreated extends Event
         $state->collection_instructions = $this->collection_instructions;
         $state->delivery_address_id = $this->delivery_address_id;
         $state->collection_address_id = $this->collection_address_id;
+        $state->rating = $this->rating;
         $state->tag_list = $this->tag_list;
         $state->charge_total = $this->charge_total;
         // The currency is resolved at fire-time by the CreateOpportunity action
@@ -199,6 +201,7 @@ class OpportunityCreated extends Event
                 'collection_instructions' => $state->collection_instructions,
                 'delivery_address_id' => $state->delivery_address_id,
                 'collection_address_id' => $state->collection_address_id,
+                'rating' => $state->rating,
                 'charge_total' => $state->charge_total,
                 'currency_code' => $state->currency_code,
                 'exchange_rate' => $state->exchange_rate,
