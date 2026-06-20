@@ -121,9 +121,19 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     // The Versions tab (M8-5) and Availability/Shortage tab (M8-4) slot in here later.
     Volt::route('opportunities/{opportunity}/items', 'opportunities.items')->name('opportunities.items');
     Volt::route('opportunities/{opportunity}/costs', 'opportunities.costs')->name('opportunities.costs');
+    Volt::route('opportunities/{opportunity}/shortages', 'opportunities.shortages')->name('opportunities.shortages');
+    Volt::route('opportunities/{opportunity}/versions', 'opportunities.versions')->name('opportunities.versions');
     Volt::route('opportunities/{opportunity}/activities', 'opportunities.activities')->name('opportunities.activities');
     Volt::route('opportunities/{opportunity}/custom-fields', 'opportunities.custom-fields')->name('opportunities.custom-fields');
     Volt::route('opportunities/{opportunity}/files', 'opportunities.files')->name('opportunities.files');
+
+    // Availability
+    //
+    // The standalone Equipment Availability calendar/gantt page (M8-4b). The Volt
+    // component calls AvailabilityService directly (the same service layer the
+    // API uses) and gates on availability.view; the Job Planning nav link points
+    // here.
+    Volt::route('availability', 'availability.index')->name('availability.index');
 
     // Activities
     Volt::route('activities', 'activities.index')->name('activities.index');

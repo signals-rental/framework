@@ -79,6 +79,11 @@
             </div>
         </div>
 
+        {{-- Opportunity pipeline widget --}}
+        @can('opportunities.access')
+            <livewire:dashboard.opportunity-pipeline />
+        @endcan
+
         {{-- Recent Opportunities Table --}}
         <div class="data-table-wrap mb-8">
             <div class="table-header">
@@ -146,10 +151,12 @@
         {{-- Quick Actions --}}
         <h2 class="section-heading">Quick Actions</h2>
         <div class="quick-actions">
-            <a class="quick-action" href="#">
-                <flux:icon.plus class="quick-action-icon" />
+            @can('opportunities.create')
+            <a class="quick-action" href="{{ route('opportunities.create') }}" wire:navigate>
+                <flux:icon.briefcase class="quick-action-icon" />
                 New Opportunity
             </a>
+            @endcan
             @can('members.create')
             <a class="quick-action" href="{{ route('members.create') }}" wire:navigate>
                 <flux:icon.user-plus class="quick-action-icon" />
