@@ -140,6 +140,54 @@ it('prices a rate-backed line via the engine and stores the net total + tax rate
         ->and($opportunity->rental_charge_total)->toBe($expectedNet);
 });
 
+it('computes totals against the company base currency (not a hardcoded GBP) for a currency-less opportunity', function () {
+    // A non-2dp base currency surfaces any wrong-scale tax computation: JPY has 0
+    // fraction digits, so the calculator must resolve the BASE-CURRENCY setting
+    // (R3 fix) rather than a hardcoded GBP literal for a currency-less opportunity.
+    settings()->set('company.base_currency', 'JPY');
+
+    // Build the projection rows directly (factories) so the calculator's currency
+    // resolution is exercised without CreateOpportunity's FX-snapshot path: the
+    // opportunity carries NO currency_code, so it must fall back to the setting.
+    $opportunity = Opportunity::factory()->create([
+        'currency_code' => null,
+        'prices_include_tax' => false,
+        'tax_total' => 0,
+        'charge_total' => 0,
+        'charge_excluding_tax_total' => 0,
+        'charge_including_tax_total' => 0,
+    ]);
+
+    $item = OpportunityItem::factory()->create([
+        'opportunity_id' => $opportunity->id,
+        'version_id' => null,
+        'item_id' => null,
+        'item_type' => null,
+        'quantity' => '1',
+        'unit_price' => 1000,
+        'discount_percent' => null,
+        'currency_code' => null,
+        'is_optional' => false,
+        'starts_at' => $opportunity->starts_at,
+        'ends_at' => $opportunity->ends_at,
+        'transaction_type' => LineItemTransactionType::Sale->value,
+    ]);
+
+    $calculator = app(OpportunityTotalsCalculator::class);
+    $calculator->recalculateItem($item->refresh(), manualUnitPrice: 1000);
+    $calculator->rollUp($opportunity->refresh());
+
+    // The line resolves the JPY base currency, not GBP.
+    expect($item->refresh()->currency_code)->toBe('JPY')
+        ->and($item->currency_code)->not->toBe('GBP')
+        ->and((int) $item->total)->toBe(1000);
+
+    // The headline net is the line net, computed in JPY (no rule → zero tax).
+    $opportunity->refresh();
+    expect($opportunity->charge_excluding_tax_total)->toBe(1000)
+        ->and($opportunity->charge_total)->toBe(1000);
+});
+
 it('applies the line discount to the net before computing tax', function () {
     ['product' => $product, 'member' => $member, 'store' => $store] = wirePricedProduct(10000);
 

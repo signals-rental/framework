@@ -177,6 +177,11 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::post('activities/{activity}/complete', [ActivityController::class, 'complete'])->name('api.v1.activities.complete');
 
     // Opportunities (event-sourced lifecycle)
+    // Read sub-resources (assets / availability / activity) — declared before the
+    // apiResource so the explicit GET routes win.
+    Route::get('opportunities/{opportunity}/assets', [OpportunityController::class, 'assets'])->name('api.v1.opportunities.assets');
+    Route::get('opportunities/{opportunity}/availability', [OpportunityController::class, 'availability'])->name('api.v1.opportunities.availability');
+    Route::get('opportunities/{opportunity}/activity', [OpportunityController::class, 'activity'])->name('api.v1.opportunities.activity');
     Route::post('opportunities/{opportunity}/clone', [OpportunityController::class, 'clone'])->name('api.v1.opportunities.clone');
     Route::post('opportunities/{opportunity}/convert_to_quotation', [OpportunityController::class, 'convertToQuotation'])->name('api.v1.opportunities.convert_to_quotation');
     Route::post('opportunities/{opportunity}/convert_to_order', [OpportunityController::class, 'convertToOrder'])->name('api.v1.opportunities.convert_to_order');

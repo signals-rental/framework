@@ -2,17 +2,22 @@
 
 use App\Actions\Opportunities\AcceptVersion;
 use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\ClearDealPrice;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\CreateVersion;
 use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\SendVersion;
+use App\Actions\Opportunities\SetDealPrice;
+use App\Actions\Opportunities\SetItemDiscount;
 use App\Actions\Opportunities\UnlockOpportunity;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\CreateVersionData;
 use App\Data\Opportunities\OverrideItemPriceData;
+use App\Data\Opportunities\SetDealPriceData;
+use App\Data\Opportunities\SetItemDiscountData;
 use App\Guards\Opportunities\Contracts\ApprovalGate;
 use App\Guards\Opportunities\GuardPipeline;
 use App\Guards\Opportunities\PluginValidatorRegistry;
@@ -150,6 +155,39 @@ it('forbids unlocking without the opportunities.unlock_rates permission', functi
 
     (new UnlockOpportunity)($opportunity->refresh());
 })->throws(AuthorizationException::class);
+
+it('rejects a discount edit on a locked order via the FX/tax-lock business rule', function () {
+    [$opportunity, $item] = guardedQuotation($this->store);
+    (new ConvertToOrder)($opportunity->refresh());
+
+    (new SetItemDiscount)($item->refresh(), SetItemDiscountData::from(['discount_percent' => '10']));
+})->throws(ValidationException::class, 'exchange rate is locked');
+
+it('rejects setting a deal price on a locked order via the FX/tax-lock business rule', function () {
+    [$opportunity] = guardedQuotation($this->store);
+    (new ConvertToOrder)($opportunity->refresh());
+
+    (new SetDealPrice)($opportunity->refresh(), SetDealPriceData::from(['deal_total' => 12345]));
+})->throws(ValidationException::class, 'exchange rate is locked');
+
+it('rejects clearing a deal price on a locked order via the FX/tax-lock business rule', function () {
+    [$opportunity] = guardedQuotation($this->store);
+    (new ConvertToOrder)($opportunity->refresh());
+
+    (new ClearDealPrice)($opportunity->refresh());
+})->throws(ValidationException::class, 'exchange rate is locked');
+
+it('allows a discount and deal price once the locks are released', function () {
+    [$opportunity, $item] = guardedQuotation($this->store);
+    (new ConvertToOrder)($opportunity->refresh());
+    (new UnlockOpportunity)($opportunity->refresh(), 'correcting the booking');
+
+    (new SetItemDiscount)($item->refresh(), SetItemDiscountData::from(['discount_percent' => '10']));
+    (new SetDealPrice)($opportunity->refresh(), SetDealPriceData::from(['deal_total' => 12345]));
+
+    expect($item->refresh()->discount_percent)->toBe('10.00')
+        ->and((int) $opportunity->refresh()->deal_total)->toBe(12345);
+});
 
 it('replays the locks-released event to the same cleared projection', function () {
     [$opportunity] = guardedQuotation($this->store);

@@ -10,6 +10,9 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 |--------|-----|-------------|
 | GET | `/api/v1/opportunities` | List opportunities |
 | GET | `/api/v1/opportunities/{id}` | Show an opportunity |
+| GET | `/api/v1/opportunities/{id}/assets` | List every line's asset assignments (flat) |
+| GET | `/api/v1/opportunities/{id}/availability` | Per-line availability picture |
+| GET | `/api/v1/opportunities/{id}/activity` | Scoped audit timeline |
 | POST | `/api/v1/opportunities` | Create an opportunity (as a Draft) |
 | PUT | `/api/v1/opportunities/{id}` | Update an opportunity's header fields |
 | DELETE | `/api/v1/opportunities/{id}` | Delete (soft-delete) an opportunity |
@@ -70,7 +73,9 @@ Ransack-compatible `q[field_predicate]=value` parameters:
 
 ### Includes
 
-Eager-load relationships with `?include=member,venue,store,owner,items,items.assets,costs`.
+Eager-load relationships with `?include=member,venue,store,owner,items,items.assets,costs,versions,versions.items`.
+
+The opportunity's `custom_fields` object is populated from the `customFieldValues` relation, which is **eager-loaded by default** — `custom_fields` is always present (`{}` when none are set), with no need to request it explicitly.
 
 ### Custom Views
 
@@ -91,6 +96,54 @@ GET /api/v1/opportunities/{id}
 ```
 
 Returns the opportunity under the `opportunity` key. Supports `?include=`.
+
+The opportunity body also exposes the version summary fields `active_version_id`, `version_count`, and `has_alternatives`, the `tag_list` array, and (when included) a `versions` collection — so the Show page can sideload the quote versions in one call with `?include=versions,versions.items`.
+
+## Opportunity Assets
+
+```
+GET /api/v1/opportunities/{id}/assets
+```
+
+A flat, paginated list of every per-asset assignment across **all** of the opportunity's line items (the `opportunity_item_assets` rows), returned under the `assets` key with a `meta` block. Use this for the Show page's assets tab without loading the full items payload. Each row matches the asset shape used elsewhere (`id`, `opportunity_item_id`, `stock_level_id`, `status` + `status_label`, lifecycle timestamps).
+
+Requires `opportunities.view` / `opportunities:read`.
+
+### Filters
+
+Ransack-compatible `q[field_predicate]=value`:
+
+| Parameter | Description |
+|-----------|-------------|
+| `q[status_eq]=2` | Filter by assignment status (0 Allocated … 5 Finalised) |
+| `q[opportunity_item_id_eq]=10` | Filter to a single line |
+| `q[stock_level_id_eq]=55` | Filter by assigned stock level |
+
+### Sort
+
+`sort=status`, `sort=-dispatched_at`, `sort=allocated_at`, `sort=created_at` (prefix with `-` for descending). Defaults to oldest-first.
+
+## Opportunity Availability
+
+```
+GET /api/v1/opportunities/{id}/availability
+```
+
+Returns the per-line availability picture under the `availability` key: for each product-backed line, how many units are free over the line's own window at its own store with the line's **own** demand excluded, plus its shortage shortfall. Lines that reference no product (services, ad-hoc lines) are omitted. Computed live from demands (no snapshot dependency), so it always reflects current state.
+
+Each entry: `opportunity_item_id`, `product_id`, `store_id`, `requested_quantity`, `available_for_item`, `shortage_quantity`, `has_shortage`, `from`, `to`.
+
+Requires `opportunities.view` / `opportunities:read`.
+
+## Opportunity Activity
+
+```
+GET /api/v1/opportunities/{id}/activity
+```
+
+A paginated, newest-first read of the audit trail (`action_logs`) scoped to this opportunity, returned under the `activity` key with a `meta` block. Saves the caller from knowing the underlying model FQCN that the global `/api/v1/actions` endpoint filters on. Each entry matches the action-log shape (`action`, `user_id`, `user_name`, `old_values`, `new_values`, `ip_address`, `created_at`).
+
+Gated like the global action-log endpoint: requires `action-log.view` / `action-log:read`.
 
 ## Create Opportunity
 
@@ -187,6 +240,14 @@ to see the line rows themselves.
 
 Optional lines (`is_optional = true`) still claim availability but are **excluded** from
 all charge totals.
+
+Each serialised line also reports its bulk-line fulfilment progress via `dispatched_quantity`
+and `returned_quantity` (decimal strings) — the quantities physically booked out and
+checked back in — so the UI can show dispatch progress without loading the asset rows.
+
+A quantity reduction is rejected (`422`) when the new quantity would drop **below** the
+number of serialised assets already allocated to the line, or below the line's
+`dispatched_quantity`. Deallocate or return units first.
 
 ### Add Line Item
 
@@ -492,6 +553,10 @@ POST /api/v1/opportunities/{id}/deal_price
 Replaces the engine-computed headline `charge_total` with the manual override. The
 per-type and tax totals continue to reflect the line items. Returns the opportunity.
 
+Rejected (`422`) on a **locked order** — like a line price override or discount, setting a
+deal price changes the effective charge and is blocked while the order's FX/tax locks are
+in place. Release the locks (`POST /api/v1/opportunities/{id}/unlock_locks`) first.
+
 ### Clear Deal Price
 
 ```
@@ -499,7 +564,7 @@ DELETE /api/v1/opportunities/{id}/deal_price
 ```
 
 Clears the manual override, reverting `charge_total` to the engine-computed gross total.
-Returns the opportunity.
+Returns the opportunity. Also rejected (`422`) on a locked order.
 
 ## Quote Versions
 

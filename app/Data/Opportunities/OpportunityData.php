@@ -11,6 +11,7 @@ use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
+use App\Models\OpportunityVersion;
 use App\Models\Store;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Data;
@@ -41,6 +42,9 @@ class OpportunityData extends Data
         public int $status,
         public string $status_label,
         public string $availability_phase,
+        public int $active_version_id,
+        public int $version_count,
+        public bool $has_alternatives,
         public ?int $member_id,
         public ?int $venue_id,
         public ?int $store_id,
@@ -66,6 +70,8 @@ class OpportunityData extends Data
         public string $tax_total,
         public bool $prices_include_tax,
         public bool $invoiced,
+        /** @var array<int, string> */
+        public array $tag_list,
         public object $custom_fields,
         public string $created_at,
         public string $updated_at,
@@ -77,6 +83,8 @@ class OpportunityData extends Data
         public Lazy|array $items = [],
         /** @var Lazy|array<int, OpportunityCostData> */
         public Lazy|array $costs = [],
+        /** @var Lazy|array<int, OpportunityVersionData> */
+        public Lazy|array $versions = [],
     ) {}
 
     public static function fromModel(Opportunity $opportunity): self
@@ -108,6 +116,9 @@ class OpportunityData extends Data
             status: $opportunity->status,
             status_label: $status->label(),
             availability_phase: $status->phase($releasePoint)->value,
+            active_version_id: $opportunity->active_version_id,
+            version_count: $opportunity->version_count,
+            has_alternatives: $opportunity->has_alternatives,
             member_id: $opportunity->member_id,
             venue_id: $opportunity->venue_id,
             store_id: $opportunity->store_id,
@@ -133,6 +144,7 @@ class OpportunityData extends Data
             tax_total: $opportunity->formatMoneyCost('tax_total'),
             prices_include_tax: $opportunity->prices_include_tax,
             invoiced: $opportunity->invoiced,
+            tag_list: $opportunity->tag_list ?? [],
             custom_fields: (object) ($opportunity->relationLoaded('customFieldValues') ? $opportunity->custom_fields : []),
             created_at: self::formatTimestamp($createdAt),
             updated_at: self::formatTimestamp($updatedAt),
@@ -152,6 +164,13 @@ class OpportunityData extends Data
                 $opportunity,
                 fn (): array => $opportunity->costs->map(
                     fn (OpportunityCost $cost): OpportunityCostData => OpportunityCostData::fromModel($cost)
+                )->all(),
+            ),
+            versions: Lazy::whenLoaded(
+                'versions',
+                $opportunity,
+                fn (): array => $opportunity->versions->map(
+                    fn (OpportunityVersion $version): OpportunityVersionData => OpportunityVersionData::fromModel($version)
                 )->all(),
             ),
         );

@@ -42,6 +42,8 @@ use App\Actions\Opportunities\ToggleItemOptional;
 use App\Actions\Opportunities\UnlockOpportunity;
 use App\Actions\Opportunities\UpdateOpportunity;
 use App\Actions\Opportunities\UpdateOpportunityCost;
+use App\Data\Api\ActionLogData;
+use App\Data\Availability\OpportunityItemAvailabilityData;
 use App\Data\Opportunities\AddOpportunityCostData;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AllocateAssetData;
@@ -54,6 +56,7 @@ use App\Data\Opportunities\CheckAssetData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\DispatchAssetData;
 use App\Data\Opportunities\OpportunityData;
+use App\Data\Opportunities\OpportunityItemAssetData;
 use App\Data\Opportunities\OverrideItemPriceData;
 use App\Data\Opportunities\QuickAllocateAssetsData;
 use App\Data\Opportunities\QuickBookOutData;
@@ -73,11 +76,13 @@ use App\Enums\OpportunityStatus;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
 use App\Http\Traits\ResourceActions;
+use App\Models\ActionLog;
 use App\Models\CustomView;
 use App\Models\Opportunity;
 use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityItemAsset;
+use App\Services\AvailabilityService;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -139,6 +144,8 @@ class OpportunityController extends Controller
         'items',
         'items.assets',
         'costs',
+        'versions',
+        'versions.items',
         'customFieldValues',
     ];
 
@@ -264,6 +271,105 @@ class OpportunityController extends Controller
     public function show(Request $request, Opportunity $opportunity): JsonResponse
     {
         return $this->resourceShow($request, $opportunity);
+    }
+
+    /**
+     * List the per-asset assignments across every line item of an opportunity.
+     *
+     * A flat, paginated view of `opportunity_item_assets` (every item's assets in
+     * one read), so the Show page's assets tab does not need the full items
+     * payload. Ransack-filterable (`q[status_eq]`, `q[stock_level_id_eq]`,
+     * `q[opportunity_item_id_eq]`) and sortable; defaults to oldest-first.
+     */
+    #[ApiResponse(200, 'Opportunity assets', type: 'array{assets: list<array{id: int, opportunity_item_id: int, stock_level_id: int|null, status: int, status_label: string, allocated_at: string|null, dispatched_at: string|null, returned_at: string|null, created_at: string, updated_at: string}>, meta: array{total: int, per_page: int, page: int}}')]
+    public function assets(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.view', 'opportunities:read');
+
+        $itemIds = $opportunity->allItems()->pluck('id')->all();
+
+        $query = OpportunityItemAsset::query()
+            ->whereIn('opportunity_item_id', $itemIds)
+            ->with('stockLevel');
+
+        $query = $this->applyFilters($query, $request, [
+            'status',
+            'stock_level_id',
+            'opportunity_item_id',
+            'container_stock_level_id',
+            'created_at',
+            'updated_at',
+        ]);
+        $query = $this->applySort($query, $request, [
+            'status',
+            'allocated_at',
+            'dispatched_at',
+            'returned_at',
+            'created_at',
+            'updated_at',
+        ]);
+
+        if (! $this->hasExplicitSort($request)) {
+            $query->oldest();
+        }
+
+        $paginator = $this->paginateQuery($query, $request);
+
+        $assets = $paginator->getCollection()->map(
+            fn (OpportunityItemAsset $asset): array => OpportunityItemAssetData::fromModel($asset)->toArray()
+        )->all();
+
+        return $this->respondWithCollection($assets, 'assets', $paginator);
+    }
+
+    /**
+     * The per-line availability picture for an opportunity.
+     *
+     * Delegates to {@see AvailabilityService::getOpportunityContext()} — each
+     * product-backed line's units free over its own window at its own store, with
+     * the line's OWN demand excluded, plus its shortage shortfall. Lines that
+     * reference no product (services, ad-hoc lines) are omitted.
+     */
+    #[ApiResponse(200, 'Opportunity availability', type: 'array{availability: list<array{opportunity_item_id: int, product_id: int|null, store_id: int, requested_quantity: int, available_for_item: int, shortage_quantity: int, has_shortage: bool, from: string, to: string}>, meta: array{total: int, per_page: int, page: int}}')]
+    public function availability(Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.view', 'opportunities:read');
+
+        $context = app(AvailabilityService::class)
+            ->getOpportunityContext($opportunity->id)
+            ->map(fn (OpportunityItemAvailabilityData $data): array => $data->toArray())
+            ->values()
+            ->all();
+
+        return $this->respondWithCollection($context, 'availability');
+    }
+
+    /**
+     * List the scoped audit timeline for an opportunity.
+     *
+     * A paginated, newest-first read of `action_logs` for this opportunity
+     * (`auditable_type = Opportunity::class`, `auditable_id = {id}`), so the Show
+     * activity timeline need not know the underlying FQCN. Gated like the global
+     * action-log endpoint (`action-log.view` / `action-log:read`).
+     */
+    #[ApiResponse(200, 'Opportunity activity', type: 'array{activity: list<array{id: int, user_id: int|null, user_name: string|null, action: string, auditable_type: string|null, auditable_id: int|null, old_values: array<string, mixed>|null, new_values: array<string, mixed>|null, ip_address: string|null, created_at: string|null}>, meta: array{total: int, per_page: int, page: int}}')]
+    public function activity(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('action-log.view', 'action-log:read');
+
+        $query = ActionLog::query()
+            ->with('user')
+            ->where('auditable_type', Opportunity::class)
+            ->where('auditable_id', $opportunity->id)
+            ->latest();
+
+        $paginator = $this->paginateQuery($query, $request);
+
+        $activity = $paginator->getCollection()->map(
+            fn (ActionLog $log): array => ActionLogData::fromModel($log)->toArray()
+        )->all();
+
+        return $this->respondWithCollection($activity, 'activity', $paginator);
     }
 
     /**

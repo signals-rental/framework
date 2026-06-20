@@ -79,6 +79,26 @@ class OpportunityTotalsCalculator
     ) {}
 
     /**
+     * Resolve the currency a calculation runs in: the opportunity's snapshotted
+     * currency, falling back to the company base-currency setting (never a
+     * hardcoded 'GBP' literal — the 'GBP' here is only the setting's own default
+     * when entirely unconfigured) so non-base-currency opportunities tax at the
+     * right minor-unit scale.
+     */
+    private function currencyFor(Opportunity $opportunity): string
+    {
+        $code = $opportunity->currency_code;
+
+        if (is_string($code) && $code !== '') {
+            return $code;
+        }
+
+        $base = settings('company.base_currency', 'GBP');
+
+        return is_string($base) && $base !== '' ? $base : 'GBP';
+    }
+
+    /**
      * Recompute and persist the priced fields (`unit_price`, `total`, `tax_rate`)
      * for a single line item. The stored `total` is always NET. Does NOT touch the
      * parent — call {@see rollUp()} afterwards.
@@ -97,7 +117,7 @@ class OpportunityTotalsCalculator
             return;
         }
 
-        $currency = $opportunity->currency_code ?? 'GBP';
+        $currency = $this->currencyFor($opportunity);
         $quantityUnits = max(0, (int) round((float) $item->quantity));
 
         [$start, $end] = $this->effectiveDates($item, $opportunity);
@@ -156,7 +176,7 @@ class OpportunityTotalsCalculator
             return;
         }
 
-        $currency = $opportunity->currency_code ?? 'GBP';
+        $currency = $this->currencyFor($opportunity);
 
         $taxRate = $this->taxCalculator->calculate(
             $this->costNet($cost, $opportunity),
@@ -273,14 +293,14 @@ class OpportunityTotalsCalculator
         } elseif ($opportunity->deal_total !== null) {
             $taxTotal = $this->taxCalculator->calculate(
                 $netHeadline,
-                $opportunity->currency_code ?? 'GBP',
+                $this->currencyFor($opportunity),
                 $orgTaxClassId,
                 $defaultProductTaxClassId,
             )->taxAmount;
         } else {
             $taxTotal = $this->groupedTaxTotal(
                 $netByProductTaxClass,
-                $opportunity->currency_code ?? 'GBP',
+                $this->currencyFor($opportunity),
                 $orgTaxClassId,
             );
         }
@@ -369,7 +389,7 @@ class OpportunityTotalsCalculator
 
         return $this->taxCalculator->calculateInclusive(
             $lineTotal,
-            $opportunity->currency_code ?? 'GBP',
+            $this->currencyFor($opportunity),
             $opportunity->member?->sale_tax_class_id,
             $this->defaultProductTaxClassId(),
         )->netAmount;

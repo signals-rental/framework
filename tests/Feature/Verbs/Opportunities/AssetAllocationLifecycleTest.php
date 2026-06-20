@@ -2,6 +2,7 @@
 
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\AllocateAsset;
+use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ChangeOpportunityStatus;
 use App\Actions\Opportunities\ClearAssetContainer;
 use App\Actions\Opportunities\ConvertToOrder;
@@ -16,6 +17,7 @@ use App\Actions\Opportunities\SetAssetContainer;
 use App\Actions\Opportunities\SubstituteAsset;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AllocateAssetData;
+use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\QuickAllocateAssetsData;
 use App\Data\Opportunities\QuickPrepareAssetsData;
@@ -135,6 +137,34 @@ it('deallocates an asset: removes the row, decrements quantity_allocated, restor
     expect($demands)->toHaveCount(1)
         ->and($demands->first()->asset_id)->toBeNull()
         ->and((int) $demands->first()->quantity)->toBe(4);
+});
+
+it('rejects reducing a line quantity below its already-allocated asset count', function () {
+    $item = makeOrderLine($this->store, $this->product, '3');
+    $assetA = makeSerialisedAsset($this->store, $this->product);
+    $assetB = makeSerialisedAsset($this->store, $this->product);
+
+    (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $assetA->id]));
+    (new AllocateAsset)($item->refresh(), AllocateAssetData::from(['stock_level_id' => $assetB->id]));
+
+    // Two assets allocated — reducing to 1 strands one of them.
+    expect(fn () => (new ChangeItemQuantity)($item->refresh(), ChangeItemQuantityData::from(['quantity' => '1'])))
+        ->toThrow(EventNotValid::class);
+
+    expect((string) $item->refresh()->quantity)->toBe('3.00');
+});
+
+it('allows reducing a line quantity down to (not below) its allocated asset count', function () {
+    $item = makeOrderLine($this->store, $this->product, '3');
+    $assetA = makeSerialisedAsset($this->store, $this->product);
+    $assetB = makeSerialisedAsset($this->store, $this->product);
+
+    (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $assetA->id]));
+    (new AllocateAsset)($item->refresh(), AllocateAssetData::from(['stock_level_id' => $assetB->id]));
+
+    (new ChangeItemQuantity)($item->refresh(), ChangeItemQuantityData::from(['quantity' => '2']));
+
+    expect((string) $item->refresh()->quantity)->toBe('2.00');
 });
 
 it('prepares and reverts an asset through the Allocated→Prepared→Allocated cycle', function () {
