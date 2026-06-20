@@ -106,6 +106,7 @@ class PermissionSeeder extends Seeder
 
             // System
             'system.read' => ['label' => 'Read System Info', 'description' => 'Access system health and diagnostics via API', 'group' => 'System', 'sub_group' => null, 'layer' => 'action', 'dependencies' => []],
+            'schema.read' => ['label' => 'Read Field Schemas', 'description' => 'Access model field schema definitions via API', 'group' => 'System', 'sub_group' => null, 'layer' => 'action', 'dependencies' => []],
             'action-log.view' => ['label' => 'View Action Log', 'description' => 'View the audit trail', 'group' => 'System', 'sub_group' => 'Audit', 'layer' => 'action', 'dependencies' => ['settings.access']],
             'email-templates.manage' => ['label' => 'Manage Email Templates', 'description' => 'Edit email templates and content', 'group' => 'System', 'sub_group' => 'Communications', 'layer' => 'action', 'dependencies' => ['settings.access']],
             'notifications.manage' => ['label' => 'Manage Notifications', 'description' => 'Configure notification types and channels', 'group' => 'System', 'sub_group' => 'Communications', 'layer' => 'action', 'dependencies' => ['settings.access']],

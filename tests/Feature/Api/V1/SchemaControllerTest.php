@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\RoleSeeder;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
@@ -137,5 +138,27 @@ describe('GET /api/v1/schema/{model}', function () {
         $this->getJson('/api/v1/schema/nonexistent')
             ->assertNotFound()
             ->assertJsonFragment(['message' => 'Unknown schema model: nonexistent']);
+    });
+});
+
+describe('schema.read permission gating', function () {
+    it('allows a non-owner Admin to read the schema (schema.read is seeded)', function () {
+        $this->seed(RoleSeeder::class);
+
+        $admin = User::factory()->create(['is_owner' => false, 'is_active' => true]);
+        $admin->assignRole('Admin');
+        Sanctum::actingAs($admin, ['*']);
+
+        $this->getJson('/api/v1/schema')->assertOk();
+        $this->getJson('/api/v1/schema/members')->assertOk();
+    });
+
+    it('forbids a user without schema.read', function () {
+        $this->seed(RoleSeeder::class);
+
+        $viewer = User::factory()->create(['is_owner' => false, 'is_active' => true]);
+        Sanctum::actingAs($viewer, ['*']);
+
+        $this->getJson('/api/v1/schema')->assertForbidden();
     });
 });

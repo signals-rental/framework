@@ -197,6 +197,11 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::post('opportunities/{opportunity}/revert_to_quotation', [OpportunityController::class, 'revertToQuotation'])->name('api.v1.opportunities.revert_to_quotation');
     Route::post('opportunities/{opportunity}/revert_to_draft', [OpportunityController::class, 'revertToDraft'])->name('api.v1.opportunities.revert_to_draft');
     Route::post('opportunities/{opportunity}/reopen', [OpportunityController::class, 'reopen'])->name('api.v1.opportunities.reopen');
+    // Restore (un-archive) a soft-deleted opportunity — the binding resolves the
+    // trashed projection row (mirrors members/{member}/restore).
+    Route::post('opportunities/{opportunity}/restore', [OpportunityController::class, 'restore'])
+        ->withTrashed()
+        ->name('api.v1.opportunities.restore');
     Route::post('opportunities/{opportunity}/unlock_locks', [OpportunityController::class, 'unlockLocks'])->name('api.v1.opportunities.unlock_locks');
     Route::post('opportunities/{opportunity}/change_status', [OpportunityController::class, 'changeStatus'])->name('api.v1.opportunities.change_status');
     // Line items (priced via the rate + tax engines; totals roll up to the parent)

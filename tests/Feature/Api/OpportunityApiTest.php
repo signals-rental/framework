@@ -9,6 +9,7 @@ use App\Data\Opportunities\CreateOpportunityData;
 use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
+use App\Jobs\DeliverWebhook;
 use App\Models\CustomView;
 use App\Models\Member;
 use App\Models\Opportunity;
@@ -18,9 +19,11 @@ use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
+use App\Models\Webhook;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Queue;
 
 use function Pest\Laravel\assertSoftDeleted;
 
@@ -426,6 +429,68 @@ describe('DELETE /api/v1/opportunities/{id}', function () {
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->deleteJson("/api/v1/opportunities/{$opportunity->id}")
+            ->assertForbidden();
+    });
+});
+
+describe('POST /api/v1/opportunities/{id}/restore', function () {
+    it('un-trashes a soft-deleted opportunity via the event', function () {
+        $opportunity = createOpportunityViaEvent($this->owner);
+        asAuthenticated($this->owner, fn () => $opportunity->delete());
+        assertSoftDeleted('opportunities', ['id' => $opportunity->id]);
+
+        $token = writeToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/restore")
+            ->assertOk()
+            ->assertJsonPath('opportunity.id', $opportunity->id);
+
+        $this->assertDatabaseHas('opportunities', ['id' => $opportunity->id, 'deleted_at' => null]);
+
+        $this->assertDatabaseHas('action_logs', [
+            'action' => 'opportunity.restored',
+            'auditable_type' => Opportunity::class,
+            'auditable_id' => $opportunity->id,
+        ]);
+    });
+
+    it('dispatches the opportunity.restored webhook', function () {
+        $opportunity = createOpportunityViaEvent($this->owner);
+        asAuthenticated($this->owner, fn () => $opportunity->delete());
+
+        Webhook::factory()->create([
+            'user_id' => $this->owner->id,
+            'events' => ['*'],
+            'is_active' => true,
+        ]);
+
+        Queue::fake();
+
+        $token = writeToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/restore")
+            ->assertOk();
+
+        // Restore is a lifecycle transition, so it ships the lean id + action
+        // envelope (not the full opportunity DTO) per the webhook bridge.
+        Queue::assertPushed(
+            DeliverWebhook::class,
+            fn (DeliverWebhook $job): bool => $job->event === 'opportunity.restored'
+                && ($job->payload['id'] ?? null) === $opportunity->id
+                && ($job->payload['action'] ?? null) === 'opportunity.restored',
+        );
+    });
+
+    it('requires the opportunities:write ability', function () {
+        $opportunity = createOpportunityViaEvent($this->owner);
+        asAuthenticated($this->owner, fn () => $opportunity->delete());
+
+        $token = readToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/restore")
             ->assertForbidden();
     });
 });

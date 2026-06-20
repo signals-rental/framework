@@ -4,9 +4,12 @@ use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\RemoveOpportunityItem;
+use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Enums\AvailabilityEventType;
+use App\Enums\AvailabilityResolution;
 use App\Enums\DemandPhase;
 use App\Enums\LineItemTransactionType;
 use App\Models\AvailabilityEvent;
@@ -174,4 +177,52 @@ it('rebuilds demands idempotently on replay without churning availability events
     // The priced projection survives replay unchanged.
     expect((int) OpportunityItem::query()->whereKey($item->id)->value('total'))->toBe(0)
         ->and(Opportunity::query()->whereKey($opportunity->id)->value('charge_total'))->toBeInt();
+});
+
+it('runs the ItemShortageProbe after a quantity change (§2.4 trigger)', function () {
+    // Pin the resolution so the probe's availability read is deterministic.
+    $this->app->bind(AvailabilityResolutionProvider::class, fn () => new class implements AvailabilityResolutionProvider
+    {
+        public function resolve(): AvailabilityResolution
+        {
+            return AvailabilityResolution::Daily;
+        }
+    });
+
+    $opportunity = makeOpportunityWithDates($this->store);
+    $product = Product::factory()->rental()->bulk()->create();
+
+    // Only two units in stock — a line within stock is serviceable.
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'quantity_held' => 2,
+    ]);
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_id' => $product->id,
+        'item_type' => Product::class,
+        'quantity' => '1',
+        'transaction_type' => LineItemTransactionType::Rental->value,
+    ]));
+
+    $item = $opportunity->items()->firstOrFail();
+
+    // No shortage yet (1 requested, 2 held).
+    expect(AvailabilityEvent::query()
+        ->where('event_type', AvailabilityEventType::ShortageDetected->value)
+        ->where('source_type', 'opportunity_item')
+        ->where('source_id', $item->id)
+        ->exists())->toBeFalse();
+
+    // Raise the quantity beyond stock — the action must fire the probe, which
+    // detects the new shortage over the line's window.
+    (new ChangeItemQuantity)($item->refresh(), ChangeItemQuantityData::from(['quantity' => '5']));
+
+    expect(AvailabilityEvent::query()
+        ->where('event_type', AvailabilityEventType::ShortageDetected->value)
+        ->where('source_type', 'opportunity_item')
+        ->where('source_id', $item->id)
+        ->exists())->toBeTrue();
 });

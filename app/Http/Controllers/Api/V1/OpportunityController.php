@@ -33,6 +33,7 @@ use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\RemoveOpportunityParticipant;
 use App\Actions\Opportunities\ReopenOpportunity;
+use App\Actions\Opportunities\RestoreOpportunity;
 use App\Actions\Opportunities\ReturnAsset;
 use App\Actions\Opportunities\ReturnBulkQuantity;
 use App\Actions\Opportunities\RevertAssetPreparation;
@@ -539,6 +540,24 @@ class OpportunityController extends Controller
     public function destroy(Opportunity $opportunity): JsonResponse
     {
         return $this->resourceDestroy($opportunity);
+    }
+
+    /**
+     * Restore (un-archive) a soft-deleted opportunity.
+     *
+     * Recorded as an OpportunityRestored event; the projection row's soft-delete is
+     * reversed so it re-enters list/availability reads while history is preserved.
+     * The route binding resolves the trashed projection row. Restoring an
+     * opportunity that is not archived is a no-op and still returns it.
+     */
+    #[ApiResponse(200, 'Opportunity restored')]
+    public function restore(Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.delete', 'opportunities:write');
+
+        (new RestoreOpportunity)($opportunity);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
     }
 
     /**
