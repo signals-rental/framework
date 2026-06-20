@@ -142,6 +142,16 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     // here.
     Volt::route('availability', 'availability.index')->name('availability.index');
 
+    // Job Planner
+    //
+    // A Gantt / Overlap calendar of OPPORTUNITIES (jobs) across dates — one row
+    // (or lane-packed cluster) per opportunity, bars split into Delivery / In-Use
+    // / Collection bands derived from the lifecycle dates, coloured by workflow
+    // status. The Volt component reads the opportunity projection directly and
+    // gates on `opportunities.access` (no dedicated planner permission exists yet —
+    // it reuses the opportunities area gate, mirroring the Job Planning nav).
+    Volt::route('planner', 'planner.index')->name('planner');
+
     // Activities
     Volt::route('activities', 'activities.index')->name('activities.index');
     Volt::route('activities/create', 'activities.form')->name('activities.create');

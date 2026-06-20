@@ -106,7 +106,7 @@
                      remaining links are ungated placeholders that gain their
                      opportunities.* / projects.* gates when those modules ship. --}}
                 <div class="nav-dropdown-wrapper">
-                    <button class="header-nav-item {{ ActiveRoute::is('opportunities.*', 'availability.*') ? 'active' : '' }}" type="button">
+                    <button class="header-nav-item {{ ActiveRoute::is('opportunities.*', 'availability.*', 'planner') ? 'active' : '' }}" type="button">
                         Job Planning
                         <svg class="caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
                     </button>
@@ -123,13 +123,15 @@
                                     </div>
                                 </a>
                                 @endcan
-                                <a href="#" class="mega-item">
+                                @can('opportunities.access')
+                                <a href="{{ route('planner') }}" class="mega-item {{ ActiveRoute::is('planner') ? 'active' : '' }}" wire:navigate>
                                     <flux:icon.calendar-days class="mega-item-icon" />
                                     <div class="flex flex-col gap-px">
                                         <span class="mega-item-label">Planner</span>
                                         <span class="mega-item-desc">Schedule &amp; resource timeline</span>
                                     </div>
                                 </a>
+                                @endcan
                                 @can('availability.view')
                                 <a href="{{ route('availability.index') }}" class="mega-item {{ ActiveRoute::is('availability.*') ? 'active' : '' }}" wire:navigate>
                                     <flux:icon.chart-bar class="mega-item-icon" />
@@ -548,9 +550,11 @@
                         <flux:icon.briefcase class="!size-[15px]" /> Opportunities
                     </a>
                 @endcan
-                <a class="sidebar-item" href="#">
-                    <flux:icon.calendar-days class="!size-[15px]" /> Planner
-                </a>
+                @can('opportunities.access')
+                    <a class="sidebar-item {{ ActiveRoute::is('planner') ? 'active' : '' }}" href="{{ route('planner') }}" wire:navigate x-on:click="mobileNav = false">
+                        <flux:icon.calendar-days class="!size-[15px]" /> Planner
+                    </a>
+                @endcan
                 @can('availability.view')
                     <a class="sidebar-item {{ ActiveRoute::is('availability.*') ? 'active' : '' }}" href="{{ route('availability.index') }}" wire:navigate x-on:click="mobileNav = false">
                         <flux:icon.chart-bar class="!size-[15px]" /> Equipment Availability
