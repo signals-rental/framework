@@ -28,8 +28,7 @@ describe('stub tab pages', function () {
         $member = Member::factory()->create();
 
         $this->get("/members/{$member->id}/opportunities")
-            ->assertOk()
-            ->assertSee('Opportunities Coming Soon');
+            ->assertOk();
     });
 
     it('renders the invoices tab', function () {

@@ -474,6 +474,29 @@ class Opportunity extends Model implements HasSchema
     }
 
     /**
+     * Scope to opportunities associated with a member in any CRM role: as the
+     * customer (`member_id`), the owning salesperson (`owned_by`), or a named
+     * participant (`opportunity_participants`). The customer association is the
+     * primary one; owner and participant rows are included so the member's
+     * related-opportunities list is the full CRM picture. The venue role is
+     * deliberately excluded — a venue is a location, not the member's own
+     * involvement in the deal.
+     *
+     * @param  Builder<Opportunity>  $query
+     * @return Builder<Opportunity>
+     */
+    public function scopeForMember(Builder $query, int $memberId): Builder
+    {
+        return $query->where(function (Builder $query) use ($memberId): void {
+            $query->where('member_id', $memberId)
+                ->orWhere('owned_by', $memberId)
+                ->orWhereHas('participants', function (Builder $query) use ($memberId): void {
+                    $query->where('member_id', $memberId);
+                });
+        });
+    }
+
+    /**
      * Scope to archived (soft-deleted) opportunities only.
      *
      * @param  Builder<Opportunity>  $query
