@@ -436,6 +436,17 @@ class Opportunity extends Model implements HasSchema
     }
 
     /**
+     * Members associated with this opportunity, each in a named role. Plain,
+     * NON-event-sourced CRM associations (mirrors {@see Activity::participants()}).
+     *
+     * @return HasMany<OpportunityParticipant, $this>
+     */
+    public function participants(): HasMany
+    {
+        return $this->hasMany(OpportunityParticipant::class, 'opportunity_id')->orderBy('id');
+    }
+
+    /**
      * Scope to opportunities of a given document-type state (Draft / Quotation /
      * Order). Drives the index page's state-filter chips.
      *

@@ -220,6 +220,10 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::post('opportunities/{opportunity}/costs', [OpportunityController::class, 'storeCost'])->name('api.v1.opportunities.costs.store');
     Route::patch('opportunities/{opportunity}/costs/{cost}', [OpportunityController::class, 'updateCost'])->name('api.v1.opportunities.costs.update');
     Route::delete('opportunities/{opportunity}/costs/{cost}', [OpportunityController::class, 'destroyCost'])->name('api.v1.opportunities.costs.destroy');
+    // Participants (members in a named role; plain CRM associations, RMS participants[])
+    Route::post('opportunities/{opportunity}/participants', [OpportunityController::class, 'storeParticipant'])->name('api.v1.opportunities.participants.store');
+    Route::patch('opportunities/{opportunity}/participants/{participant}', [OpportunityController::class, 'updateParticipant'])->name('api.v1.opportunities.participants.update');
+    Route::delete('opportunities/{opportunity}/participants/{participant}', [OpportunityController::class, 'destroyParticipant'])->name('api.v1.opportunities.participants.destroy');
     // Manual deal-total override
     Route::post('opportunities/{opportunity}/deal_price', [OpportunityController::class, 'setDealPrice'])->name('api.v1.opportunities.deal_price.set');
     Route::delete('opportunities/{opportunity}/deal_price', [OpportunityController::class, 'clearDealPrice'])->name('api.v1.opportunities.deal_price.clear');

@@ -2,7 +2,7 @@
     // Centralise tab-count loading so every opportunity tab shows correct, consistent
     // counts regardless of which relations the individual page component loaded.
     // `items()` is already active-version-scoped (opportunity-lifecycle.md §8.7).
-    $opportunity->loadCount(['items', 'costs', 'attachments']);
+    $opportunity->loadCount(['items', 'costs', 'attachments', 'participants']);
 
     // The Shortages tab is gated on `shortages.view`; the live shortage count
     // (computed, never stored) drives the badge so the tab flags outstanding
@@ -36,6 +36,7 @@
             ? ['name' => 'shortages', 'label' => 'Shortages', 'route' => route('opportunities.shortages', $opportunity), 'count' => $shortageTabCount]
             : null,
         ['name' => 'costs', 'label' => 'Costs', 'route' => route('opportunities.costs', $opportunity), 'count' => $opportunity->costs_count ?? 0],
+        ['name' => 'participants', 'label' => 'Participants', 'route' => route('opportunities.participants', $opportunity), 'count' => $opportunity->participants_count ?? 0],
         ['name' => 'custom-fields', 'label' => 'Custom Fields', 'route' => route('opportunities.custom-fields', $opportunity)],
         ['name' => 'files', 'label' => 'Files', 'route' => route('opportunities.files', $opportunity), 'count' => $opportunity->attachments_count ?? 0],
     ]))"

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Opportunities\AddOpportunityCost;
 use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\AddOpportunityParticipant;
 use App\Actions\Opportunities\AdjustBulkQuantity;
 use App\Actions\Opportunities\AllocateAsset;
 use App\Actions\Opportunities\ChangeItemDates;
@@ -30,6 +31,7 @@ use App\Actions\Opportunities\QuickPrepareAssets;
 use App\Actions\Opportunities\ReinstateOpportunity;
 use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
+use App\Actions\Opportunities\RemoveOpportunityParticipant;
 use App\Actions\Opportunities\ReturnAsset;
 use App\Actions\Opportunities\ReturnBulkQuantity;
 use App\Actions\Opportunities\RevertAssetPreparation;
@@ -44,10 +46,12 @@ use App\Actions\Opportunities\ToggleItemOptional;
 use App\Actions\Opportunities\UnlockOpportunity;
 use App\Actions\Opportunities\UpdateOpportunity;
 use App\Actions\Opportunities\UpdateOpportunityCost;
+use App\Actions\Opportunities\UpdateOpportunityParticipant;
 use App\Data\Api\ActionLogData;
 use App\Data\Availability\OpportunityItemAvailabilityData;
 use App\Data\Opportunities\AddOpportunityCostData;
 use App\Data\Opportunities\AddOpportunityItemData;
+use App\Data\Opportunities\AddOpportunityParticipantData;
 use App\Data\Opportunities\AllocateAssetData;
 use App\Data\Opportunities\BulkAdjustData;
 use App\Data\Opportunities\BulkDispatchData;
@@ -74,6 +78,7 @@ use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
 use App\Data\Opportunities\UpdateOpportunityCostData;
 use App\Data\Opportunities\UpdateOpportunityData;
+use App\Data\Opportunities\UpdateOpportunityParticipantData;
 use App\Enums\AssetAssignmentStatus;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
@@ -89,6 +94,7 @@ use App\Models\Opportunity;
 use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityItemAsset;
+use App\Models\OpportunityParticipant;
 use App\Services\AvailabilityService;
 use App\ValueObjects\DispatchGateResult;
 use Closure;
@@ -182,6 +188,8 @@ class OpportunityController extends Controller
         'costs',
         'versions',
         'versions.items',
+        'participants',
+        'participants.member',
         'customFieldValues',
     ];
 
@@ -1015,6 +1023,61 @@ class OpportunityController extends Controller
     }
 
     /**
+     * Attach a member to an opportunity in a named role (RMS `participants[]`).
+     *
+     * Participants are plain, non-event-sourced CRM associations. A member may be
+     * attached only once per opportunity. The response returns the created
+     * participant with its member reference.
+     */
+    #[ApiResponse(201, 'Participant added')]
+    public function storeParticipant(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = AddOpportunityParticipantData::from($request->validate(AddOpportunityParticipantData::rules()));
+
+        $participant = (new AddOpportunityParticipant)($opportunity, $data);
+
+        return response()->json(['participant' => $participant->toArray()], Response::HTTP_CREATED);
+    }
+
+    /**
+     * Update a participant's role and/or mute flag.
+     *
+     * Accepts any subset of `role` and `mute`; omitted fields are left untouched.
+     * The member association is immutable — to change it, remove and re-add the
+     * participant.
+     */
+    #[ApiResponse(200, 'Participant updated')]
+    public function updateParticipant(Request $request, Opportunity $opportunity, OpportunityParticipant $participant): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertParticipantBelongsToOpportunity($participant, $opportunity);
+
+        $data = UpdateOpportunityParticipantData::from($request->validate(UpdateOpportunityParticipantData::rules()));
+
+        $updated = (new UpdateOpportunityParticipant)($participant, $data);
+
+        return response()->json(['participant' => $updated->toArray()]);
+    }
+
+    /**
+     * Detach a member from an opportunity.
+     */
+    #[ApiResponse(204, 'Participant removed')]
+    public function destroyParticipant(Opportunity $opportunity, OpportunityParticipant $participant): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $this->assertParticipantBelongsToOpportunity($participant, $opportunity);
+
+        (new RemoveOpportunityParticipant)($participant);
+
+        return response()->json(status: Response::HTTP_NO_CONTENT);
+    }
+
+    /**
      * Set a manual deal-total override on an opportunity, replacing the
      * engine-computed headline `charge_total`.
      */
@@ -1058,6 +1121,14 @@ class OpportunityController extends Controller
     private function assertCostBelongsToOpportunity(OpportunityCost $cost, Opportunity $opportunity): void
     {
         abort_unless($cost->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
+    }
+
+    /**
+     * Guard that a participant belongs to the bound opportunity (else 404).
+     */
+    private function assertParticipantBelongsToOpportunity(OpportunityParticipant $participant, Opportunity $opportunity): void
+    {
+        abort_unless($participant->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
     }
 
     /**

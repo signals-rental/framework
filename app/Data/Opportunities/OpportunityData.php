@@ -12,6 +12,7 @@ use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
+use App\Models\OpportunityParticipant;
 use App\Models\OpportunityVersion;
 use App\Models\Store;
 use Illuminate\Support\Carbon;
@@ -119,6 +120,8 @@ class OpportunityData extends Data
         public Lazy|array $costs = [],
         /** @var Lazy|array<int, OpportunityVersionData> */
         public Lazy|array $versions = [],
+        /** @var Lazy|array<int, ParticipantData> */
+        public Lazy|array $participants = [],
     ) {}
 
     public static function fromModel(Opportunity $opportunity): self
@@ -246,6 +249,13 @@ class OpportunityData extends Data
                 $opportunity,
                 fn (): array => $opportunity->versions->map(
                     fn (OpportunityVersion $version): OpportunityVersionData => OpportunityVersionData::fromModel($version)
+                )->all(),
+            ),
+            participants: Lazy::whenLoaded(
+                'participants',
+                $opportunity,
+                fn (): array => $opportunity->participants->map(
+                    fn (OpportunityParticipant $participant): ParticipantData => ParticipantData::fromModel($participant)
                 )->all(),
             ),
         );
