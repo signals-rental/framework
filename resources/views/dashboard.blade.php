@@ -85,68 +85,9 @@
         @endcan
 
         {{-- Recent Opportunities Table --}}
-        <div class="data-table-wrap mb-8">
-            <div class="table-header">
-                <span class="table-title">Recent Opportunities</span>
-                <a class="table-action" href="#">View All</a>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Reference</th>
-                            <th>Subject</th>
-                            <th>Member</th>
-                            <th>Status</th>
-                            <th class="text-right">Value</th>
-                            <th>Created</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><a class="cell-ref" href="#">OPP-001</a></td>
-                            <td>Summer Festival 2026 &mdash; Stage &amp; PA</td>
-                            <td>Greenfield Events Ltd</td>
-                            <td><span class="badge badge-green">Confirmed</span></td>
-                            <td class="cell-amount">&pound;12,450.00</td>
-                            <td>18 Feb 2026</td>
-                        </tr>
-                        <tr>
-                            <td><a class="cell-ref" href="#">OPP-002</a></td>
-                            <td>Corporate Conference &mdash; AV Package</td>
-                            <td>Nexus Holdings</td>
-                            <td><span class="badge badge-blue">Quotation</span></td>
-                            <td class="cell-amount">&pound;3,800.00</td>
-                            <td>16 Feb 2026</td>
-                        </tr>
-                        <tr>
-                            <td><a class="cell-ref" href="#">OPP-003</a></td>
-                            <td>Wedding Reception &mdash; Lighting Rig</td>
-                            <td>Sarah Mitchell</td>
-                            <td><span class="badge badge-amber">Draft</span></td>
-                            <td class="cell-amount">&pound;1,250.00</td>
-                            <td>14 Feb 2026</td>
-                        </tr>
-                        <tr>
-                            <td><a class="cell-ref" href="#">OPP-004</a></td>
-                            <td>Warehouse Build &amp; Strike</td>
-                            <td>Apex Productions</td>
-                            <td><span class="badge badge-blue">Quotation</span></td>
-                            <td class="cell-amount">&pound;28,750.00</td>
-                            <td>12 Feb 2026</td>
-                        </tr>
-                        <tr>
-                            <td><a class="cell-ref" href="#">OPP-005</a></td>
-                            <td>Theatre Sound Dry Hire</td>
-                            <td>City Arts Trust</td>
-                            <td><span class="badge badge-green">Confirmed</span></td>
-                            <td class="cell-amount">&pound;6,100.00</td>
-                            <td>10 Feb 2026</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        @can('opportunities.access')
+            <livewire:dashboard.recent-opportunities />
+        @endcan
 
         {{-- Quick Actions --}}
         <h2 class="section-heading">Quick Actions</h2>
