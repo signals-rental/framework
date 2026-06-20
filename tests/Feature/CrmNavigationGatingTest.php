@@ -101,11 +101,12 @@ describe('Restructured navigation group labels', function () {
     });
 
     it('renders the new Job Planning, Warehouse, Purchasing and Reports nav entries', function () {
-        // Equipment Availability is now a live link gated on availability.view (M8-4b),
-        // so the actor must hold it for that entry to render; the remaining entries
-        // asserted below are still ungated placeholders.
+        // Planner and Equipment Availability are now live links — Planner gates on
+        // opportunities.access (it's an opportunity/job timeline) and Equipment
+        // Availability on availability.view; the actor must hold both for those entries
+        // to render. The remaining entries asserted below are still ungated placeholders.
         $user = User::factory()->create();
-        $user->givePermissionTo(['stock.access', 'availability.view']);
+        $user->givePermissionTo(['stock.access', 'availability.view', 'opportunities.access']);
 
         $this->actingAs($user)
             ->get(route('dashboard'))
