@@ -193,9 +193,13 @@ describe('checkAvailability', function () {
 });
 
 describe('deferred methods', function () {
-    it('throws for getShortages (deferred to M3)', function () {
-        $this->service->getShortages($this->store->id, Carbon::now(), Carbon::now()->addDay());
-    })->throws(BadMethodCallException::class);
+    it('returns a store-wide shortage sweep (implemented in P2)', function () {
+        // getShortages was a BadMethodCallException stub until P2 implemented the
+        // daily-summary sweep; with no shortage summaries it returns an empty set.
+        $result = $this->service->getShortages($this->store->id, Carbon::now(), Carbon::now()->addDay());
+
+        expect($result)->toBeIterable()->toHaveCount(0);
+    });
 
     it('composes kit availability from component snapshots (M5-3a)', function () {
         $kit = Product::factory()->kit()->create();

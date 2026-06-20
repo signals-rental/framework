@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Opportunity;
 use App\Models\ProductRate;
 use App\Models\StockTransaction;
 use App\Models\User;
@@ -700,4 +701,61 @@ it('passes an int-backed enum integer that matches no case through untouched', f
 
     expect($sql)->toContain('"transaction_type" = 99');
     expect($sql)->not->toContain('__signals_no_match__');
+});
+
+// ─── JSONB array columns (R-A master M4 / B4) ───────────────────────
+
+it('routes a cont predicate on a JSONB array column through whereJsonContains', function () {
+    $query = $this->filter->apply(
+        Opportunity::query(),
+        ['tag_list_cont' => 'vip'],
+        ['tag_list'],
+    );
+
+    $sql = $query->toRawSql();
+
+    // A JSON membership test, NOT a scalar ilike against the jsonb array.
+    expect($sql)
+        ->toContain('tag_list')
+        ->toContain('vip');
+    expect($sql)->not->toContain('ilike');
+});
+
+it('routes an eq predicate on a JSONB array column through whereJsonContains', function () {
+    $query = $this->filter->apply(
+        Opportunity::query(),
+        ['tag_list_eq' => 'rush'],
+        ['tag_list'],
+    );
+
+    $sql = $query->toRawSql();
+    expect($sql)->toContain('tag_list');
+    expect($sql)->not->toContain('"tag_list" = ');
+});
+
+it('routes an in predicate on a JSONB array column through OR membership tests', function () {
+    $query = $this->filter->apply(
+        Opportunity::query(),
+        ['tag_list_in' => 'vip,rush'],
+        ['tag_list'],
+    );
+
+    $sql = $query->toRawSql();
+
+    expect($sql)
+        ->toContain('vip')
+        ->toContain('rush');
+    expect($sql)->not->toContain('ilike');
+});
+
+it('keeps scalar boolean filtering for non-JSON columns alongside the JSON branch', function () {
+    // has_shortage is a boolean (not JSON), so q[has_shortage_true] must still
+    // use the scalar boolean path, not the JSON branch.
+    $query = $this->filter->apply(
+        Opportunity::query(),
+        ['has_shortage_true' => '1'],
+        ['has_shortage'],
+    );
+
+    expect($query->toRawSql())->toContain('"has_shortage" = ');
 });

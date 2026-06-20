@@ -61,6 +61,14 @@ class OpportunityState extends State
 
     public ?CarbonImmutable $charge_ends_at = null;
 
+    /**
+     * Free-form tag labels (RMS `tag_list`), projected to the JSONB
+     * `opportunities.tag_list` column.
+     *
+     * @var list<string>
+     */
+    public array $tag_list = [];
+
     public int $item_count = 0;
 
     /**

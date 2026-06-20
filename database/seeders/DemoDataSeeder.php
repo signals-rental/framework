@@ -2,12 +2,22 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\ConvertToOrder;
+use App\Actions\Opportunities\ConvertToQuotation;
+use App\Actions\Opportunities\CreateOpportunity;
+use App\Data\Opportunities\AddOpportunityItemData;
+use App\Data\Opportunities\CreateOpportunityData;
+use App\Data\Opportunities\OpportunityData;
+use App\Enums\LineItemTransactionType;
+use App\Enums\MembershipType;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
 use App\Models\Activity;
 use App\Models\Email;
 use App\Models\Member;
 use App\Models\MemberRelationship;
+use App\Models\Opportunity;
 use App\Models\Phone;
 use App\Models\Product;
 use App\Models\ProductGroup;
@@ -15,6 +25,7 @@ use App\Models\Store;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Auth;
 
 class DemoDataSeeder extends Seeder
 {
@@ -302,15 +313,156 @@ class DemoDataSeeder extends Seeder
         }
     }
 
-    /** @codeCoverageIgnore */
+    /**
+     * Seed a realistic spread of demo opportunities across the lifecycle: a few
+     * drafts, quotations and confirmed orders, each with manually-priced line
+     * items drawn from the demo catalogue.
+     *
+     * Opportunities are event-sourced (Verbs): every record is created through
+     * the REAL action path (CreateOpportunity → AddOpportunityItem →
+     * ConvertToQuotation → ConvertToOrder) so the opportunities projection,
+     * demands and availability snapshots all stay consistent — never a raw
+     * Opportunity::create(). The 'demo-data' tag is written onto the projection
+     * afterwards (it is metadata, not lifecycle state, so it is not an event
+     * field) so signals:clear-demo can identify and remove these rows.
+     *
+     * Re-runs are idempotent: each opportunity is keyed on a unique demo
+     * `reference` and skipped when a 'demo-data'-tagged row with that reference
+     * already exists, so re-seeding never duplicates or accumulates.
+     */
     private function createDemoOpportunities(): void
     {
-        // Opportunities are event-sourced (Verbs): a faithful demo spread would
-        // have to fire the CreateOpportunity / AddOpportunityItem / status-change
-        // events rather than insert projection rows directly. That lifecycle is
-        // exercised by its own feature tests and factories; seeding a realistic
-        // multi-state spread here is deferred to a dedicated opportunity demo
-        // seeder so this catalogue-focused seeder stays cheap and side-effect free.
+        $this->command->info('Seeding demo opportunities...');
+
+        $owner = User::query()->first();
+        $store = Store::query()->where('is_default', true)->first()
+            ?? Store::query()->first();
+
+        $organisations = Member::query()
+            ->whereJsonContains('tag_list', 'demo-data')
+            ->where('membership_type', MembershipType::Organisation)
+            ->limit(20)
+            ->get();
+
+        $products = Product::query()
+            ->whereJsonContains('tag_list', 'demo-data')
+            ->whereIn('product_type', [ProductType::Rental, ProductType::Sale])
+            ->get();
+
+        if ($owner === null || $store === null || $organisations->isEmpty() || $products->isEmpty()) {
+            return;
+        }
+
+        // Authorise the action-class Gate checks as the seeded owner so the
+        // event-sourced creation path runs exactly as it would for a real user.
+        Auth::setUser($owner);
+
+        $window = [
+            'starts_at' => now()->addWeek()->setTime(9, 0)->toIso8601String(),
+            'ends_at' => now()->addWeek()->addDays(3)->setTime(17, 0)->toIso8601String(),
+        ];
+
+        // [reference, subject, target lifecycle stage]. 'draft' stops after items
+        // are added; 'quotation' converts to a quote; 'order' converts through to
+        // a confirmed order. A spread across all three exercises the search block,
+        // demand projections and the index counts.
+        $blueprints = [
+            ['DEMO-OPP-0001', 'Summer Festival Main Stage', 'order'],
+            ['DEMO-OPP-0002', 'Corporate AGM AV Package', 'order'],
+            ['DEMO-OPP-0003', 'Product Launch Lighting Rig', 'quotation'],
+            ['DEMO-OPP-0004', 'Awards Dinner Sound System', 'quotation'],
+            ['DEMO-OPP-0005', 'Conference Breakout Rooms', 'quotation'],
+            ['DEMO-OPP-0006', 'Wedding Marquee Hire', 'draft'],
+            ['DEMO-OPP-0007', 'Trade Show Booth Fit-Out', 'draft'],
+            ['DEMO-OPP-0008', 'Charity Gala Staging', 'order'],
+        ];
+
+        foreach ($blueprints as $index => [$reference, $subject, $stage]) {
+            $exists = Opportunity::query()
+                ->whereJsonContains('tag_list', 'demo-data')
+                ->where('reference', $reference)
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            $member = $organisations[$index % $organisations->count()];
+
+            $data = OpportunityData::from($this->buildDemoOpportunity(
+                $subject,
+                $reference,
+                $member->id,
+                $store->id,
+                $owner->id,
+                $window,
+            ));
+
+            $opportunity = Opportunity::query()->whereKey($data->id)->firstOrFail();
+
+            // Two or three line items per opportunity from the demo catalogue,
+            // manually priced so no rate definitions are required for the demo.
+            $lineProducts = $products->shuffle()->take(($index % 2) + 2);
+            foreach ($lineProducts as $position => $product) {
+                $productType = ProductType::from((string) $product->getRawOriginal('product_type'));
+
+                (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+                    'name' => $product->name,
+                    'item_id' => $product->id,
+                    'item_type' => Product::class,
+                    'quantity' => (string) (($position % 3) + 1),
+                    'unit_price' => (($position + 1) * 2500),
+                    'transaction_type' => $productType === ProductType::Sale
+                        ? LineItemTransactionType::Sale->value
+                        : LineItemTransactionType::Rental->value,
+                    'starts_at' => $window['starts_at'],
+                    'ends_at' => $window['ends_at'],
+                ]));
+            }
+
+            $opportunity->refresh();
+
+            if ($stage === 'quotation' || $stage === 'order') {
+                (new ConvertToQuotation)($opportunity);
+                $opportunity->refresh();
+            }
+
+            if ($stage === 'order') {
+                (new ConvertToOrder)($opportunity);
+                $opportunity->refresh();
+            }
+
+            // Tag the projection so signals:clear-demo can find and remove it.
+            // tag_list is presentation metadata, not lifecycle state, so it is
+            // written directly rather than through an event.
+            $opportunity->forceFill(['tag_list' => ['demo-data']])->save();
+        }
+
+        Auth::forgetUser();
+    }
+
+    /**
+     * Build the CreateOpportunity action result for one demo opportunity.
+     *
+     * @param  array{starts_at: string, ends_at: string}  $window
+     */
+    private function buildDemoOpportunity(
+        string $subject,
+        string $reference,
+        int $memberId,
+        int $storeId,
+        int $ownerId,
+        array $window,
+    ): OpportunityData {
+        return (new CreateOpportunity)(CreateOpportunityData::from([
+            'subject' => $subject,
+            'reference' => $reference,
+            'member_id' => $memberId,
+            'store_id' => $storeId,
+            'owned_by' => $ownerId,
+            'starts_at' => $window['starts_at'],
+            'ends_at' => $window['ends_at'],
+        ]));
     }
 
     /** @codeCoverageIgnore */

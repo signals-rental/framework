@@ -262,7 +262,19 @@ class OpportunityItemDemandResolver implements DemandResolverContract
                     $assetPhase->appliesTurnaround() ? (int) ($product->post_rent_unavailability ?? 0) : 0,
                 );
 
-                $this->persist($product->id, $storeId, (int) $asset->stock_level_id, 1, $assetStart, $assetEnd, $assetBufferedStart, $assetBufferedEnd, $assetPhase, $metadata, $item->id);
+                // Stamp a per-asset `pending_checkin` marker when the asset is
+                // physically back (CheckedIn, `returned_at` set) but not yet
+                // inspected/cleared (`checked_at` null / not Finalised). The
+                // RecalculationPipeline reads this to populate the snapshot's
+                // informational `pending_checkin_quantity` and the
+                // `returned_not_checked` demand-breakdown key
+                // (availability-engine.md §"Pending check-in visibility"). It does
+                // NOT affect availability — pending-checkin demands are Closed
+                // (inactive) and already excluded from the active sum.
+                $assetMetadata = $metadata;
+                $assetMetadata['pending_checkin'] = $this->isPendingCheckin($asset);
+
+                $this->persist($product->id, $storeId, (int) $asset->stock_level_id, 1, $assetStart, $assetEnd, $assetBufferedStart, $assetBufferedEnd, $assetPhase, $assetMetadata, $item->id);
             }
 
             $remainder = $quantity - count($allocatedAssets);
@@ -665,6 +677,23 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         }
 
         return [$plannedStart, $plannedEnd, $linePhase];
+    }
+
+    /**
+     * Whether an allocated asset is in the "pending check-in" state: physically
+     * returned (`returned_at` set, status CheckedIn) but not yet inspected and
+     * cleared (`checked_at` null, status not Finalised).
+     *
+     * Informational only (availability-engine.md §"Pending check-in
+     * visibility") — it never changes the availability calculation, just lets a
+     * warehouse view show how much of the "available" stock is still in the
+     * check-in queue versus fully processed on the shelf.
+     */
+    protected function isPendingCheckin(OpportunityItemAsset $asset): bool
+    {
+        return $asset->status === AssetAssignmentStatus::CheckedIn
+            && $asset->returned_at !== null
+            && $asset->checked_at === null;
     }
 
     /**

@@ -42,4 +42,14 @@ interface TransitionRule
      * perform guard-layer side effects (e.g. recording an acknowledgement).
      */
     public function evaluate(TransitionContext $context): GuardResult;
+
+    /**
+     * Evaluate the rule WITHOUT side effects and WITHOUT throwing — the dry-run
+     * counterpart of {@see evaluate()}. A rule that throws (the shortage gate) or
+     * mutates (records an acknowledgement, auto-resolves) instead returns a pure
+     * {@see GuardResult} carrying a machine-readable code, so {@see
+     * GuardPipeline::check()} and the `available_actions` endpoint can report
+     * whether the transition WOULD be allowed without performing it.
+     */
+    public function precheck(TransitionContext $context): GuardResult;
 }

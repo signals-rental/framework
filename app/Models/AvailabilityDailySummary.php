@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $date
  * @property int $min_available
  * @property int $max_available
+ * @property int $pending_checkin_quantity
  * @property bool $has_shortage
  * @property Carbon $calculated_at
  * @property Carbon|null $created_at
@@ -41,6 +42,7 @@ class AvailabilityDailySummary extends Model
         'date',
         'min_available',
         'max_available',
+        'pending_checkin_quantity',
         'has_shortage',
         'calculated_at',
     ];
@@ -54,6 +56,7 @@ class AvailabilityDailySummary extends Model
             'date' => 'date',
             'min_available' => 'integer',
             'max_available' => 'integer',
+            'pending_checkin_quantity' => 'integer',
             'has_shortage' => 'boolean',
             'calculated_at' => 'datetime',
         ];

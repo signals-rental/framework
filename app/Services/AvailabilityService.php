@@ -5,7 +5,13 @@ namespace App\Services;
 use App\Data\Availability\AvailabilityData;
 use App\Data\Availability\AvailabilityRangeData;
 use App\Data\Availability\AvailabilitySlotData;
+use App\Data\Availability\CalendarProductData;
+use App\Data\Availability\GanttData;
+use App\Data\Availability\GanttDemandBarData;
+use App\Data\Availability\GanttShortageData;
 use App\Data\Availability\OpportunityItemAvailabilityData;
+use App\Data\Availability\StoreShortageData;
+use App\Models\AvailabilityDailySummary;
 use App\Models\AvailabilitySnapshot;
 use App\Models\Demand;
 use App\Models\Opportunity;
@@ -18,7 +24,6 @@ use App\Services\Availability\OpportunityItemDemandResolver;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\Availability\SlotCalculator;
 use App\Services\Shortages\ShortageDetector;
-use BadMethodCallException;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
@@ -481,20 +486,237 @@ class AvailabilityService
     }
 
     /**
-     * Products in a store/range whose availability is negative.
+     * The store-wide shortage sweep for the calendar shortage panel/widget: every
+     * product/day in `[$from, $to]` at the store whose availability dipped below
+     * zero, read from the pre-calculated {@see AvailabilityDailySummary} read
+     * model (the same grid the calendar reads).
      *
-     * Reserved for the store-wide proactive shortage sweep (the listener path in
-     * shortage-resolution-sub-hires.md §2.4). Opportunity-scoped detection — the
-     * confirmation gate and the per-opportunity API badge — flows through
-     * {@see ShortageDetector} and {@see availableForItem()}
-     * instead. This store-wide variant lands with the proactive monitor; until
-     * then it fails loudly rather than silently no-op.
+     * Trivially derived from the daily summaries' `has_shortage` flag — the
+     * pipeline already maintains one summary row per product/store/day with the
+     * day's worst (`min_available`) availability — so this is a cheap indexed read
+     * (`idx_daily_summaries_shortage`) rather than a live demand recompute. The
+     * granular, per-line contributing-demand detail (and the resolution workflow)
+     * is served by the opportunity-scoped {@see ShortageDetector}
+     * path; this is the aggregate "what is short, and when" view.
      *
-     * @return never
+     * Results are product-name eager-loaded and ordered by date then product so a
+     * panel can group them chronologically. When `$storeId` is zero/negative the
+     * sweep spans every default-query store.
+     *
+     * @return SupportCollection<int, StoreShortageData>
      */
-    public function getShortages(int $storeId, Carbon $from, Carbon $to): mixed
+    public function getShortages(int $storeId, Carbon $from, Carbon $to): SupportCollection
     {
-        throw new BadMethodCallException('Store-wide shortage sweeps are not implemented yet; use ShortageDetector for opportunity-scoped detection.');
+        $query = AvailabilityDailySummary::query()
+            ->with('product:id,name')
+            ->shortage()
+            ->inDateRange($from, $to)
+            ->orderBy('date')
+            ->orderBy('product_id');
+
+        if ($storeId > 0) {
+            $query->where('store_id', $storeId);
+        } else {
+            $defaultStoreIds = Store::query()
+                ->inDefaultQueries()
+                ->pluck('id')
+                ->all();
+
+            $query->whereIn('store_id', $defaultStoreIds);
+        }
+
+        /** @var SupportCollection<int, StoreShortageData> $shortages */
+        $shortages = $query
+            ->get()
+            ->map(static fn (AvailabilityDailySummary $summary): StoreShortageData => StoreShortageData::fromModel($summary))
+            ->values();
+
+        return $shortages;
+    }
+
+    /**
+     * The multi-product calendar grid for a store over `[$from, $to]`, read from
+     * the pre-calculated {@see AvailabilityDailySummary} read model — the hot path
+     * for the M8 availability calendar.
+     *
+     * Returns one entry per product (name eager-loaded), each carrying an ordered
+     * list of day cells with the day's worst (`min_available`) availability and a
+     * `has_shortage` flag. The worst availability is the conservative figure a
+     * calendar cell shows ("can I still take this product that day?").
+     *
+     * `$productIds` optionally narrows the grid to specific products; empty means
+     * every product that has summary rows at the store in the window (so the grid
+     * naturally excludes products with no availability footprint). Kit/composed
+     * products hold no summary rows (their availability is read-time) and so do
+     * not appear — calendar consumers read kit availability via the per-product
+     * range endpoint.
+     *
+     * @param  list<int>  $productIds  specific products, or empty for all at the store
+     * @return SupportCollection<int, CalendarProductData>
+     */
+    public function getCalendar(int $storeId, Carbon $from, Carbon $to, array $productIds = []): SupportCollection
+    {
+        $query = AvailabilityDailySummary::query()
+            ->with('product:id,name')
+            ->where('store_id', $storeId)
+            ->inDateRange($from, $to)
+            ->orderBy('product_id')
+            ->orderBy('date');
+
+        if ($productIds !== []) {
+            $normalised = array_values(array_unique(array_map('intval', $productIds)));
+            $query->whereIn('product_id', $normalised);
+        }
+
+        /** @var SupportCollection<int, CalendarProductData> $calendar */
+        $calendar = $query
+            ->get()
+            ->groupBy('product_id')
+            ->map(static fn ($summaries, $productId): CalendarProductData => CalendarProductData::fromSummaries(
+                (int) $productId,
+                $summaries->first()?->product?->name,
+                $summaries->values()->all(),
+            ))
+            ->values();
+
+        return $calendar;
+    }
+
+    /**
+     * The Gantt read model for one product at a store over `[$from, $to]`:
+     * the individual demand bars (decomposed into prep / on-hire / turnaround
+     * zones) and the shortage windows, read directly from the authoritative
+     * `demands` table rather than snapshots (availability-engine.md §"Gantt Chart
+     * View").
+     *
+     * Each demand carries its three zone boundaries (`period_start` →
+     * `buffer_before_end` = prep, `starts_at` → `ends_at` = on-hire,
+     * `buffer_after_start` → `period_end` = turnaround), its registered source
+     * colour (from the {@see DemandSourceRegistry}), and a human source name. The
+     * shortage windows are derived from the daily summaries' `has_shortage` flag
+     * over the window, with `in_buffer_zone` set when the shortage day falls
+     * wholly within prep/turnaround buffers and outside every demand's on-hire
+     * period — the industry-feedback signal that the conflict may be resolvable by
+     * adjusting prep timing without moving dates.
+     *
+     * Only ACTIVE demands overlapping the window are returned; `$assetIds`
+     * optionally narrows to specific serialised assets. The window is honoured
+     * via the driver-aware overlap scope (native `tstzrange &&` on Postgres).
+     *
+     * @param  list<int>  $assetIds  specific serialised assets, or empty for all
+     */
+    public function getGantt(int $productId, int $storeId, Carbon $from, Carbon $to, array $assetIds = []): GanttData
+    {
+        $product = Product::query()->find($productId);
+
+        $totalStock = $product === null ? 0 : $this->pipeline->totalStock($product, $storeId);
+
+        $query = Demand::query()
+            ->where('product_id', $productId)
+            ->where('store_id', $storeId)
+            ->active()
+            ->overlapping($from, $to)
+            ->with('asset:id,serial_number,asset_number')
+            ->orderBy('asset_id')
+            ->orderBy('starts_at');
+
+        if ($assetIds !== []) {
+            $normalised = array_values(array_unique(array_map('intval', $assetIds)));
+            $query->whereIn('asset_id', $normalised);
+        }
+
+        /** @var Collection<int, Demand> $demands */
+        $demands = $query->get();
+
+        $registry = app(DemandSourceRegistry::class);
+
+        $bars = $demands
+            ->map(fn (Demand $demand): GanttDemandBarData => GanttDemandBarData::fromDemand(
+                $demand,
+                $registry->has($demand->source_type) ? $registry->get($demand->source_type)->colour : null,
+                $this->resolveSourceName($demand),
+            ))
+            ->values()
+            ->all();
+
+        // Shortage windows from the daily summaries over the requested span. A
+        // shortage that falls wholly outside every demand bar's on-hire period is
+        // flagged `in_buffer_zone` (it sits in prep/turnaround — physically in the
+        // building — so it may be resolvable without moving dates).
+        $shortages = AvailabilityDailySummary::query()
+            ->forProductStore($productId, $storeId)
+            ->shortage()
+            ->inDateRange($from, $to)
+            ->orderBy('date')
+            ->get()
+            ->map(function (AvailabilityDailySummary $summary) use ($demands): GanttShortageData {
+                $day = $summary->date->copy();
+
+                return GanttShortageData::make(
+                    $day,
+                    $summary->min_available,
+                    $this->shortageDayInBufferZone($day, $demands),
+                );
+            })
+            ->values()
+            ->all();
+
+        return GanttData::make($productId, $storeId, $from, $to, $totalStock, $bars, $shortages);
+    }
+
+    /**
+     * A human-readable name for a demand's source entity, for the Gantt bar
+     * tooltip/click target. Opportunity-item demands resolve to the parent
+     * opportunity's subject/number; other sources fall back to a
+     * "{display name} #{id}" label from the registry, or the raw type when the
+     * source is unregistered.
+     */
+    private function resolveSourceName(Demand $demand): ?string
+    {
+        if ($demand->source_type === 'opportunity_item') {
+            $opportunityId = $demand->metadata['opportunity_id'] ?? null;
+
+            if ($opportunityId !== null) {
+                $opportunity = Opportunity::query()->find((int) $opportunityId);
+
+                if ($opportunity !== null) {
+                    return $opportunity->subject ?? $opportunity->number;
+                }
+            }
+        }
+
+        $registry = app(DemandSourceRegistry::class);
+
+        if ($registry->has($demand->source_type)) {
+            return $registry->get($demand->source_type)->displayName.' #'.$demand->source_id;
+        }
+
+        return $demand->source_type.' #'.$demand->source_id;
+    }
+
+    /**
+     * Whether a shortage day falls wholly within prep/turnaround buffer zones —
+     * i.e. it does NOT overlap any demand's on-hire (`starts_at`..`ends_at`)
+     * period. When true, the shorted units are physically in the building (in prep
+     * or turnaround) and the conflict may be resolvable by adjusting prep timing
+     * rather than moving dates.
+     *
+     * @param  Collection<int, Demand>  $demands
+     */
+    private function shortageDayInBufferZone(CarbonInterface $day, Collection $demands): bool
+    {
+        $dayStart = $day->copy()->startOfDay();
+        $dayEnd = $day->copy()->endOfDay();
+
+        foreach ($demands as $demand) {
+            // The on-hire period (un-buffered) overlapping the shortage day means
+            // the conflict is in the active hire, not a buffer.
+            if ($demand->starts_at->lessThanOrEqualTo($dayEnd) && $demand->ends_at->greaterThanOrEqualTo($dayStart)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Services\Availability;
 
 use App\Contracts\Availability\AvailabilityStrategyContract;
 use App\Enums\AvailabilityEventType;
+use App\Enums\DemandPhase;
 use App\Enums\StockCategory;
 use App\Jobs\RecalculateAvailabilityJob;
 use App\Models\AvailabilityDailySummary;
@@ -110,6 +111,13 @@ class RecalculationPipeline
             $totalStock = $this->totalStock($product, $storeId);
             $demands = $this->activeDemands($productId, $storeId, $from, $to);
 
+            // Pending check-in demands are Closed (inactive) and so are absent
+            // from the active set above; they never affect availability. They are
+            // fetched separately purely so each slot can report an informational
+            // `pending_checkin_quantity` and a `returned_not_checked` breakdown
+            // entry (availability-engine.md §"Pending check-in visibility").
+            $pendingCheckinDemands = $this->pendingCheckinDemands($productId, $storeId, $from, $to);
+
             // Step 3 — pre-calculation hook. The strategy may add synthetic
             // demands, drop demands, or adjust quantities before per-slot summing.
             // The OSS default returns the set unchanged.
@@ -125,10 +133,28 @@ class RecalculationPipeline
             /** @var SupportCollection<int, array{slot_start: Carbon, total_stock: int, total_demanded: int, available: int, breakdown: array<string, int>}> $slotResults */
             $slotResults = new SupportCollection;
 
+            // The check-in queue per slot, keyed by UTC slot-start ISO. Computed
+            // up front (NOT carried through the strategy collection, so the
+            // strategy contract's slot shape stays unchanged) and looked up at
+            // upsert time. Informational only — it never affects `available`.
+            /** @var array<string, int> $pendingCheckinBySlot */
+            $pendingCheckinBySlot = [];
+
             foreach ($slots as $slotStart) {
                 $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
 
                 [$demanded, $breakdown] = $this->demandForSlot($demands, $slotStart, $slotEnd);
+
+                $pendingCheckin = $this->pendingCheckinForSlot($pendingCheckinDemands, $slotStart, $slotEnd);
+
+                if ($pendingCheckin > 0) {
+                    // Fold the check-in queue into the breakdown under the
+                    // `returned_not_checked` key (availability-engine.md
+                    // §"Pending check-in visibility") so a dashboard widget can
+                    // read it from the snapshot's demand_breakdown too.
+                    $breakdown['returned_not_checked'] = $pendingCheckin;
+                    $pendingCheckinBySlot[$slotStart->copy()->utc()->toIso8601String()] = $pendingCheckin;
+                }
 
                 $slotResults->push([
                     'slot_start' => $slotStart,
@@ -149,10 +175,10 @@ class RecalculationPipeline
             // this recalc — step 7/8 shortage emission below.
             $previousAvailability = $this->previousAvailability($productId, $storeId, $slotResults);
 
-            // Per-slot `available` captured for the daily rollup below. Keyed by
-            // the slot start (UTC) so the rollup can re-derive the local calendar
-            // day each slot belongs to.
-            /** @var list<array{0: Carbon, 1: int}> $slotAvailability */
+            // Per-slot `available` (and `pending_checkin`) captured for the daily
+            // rollup below. Keyed by the slot start (UTC) so the rollup can
+            // re-derive the local calendar day each slot belongs to.
+            /** @var list<array{0: Carbon, 1: int, 2: int}> $slotAvailability */
             $slotAvailability = [];
 
             $hasShortage = false;
@@ -163,6 +189,8 @@ class RecalculationPipeline
             $crossedOutOfShortage = false;
 
             foreach ($slotResults as $result) {
+                $slotPendingCheckin = $pendingCheckinBySlot[$result['slot_start']->copy()->utc()->toIso8601String()] ?? 0;
+
                 $this->upsertSnapshot(
                     $productId,
                     $storeId,
@@ -171,10 +199,11 @@ class RecalculationPipeline
                     $result['total_demanded'],
                     $result['available'],
                     $result['breakdown'],
+                    $slotPendingCheckin,
                     $now,
                 );
 
-                $slotAvailability[] = [$result['slot_start'], $result['available']];
+                $slotAvailability[] = [$result['slot_start'], $result['available'], $slotPendingCheckin];
 
                 // A slot with no prior snapshot is treated as previously
                 // non-negative (zero stock pressure) so a brand-new negative slot
@@ -447,6 +476,7 @@ class RecalculationPipeline
         int $totalDemanded,
         int $available,
         array $breakdown,
+        int $pendingCheckin,
         Carbon $calculatedAt,
     ): void {
         AvailabilitySnapshot::query()->updateOrCreate(
@@ -463,9 +493,60 @@ class RecalculationPipeline
                 // persisted, rather than re-derived from stock minus demand.
                 'available' => $available,
                 'demand_breakdown' => $breakdown,
+                // Informational check-in queue size for this slot (returned but
+                // not yet inspected) — does not affect `available`.
+                'pending_checkin_quantity' => $pendingCheckin,
                 'calculated_at' => $calculatedAt,
             ],
         );
+    }
+
+    /**
+     * The pending check-in demands for the product/store overlapping the window:
+     * Closed-phase (inactive) demands whose source marked the unit physically
+     * returned but not yet inspected (`metadata.pending_checkin = true`). Fetched
+     * once and summed per slot in-memory, mirroring {@see activeDemands()}.
+     *
+     * These never reduce availability — they are surfaced purely so the snapshot
+     * can carry an informational check-in-queue count
+     * (availability-engine.md §"Pending check-in visibility").
+     *
+     * @return Collection<int, Demand>
+     */
+    private function pendingCheckinDemands(int $productId, int $storeId, Carbon $from, Carbon $to): Collection
+    {
+        /** @var Collection<int, Demand> $demands */
+        $demands = Demand::query()
+            ->where('product_id', $productId)
+            ->where('store_id', $storeId)
+            ->where('phase', DemandPhase::Closed)
+            ->where('metadata->pending_checkin', true)
+            ->overlapping($from, $to)
+            ->get();
+
+        return $demands;
+    }
+
+    /**
+     * Sum the pending check-in quantity overlapping a single
+     * `[slotStart, slotEnd)` slot. Uses the demand's buffered bounds so the
+     * count agrees with the same overlap test the active-demand summing uses.
+     *
+     * @param  Collection<int, Demand>  $demands
+     */
+    private function pendingCheckinForSlot(Collection $demands, Carbon $slotStart, Carbon $slotEnd): int
+    {
+        $total = 0;
+
+        foreach ($demands as $demand) {
+            if (! ($demand->bufferedStartsAt()->lessThan($slotEnd) && $demand->bufferedEndsAt()->greaterThan($slotStart))) {
+                continue;
+            }
+
+            $total += max(0, $demand->quantity);
+        }
+
+        return $total;
     }
 
     /**
@@ -477,6 +558,13 @@ class RecalculationPipeline
      * (`max_available`) availability across its slots, plus a `has_shortage` flag
      * when the minimum dipped below zero.
      *
+     * `pending_checkin_quantity` rolls up as the day's PEAK (max) per-slot value:
+     * the queue of returned-not-checked units within a day reflects the same
+     * physical returns across overlapping slots, so summing would double-count —
+     * the worst moment of the day is the meaningful figure (mirroring how
+     * `max_available` is the best slot). It is informational only and never feeds
+     * `min_available` / `max_available` / `has_shortage`.
+     *
      * Resolution-agnostic by design: under Daily resolution there is exactly one
      * slot per day, so the rollup is a 1:1 copy; under HalfDaily/Hourly several
      * slots collapse into the day's min/max. Populating the summary at every
@@ -484,7 +572,7 @@ class RecalculationPipeline
      * days actually touched by this recalculation are upserted, preserving the
      * pipeline's bounded blast radius.
      *
-     * @param  list<array{0: Carbon, 1: int}>  $slotAvailability  [slotStart (UTC), available]
+     * @param  list<array{0: Carbon, 1: int, 2: int}>  $slotAvailability  [slotStart (UTC), available, pendingCheckin]
      */
     private function rollUpDailySummaries(
         int $productId,
@@ -499,23 +587,24 @@ class RecalculationPipeline
 
         $tz = $this->normaliseTimezone($timezone);
 
-        /** @var array<string, array{min: int, max: int}> $byDay */
+        /** @var array<string, array{min: int, max: int, pending_checkin: int}> $byDay */
         $byDay = [];
 
-        foreach ($slotAvailability as [$slotStart, $available]) {
+        foreach ($slotAvailability as [$slotStart, $available, $pendingCheckin]) {
             // The local calendar day this slot belongs to. Hourly slots are pinned
             // to UTC by the SlotCalculator, but grouping by the store-local day is
             // still the correct calendar bucket for a day summary.
             $day = $slotStart->copy()->setTimezone($tz)->toDateString();
 
             if (! isset($byDay[$day])) {
-                $byDay[$day] = ['min' => $available, 'max' => $available];
+                $byDay[$day] = ['min' => $available, 'max' => $available, 'pending_checkin' => $pendingCheckin];
 
                 continue;
             }
 
             $byDay[$day]['min'] = min($byDay[$day]['min'], $available);
             $byDay[$day]['max'] = max($byDay[$day]['max'], $available);
+            $byDay[$day]['pending_checkin'] = max($byDay[$day]['pending_checkin'], $pendingCheckin);
         }
 
         foreach ($byDay as $day => $bounds) {
@@ -531,6 +620,7 @@ class RecalculationPipeline
                 [
                     'min_available' => $bounds['min'],
                     'max_available' => $bounds['max'],
+                    'pending_checkin_quantity' => $bounds['pending_checkin'],
                     'has_shortage' => $bounds['min'] < 0,
                     'calculated_at' => $calculatedAt,
                 ],

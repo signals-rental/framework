@@ -3,9 +3,14 @@
 namespace App\Jobs;
 
 use App\Events\Availability\AvailabilityChanged;
+use App\Events\Availability\OpportunityAvailabilityChanged;
+use App\Models\Demand;
+use App\Models\Opportunity;
 use App\Services\Api\WebhookService;
+use App\Services\Availability\OpportunityItemDemandResolver;
 use App\Services\Availability\RecalculationPipeline;
 use App\Services\AvailabilityService;
+use App\Services\Shortages\ShortageDetector;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -131,6 +136,13 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
             $result->hasShortage,
         );
 
+        // Also broadcast on each affected opportunity's own channel
+        // (availability.opportunity.{id}) so the M8 opportunity Show page gets
+        // live per-line availability without subscribing to every product/store
+        // channel. One broadcast per distinct opportunity holding an active demand
+        // for this product/store over the refreshed window.
+        $this->broadcastToOpportunities($result->from, $result->to, $result->hasShortage);
+
         // Mirror the Reverb broadcast onto the outbound webhook bus so external
         // integrators can react to availability changes too. This runs in a
         // queued job that the (replay-skipped) observers enqueue, so it is never
@@ -143,5 +155,87 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
             'slots' => $result->slots,
             'has_shortage' => $result->hasShortage,
         ]);
+    }
+
+    /**
+     * Broadcast an {@see OpportunityAvailabilityChanged} on the channel of every
+     * opportunity that holds an active `opportunity_item` demand for this
+     * product/store over the refreshed window.
+     *
+     * Opportunity ids are read from the active demands' `metadata.opportunity_id`
+     * (stamped by the {@see OpportunityItemDemandResolver}),
+     * de-duplicated so a multi-line opportunity gets a single broadcast. When the
+     * window is unknown (a skipped clamp) the broadcast is omitted — the
+     * product/store broadcast above still fires.
+     */
+    private function broadcastToOpportunities(?Carbon $from, ?Carbon $to, bool $hasShortage): void
+    {
+        if ($from === null || $to === null) {
+            return;
+        }
+
+        /** @var array<int, true> $opportunityIds */
+        $opportunityIds = [];
+
+        Demand::query()
+            ->where('product_id', $this->productId)
+            ->where('store_id', $this->storeId)
+            ->where('source_type', 'opportunity_item')
+            ->active()
+            ->overlapping($from, $to)
+            ->get(['metadata'])
+            ->each(function (Demand $demand) use (&$opportunityIds): void {
+                $opportunityId = $demand->metadata['opportunity_id'] ?? null;
+
+                if ($opportunityId !== null) {
+                    $opportunityIds[(int) $opportunityId] = true;
+                }
+            });
+
+        $detector = app(ShortageDetector::class);
+
+        foreach (array_keys($opportunityIds) as $opportunityId) {
+            // Maintain the denormalised `opportunities.has_shortage` flag for the
+            // list/Show badge and the `q[has_shortage_true]` filter. The recalc
+            // may have introduced OR cleared a shortage on this opportunity, so
+            // re-run the authoritative opportunity-scoped detector (which nets off
+            // active resolutions) rather than trusting the product/store-scoped
+            // `$hasShortage` summary. Replay-safe: this job is dispatched only by
+            // the replay-skipped demand/stock observers.
+            $opportunityHasShortage = $this->refreshOpportunityShortageFlag($opportunityId, $detector);
+
+            OpportunityAvailabilityChanged::dispatch(
+                $opportunityId,
+                $this->productId,
+                $this->storeId,
+                $from->toIso8601String(),
+                $to->toIso8601String(),
+                $opportunityHasShortage,
+            );
+        }
+    }
+
+    /**
+     * Recompute and persist the denormalised `has_shortage` flag for one
+     * opportunity, writing only when it actually changed (quiet update — no model
+     * events, no further demand recalcs). Returns the resolved flag so the caller
+     * can broadcast the opportunity-accurate value. A missing opportunity row (a
+     * stale demand) is a no-op returning false.
+     */
+    private function refreshOpportunityShortageFlag(int $opportunityId, ShortageDetector $detector): bool
+    {
+        $opportunity = Opportunity::query()->whereKey($opportunityId)->first();
+
+        if ($opportunity === null) {
+            return false;
+        }
+
+        $hasShortage = $detector->forOpportunity($opportunity)->hasUnresolved();
+
+        if ($opportunity->has_shortage !== $hasShortage) {
+            $opportunity->forceFill(['has_shortage' => $hasShortage])->saveQuietly();
+        }
+
+        return $hasShortage;
     }
 }

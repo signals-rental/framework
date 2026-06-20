@@ -104,15 +104,6 @@ class ShortageEventRecorder
      */
     public function resolutionConfirmed(ShortageResolution $resolution): void
     {
-        AvailabilityEvent::query()->create([
-            'event_type' => AvailabilityEventType::ShortageResolutionConfirmed,
-            'product_id' => (int) ($resolution->metadata['product_id'] ?? 0),
-            'store_id' => (int) ($resolution->metadata['store_id'] ?? 0),
-            'source_type' => 'shortage_resolution',
-            'source_id' => $resolution->id,
-            'payload' => $this->resolutionPayload($resolution),
-        ]);
-
         event(new AuditableEvent(
             model: $resolution,
             action: 'shortage.resolution.confirmed',
@@ -126,8 +117,6 @@ class ShortageEventRecorder
      */
     public function resolutionInProgress(ShortageResolution $resolution): void
     {
-        $this->logResolutionStatus(AvailabilityEventType::ShortageResolutionInProgress, $resolution);
-
         event(new AuditableEvent(
             model: $resolution,
             action: 'shortage.resolution.in_progress',
@@ -141,8 +130,6 @@ class ShortageEventRecorder
      */
     public function resolutionFulfilled(ShortageResolution $resolution): void
     {
-        $this->logResolutionStatus(AvailabilityEventType::ShortageResolutionFulfilled, $resolution);
-
         event(new AuditableEvent(
             model: $resolution,
             action: 'shortage.resolution.fulfilled',
@@ -156,12 +143,6 @@ class ShortageEventRecorder
      */
     public function resolutionFailed(ShortageResolution $resolution, ?string $reason = null): void
     {
-        $this->logResolutionStatus(
-            AvailabilityEventType::ShortageResolutionFailed,
-            $resolution,
-            $reason !== null ? ['failure_reason' => $reason] : [],
-        );
-
         event(new AuditableEvent(
             model: $resolution,
             action: 'shortage.resolution.failed',
@@ -177,15 +158,6 @@ class ShortageEventRecorder
      */
     public function resolutionCancelled(ShortageResolution $resolution): void
     {
-        AvailabilityEvent::query()->create([
-            'event_type' => AvailabilityEventType::ShortageResolutionCancelled,
-            'product_id' => (int) ($resolution->metadata['product_id'] ?? 0),
-            'store_id' => (int) ($resolution->metadata['store_id'] ?? 0),
-            'source_type' => 'shortage_resolution',
-            'source_id' => $resolution->id,
-            'payload' => $this->resolutionPayload($resolution),
-        ]);
-
         event(new AuditableEvent(
             model: $resolution,
             action: 'shortage.resolution.cancelled',
@@ -278,24 +250,6 @@ class ShortageEventRecorder
             'payload' => $this->resolutionPayload($resolution) + [
                 'opportunity_item_id' => $shortage->opportunityItemId,
             ],
-        ]);
-    }
-
-    /**
-     * Write a resolution-scoped availability-log row for a status transition,
-     * stamping product/store off the resolution's metadata.
-     *
-     * @param  array<string, mixed>  $extra
-     */
-    private function logResolutionStatus(AvailabilityEventType $type, ShortageResolution $resolution, array $extra = []): void
-    {
-        AvailabilityEvent::query()->create([
-            'event_type' => $type,
-            'product_id' => (int) ($resolution->metadata['product_id'] ?? 0),
-            'store_id' => (int) ($resolution->metadata['store_id'] ?? 0),
-            'source_type' => 'shortage_resolution',
-            'source_id' => $resolution->id,
-            'payload' => $this->resolutionPayload($resolution) + $extra,
         ]);
     }
 

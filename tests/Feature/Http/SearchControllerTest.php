@@ -2,6 +2,7 @@
 
 use App\Models\Activity;
 use App\Models\Member;
+use App\Models\Opportunity;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\StockLevel;
@@ -35,6 +36,7 @@ describe('GET /search', function () {
                 'stock_levels' => [],
                 'product_groups' => [],
                 'activities' => [],
+                'opportunities' => [],
             ]);
     });
 
@@ -48,6 +50,7 @@ describe('GET /search', function () {
                 'stock_levels' => [],
                 'product_groups' => [],
                 'activities' => [],
+                'opportunities' => [],
             ]);
     });
 
@@ -61,6 +64,7 @@ describe('GET /search', function () {
                 'stock_levels' => [],
                 'product_groups' => [],
                 'activities' => [],
+                'opportunities' => [],
             ]);
     });
 
@@ -144,7 +148,7 @@ describe('GET /search', function () {
         $this->actingAs($this->owner)
             ->getJson(route('search', ['q' => 'a']))
             ->assertOk()
-            ->assertJsonStructure(['members', 'products', 'stock_levels', 'product_groups', 'activities']);
+            ->assertJsonStructure(['members', 'products', 'stock_levels', 'product_groups', 'activities', 'opportunities']);
     });
 
     it('returns matching products', function () {
@@ -212,5 +216,56 @@ describe('GET /search', function () {
                     '*' => ['id', 'name', 'type', 'typeValue', 'icon', 'url'],
                 ],
             ]);
+    })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');
+
+    it('returns matching opportunities by subject', function () {
+        Opportunity::factory()->create(['subject' => 'Summer Festival Main Stage']);
+        Opportunity::factory()->create(['subject' => 'Winter Gala Lighting']);
+
+        $this->actingAs($this->owner)
+            ->getJson(route('search', ['q' => 'Festival']))
+            ->assertOk()
+            ->assertJsonCount(1, 'opportunities')
+            ->assertJsonPath('opportunities.0.name', 'Summer Festival Main Stage');
+    })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');
+
+    it('returns matching opportunities by number and reference', function () {
+        Opportunity::factory()->create(['subject' => 'Numbered Deal', 'number' => 'OPP-00042', 'reference' => 'CUST-REF-XYZ']);
+
+        $this->actingAs($this->owner)
+            ->getJson(route('search', ['q' => 'OPP-00042']))
+            ->assertOk()
+            ->assertJsonCount(1, 'opportunities');
+
+        $this->actingAs($this->owner)
+            ->getJson(route('search', ['q' => 'CUST-REF']))
+            ->assertOk()
+            ->assertJsonCount(1, 'opportunities');
+    })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');
+
+    it('returns opportunity results with correct shape including the state label', function () {
+        Opportunity::factory()->order()->create(['subject' => 'Test Opportunity']);
+
+        $this->actingAs($this->owner)
+            ->getJson(route('search', ['q' => 'Test']))
+            ->assertOk()
+            ->assertJsonStructure([
+                'opportunities' => [
+                    '*' => ['id', 'name', 'number', 'type', 'typeValue', 'url'],
+                ],
+            ])
+            ->assertJsonPath('opportunities.0.typeValue', 'opportunity');
+    })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');
+
+    it('excludes opportunities for a user without opportunities.view', function () {
+        Opportunity::factory()->create(['subject' => 'Hidden Festival Deal']);
+
+        $viewer = User::factory()->create();
+        $viewer->givePermissionTo('members.access', 'members.view');
+
+        $this->actingAs($viewer)
+            ->getJson(route('search', ['q' => 'Festival']))
+            ->assertOk()
+            ->assertJsonCount(0, 'opportunities');
     })->skip(fn () => config('database.default') === 'sqlite', 'Search uses PostgreSQL ilike operator');
 });

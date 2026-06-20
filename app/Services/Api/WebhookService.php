@@ -66,6 +66,8 @@ class WebhookService
         'opportunity.updated',
         'opportunity.quoted',
         'opportunity.converted_to_order',
+        'opportunity.reverted_to_quotation',
+        'opportunity.reinstated',
         'opportunity.locks_released',
         'opportunity.status_changed',
         'opportunity.status_promoted',

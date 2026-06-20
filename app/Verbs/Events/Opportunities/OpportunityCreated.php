@@ -43,10 +43,14 @@ class OpportunityCreated extends Event
         public ?string $external_description = null,
         public ?string $starts_at = null,
         public ?string $ends_at = null,
+        public ?string $charge_starts_at = null,
+        public ?string $charge_ends_at = null,
         public int $charge_total = 0,
         public ?string $currency_code = null,
         public ?string $exchange_rate = null,
         public bool $prices_include_tax = false,
+        /** @var list<string> */
+        public array $tag_list = [],
     ) {}
 
     public function apply(OpportunityState $state): void
@@ -65,6 +69,9 @@ class OpportunityCreated extends Event
         $state->external_description = $this->external_description;
         $state->starts_at = $this->starts_at !== null ? CarbonImmutable::parse($this->starts_at) : null;
         $state->ends_at = $this->ends_at !== null ? CarbonImmutable::parse($this->ends_at) : null;
+        $state->charge_starts_at = $this->charge_starts_at !== null ? CarbonImmutable::parse($this->charge_starts_at) : null;
+        $state->charge_ends_at = $this->charge_ends_at !== null ? CarbonImmutable::parse($this->charge_ends_at) : null;
+        $state->tag_list = $this->tag_list;
         $state->charge_total = $this->charge_total;
         // The currency is resolved at fire-time by the CreateOpportunity action
         // (request currency ?? company base-currency setting) and baked into the
@@ -100,10 +107,13 @@ class OpportunityCreated extends Event
                 'external_description' => $state->external_description,
                 'starts_at' => $state->starts_at,
                 'ends_at' => $state->ends_at,
+                'charge_starts_at' => $state->charge_starts_at,
+                'charge_ends_at' => $state->charge_ends_at,
                 'charge_total' => $state->charge_total,
                 'currency_code' => $state->currency_code,
                 'exchange_rate' => $state->exchange_rate,
                 'prices_include_tax' => $state->prices_include_tax,
+                'tag_list' => $state->tag_list,
             ],
         );
 
@@ -127,6 +137,7 @@ class OpportunityCreated extends Event
                 'description' => $state->description,
                 'external_description' => $state->external_description,
                 'charge_total' => $state->charge_total,
+                'tag_list' => $state->tag_list,
             ],
             oldValues: null,
         );

@@ -109,6 +109,106 @@ class AvailabilityController extends Controller
     }
 
     /**
+     * Multi-product availability calendar grid for a store over a date range,
+     * read from the pre-calculated daily-summary read model. Optionally narrowed
+     * to specific products via `product_ids[]`.
+     */
+    #[ApiResponse(200, 'Calendar grid', type: 'array{calendar: array{store_id: int, from: string, to: string, products: list<array{product_id: int, product_name: string|null, days: list<array{date: string, available: int, has_shortage: bool, pending_checkin: int}>}>}}')]
+    public function calendar(Request $request): JsonResponse
+    {
+        $this->authorizeAvailability($request);
+
+        $validated = $request->validate([
+            'store_id' => ['required', 'integer', 'exists:stores,id'],
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
+            'product_ids' => ['nullable', 'array'],
+            'product_ids.*' => ['integer'],
+        ]);
+
+        /** @var list<int> $productIds */
+        $productIds = array_map('intval', $validated['product_ids'] ?? []);
+
+        $from = Carbon::parse((string) $validated['from']);
+        $to = Carbon::parse((string) $validated['to']);
+
+        $products = app(AvailabilityService::class)
+            ->getCalendar((int) $validated['store_id'], $from, $to, $productIds)
+            ->map(static fn ($product): array => $product->toArray())
+            ->values()
+            ->all();
+
+        return $this->respondWith([
+            'store_id' => (int) $validated['store_id'],
+            'from' => $from->toIso8601String(),
+            'to' => $to->toIso8601String(),
+            'products' => $products,
+        ], 'calendar');
+    }
+
+    /**
+     * Gantt demand bars for a single product at a store over a date range, read
+     * directly from the `demands` table. Each demand is decomposed into its prep /
+     * on-hire / turnaround zones; shortage windows are surfaced separately.
+     * Optionally narrowed to specific serialised assets via `asset_ids[]`.
+     */
+    #[ApiResponse(200, 'Gantt model', type: 'array{gantt: array{product_id: int, store_id: int, from: string, to: string, total_stock: int, demands: list<array{demand_id: int, asset_id: int|null, asset_serial: string|null, quantity: int, source_type: string, source_id: int, source_name: string|null, colour: string|null, phase: string, period_start: string, buffer_before_end: string, buffer_after_start: string, period_end: string, starts_at: string, ends_at: string}>, shortages: list<array{from: string, to: string, severity: int, in_buffer_zone: bool}>}}')]
+    public function gantt(Request $request, Product $product): JsonResponse
+    {
+        $this->authorizeAvailability($request);
+
+        $validated = $request->validate([
+            'store_id' => ['required', 'integer', 'exists:stores,id'],
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
+            'asset_ids' => ['nullable', 'array'],
+            'asset_ids.*' => ['integer'],
+        ]);
+
+        /** @var list<int> $assetIds */
+        $assetIds = array_map('intval', $validated['asset_ids'] ?? []);
+
+        $data = app(AvailabilityService::class)->getGantt(
+            $product->id,
+            (int) $validated['store_id'],
+            Carbon::parse((string) $validated['from']),
+            Carbon::parse((string) $validated['to']),
+            $assetIds,
+        );
+
+        return $this->respondWith($data->toArray(), 'gantt');
+    }
+
+    /**
+     * Store-wide shortage sweep over a date range, read from the daily-summary
+     * read model. `store_id` is optional — omit it to sweep every default-query
+     * store. Drives the calendar shortage panel/widget.
+     */
+    #[ApiResponse(200, 'Shortages', type: 'array{shortages: list<array{product_id: int, product_name: string|null, store_id: int, date: string, available: int, severity: int, calculated_at: string|null}>, meta: array{total: int, per_page: int, page: int}}')]
+    public function shortages(Request $request): JsonResponse
+    {
+        $this->authorizeAvailability($request);
+
+        $validated = $request->validate([
+            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
+        ]);
+
+        $shortages = app(AvailabilityService::class)
+            ->getShortages(
+                (int) ($validated['store_id'] ?? 0),
+                Carbon::parse((string) $validated['from']),
+                Carbon::parse((string) $validated['to']),
+            )
+            ->map(static fn ($shortage): array => $shortage->toArray())
+            ->values()
+            ->all();
+
+        return $this->respondWithCollection($shortages, 'shortages');
+    }
+
+    /**
      * Resolve the appropriate point/range response.
      */
     private function respond(int $productId, int $storeId, ?string $date, ?string $from, ?string $to): JsonResponse

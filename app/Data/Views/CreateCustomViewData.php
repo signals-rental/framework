@@ -2,6 +2,8 @@
 
 namespace App\Data\Views;
 
+use App\Services\ColumnRegistryResolver;
+use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Data;
 
 class CreateCustomViewData extends Data
@@ -25,14 +27,19 @@ class CreateCustomViewData extends Data
     ) {}
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, mixed>
      */
     public static function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'entity_type' => ['required', 'string', 'max:100'],
+            'entity_type' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::in(app(ColumnRegistryResolver::class)->entityTypes()),
+            ],
             'visibility' => ['sometimes', 'in:personal,shared'],
             'columns' => ['required', 'array', 'min:1'],
             'columns.*' => ['string'],

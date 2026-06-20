@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ShortageDispatchPolicy;
 use App\Enums\ShortagePolicy;
 use App\Models\Store;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -47,6 +48,16 @@ class StoreFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'shortage_policy' => $policy->value,
+        ]);
+    }
+
+    /**
+     * Set the store's shortage dispatch-gate policy.
+     */
+    public function dispatchPolicy(ShortageDispatchPolicy $policy): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'shortage_dispatch_policy' => $policy->value,
         ]);
     }
 

@@ -105,6 +105,18 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('stock-levels/{stockLevel}/edit', 'stock-levels.form')->name('stock-levels.edit');
     Volt::route('stock-levels/{stockLevel}/activities', 'stock-levels.activities')->name('stock-levels.activities');
 
+    // Opportunities
+    //
+    // Named web routes resolve now so route('opportunities.*') works everywhere
+    // (global search, member sub-pages, future nav). The full Livewire UI lands
+    // in M8 and replaces the placeholder Volt components in place — the route
+    // names are stable. 'create' is registered before the '{opportunity}' show
+    // route so /opportunities/create is never matched as an opportunity id.
+    Volt::route('opportunities', 'opportunities.index')->name('opportunities.index');
+    Volt::route('opportunities/create', 'opportunities.form')->name('opportunities.create');
+    Volt::route('opportunities/{opportunity}', 'opportunities.show')->name('opportunities.show');
+    Volt::route('opportunities/{opportunity}/edit', 'opportunities.form')->name('opportunities.edit');
+
     // Activities
     Volt::route('activities', 'activities.index')->name('activities.index');
     Volt::route('activities/create', 'activities.form')->name('activities.create');

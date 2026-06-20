@@ -20,6 +20,8 @@ class CreateOpportunityData extends Data
         public ?string $external_description = null,
         public ?string $starts_at = null,
         public ?string $ends_at = null,
+        public ?string $charge_starts_at = null,
+        public ?string $charge_ends_at = null,
         public string $currency = 'GBP',
         public bool $prices_include_tax = false,
         /**
@@ -30,6 +32,10 @@ class CreateOpportunityData extends Data
          */
         #[WithCast(MoneyInput::class)]
         public int $charge_total = 0,
+        /** @var array<int, string>|null */
+        public ?array $tag_list = null,
+        /** @var array<string, mixed>|null */
+        public ?array $custom_fields = null,
     ) {}
 
     /**
@@ -48,9 +54,14 @@ class CreateOpportunityData extends Data
             'external_description' => ['sometimes', 'nullable', 'string'],
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],
+            'charge_starts_at' => ['sometimes', 'nullable', 'date'],
+            'charge_ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:charge_starts_at'],
             'currency' => ['sometimes', 'string', 'size:3'],
             'prices_include_tax' => ['sometimes', 'boolean'],
             'charge_total' => ['sometimes', 'numeric'],
+            'tag_list' => ['sometimes', 'nullable', 'array'],
+            'tag_list.*' => ['string', 'max:255'],
+            'custom_fields' => ['sometimes', 'nullable', 'array'],
         ];
     }
 }

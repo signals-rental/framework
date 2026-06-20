@@ -3,6 +3,7 @@
 namespace App\Verbs\Events\Opportunities;
 
 use App\Models\Opportunity;
+use App\Services\Opportunities\OpportunityTotalsCalculator;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\States\OpportunityState;
 use Carbon\CarbonImmutable;
@@ -29,6 +30,7 @@ class OpportunityUpdated extends Event
     private const FIELDS = [
         'subject', 'member_id', 'venue_id', 'store_id', 'owned_by',
         'reference', 'description', 'external_description', 'starts_at', 'ends_at',
+        'charge_starts_at', 'charge_ends_at', 'tag_list',
     ];
 
     /**
@@ -50,6 +52,10 @@ class OpportunityUpdated extends Event
         public ?string $external_description = null,
         public ?string $starts_at = null,
         public ?string $ends_at = null,
+        public ?string $charge_starts_at = null,
+        public ?string $charge_ends_at = null,
+        /** @var list<string>|null */
+        public ?array $tag_list = null,
     ) {}
 
     public function validate(OpportunityState $state): void
@@ -64,9 +70,12 @@ class OpportunityUpdated extends Event
     {
         foreach ($this->changedFields() as $field) {
             $state->{$field} = match ($field) {
-                'starts_at', 'ends_at' => $this->{$field} !== null
+                'starts_at', 'ends_at', 'charge_starts_at', 'charge_ends_at' => $this->{$field} !== null
                     ? CarbonImmutable::parse($this->{$field})
                     : null,
+                // A provided null clears the tags to an empty list, never null,
+                // so the projection's JSONB column stays a normalised array.
+                'tag_list' => $this->tag_list ?? [],
                 default => $this->{$field},
             };
         }
@@ -98,9 +107,23 @@ class OpportunityUpdated extends Event
                 'external_description' => $state->external_description,
                 'starts_at' => $state->starts_at,
                 'ends_at' => $state->ends_at,
+                'charge_starts_at' => $state->charge_starts_at,
+                'charge_ends_at' => $state->charge_ends_at,
+                'tag_list' => $state->tag_list,
             ]);
 
         $opportunity = Opportunity::query()->where('state_id', $state->id)->firstOrFail();
+
+        // A member change can move the opportunity onto a different organisation
+        // tax class, which makes the stored tax figures stale. Recompute the
+        // grouped final tax (and the gross total) whenever member_id is among the
+        // fields this update touched — but never when the opportunity's tax is
+        // locked (a confirmed order preserves its snapshotted tax: MC §7.2). The
+        // calculator is idempotent and writes the projection quietly, so this is
+        // replay-stable.
+        if (in_array('member_id', $changedFields, true) && ! $opportunity->tax_locked) {
+            app(OpportunityTotalsCalculator::class)->rollUp($opportunity->refresh());
+        }
 
         $newValues = $this->snapshotFrom($changedFields, fn (string $field): mixed => $this->normalise($state->{$field}));
 

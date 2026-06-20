@@ -114,6 +114,7 @@ class KitAvailabilityCalculator
                 total_demanded: 0,
                 available: $fixedConflicted ? 0 : max(0, $available),
                 demand_breakdown: [],
+                pending_checkin_quantity: 0,
             );
         }
 
@@ -180,6 +181,7 @@ class KitAvailabilityCalculator
                 total_demanded: 0,
                 available: min($fixedComponent, $poolComponent),
                 demand_breakdown: [],
+                pending_checkin_quantity: 0,
             );
         }
 
@@ -345,6 +347,7 @@ class KitAvailabilityCalculator
                 total_demanded: 0,
                 available: max(0, $reported),
                 demand_breakdown: [],
+                pending_checkin_quantity: 0,
             );
         }
 

@@ -176,6 +176,26 @@ enum OpportunityStatus: int
     }
 
     /**
+     * Whether an opportunity in this status can be REINSTATED back to an active
+     * status (opportunity-lifecycle.md §5.2 OpportunityReinstated: "Status must be
+     * Lost, Dead, Postponed, or Cancelled").
+     *
+     * Derived generically from the demand phase rather than a named-status matrix
+     * (Ben's locked steer), so configurable/custom statuses inherit the predicate:
+     *
+     *  - Void-phase statuses (Lost / Dead / Cancelled) — abandoned but recoverable.
+     *  - Held-phase statuses (Postponed) — parked on hold, resumable.
+     *
+     * The terminal "complete" close is deliberately NOT reinstatable here — it has
+     * its own `OpportunityReopened` path (§5.2), out of this transition's scope.
+     */
+    public function isReinstatable(): bool
+    {
+        return $this->phase() === DemandPhase::Void
+            || $this->phase() === DemandPhase::Held;
+    }
+
+    /**
      * Whether this status is the terminal "complete" close of the order
      * lifecycle — the point at which all assets must already be finalised/returned
      * (opportunity-lifecycle.md §5.2: OpportunityCompleted "all assets finalised or

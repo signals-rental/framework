@@ -27,12 +27,14 @@ use App\Actions\Opportunities\QuickAllocateAssets;
 use App\Actions\Opportunities\QuickBookOut;
 use App\Actions\Opportunities\QuickCheckIn;
 use App\Actions\Opportunities\QuickPrepareAssets;
+use App\Actions\Opportunities\ReinstateOpportunity;
 use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\ReturnAsset;
 use App\Actions\Opportunities\ReturnBulkQuantity;
 use App\Actions\Opportunities\RevertAssetPreparation;
 use App\Actions\Opportunities\RevertAssetStatus;
+use App\Actions\Opportunities\RevertToQuotation;
 use App\Actions\Opportunities\SetAssetContainer;
 use App\Actions\Opportunities\SetDealPrice;
 use App\Actions\Opportunities\SetItemDiscount;
@@ -72,7 +74,12 @@ use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
 use App\Data\Opportunities\UpdateOpportunityCostData;
 use App\Data\Opportunities\UpdateOpportunityData;
+use App\Enums\AssetAssignmentStatus;
+use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
+use App\Guards\Opportunities\GuardPipeline;
+use App\Guards\Opportunities\Rules\ShortageConfirmationRule;
+use App\Guards\Opportunities\TransitionContext;
 use App\Http\Controllers\Api\Controller;
 use App\Http\Traits\FiltersQueries;
 use App\Http\Traits\ResourceActions;
@@ -83,9 +90,12 @@ use App\Models\OpportunityCost;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityItemAsset;
 use App\Services\AvailabilityService;
+use App\ValueObjects\DispatchGateResult;
+use Closure;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -113,8 +123,12 @@ class OpportunityController extends Controller
         'store_id',
         'owned_by',
         'invoiced',
+        'has_shortage',
+        'tag_list',
         'starts_at',
         'ends_at',
+        'charge_starts_at',
+        'charge_ends_at',
         'created_at',
         'updated_at',
     ];
@@ -131,6 +145,8 @@ class OpportunityController extends Controller
         'charge_total',
         'starts_at',
         'ends_at',
+        'charge_starts_at',
+        'charge_ends_at',
         'created_at',
         'updated_at',
     ];
@@ -373,6 +389,69 @@ class OpportunityController extends Controller
     }
 
     /**
+     * Enumerate the lifecycle actions available on an opportunity, each annotated
+     * with whether the current actor + state allows it and, if not, a
+     * machine-readable reason (opportunity-lifecycle.md §12.2).
+     *
+     * The Show-page toolbar renders from this: for every transition it builds the
+     * appropriate {@see TransitionContext} and runs the NON-throwing,
+     * side-effect-free {@see GuardPipeline::check()} (permission + business rules +
+     * approval/plugin seams) plus a generic state precondition. A denial carries a
+     * stable `code` (`fx_tax_locked`, `shortage_block`, `permission_denied`,
+     * `invalid_state`, `nothing_to_unlock`, `dispatched`) so the UI can branch —
+     * e.g. render an "Unlock rates" CTA on `fx_tax_locked`. Nothing is mutated.
+     */
+    #[ApiResponse(200, 'Available actions', type: 'array{available_actions: list<array{key: string, label: string, allowed: bool, reason: string|null, code: string|null}>}')]
+    public function availableActions(Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.view', 'opportunities:read');
+
+        $status = $opportunity->statusEnum();
+        $isDraft = $opportunity->state === OpportunityState::Draft;
+        $isQuotation = $opportunity->state === OpportunityState::Quotation;
+        $isOrder = $opportunity->state === OpportunityState::Order;
+        $hasLocks = (bool) $opportunity->exchange_rate_locked || (bool) $opportunity->tax_locked;
+
+        $actions = [
+            // Draft → Quotation.
+            $this->describeAction($opportunity, 'convert_to_quotation', 'Convert to Quotation', 'opportunities.edit', 'opportunity.convert_to_quotation',
+                statePrecondition: fn (): ?array => $isDraft ? null : ['Only a draft can be converted to a quotation.', 'invalid_state']),
+
+            // Quotation → Order (runs the shortage confirmation gate precheck).
+            $this->describeAction($opportunity, 'convert_to_order', 'Convert to Order', 'opportunities.edit', ShortageConfirmationRule::TRANSITION,
+                statePrecondition: fn (): ?array => $isQuotation && ! $status->isClosed() ? null : ['Only an open quotation can be converted to an order.', 'invalid_state']),
+
+            // Within-state status move.
+            $this->describeAction($opportunity, 'change_status', 'Change Status', 'opportunities.edit', 'opportunity.change_status',
+                statePrecondition: fn (): ?array => $status->isClosed() ? ['A closed opportunity cannot change status.', 'invalid_state'] : null),
+
+            // Lost/Dead/Postponed/Cancelled → active.
+            $this->describeAction($opportunity, 'reinstate', 'Reinstate', 'opportunities.edit', ReinstateOpportunity::TRANSITION,
+                statePrecondition: fn (): ?array => $status->isReinstatable() ? null : ['Only a lost, dead, postponed, or cancelled opportunity can be reinstated.', 'invalid_state']),
+
+            // Order → Quotation (nothing dispatched).
+            $this->describeAction($opportunity, 'revert_to_quotation', 'Revert to Quotation', 'opportunities.edit', RevertToQuotation::TRANSITION,
+                statePrecondition: fn (): ?array => $this->revertToQuotationPrecondition($opportunity, $isOrder, $status->isClosed())),
+
+            // Release FX/tax locks.
+            $this->describeAction($opportunity, 'unlock_locks', 'Unlock Rates', 'opportunities.unlock_rates', null,
+                statePrecondition: fn (): ?array => $hasLocks ? null : ['The opportunity has no active FX/tax locks to release.', 'nothing_to_unlock']),
+
+            // Clone — always available to a creator.
+            $this->describeAction($opportunity, 'clone', 'Clone', 'opportunities.create', null),
+
+            // Dispatch — relevant once the order has allocated assets.
+            $this->describeAction($opportunity, 'dispatch', 'Dispatch', 'opportunities.edit', 'opportunity.dispatch',
+                statePrecondition: fn (): ?array => $isOrder && ! $status->isClosed() ? null : ['Assets can only be dispatched on an open order.', 'invalid_state']),
+
+            // Soft-delete.
+            $this->describeAction($opportunity, 'delete', 'Delete', 'opportunities.delete', null),
+        ];
+
+        return response()->json(['available_actions' => $actions]);
+    }
+
+    /**
      * Create a new opportunity.
      *
      * The opportunity is created as a Draft via the OpportunityCreated event.
@@ -516,6 +595,50 @@ class OpportunityController extends Controller
     }
 
     /**
+     * Reinstate a lost / dead / postponed / cancelled opportunity back to an
+     * active status (the backward-transition complement to the close events).
+     *
+     * Fires the OpportunityReinstated event via the guard pipeline. Only valid from
+     * a reinstatable status (Void-phase or Held-phase) — otherwise a 422. An
+     * optional `reason` is recorded on the audit trail.
+     */
+    #[ApiResponse(200, 'Opportunity reinstated')]
+    public function reinstate(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string'],
+        ]);
+
+        $result = (new ReinstateOpportunity)($opportunity, $validated['reason'] ?? null);
+
+        return $this->respondWithIncludes($request, $result, $opportunity);
+    }
+
+    /**
+     * Revert a confirmed Order back to a Quotation (the state-axis backward
+     * transition, the inverse of convert-to-order).
+     *
+     * Fires the OpportunityRevertedToQuotation event via the guard pipeline. Only
+     * valid from an Order with nothing dispatched — a 422 otherwise. Reverting
+     * releases the order's FX/tax locks. An optional `reason` is audited.
+     */
+    #[ApiResponse(200, 'Opportunity reverted to quotation')]
+    public function revertToQuotation(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string'],
+        ]);
+
+        $result = (new RevertToQuotation)($opportunity, $validated['reason'] ?? null);
+
+        return $this->respondWithIncludes($request, $result, $opportunity);
+    }
+
+    /**
      * Add a line item to an opportunity.
      *
      * The item is priced by the rate + tax engines and the opportunity totals are
@@ -643,13 +766,22 @@ class OpportunityController extends Controller
             'action' => ['required', 'string', 'in:prepare,revert,set_container,clear_container,substitute,dispatch,on_hire,return,check,revert_status'],
         ])['action'];
 
+        // The dispatch action runs the §7.4 shortage gate and may hold back items
+        // under a WarnPartial store policy — capture it so its held-item metadata
+        // can be surfaced on the response.
+        if ($action === 'dispatch') {
+            $dispatch = new DispatchAsset;
+            $result = $dispatch($asset, DispatchAssetData::from($request->validate(DispatchAssetData::rules())));
+
+            return $this->respondWithDispatchMeta($result->toArray(), 'asset', $dispatch->gateResult);
+        }
+
         $result = match ($action) {
             'prepare' => (new PrepareAsset)($asset),
             'revert' => (new RevertAssetPreparation)($asset),
             'set_container' => (new SetAssetContainer)($asset, SetAssetContainerData::from($request->validate(SetAssetContainerData::rules()))),
             'clear_container' => (new ClearAssetContainer)($asset),
             'substitute' => (new SubstituteAsset)($asset, SubstituteAssetData::from($request->validate(SubstituteAssetData::rules()))),
-            'dispatch' => (new DispatchAsset)($asset, DispatchAssetData::from($request->validate(DispatchAssetData::rules()))),
             'on_hire' => (new MarkAssetOnHire)($asset),
             'return' => (new ReturnAsset)($asset, ReturnAssetData::from($request->validate(ReturnAssetData::rules()))),
             'check' => (new CheckAsset)($asset, CheckAssetData::from($request->validate(CheckAssetData::rules()))),
@@ -679,8 +811,16 @@ class OpportunityController extends Controller
             'action' => ['required', 'string', 'in:dispatch,return,adjust'],
         ])['action'];
 
+        // The dispatch action runs the §7.4 shortage gate; capture it so a
+        // WarnPartial held-item set can be surfaced on the response.
+        if ($action === 'dispatch') {
+            $dispatch = new DispatchBulkQuantity;
+            $result = $dispatch($item, BulkDispatchData::from($request->validate(BulkDispatchData::rules())));
+
+            return $this->respondWithDispatchMeta($result->toArray(), 'item', $dispatch->gateResult);
+        }
+
         $result = match ($action) {
-            'dispatch' => (new DispatchBulkQuantity)($item, BulkDispatchData::from($request->validate(BulkDispatchData::rules()))),
             'return' => (new ReturnBulkQuantity)($item, BulkReturnData::from($request->validate(BulkReturnData::rules()))),
             'adjust' => (new AdjustBulkQuantity)($item, BulkAdjustData::from($request->validate(BulkAdjustData::rules()))),
             default => throw ValidationException::withMessages(['action' => ['The selected action is invalid.']]),
@@ -702,9 +842,18 @@ class OpportunityController extends Controller
 
         $data = QuickBookOutData::from($request->validate(QuickBookOutData::rules()));
 
-        (new QuickBookOut)($opportunity, $data);
+        // The batch dispatch runs the §7.4 shortage gate across the batch's lines;
+        // capture it so a WarnPartial held-item set is surfaced on the response.
+        $bookOut = new QuickBookOut;
+        $bookOut($opportunity, $data);
 
-        return $this->respondWithFreshOpportunity($opportunity->id);
+        return $this->respondWithDispatchMeta(
+            OpportunityData::fromModel(
+                Opportunity::query()->whereKey($opportunity->id)->with(['items', 'costs', 'customFieldValues'])->firstOrFail()
+            )->toArray(),
+            'opportunity',
+            $bookOut->gateResult,
+        );
     }
 
     /**
@@ -900,11 +1049,127 @@ class OpportunityController extends Controller
     }
 
     /**
-     * Re-read the opportunity projection with its items + costs and serialise it.
+     * Describe one available action for the `available_actions` endpoint: combine
+     * a generic STATE precondition (the Verbs `validate()` invariant the pipeline
+     * does not run) with the non-throwing guard-pipeline {@see GuardPipeline::check()}
+     * and a direct permission probe, producing the `{key, label, allowed, reason,
+     * code}` shape. The pipeline check only runs when the state precondition and the
+     * permission pass, so its shortage/FX-lock prechecks reflect a genuinely
+     * reachable transition.
+     *
+     * @param  Closure(): (array{0: string, 1: string}|null)|null  $statePrecondition  Returns a `[message, code]` denial or null to pass.
+     * @return array{key: string, label: string, allowed: bool, reason: string|null, code: string|null}
+     */
+    private function describeAction(
+        Opportunity $opportunity,
+        string $key,
+        string $label,
+        string $permission,
+        ?string $transition,
+        ?Closure $statePrecondition = null,
+    ): array {
+        // 1. Permission probe (no 403 — a dry-run verdict).
+        if (! Gate::allows($permission)) {
+            return $this->actionVerdict($key, $label, false, 'You do not have permission to perform this action.', 'permission_denied');
+        }
+
+        // 2. Generic state precondition (mirrors the event's Verbs validate()).
+        if ($statePrecondition !== null) {
+            $stateDenial = $statePrecondition();
+
+            if ($stateDenial !== null) {
+                return $this->actionVerdict($key, $label, false, $stateDenial[0], $stateDenial[1]);
+            }
+        }
+
+        // 3. Guard-pipeline dry-run (business rules incl. the shortage gate + FX/tax
+        //    lock) for transitions that route through it.
+        if ($transition !== null) {
+            $result = app(GuardPipeline::class)->check(new TransitionContext(
+                transition: $transition,
+                opportunity: $opportunity,
+                permission: $permission,
+            ));
+
+            if ($result->denied()) {
+                return $this->actionVerdict($key, $label, false, $result->firstError(), $result->code);
+            }
+        }
+
+        return $this->actionVerdict($key, $label, true, null, null);
+    }
+
+    /**
+     * @return array{key: string, label: string, allowed: bool, reason: string|null, code: string|null}
+     */
+    private function actionVerdict(string $key, string $label, bool $allowed, ?string $reason, ?string $code): array
+    {
+        return [
+            'key' => $key,
+            'label' => $label,
+            'allowed' => $allowed,
+            'reason' => $reason,
+            'code' => $code,
+        ];
+    }
+
+    /**
+     * The revert-to-quotation state precondition: must be an open Order with no
+     * dispatch history. Returns a `[message, code]` denial or null to pass.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function revertToQuotationPrecondition(Opportunity $opportunity, bool $isOrder, bool $isClosed): ?array
+    {
+        if (! $isOrder || $isClosed) {
+            return ['Only an open order can be reverted to a quotation.', 'invalid_state'];
+        }
+
+        $dispatched = OpportunityItemAsset::query()
+            ->whereIn('opportunity_item_id', $opportunity->allItems()->select('opportunity_items.id'))
+            ->where('status', '>=', AssetAssignmentStatus::Dispatched->value)
+            ->exists();
+
+        $bulkDispatched = $opportunity->allItems()
+            ->where('dispatched_quantity', '>', 0)
+            ->exists();
+
+        return $dispatched || $bulkDispatched
+            ? ['An order with dispatched assets cannot be reverted to a quotation.', 'dispatched']
+            : null;
+    }
+
+    /**
+     * Respond with a dispatch result, merging the §7.4 dispatch-gate held-item
+     * metadata under `_meta` when a WarnPartial store policy held items back. A
+     * Block already threw before reaching here; AllowPartial / no-shortage add no
+     * meta (the held-items array is empty).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function respondWithDispatchMeta(array $data, string $key, ?DispatchGateResult $gateResult): JsonResponse
+    {
+        $payload = [$key => $data];
+
+        $meta = $gateResult?->toHeldItemsMeta() ?? [];
+
+        if ($meta !== []) {
+            $payload['_meta'] = $meta;
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Re-read the opportunity projection with its items + costs + custom field
+     * values and serialise it. `customFieldValues` MUST be eager-loaded here so
+     * mutation responses return the populated `custom_fields` object rather than
+     * an empty `{}` (OpportunityData only emits custom fields when the relation
+     * is loaded).
      */
     private function respondWithFreshOpportunity(int $opportunityId, int $status = Response::HTTP_OK): JsonResponse
     {
-        $fresh = Opportunity::query()->whereKey($opportunityId)->with(['items', 'costs'])->firstOrFail();
+        $fresh = Opportunity::query()->whereKey($opportunityId)->with(['items', 'costs', 'customFieldValues'])->firstOrFail();
 
         return $this->respondWith(
             OpportunityData::fromModel($fresh)->toArray(),

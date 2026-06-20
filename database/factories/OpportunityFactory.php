@@ -59,4 +59,13 @@ class OpportunityFactory extends Factory
             'status' => OpportunityStatus::QuotationReserved->statusValue(),
         ]);
     }
+
+    /**
+     * Flag the opportunity as carrying an unresolved shortage (the denormalised
+     * column maintained by the availability recalc path).
+     */
+    public function withShortage(): static
+    {
+        return $this->state(fn (): array => ['has_shortage' => true]);
+    }
 }

@@ -25,6 +25,12 @@ use App\Guards\Opportunities\TransitionContext;
  */
 class FxTaxLockRule implements TransitionRule
 {
+    /**
+     * The machine-readable denial code. The UI branches on it to render an
+     * "Unlock rates" CTA (the privileged UnlockOpportunity path).
+     */
+    public const string CODE = 'fx_tax_locked';
+
     public function key(): string
     {
         return 'fx_tax_lock';
@@ -43,15 +49,24 @@ class FxTaxLockRule implements TransitionRule
         if ($context->changes('changes_rate', false) === true && $opportunity->exchange_rate_locked) {
             return GuardResult::deny('business_rules', [
                 'exchange_rate' => ['The exchange rate is locked on a confirmed order; release the locks before changing rates.'],
-            ]);
+            ], self::CODE);
         }
 
         if ($context->changes('changes_tax', false) === true && $opportunity->tax_locked) {
             return GuardResult::deny('business_rules', [
                 'tax' => ['The tax figures are locked on a confirmed order; release the locks before changing tax.'],
-            ]);
+            ], self::CODE);
         }
 
         return GuardResult::allow();
+    }
+
+    /**
+     * The rule is already side-effect-free and never throws, so the dry-run
+     * verdict is identical to {@see evaluate()}.
+     */
+    public function precheck(TransitionContext $context): GuardResult
+    {
+        return $this->evaluate($context);
     }
 }

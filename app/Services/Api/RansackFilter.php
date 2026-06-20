@@ -121,12 +121,74 @@ class RansackFilter
                 continue;
             }
 
+            // JSONB array columns (cast to array/json/collection on the model)
+            // cannot be filtered with the scalar string operators below — an
+            // ilike against a jsonb array errors/no-ops on PostgreSQL. Route the
+            // membership predicates through whereJsonContains, which is driver-safe
+            // (works on both SQLite and PostgreSQL).
+            if ($this->isJsonColumn($query, $field)) {
+                $this->applyJsonPredicate($query, $field, $predicate, $value);
+
+                continue;
+            }
+
             $value = $this->coerceEnumValue($query, $field, $predicate, $value);
 
             $this->applyPredicate($query, $field, $predicate, $value);
         }
 
         return $query;
+    }
+
+    /**
+     * Whether the given field is a JSON/JSONB-backed column on the query's model
+     * — i.e. cast to one of the JSON-family Eloquent casts. Such columns store an
+     * array, so they need membership (whereJsonContains) filtering rather than
+     * the scalar string operators.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     */
+    private function isJsonColumn(Builder $query, string $field): bool
+    {
+        $cast = $query->getModel()->getCasts()[$field] ?? null;
+
+        return is_string($cast) && in_array($cast, ['array', 'json', 'object', 'collection'], true);
+    }
+
+    /**
+     * Apply a predicate to a JSON/JSONB array column.
+     *
+     * `cont`/`eq`/`in` test array MEMBERSHIP via whereJsonContains (an `in` value
+     * matches when ANY listed value is present); `null`/`blank`/`present`/
+     * `not_null` test column presence/emptiness. Other predicates are unsupported
+     * on a JSON array and are ignored (no-op) rather than producing an invalid
+     * scalar comparison.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     */
+    private function applyJsonPredicate(Builder $query, string $field, string $predicate, mixed $value): void
+    {
+        match ($predicate) {
+            'cont', 'eq' => $query->whereJsonContains($field, $value),
+            'not_cont', 'not_eq' => $query->whereJsonDoesntContain($field, $value),
+            'in' => $query->where(function (Builder $q) use ($field, $value): void {
+                foreach (is_array($value) ? $value : explode(',', (string) $value) as $item) {
+                    $q->orWhereJsonContains($field, $item);
+                }
+            }),
+            'not_in' => $query->where(function (Builder $q) use ($field, $value): void {
+                foreach (is_array($value) ? $value : explode(',', (string) $value) as $item) {
+                    $q->whereJsonDoesntContain($field, $item);
+                }
+            }),
+            'null', 'blank' => $query->where(fn (Builder $q) => $q->whereNull($field)->orWhereJsonLength($field, 0)),
+            'not_null', 'present' => $query->whereNotNull($field)->whereJsonLength($field, '>', 0),
+            default => null,
+        };
     }
 
     /**

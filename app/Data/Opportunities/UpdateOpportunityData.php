@@ -24,6 +24,12 @@ class UpdateOpportunityData extends Data
         public string|null|Optional $external_description = new Optional,
         public ?string $starts_at = null,
         public ?string $ends_at = null,
+        public ?string $charge_starts_at = null,
+        public ?string $charge_ends_at = null,
+        /** @var list<string>|null|Optional */
+        public array|null|Optional $tag_list = new Optional,
+        /** @var array<string, mixed>|null */
+        public ?array $custom_fields = null,
     ) {}
 
     /**
@@ -42,6 +48,11 @@ class UpdateOpportunityData extends Data
             'external_description' => ['sometimes', 'nullable', 'string'],
             'starts_at' => ['sometimes', 'nullable', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],
+            'charge_starts_at' => ['sometimes', 'nullable', 'date'],
+            'charge_ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:charge_starts_at'],
+            'tag_list' => ['sometimes', 'nullable', 'array'],
+            'tag_list.*' => ['string', 'max:255'],
+            'custom_fields' => ['sometimes', 'nullable', 'array'],
         ];
     }
 }

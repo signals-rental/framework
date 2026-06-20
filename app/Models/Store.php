@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Contracts\HasSchema;
+use App\Enums\ShortageDispatchPolicy;
 use App\Enums\ShortagePolicy;
 use App\Models\Traits\HasCustomFields;
 use App\Services\SchemaBuilder;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property ShortagePolicy $shortage_policy
+ * @property ShortageDispatchPolicy $shortage_dispatch_policy
  * @property bool $shortage_auto_resolve_enabled
  * @property list<string>|null $shortage_preferred_resolvers
  * @property array<string, mixed>|null $operating_hours
@@ -42,6 +44,7 @@ class Store extends Model implements HasSchema
         'include_in_default_queries',
         'is_default',
         'shortage_policy',
+        'shortage_dispatch_policy',
         'shortage_auto_resolve_enabled',
         'shortage_preferred_resolvers',
         'tag_list',
@@ -58,6 +61,7 @@ class Store extends Model implements HasSchema
             'include_in_default_queries' => 'boolean',
             'operating_hours' => 'array',
             'shortage_policy' => ShortagePolicy::class,
+            'shortage_dispatch_policy' => ShortageDispatchPolicy::class,
             'shortage_auto_resolve_enabled' => 'boolean',
             'shortage_preferred_resolvers' => 'array',
             'tag_list' => 'array',
@@ -71,6 +75,17 @@ class Store extends Model implements HasSchema
     public function shortagePolicy(): ShortagePolicy
     {
         return $this->shortage_policy ?? ShortagePolicy::default();
+    }
+
+    /**
+     * The store's shortage dispatch-gate policy, falling back to the framework
+     * default when the column is unset (legacy rows). This is the seam the
+     * dispatch gate reads to decide how short line items are handled at dispatch
+     * time (shortage-resolution-sub-hires.md §7.4).
+     */
+    public function dispatchPolicy(): ShortageDispatchPolicy
+    {
+        return $this->shortage_dispatch_policy ?? ShortageDispatchPolicy::default();
     }
 
     /**

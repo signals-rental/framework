@@ -40,6 +40,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('opportunity_versions', function (Blueprint $table): void {
+            // Drop the explicit indexes first: SQLite cannot drop a column that
+            // is still referenced by an index.
+            $table->dropIndex('idx_opportunity_versions_sent_to');
+            $table->dropIndex('idx_opportunity_versions_accepted_by');
+
             $table->dropConstrainedForeignId('sent_to');
             $table->dropConstrainedForeignId('accepted_by');
             $table->dropColumn('sent_via');

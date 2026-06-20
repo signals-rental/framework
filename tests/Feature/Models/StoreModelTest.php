@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ShortageDispatchPolicy;
 use App\Models\Store;
 
 it('has fillable attributes', function () {
@@ -45,6 +46,20 @@ it('leaves operating_hours null by default (24/7)', function () {
     $store = Store::factory()->create();
 
     expect($store->fresh()->operating_hours)->toBeNull();
+});
+
+it('defaults the shortage_dispatch_policy to warn_partial', function () {
+    $store = Store::factory()->create();
+
+    expect($store->fresh()->shortage_dispatch_policy)->toBe(ShortageDispatchPolicy::WarnPartial)
+        ->and($store->dispatchPolicy())->toBe(ShortageDispatchPolicy::WarnPartial);
+});
+
+it('casts and exposes a configured shortage_dispatch_policy', function () {
+    $store = Store::factory()->dispatchPolicy(ShortageDispatchPolicy::Block)->create();
+
+    expect($store->fresh()->shortage_dispatch_policy)->toBe(ShortageDispatchPolicy::Block)
+        ->and($store->dispatchPolicy())->toBe(ShortageDispatchPolicy::Block);
 });
 
 it('scopes to default store', function () {

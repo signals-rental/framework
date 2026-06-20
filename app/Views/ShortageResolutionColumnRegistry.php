@@ -32,6 +32,8 @@ class ShortageResolutionColumnRegistry extends ColumnRegistry
             Column::make('confirmed_at')->label('Confirmed')->sortable()->filterable()->type('datetime'),
             Column::make('fulfilled_at')->label('Fulfilled')->sortable()->filterable()->type('datetime'),
             Column::make('cancelled_at')->label('Cancelled')->sortable()->filterable()->type('datetime'),
+            Column::make('cancellation_reason')->label('Cancellation Reason')->filterable(),
+            Column::make('notes')->label('Notes')->filterable(),
             Column::make('created_at')->label('Created')->sortable()->filterable()->type('datetime'),
             Column::make('updated_at')->label('Updated')->sortable()->type('datetime'),
         ];

@@ -45,7 +45,17 @@ use Illuminate\Support\Carbon;
 class ShortageResolution extends Model implements HasSchema
 {
     /** @use HasFactory<ShortageResolutionFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+
+    /**
+     * Intentional deviation from the data-model soft-delete policy (which restricts
+     * soft-deletes to opportunities/invoices/members). Shortage resolutions are the
+     * durable audit trail of how a shortfall was covered — cancelling a resolution
+     * must preserve the historical record (cost incurred, what was attempted) rather
+     * than hard-deleting it. Decision: KEEP (recorded in
+     * framework-plans/data-model-implementation.md soft-delete policy).
+     */
+    use SoftDeletes;
 
     /** @var list<string> */
     protected $fillable = [
@@ -135,6 +145,21 @@ class ShortageResolution extends Model implements HasSchema
         return $query->whereHas(
             'items',
             static fn (Builder $items): Builder => $items->where('opportunity_item_id', $opportunityItemId),
+        );
+    }
+
+    /**
+     * Scope to resolutions covering any line item of a given opportunity, via the
+     * pivot's `opportunity_item_id` → `opportunity_items.opportunity_id` chain.
+     *
+     * @param  Builder<ShortageResolution>  $query
+     * @return Builder<ShortageResolution>
+     */
+    public function scopeForOpportunity(Builder $query, int $opportunityId): Builder
+    {
+        return $query->whereHas(
+            'items.opportunityItem',
+            static fn (Builder $items): Builder => $items->where('opportunity_id', $opportunityId),
         );
     }
 

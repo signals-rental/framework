@@ -34,4 +34,21 @@ class PluginValidatorStage implements GuardStage
 
         return GuardResult::allow();
     }
+
+    /**
+     * Dry-run: ask each applicable plugin validator for its side-effect-free
+     * {@see TransitionRule::precheck()} verdict. Empty in core, so it allows.
+     */
+    public function precheck(TransitionContext $context): GuardResult
+    {
+        foreach ($this->validators->applicableTo($context) as $validator) {
+            $result = $validator->precheck($context);
+
+            if ($result->denied()) {
+                return $result;
+            }
+        }
+
+        return GuardResult::allow();
+    }
 }

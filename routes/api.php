@@ -160,7 +160,12 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::get('containers', [ContainerController::class, 'index'])->name('api.v1.containers.index');
     Route::get('containers/{container}', [ContainerController::class, 'show'])->name('api.v1.containers.show');
 
-    // Availability (read-only: point query via ?date, range query via ?from&?to)
+    // Availability (read-only: point query via ?date, range query via ?from&?to).
+    // The static calendar/shortages grids and the {product}/gantt bar view are
+    // declared before the flat index so the literal segments win the route match.
+    Route::get('availability/calendar', [AvailabilityController::class, 'calendar'])->name('api.v1.availability.calendar');
+    Route::get('availability/shortages', [AvailabilityController::class, 'shortages'])->name('api.v1.availability.shortages');
+    Route::get('availability/{product}/gantt', [AvailabilityController::class, 'gantt'])->name('api.v1.availability.gantt');
     Route::get('availability', [AvailabilityController::class, 'index'])->name('api.v1.availability.index');
     Route::get('products/{product}/availability', [AvailabilityController::class, 'showForProduct'])->name('api.v1.products.availability');
     // Serialised assets of a product free across ?from&?to at ?store_id.
@@ -182,9 +187,14 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::get('opportunities/{opportunity}/assets', [OpportunityController::class, 'assets'])->name('api.v1.opportunities.assets');
     Route::get('opportunities/{opportunity}/availability', [OpportunityController::class, 'availability'])->name('api.v1.opportunities.availability');
     Route::get('opportunities/{opportunity}/activity', [OpportunityController::class, 'activity'])->name('api.v1.opportunities.activity');
+    // Guard-aware action availability for the Show toolbar (dry-run, no side effects).
+    Route::get('opportunities/{opportunity}/available_actions', [OpportunityController::class, 'availableActions'])->name('api.v1.opportunities.available_actions');
     Route::post('opportunities/{opportunity}/clone', [OpportunityController::class, 'clone'])->name('api.v1.opportunities.clone');
     Route::post('opportunities/{opportunity}/convert_to_quotation', [OpportunityController::class, 'convertToQuotation'])->name('api.v1.opportunities.convert_to_quotation');
     Route::post('opportunities/{opportunity}/convert_to_order', [OpportunityController::class, 'convertToOrder'])->name('api.v1.opportunities.convert_to_order');
+    // Backward-transition lifecycle moves (routed through the guard pipeline).
+    Route::post('opportunities/{opportunity}/reinstate', [OpportunityController::class, 'reinstate'])->name('api.v1.opportunities.reinstate');
+    Route::post('opportunities/{opportunity}/revert_to_quotation', [OpportunityController::class, 'revertToQuotation'])->name('api.v1.opportunities.revert_to_quotation');
     Route::post('opportunities/{opportunity}/unlock_locks', [OpportunityController::class, 'unlockLocks'])->name('api.v1.opportunities.unlock_locks');
     Route::post('opportunities/{opportunity}/change_status', [OpportunityController::class, 'changeStatus'])->name('api.v1.opportunities.change_status');
     // Line items (priced via the rate + tax engines; totals roll up to the parent)
@@ -215,9 +225,23 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::delete('opportunities/{opportunity}/deal_price', [OpportunityController::class, 'clearDealPrice'])->name('api.v1.opportunities.deal_price.clear');
     // Shortages (computed detection + non-PO resolution)
     Route::get('opportunities/{opportunity}/shortages', [ShortageController::class, 'index'])->name('api.v1.opportunities.shortages.index');
+    // Persisted resolutions recorded against the opportunity (panel "active
+    // resolutions" tab) — paginated + Ransack-filterable by status.
+    Route::get('opportunities/{opportunity}/shortage_resolutions', [ShortageController::class, 'resolutions'])->name('api.v1.opportunities.shortage_resolutions.index');
+    // Read-only confirmation-gate pre-check (Block/Warn/Allow) for the convert
+    // dialog — NO acknowledgement recorded, NO auto-resolution.
+    Route::get('opportunities/{opportunity}/shortage_gate', [ShortageController::class, 'gate'])->name('api.v1.opportunities.shortage_gate');
     Route::get('opportunities/{opportunity}/items/{item}/shortage_resolvers', [ShortageController::class, 'resolvers'])->name('api.v1.opportunities.shortage_resolvers');
     Route::post('opportunities/{opportunity}/shortages/acknowledge', [ShortageController::class, 'acknowledge'])->name('api.v1.opportunities.shortages.acknowledge');
     Route::post('shortage_resolutions', [ShortageController::class, 'resolve'])->name('api.v1.shortage_resolutions.store');
+    // Resolution status-transition lifecycle (§8.3): progress/cancel/fail a
+    // recorded resolution. Each transition validates the §8.3 matrix (422 on an
+    // illegal move) and emits the matching `shortage.resolution.*` event.
+    Route::patch('shortage_resolutions/{resolution}/confirm', [ShortageController::class, 'confirmResolution'])->name('api.v1.shortage_resolutions.confirm');
+    Route::patch('shortage_resolutions/{resolution}/start', [ShortageController::class, 'startResolution'])->name('api.v1.shortage_resolutions.start');
+    Route::patch('shortage_resolutions/{resolution}/fulfill', [ShortageController::class, 'fulfillResolution'])->name('api.v1.shortage_resolutions.fulfill');
+    Route::patch('shortage_resolutions/{resolution}/cancel', [ShortageController::class, 'cancelResolution'])->name('api.v1.shortage_resolutions.cancel');
+    Route::patch('shortage_resolutions/{resolution}/fail', [ShortageController::class, 'failResolution'])->name('api.v1.shortage_resolutions.fail');
 
     // Quote versions (sub-resource — revisions + alternatives). Declared before the
     // opportunities apiResource so the explicit routes win. The diff route is

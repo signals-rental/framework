@@ -48,6 +48,7 @@ use Illuminate\Support\Carbon;
  * @property int $charge_including_tax_total
  * @property int $tax_total
  * @property bool $prices_include_tax
+ * @property bool $has_shortage
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
  * @property Carbon|null $charge_starts_at
@@ -108,6 +109,7 @@ class Opportunity extends Model implements HasSchema
         'tax_total',
         'prices_include_tax',
         'invoiced',
+        'has_shortage',
         'tag_list',
     ];
 
@@ -130,6 +132,7 @@ class Opportunity extends Model implements HasSchema
             'tax_locked' => 'boolean',
             'prices_include_tax' => 'boolean',
             'invoiced' => 'boolean',
+            'has_shortage' => 'boolean',
             'tag_list' => 'array',
         ];
     }
@@ -149,8 +152,8 @@ class Opportunity extends Model implements HasSchema
         $builder->string('subject')->label('Subject')->required()->searchable()->filterable()->sortable();
         $builder->string('number')->label('Number')->searchable()->filterable()->sortable();
         $builder->string('reference')->label('Reference')->searchable()->filterable()->sortable();
-        $builder->integer('state')->label('State')->filterable()->sortable()->groupable();
-        $builder->integer('status')->label('Status')->filterable()->sortable()->groupable();
+        $builder->enum('state')->label('State')->filterable()->sortable()->groupable();
+        $builder->enum('status')->label('Status')->filterable()->sortable()->groupable();
         $builder->relation('member_id')->label('Member')
             ->relation('member', 'belongsTo', Member::class, 'name')
             ->filterable();
@@ -162,9 +165,12 @@ class Opportunity extends Model implements HasSchema
             ->filterable();
         $builder->datetime('starts_at')->label('Starts')->sortable()->filterable();
         $builder->datetime('ends_at')->label('Ends')->sortable()->filterable();
+        $builder->datetime('charge_starts_at')->label('Charge Starts')->sortable()->filterable();
+        $builder->datetime('charge_ends_at')->label('Charge Ends')->sortable()->filterable();
         $builder->integer('charge_total')->label('Charge Total')->sortable();
         $builder->boolean('invoiced')->label('Invoiced')->filterable()->sortable()->groupable();
-        $builder->json('tag_list')->label('Tags')->searchable();
+        $builder->boolean('has_shortage')->label('Has Shortage')->filterable()->sortable()->groupable();
+        $builder->json('tag_list')->label('Tags')->searchable()->filterable();
         $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 

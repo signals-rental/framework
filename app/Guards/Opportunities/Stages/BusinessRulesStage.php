@@ -38,4 +38,22 @@ class BusinessRulesStage implements GuardStage
 
         return GuardResult::allow();
     }
+
+    /**
+     * Dry-run: run each applicable rule's side-effect-free {@see
+     * TransitionRule::precheck()} (so the shortage gate neither auto-resolves nor
+     * records an acknowledgement), returning the first denial.
+     */
+    public function precheck(TransitionContext $context): GuardResult
+    {
+        foreach ($this->rules->applicableTo($context) as $rule) {
+            $result = $rule->precheck($context);
+
+            if ($result->denied()) {
+                return $result;
+            }
+        }
+
+        return GuardResult::allow();
+    }
 }

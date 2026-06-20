@@ -127,24 +127,23 @@ it('logs shortage.cleared with a reason', function () {
 });
 
 /**
- * Build a persisted resolution carrying the product/store metadata the recorder
- * reads when logging a status-transition availability event (§9.2).
+ * Build a persisted resolution for exercising a status-transition recorder
+ * method (§9.2). Resolution status transitions are audit-only — they emit a
+ * shortage.* domain event for the audit trail / webhook bus, but do NOT write a
+ * product/store `availability_events` delta row (those rows model availability
+ * deltas keyed on a real product/store, not resolution lifecycle state).
  */
 function lifecycleResolution(ShortageResolutionStatus $status): ShortageResolution
 {
-    $store = Store::factory()->create(['timezone' => 'UTC']);
-    $product = Product::factory()->rental()->bulk()->create();
-
     return ShortageResolution::factory()->create([
         'resolver_key' => 'transfer',
         'resolution_type' => ShortageResolutionType::Transfer->value,
         'status' => $status->value,
         'quantity_resolved' => 2,
-        'metadata' => ['product_id' => $product->id, 'store_id' => $store->id],
     ]);
 }
 
-it('logs shortage.resolution.in_progress as both an availability event and an audit log', function () {
+it('logs shortage.resolution.in_progress as an audit log without an availability event', function () {
     $this->actingAs(User::factory()->owner()->create());
 
     $resolution = lifecycleResolution(ShortageResolutionStatus::InProgress);
@@ -154,11 +153,11 @@ it('logs shortage.resolution.in_progress as both an availability event and an au
     expect(AvailabilityEvent::query()
         ->where('event_type', AvailabilityEventType::ShortageResolutionInProgress->value)
         ->where('source_id', $resolution->id)
-        ->exists())->toBeTrue()
+        ->exists())->toBeFalse()
         ->and(ActionLog::query()->where('action', 'shortage.resolution.in_progress')->exists())->toBeTrue();
 });
 
-it('logs shortage.resolution.fulfilled as both an availability event and an audit log', function () {
+it('logs shortage.resolution.fulfilled as an audit log without an availability event', function () {
     $this->actingAs(User::factory()->owner()->create());
 
     $resolution = lifecycleResolution(ShortageResolutionStatus::Fulfilled);
@@ -168,23 +167,25 @@ it('logs shortage.resolution.fulfilled as both an availability event and an audi
     expect(AvailabilityEvent::query()
         ->where('event_type', AvailabilityEventType::ShortageResolutionFulfilled->value)
         ->where('source_id', $resolution->id)
-        ->exists())->toBeTrue()
+        ->exists())->toBeFalse()
         ->and(ActionLog::query()->where('action', 'shortage.resolution.fulfilled')->exists())->toBeTrue();
 });
 
-it('logs shortage.resolution.failed with the failure reason in the event payload', function () {
+it('logs shortage.resolution.failed with the failure reason in the audit log', function () {
     $this->actingAs(User::factory()->owner()->create());
 
     $resolution = lifecycleResolution(ShortageResolutionStatus::Failed);
 
     app(ShortageEventRecorder::class)->resolutionFailed($resolution, 'supplier_declined');
 
-    $event = AvailabilityEvent::query()
+    expect(AvailabilityEvent::query()
         ->where('event_type', AvailabilityEventType::ShortageResolutionFailed->value)
         ->where('source_id', $resolution->id)
-        ->first();
+        ->exists())->toBeFalse()
+        ->and(ActionLog::query()
+            ->where('action', 'shortage.resolution.failed')
+            ->exists())->toBeTrue();
 
-    expect($event)->not->toBeNull()
-        ->and($event->payload['failure_reason'])->toBe('supplier_declined')
-        ->and(ActionLog::query()->where('action', 'shortage.resolution.failed')->exists())->toBeTrue();
+    $log = ActionLog::query()->where('action', 'shortage.resolution.failed')->firstOrFail();
+    expect(data_get($log->new_values, 'failure_reason'))->toBe('supplier_declined');
 });

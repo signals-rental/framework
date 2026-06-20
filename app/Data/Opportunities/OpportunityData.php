@@ -70,6 +70,7 @@ class OpportunityData extends Data
         public string $tax_total,
         public bool $prices_include_tax,
         public bool $invoiced,
+        public bool $has_shortage,
         /** @var array<int, string> */
         public array $tag_list,
         public object $custom_fields,
@@ -144,6 +145,7 @@ class OpportunityData extends Data
             tax_total: $opportunity->formatMoneyCost('tax_total'),
             prices_include_tax: $opportunity->prices_include_tax,
             invoiced: $opportunity->invoiced,
+            has_shortage: $opportunity->has_shortage,
             tag_list: $opportunity->tag_list ?? [],
             custom_fields: (object) ($opportunity->relationLoaded('customFieldValues') ? $opportunity->custom_fields : []),
             created_at: self::formatTimestamp($createdAt),

@@ -184,6 +184,41 @@ it('does not apply sort for an invalid sort column name', function () {
         ->and($query->toSql())->toBe($beforeSql);
 });
 
+it('skips a custom-field (cf.*) sort column instead of crashing', function () {
+    // Regression (M13): a cf.* sort column was emitted as orderBy('cf.field'),
+    // producing ORDER BY "cf"."field" and a fatal 500 on PostgreSQL. cf.* sorts
+    // need an EAV subquery join that is not modelled here, so they must be skipped
+    // and the query left to its default ordering.
+    $view = CustomView::factory()->create([
+        'entity_type' => 'members',
+        'sort_column' => 'cf.po_reference',
+        'sort_direction' => 'desc',
+    ]);
+
+    $query = Member::query();
+    $beforeSql = $query->toSql();
+    $this->resolver->applySort($query, $view);
+
+    expect($query->getQuery()->orders)->toBeNull()
+        ->and($query->toSql())->toBe($beforeSql);
+});
+
+it('leaves a scalar sort column unchanged when a cf.* guard is present', function () {
+    // The cf.* skip must not affect ordinary core-column sorts.
+    $view = CustomView::factory()->create([
+        'entity_type' => 'members',
+        'sort_column' => 'name',
+        'sort_direction' => 'desc',
+    ]);
+
+    $query = Member::query();
+    $this->resolver->applySort($query, $view);
+
+    expect($query->getQuery()->orders)->toHaveCount(1)
+        ->and($query->getQuery()->orders[0]['column'])->toBe('name')
+        ->and($query->getQuery()->orders[0]['direction'])->toBe('desc');
+});
+
 it('applies view filters to query', function () {
     $view = CustomView::factory()->create([
         'entity_type' => 'members',

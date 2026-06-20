@@ -34,6 +34,12 @@ class ShortageConfirmationRule implements TransitionRule
     /** The transition this rule guards. */
     public const string TRANSITION = 'opportunity.convert_to_order';
 
+    /**
+     * The machine-readable denial code surfaced when the confirmation gate blocks
+     * the transition. The UI branches on it to render a "Resolve shortages" path.
+     */
+    public const string CODE = 'shortage_block';
+
     public function __construct(
         private readonly ShortageAutoResolver $autoResolver,
         private readonly ShortageConfirmationGate $gate,
@@ -58,6 +64,26 @@ class ShortageConfirmationRule implements TransitionRule
         // Throws ValidationException (→ 422) on a Block; records an acknowledgement
         // and returns on a Warn; returns silently on Allow.
         $this->gate->enforceForConfirmation($context->opportunity, $context->notes);
+
+        return GuardResult::allow();
+    }
+
+    /**
+     * Dry-run: consult the gate's pure {@see ShortageConfirmationGate::evaluate()}
+     * — NO auto-resolution and NO acknowledgement recorded — so the
+     * `available_actions` endpoint can report whether converting to an order
+     * WOULD be blocked by the store's shortage policy. A Block decision becomes a
+     * {@see GuardResult::deny()} carrying the {@see CODE} reason; Warn/Allow pass.
+     */
+    public function precheck(TransitionContext $context): GuardResult
+    {
+        $result = $this->gate->evaluate($context->opportunity);
+
+        if ($result->blocks()) {
+            return GuardResult::deny('business_rules', [
+                'shortages' => ['This order has unresolved shortages; resolve them or obtain the permission to proceed.'],
+            ], self::CODE);
+        }
 
         return GuardResult::allow();
     }

@@ -27,4 +27,14 @@ class AutoApprovalGate implements ApprovalGate, GuardStage
         // contract to override this.
         return GuardResult::allow();
     }
+
+    /**
+     * Dry-run: the no-op approval gate always allows, identically to
+     * {@see evaluate()}. A future approval engine overrides this to report
+     * "approval required" without creating an approval request.
+     */
+    public function precheck(TransitionContext $context): GuardResult
+    {
+        return GuardResult::allow();
+    }
 }

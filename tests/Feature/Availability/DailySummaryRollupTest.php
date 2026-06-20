@@ -189,6 +189,73 @@ describe('daily summary rollup', function () {
             ->and($summary->has_shortage)->toBeFalse();
     });
 
+    it('rolls the per-slot pending_checkin queue up as the day peak without touching availability', function () {
+        useResolution(AvailabilityResolution::HalfDaily);
+        $pipeline = app(RecalculationPipeline::class);
+
+        $product = Product::factory()->serialised()->create();
+        StockLevel::factory()->serialised()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+        ]);
+
+        // A Closed (inactive) demand marked pending check-in: physically returned,
+        // awaiting inspection. It must NOT reduce availability, but must roll up.
+        Demand::factory()
+            ->serialised()
+            ->phase(DemandPhase::Closed)
+            ->window(Carbon::parse('2026-05-01T00:00:00Z'), Carbon::parse('2026-05-02T00:00:00Z'))
+            ->create([
+                'product_id' => $product->id,
+                'store_id' => $this->store->id,
+                'metadata' => ['pending_checkin' => true],
+            ]);
+
+        $pipeline->recalculate(
+            $product->id,
+            $this->store->id,
+            Carbon::parse('2026-05-01T00:00:00Z'),
+            Carbon::parse('2026-05-02T00:00:00Z'),
+        );
+
+        $summary = AvailabilityDailySummary::query()
+            ->forProductStore($product->id, $this->store->id)
+            ->first();
+
+        expect($summary)->not->toBeNull()
+            ->and($summary->pending_checkin_quantity)->toBe(1)
+            // The pending check-in never consumes the unit — still fully available.
+            ->and($summary->min_available)->toBe(1)
+            ->and($summary->max_available)->toBe(1)
+            ->and($summary->has_shortage)->toBeFalse();
+    });
+
+    it('leaves pending_checkin_quantity at zero when nothing is in the check-in queue', function () {
+        useResolution(AvailabilityResolution::Daily);
+        $pipeline = app(RecalculationPipeline::class);
+
+        $product = Product::factory()->bulk()->create();
+        StockLevel::factory()->bulk()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity_held' => 4,
+        ]);
+
+        $pipeline->recalculate(
+            $product->id,
+            $this->store->id,
+            Carbon::parse('2026-05-01T00:00:00Z'),
+            Carbon::parse('2026-05-02T00:00:00Z'),
+        );
+
+        $summary = AvailabilityDailySummary::query()
+            ->forProductStore($product->id, $this->store->id)
+            ->first();
+
+        expect($summary)->not->toBeNull()
+            ->and($summary->pending_checkin_quantity)->toBe(0);
+    });
+
     it('upserts (does not duplicate) the daily summary on repeated recalculation', function () {
         useResolution(AvailabilityResolution::HalfDaily);
         $pipeline = app(RecalculationPipeline::class);

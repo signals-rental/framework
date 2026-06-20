@@ -31,3 +31,13 @@ Broadcast::channel('availability.store.{storeId}', function (User $user, int $st
 Broadcast::channel('availability.shortages', function (User $user): bool {
     return $user->exists;
 });
+
+/*
+| The opportunity-scoped channel carries OpportunityAvailabilityChanged so the
+| opportunity Show page gets live per-line availability without subscribing to
+| every product/store channel. Any authenticated user may subscribe in the
+| single-tenant OSF; the commercial layer narrows this to the user's stores.
+*/
+Broadcast::channel('availability.opportunity.{opportunityId}', function (User $user, int $opportunityId): bool {
+    return $user->exists && $opportunityId > 0;
+});

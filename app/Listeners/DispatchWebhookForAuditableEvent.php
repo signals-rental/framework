@@ -6,6 +6,8 @@ use App\Data\Opportunities\OpportunityData;
 use App\Events\AuditableEvent;
 use App\Jobs\DeliverWebhook;
 use App\Models\Opportunity;
+use App\Models\ShortageResolution;
+use App\Models\ShortageWaitlistMonitor;
 use App\Services\Api\WebhookService;
 use Thunk\Verbs\Facades\Verbs;
 
@@ -54,6 +56,24 @@ class DispatchWebhookForAuditableEvent
         'opportunity.cloned',
     ];
 
+    /**
+     * The model classes whose webhooks this bridge owns: the Phase-3 opportunity
+     * lifecycle plus the shortage resolution / waitlist records. These AuditableEvents
+     * have NO other webhook dispatch path, so the bridge is their sole emitter.
+     *
+     * Every other entity that fires an AuditableEvent (tax rule/rate, member,
+     * product, role, …) dispatches its own webhook directly in its action with a
+     * full entity-keyed payload. Those events are intentionally NOT handled here,
+     * so the bridge does not double-dispatch a second, lean-payload delivery.
+     *
+     * @var list<class-string>
+     */
+    private const OWNED_MODELS = [
+        Opportunity::class,
+        ShortageResolution::class,
+        ShortageWaitlistMonitor::class,
+    ];
+
     public function __construct(private readonly WebhookService $webhooks) {}
 
     /**
@@ -63,6 +83,13 @@ class DispatchWebhookForAuditableEvent
     public function handle(AuditableEvent $event): void
     {
         if (Verbs::isReplaying()) {
+            return;
+        }
+
+        // Only the models this bridge owns are dispatched here. Other entities
+        // (tax, member, product, role, …) emit their own webhooks directly in
+        // their actions, so handling them here would double-dispatch.
+        if (! in_array($event->model::class, self::OWNED_MODELS, true)) {
             return;
         }
 

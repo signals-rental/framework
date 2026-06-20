@@ -120,6 +120,41 @@ trait GuardsOpportunityLifecycle
     }
 
     /**
+     * Whether the opportunity has ANY dispatch history — a serialised asset that
+     * has reached (or passed) Dispatched, or a bulk line with `dispatched_quantity`
+     * greater than zero. Unlike {@see opportunityHasStockOut()} (which asks only
+     * whether stock is currently OUT), this also catches stock that was dispatched
+     * and has since come back. Used to block reverting an Order to a Quotation: a
+     * job that has begun fulfilment can never be un-ordered (§5.2
+     * OpportunityRevertedToQuote: "nothing dispatched").
+     */
+    protected function opportunityHasDispatchHistory(int $stateId): bool
+    {
+        $opportunity = $this->opportunityForState($stateId);
+
+        if ($opportunity === null) {
+            return false;
+        }
+
+        $assetDispatched = OpportunityItemAsset::query()
+            ->whereIn(
+                'opportunity_item_id',
+                $opportunity->allItems()->select('opportunity_items.id'),
+            )
+            ->where('status', '>=', AssetAssignmentStatus::Dispatched->value)
+            ->exists();
+
+        if ($assetDispatched) {
+            return true;
+        }
+
+        return $opportunity->allItems()->get(['dispatched_quantity'])
+            ->contains(function (OpportunityItem $item): bool {
+                return BigDecimal::of((string) ($item->dispatched_quantity ?? '0'))->isGreaterThan(0);
+            });
+    }
+
+    /**
      * Whether any bulk (non-serialised) line still has stock out —
      * `dispatched_quantity` exceeds `returned_quantity`.
      */

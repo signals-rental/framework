@@ -22,6 +22,7 @@ class AvailabilitySlotData extends Data
         public int $total_demanded,
         public int $available,
         public array $demand_breakdown,
+        public int $pending_checkin_quantity,
     ) {}
 
     public static function fromModel(AvailabilitySnapshot $snapshot): self
@@ -32,6 +33,7 @@ class AvailabilitySlotData extends Data
             total_demanded: $snapshot->total_demanded,
             available: $snapshot->available,
             demand_breakdown: $snapshot->demand_breakdown,
+            pending_checkin_quantity: $snapshot->pending_checkin_quantity,
         );
     }
 }

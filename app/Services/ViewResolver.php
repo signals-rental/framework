@@ -174,6 +174,15 @@ class ViewResolver
     public function applySort(Builder $query, CustomView $view): Builder
     {
         if ($view->sort_column !== null) {
+            // Custom-field (cf.*) sorts cannot be applied as a plain column orderBy —
+            // EAV values live in custom_field_values and require a subquery join that
+            // is not modelled here. Emitting orderBy('cf.field') would produce
+            // ORDER BY "cf"."field" and fatally 500 on PostgreSQL. Skip cf.* sorts so
+            // the query falls back to its default sort rather than crashing.
+            if (str_starts_with($view->sort_column, 'cf.')) {
+                return $query;
+            }
+
             // Validate column name contains only safe identifier characters
             if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_.]*$/', $view->sort_column)) {
                 return $query;

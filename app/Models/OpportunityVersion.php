@@ -128,8 +128,18 @@ class OpportunityVersion extends Model implements HasSchema
             ->relation('opportunity', 'belongsTo', Opportunity::class, 'subject')
             ->filterable();
         $builder->integer('charge_total')->label('Charge Total')->sortable();
+        $builder->relation('sent_to')->label('Sent To')
+            ->relation('recipient', 'belongsTo', Member::class, 'name')
+            ->filterable();
+        $builder->string('sent_via')->label('Sent Via')->filterable()->sortable();
+        $builder->relation('accepted_by')->label('Accepted By')
+            ->relation('acceptor', 'belongsTo', Member::class, 'name')
+            ->filterable();
+        $builder->text('decline_reason')->label('Decline Reason')->searchable();
+        $builder->text('notes')->label('Notes')->searchable();
         $builder->datetime('sent_at')->label('Sent')->sortable()->filterable();
         $builder->datetime('accepted_at')->label('Accepted')->sortable()->filterable();
+        $builder->datetime('declined_at')->label('Declined')->sortable()->filterable();
         $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 

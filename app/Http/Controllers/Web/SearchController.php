@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Web;
 
 use App\Enums\MembershipType;
+use App\Enums\OpportunityState;
 use App\Enums\ProductType;
 use App\Models\Activity;
 use App\Models\Member;
+use App\Models\Opportunity;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\StockLevel;
@@ -27,6 +29,7 @@ class SearchController
                 'stock_levels' => [],
                 'product_groups' => [],
                 'activities' => [],
+                'opportunities' => [],
             ]);
         }
 
@@ -38,6 +41,7 @@ class SearchController
             'stock_levels' => [],
             'product_groups' => [],
             'activities' => [],
+            'opportunities' => [],
         ];
 
         // Search members
@@ -145,6 +149,34 @@ class SearchController
                     'type' => $type !== null ? $type->name : 'Activity',
                     'typeValue' => 'activity',
                     'url' => route('activities.show', $activity->id),
+                ];
+            }
+        }
+
+        // Search opportunities (quotes + orders) by subject, RMS number, or
+        // customer reference. Soft-deleted opportunities are excluded by the
+        // model's default SoftDeletes scope.
+        if (Gate::allows('opportunities.view')) {
+            $opportunities = Opportunity::query()
+                ->where(function ($builder) use ($escaped): void {
+                    $builder->where('subject', 'ilike', '%'.$escaped.'%')
+                        ->orWhere('number', 'ilike', '%'.$escaped.'%')
+                        ->orWhere('reference', 'ilike', '%'.$escaped.'%');
+                })
+                ->orderByDesc('id')
+                ->limit(5)
+                ->get();
+
+            foreach ($opportunities as $opportunity) {
+                /** @var OpportunityState $state */
+                $state = $opportunity->state;
+                $results['opportunities'][] = [
+                    'id' => $opportunity->id,
+                    'name' => $opportunity->subject,
+                    'number' => $opportunity->number,
+                    'type' => $state->label(),
+                    'typeValue' => 'opportunity',
+                    'url' => route('opportunities.show', $opportunity->id),
                 ];
             }
         }

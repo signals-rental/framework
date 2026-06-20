@@ -90,8 +90,11 @@ class CloneOpportunity
             'external_description' => $source->external_description,
             'starts_at' => $this->toIso($source->starts_at),
             'ends_at' => $this->toIso($source->ends_at),
+            'charge_starts_at' => $this->toIso($source->charge_starts_at),
+            'charge_ends_at' => $this->toIso($source->charge_ends_at),
             'currency' => $source->currency_code ?? 'GBP',
             'prices_include_tax' => $source->prices_include_tax,
+            'tag_list' => $source->tag_list ?? [],
         ]);
     }
 

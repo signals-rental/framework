@@ -209,6 +209,31 @@ describe('POST /api/v1/custom_views', function () {
             ->assertJsonPath('custom_view.columns', ['name', 'email', 'phone', 'is_active']);
     });
 
+    it('rejects an unknown entity_type on create', function () {
+        // R-D master M16: an unregistered entity_type previously created an orphan
+        // view (validateColumns returns early for unknown types). The DTO now
+        // constrains entity_type to the registered ColumnRegistry entity types.
+        $this->postJson('/api/v1/custom_views', [
+            'name' => 'Orphan View',
+            'entity_type' => 'not_a_real_entity',
+            'columns' => ['name'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['entity_type']);
+
+        expect(CustomView::query()->where('entity_type', 'not_a_real_entity')->exists())->toBeFalse();
+    });
+
+    it('accepts a registered entity_type on create', function () {
+        $this->postJson('/api/v1/custom_views', [
+            'name' => 'Opportunities View',
+            'entity_type' => 'opportunities',
+            'columns' => ['subject'],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('custom_view.entity_type', 'opportunities');
+    });
+
     it('creates view with filters', function () {
         $filters = [
             ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'contact'],

@@ -56,18 +56,27 @@ class CreateOpportunity
                 external_description: $data->external_description,
                 starts_at: $data->starts_at,
                 ends_at: $data->ends_at,
+                charge_starts_at: $data->charge_starts_at,
+                charge_ends_at: $data->charge_ends_at,
                 charge_total: $data->charge_total,
                 currency_code: $currency,
                 exchange_rate: $this->resolveExchangeRate($currency),
                 prices_include_tax: $data->prices_include_tax,
+                tag_list: array_values($data->tag_list ?? []),
             );
 
             return $opportunityId;
         });
 
-        return OpportunityData::fromModel(
-            Opportunity::query()->whereKey($opportunityId)->firstOrFail(),
-        );
+        $opportunity = Opportunity::query()->whereKey($opportunityId)->firstOrFail();
+
+        // Persist any supplied custom field values (EAV) on the freshly projected
+        // row. Custom fields live outside the event stream (the same as other
+        // modules, e.g. Members), so they are synced here after the projection
+        // exists rather than inside the genesis event.
+        $opportunity->syncCustomFields($data->custom_fields ?? [], applyDefaults: true);
+
+        return OpportunityData::fromModel($opportunity->load('customFieldValues'));
     }
 
     /**

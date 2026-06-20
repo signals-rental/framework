@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Gate;
  */
 class PermissionStage implements GuardStage
 {
+    /** The machine-readable denial code surfaced for a permission failure. */
+    public const string CODE = 'permission_denied';
+
     public function evaluate(TransitionContext $context): GuardResult
     {
         if ($context->permission === null) {
@@ -31,5 +34,21 @@ class PermissionStage implements GuardStage
         Gate::authorize($context->permission);
 
         return GuardResult::allow();
+    }
+
+    /**
+     * Non-throwing dry-run: {@see Gate::allows()} instead of authorize(), so a
+     * permission failure becomes a {@see GuardResult::deny()} the
+     * `available_actions` endpoint can report rather than a 403.
+     */
+    public function precheck(TransitionContext $context): GuardResult
+    {
+        if ($context->permission === null || Gate::allows($context->permission)) {
+            return GuardResult::allow();
+        }
+
+        return GuardResult::deny('permission', [
+            'permission' => ['You do not have permission to perform this action.'],
+        ], self::CODE);
     }
 }
