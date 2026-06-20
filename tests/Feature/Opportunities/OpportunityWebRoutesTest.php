@@ -36,22 +36,27 @@ it('renders the gated index placeholder for an authorised user', function () {
         ->assertSee('Opportunities');
 });
 
-it('renders the gated show placeholder for an authorised user', function () {
-    $opportunity = Opportunity::factory()->create(['subject' => 'Demo Opportunity']);
+it('renders the show page for an authorised user', function () {
+    // Use a DB-fresh model, exactly as route-model binding hands the page in
+    // production: the integer money totals carry their DB default of 0 (a raw
+    // factory instance leaves the default-valued columns null in memory).
+    $opportunity = Opportunity::factory()->create(['subject' => 'Demo Opportunity'])->fresh();
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
         ->assertOk()
-        ->assertSee('Demo Opportunity');
+        ->assertSee('Demo Opportunity')
+        ->assertSee('Charge Total');
 });
 
-it('renders the create form placeholder for an authorised user', function () {
+it('renders the create form for an authorised user', function () {
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.form')
         ->assertOk()
-        ->assertSee('New opportunity');
+        ->assertSee('New Opportunity')
+        ->assertSee('Create Opportunity');
 });
 
 it('forbids the index placeholder for a user without opportunities.access', function () {

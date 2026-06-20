@@ -73,6 +73,7 @@ class WebhookService
         'opportunity.status_promoted',
         'opportunity.cloned',
         'opportunity.deleted',
+        'opportunity.restored',
         'opportunity.deal_price_set',
         'opportunity.deal_price_cleared',
         'opportunity.item_added',

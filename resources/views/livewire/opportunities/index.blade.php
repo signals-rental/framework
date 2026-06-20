@@ -21,10 +21,16 @@ new #[Layout('components.layouts.app')] #[Title('Opportunities')] class extends 
     #[Url(as: 'archive')]
     public string $archiveFilter = 'active';
 
+    /** Filters the list to opportunities flagged with a shortage. Deep-linkable via ?has_shortage=1. */
+    #[Url(as: 'has_shortage')]
+    public bool $shortageFilter = false;
+
     /** @var Collection<int, int> State value => row count. */
     public Collection $stateCounts;
 
     public int $totalCount = 0;
+
+    public int $shortageCount = 0;
 
     public function mount(): void
     {
@@ -101,11 +107,17 @@ new #[Layout('components.layouts.app')] #[Title('Opportunities')] class extends 
     #[On('opportunity-restored')]
     public function refreshStateCounts(): void
     {
-        $query = match ($this->archiveFilter) {
+        $baseQuery = fn () => match ($this->archiveFilter) {
             'archived' => Opportunity::onlyTrashed(),
             'all' => Opportunity::withTrashed(),
             default => Opportunity::query(),
         };
+
+        $query = $baseQuery();
+
+        if ($this->shortageFilter) {
+            $query->withShortage();
+        }
 
         $this->stateCounts = $query
             ->selectRaw('state, count(*) as count')
@@ -113,6 +125,16 @@ new #[Layout('components.layouts.app')] #[Title('Opportunities')] class extends 
             ->pluck('count', 'state');
 
         $this->totalCount = $this->stateCounts->sum();
+
+        // Count of shortage rows in the current archive scope, regardless of the
+        // shortage toggle, so the chip can always show how many would match.
+        $this->shortageCount = (int) $baseQuery()->withShortage()->count();
+    }
+
+    public function toggleShortageFilter(): void
+    {
+        $this->shortageFilter = ! $this->shortageFilter;
+        $this->refreshStateCounts();
     }
 
     public function setArchiveFilter(string $filter): void
@@ -164,8 +186,10 @@ new #[Layout('components.layouts.app')] #[Title('Opportunities')] class extends 
                 ['key' => 'created_at', 'label' => 'Created', ...$columnMeta('created_at'), 'view' => 'livewire.opportunities.partials.column-created'],
                 ['key' => 'actions', 'type' => 'actions'],
             ],
+            'shortageCount' => $this->shortageCount,
             'scopes' => [
                 ...($this->stateFilter !== '' ? ['ofState' => OpportunityState::from((int) $this->stateFilter)] : []),
+                ...($this->shortageFilter ? ['withShortage' => true] : []),
                 ...match ($this->archiveFilter) {
                     'archived' => ['archived' => true],
                     'all' => ['withArchived' => true],
@@ -199,11 +223,19 @@ new #[Layout('components.layouts.app')] #[Title('Opportunities')] class extends 
             @endforeach
         </div>
 
-        {{-- Archive filter chips --}}
+        {{-- Archive + shortage filter chips --}}
         <div class="mb-4 flex flex-wrap items-center gap-1">
             <button wire:click="setArchiveFilter('active')" class="s-chip {{ $archiveFilter === 'active' ? 'on' : '' }}">Active</button>
             <button wire:click="setArchiveFilter('archived')" class="s-chip {{ $archiveFilter === 'archived' ? 'on' : '' }}">Archived</button>
             <button wire:click="setArchiveFilter('all')" class="s-chip {{ $archiveFilter === 'all' ? 'on' : '' }}">All</button>
+
+            <span class="mx-1 text-[var(--text-faint)]">·</span>
+
+            <button wire:click="toggleShortageFilter"
+                    class="s-chip {{ $shortageFilter ? 'on' : '' }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                With shortages <span class="s-chip-count">{{ $shortageCount }}</span>
+            </button>
         </div>
 
         {{-- Data table --}}
@@ -220,7 +252,7 @@ new #[Layout('components.layouts.app')] #[Title('Opportunities')] class extends 
             bulk-actions-view="livewire.opportunities.partials.bulk-actions"
             toolbar-view="livewire.opportunities.partials.toolbar"
             entity-type="opportunities"
-            :key="'opportunities-table-' . $stateFilter . '-' . $archiveFilter"
+            :key="'opportunities-table-' . $stateFilter . '-' . $archiveFilter . '-' . ($shortageFilter ? '1' : '0')"
         />
     </div>
 </section>

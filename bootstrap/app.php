@@ -21,8 +21,17 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
-        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
+    )
+    // Register the broadcasting auth route (`/broadcasting/auth`) with the `auth`
+    // middleware in addition to `web`. The private availability channels are only
+    // ever subscribed to by authenticated users; guarding the endpoint at the
+    // middleware layer rejects guests with a 401/redirect regardless of the
+    // configured broadcaster, rather than relying on each channel callback (which
+    // a no-op broadcaster, e.g. the test `null` driver, never invokes).
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['web', 'auth']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(ResolveTenant::class);

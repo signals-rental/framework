@@ -449,10 +449,10 @@ new #[Layout('components.layouts.app')] class extends Component
             'description' => $item->description,
             'quantity' => $this->formatQuantity($item->quantity),
             'quantity_raw' => (string) $item->quantity,
-            'unit_price' => $formatter->money($item->unit_price),
+            'unit_price' => $formatter->money($item->unit_price ?? 0),
             'unit_price_raw' => $item->formatMoneyCost('unit_price'),
             'discount_percent' => $item->discount_percent !== null ? (string) $item->discount_percent : null,
-            'total' => $formatter->money($item->total),
+            'total' => $formatter->money($item->total ?? 0),
             'is_optional' => $item->is_optional,
             'section_id' => $item->section_id,
             'starts_at' => optional($item->starts_at)?->toDateString(),
@@ -729,7 +729,7 @@ new #[Layout('components.layouts.app')] class extends Component
 
 @php
     $opp = $this->opportunity;
-    $grandTotal = app(\App\Support\Formatter::class)->money($opp->charge_total);
+    $grandTotal = app(\App\Support\Formatter::class)->money($opp->charge_total ?? 0);
 @endphp
 
 <section
@@ -986,39 +986,43 @@ new #[Layout('components.layouts.app')] class extends Component
         @endif
     </div>
 
-    {{-- Shared product-picker dropdown (teleported, positioned in Alpine) --}}
-    <div
-        x-ref="pickerDropdown"
-        x-show="picker.open"
-        x-cloak
-        class="s-dropdown"
-        style="position: absolute; z-index: 60; min-width: 300px; max-height: 340px; overflow-y: auto;"
-        x-on:mousedown.prevent
-    >
-        <template x-for="(hit, i) in picker.results" :key="hit.id">
-            <button
-                type="button"
-                class="s-dropdown-item flex items-center gap-2 w-full text-left"
-                :style="i === picker.highlight ? 'background: var(--s-subtle);' : ''"
-                x-on:mousedown.prevent="choosePickerHit(hit)"
-                x-on:mouseenter="picker.highlight = i"
-            >
-                <span class="flex-1 truncate" x-text="hit.name"></span>
-                <span class="font-mono text-xs text-[var(--text-faint)]" x-text="hit.sku || ''"></span>
-                <template x-if="hit.isNew">
-                    <span class="s-badge s-badge-green text-xs">new</span>
-                </template>
-            </button>
-        </template>
-        <template x-if="picker.results.length === 0 && !picker.loading">
-            <div class="px-3 py-3 text-center text-[var(--text-faint)] text-sm">No matches</div>
-        </template>
-        <div class="px-3 py-2 text-xs text-[var(--text-muted)] flex items-center gap-2" style="border-top: 1px solid var(--card-border);">
-            <span x-text="'local ' + picker.localCount"></span>
-            <template x-if="picker.loading"><span class="ml-auto" style="color: var(--amber);">searching catalogue…</span></template>
-            <template x-if="!picker.loading && picker.serverCount > 0"><span x-text="'· server +' + picker.serverCount"></span></template>
+    {{-- Shared product-picker dropdown. Teleported to <body> with a z-index above the
+         edit-line modal backdrop so the substitute search overlays it; positioned in
+         Alpine via positionPicker() using document (scroll-offset) coordinates. --}}
+    <template x-teleport="body">
+        <div
+            x-ref="pickerDropdown"
+            x-show="picker.open"
+            x-cloak
+            class="s-dropdown"
+            style="position: absolute; z-index: 120; min-width: 300px; max-height: 340px; overflow-y: auto;"
+            x-on:mousedown.prevent
+        >
+            <template x-for="(hit, i) in picker.results" :key="hit.id">
+                <button
+                    type="button"
+                    class="s-dropdown-item flex items-center gap-2 w-full text-left"
+                    :style="i === picker.highlight ? 'background: var(--s-subtle);' : ''"
+                    x-on:mousedown.prevent="choosePickerHit(hit)"
+                    x-on:mouseenter="picker.highlight = i"
+                >
+                    <span class="flex-1 truncate" x-text="hit.name"></span>
+                    <span class="font-mono text-xs text-[var(--text-faint)]" x-text="hit.sku || ''"></span>
+                    <template x-if="hit.isNew">
+                        <span class="s-badge s-badge-green text-xs">new</span>
+                    </template>
+                </button>
+            </template>
+            <template x-if="picker.results.length === 0 && !picker.loading">
+                <div class="px-3 py-3 text-center text-[var(--text-faint)] text-sm">No matches</div>
+            </template>
+            <div class="px-3 py-2 text-xs text-[var(--text-muted)] flex items-center gap-2" style="border-top: 1px solid var(--card-border);">
+                <span x-text="'local ' + picker.localCount"></span>
+                <template x-if="picker.loading"><span class="ml-auto" style="color: var(--amber);">searching catalogue…</span></template>
+                <template x-if="!picker.loading && picker.serverCount > 0"><span x-text="'· server +' + picker.serverCount"></span></template>
+            </div>
         </div>
-    </div>
+    </template>
 
     {{-- Create section modal --}}
     <x-signals.modal name="create-section" title="New section" id="create-section-modal">
@@ -1071,6 +1075,7 @@ new #[Layout('components.layouts.app')] class extends Component
             startsAt = line.starts_at ?? '';
             endsAt = line.ends_at ?? '';
         }"
+        x-on:close-edit-line.window="open = false"
     >
         <template x-teleport="body">
             <div class="s-modal-backdrop" x-show="open" x-cloak x-transition.opacity x-on:click.self="open = false" x-on:keydown.escape.window="open = false">
@@ -1080,6 +1085,25 @@ new #[Layout('components.layouts.app')] class extends Component
                         <button class="s-modal-close" type="button" x-on:click="open = false">×</button>
                     </div>
                     <div class="s-modal-body space-y-3">
+                        {{-- Substitute product: reuses the shared two-tier picker. Picking a hit
+                             swaps the line's product via the SubstituteItem event action and
+                             closes the modal. --}}
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Substitute product</label>
+                            <input
+                                type="text"
+                                class="s-input w-full"
+                                placeholder="Search the catalogue to swap this product…"
+                                autocomplete="off"
+                                x-ref="substituteInput"
+                                x-on:input="onPickerInput($refs.substituteInput, $event.target.value, false, { mode: 'substitute', itemId: line?.id })"
+                                x-on:keydown="onPickerKeydown($event, $refs.substituteInput, false)"
+                                x-on:focus="onPickerInput($refs.substituteInput, $event.target.value, false, { mode: 'substitute', itemId: line?.id })"
+                                x-on:blur="closePickerSoon()"
+                            >
+                            <p class="text-xs text-[var(--text-muted)] mt-1">Keeps the quantity, pricing and dates; only the catalogue product changes.</p>
+                        </div>
+                        <hr class="s-dropdown-sep">
                         <div>
                             <label class="block text-sm font-medium mb-1">Unit price override (leave blank to use the rate engine)</label>
                             <input type="text" class="s-input w-full font-mono" x-model="unitPrice" placeholder="e.g. 125.00">
@@ -1135,6 +1159,8 @@ new #[Layout('components.layouts.app')] class extends Component
             query: '',
             seq: 0,
             quantity: 1,
+            mode: 'add',
+            substituteItemId: null,
         },
 
         init() {
@@ -1158,12 +1184,14 @@ new #[Layout('components.layouts.app')] class extends Component
         toggleLine(id) { this.expandedLines[id] = !this.expandedLines[id]; },
 
         // ---- picker ----
-        onPickerInput(target, raw, isQuickAdd) {
+        onPickerInput(target, raw, isQuickAdd, opts = {}) {
             const parsed = this.controller.parseQuickAdd(raw);
             this.picker.target = target;
             this.picker.isQuickAdd = isQuickAdd;
             this.picker.quantity = parsed.quantity;
             this.picker.query = parsed.term;
+            this.picker.mode = opts.mode || 'add';
+            this.picker.substituteItemId = opts.itemId ?? null;
 
             if (isQuickAdd) {
                 this.quickAddQtyHint = parsed.quantity > 1 ? parsed.quantity + '×' : '';
@@ -1219,6 +1247,18 @@ new #[Layout('components.layouts.app')] class extends Component
         },
 
         choosePickerHit(hit) {
+            if (this.picker.mode === 'substitute' && this.picker.substituteItemId) {
+                // Swap the line's catalogue product, keeping qty/price/dates intact.
+                this.$wire.substituteItem(this.picker.substituteItemId, hit.id);
+                this.picker.open = false;
+                this.picker.results = [];
+                if (this.picker.target) { this.picker.target.value = ''; }
+                this.picker.mode = 'add';
+                this.picker.substituteItemId = null;
+                this.$dispatch('close-edit-line');
+                return;
+            }
+
             const qty = this.picker.quantity || 1;
             this.$wire.addProduct(hit.id, qty);
             this.picker.open = false;

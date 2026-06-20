@@ -70,17 +70,17 @@
             <div class="flex flex-col gap-1.5">
                 @foreach($gantt->demands as $bar)
                     @php
-                        $prepLeft = $pct($bar['period_start']);
-                        $hireLeft = $pct($bar['buffer_before_end']);
-                        $turnLeft = $pct($bar['buffer_after_start']);
-                        $endLeft = $pct($bar['period_end']);
+                        $prepLeft = $pct($bar->period_start);
+                        $hireLeft = $pct($bar->buffer_before_end);
+                        $turnLeft = $pct($bar->buffer_after_start);
+                        $endLeft = $pct($bar->period_end);
                         $prepW = max(0.0, $hireLeft - $prepLeft);
                         $hireW = max(0.2, $turnLeft - $hireLeft);
                         $turnW = max(0.0, $endLeft - $turnLeft);
-                        $barColour = $bar['colour'] ?? 'var(--blue)';
-                        $label = $bar['source_name'] ?? ($bar['source_type'].' #'.$bar['source_id']);
+                        $barColour = $bar->colour ?? 'var(--blue)';
+                        $label = $bar->source_name ?? ($bar->source_type.' #'.$bar->source_id);
                     @endphp
-                    <div wire:key="bar-{{ $bar['demand_id'] }}" class="relative h-6 rounded-sm bg-[var(--content-bg)]">
+                    <div wire:key="bar-{{ $bar->demand_id }}" class="relative h-6 rounded-sm bg-[var(--content-bg)]">
                         {{-- prep zone --}}
                         @if($prepW > 0)
                             <div class="absolute top-0 h-full opacity-40"
@@ -90,8 +90,8 @@
                         {{-- on-hire zone --}}
                         <div class="absolute top-0 flex h-full items-center overflow-hidden rounded-sm px-1.5 text-[10px] font-medium text-white"
                              style="left: {{ $hireLeft }}%; width: {{ $hireW }}%; background: {{ $barColour }};"
-                             title="{{ $label }} &middot; {{ \Illuminate\Support\Carbon::parse($bar['starts_at'])->format('j M H:i') }} - {{ \Illuminate\Support\Carbon::parse($bar['ends_at'])->format('j M H:i') }}">
-                            <span class="truncate">{{ $bar['quantity'] }}&times; {{ $label }}@if($bar['asset_serial']) ({{ $bar['asset_serial'] }})@endif</span>
+                             title="{{ $label }} &middot; {{ \Illuminate\Support\Carbon::parse($bar->starts_at)->format('j M H:i') }} - {{ \Illuminate\Support\Carbon::parse($bar->ends_at)->format('j M H:i') }}">
+                            <span class="truncate">{{ $bar->quantity }}&times; {{ $label }}@if($bar->asset_serial) ({{ $bar->asset_serial }})@endif</span>
                         </div>
                         {{-- turnaround zone --}}
                         @if($turnW > 0)
@@ -110,14 +110,14 @@
                     <div class="relative h-6 rounded-sm bg-[var(--content-bg)]">
                         @foreach($gantt->shortages as $shortage)
                             @php
-                                $sLeft = $pct(\Illuminate\Support\Carbon::parse($shortage['from'])->startOfDay()->toIso8601String());
-                                $sRight = $pct(\Illuminate\Support\Carbon::parse($shortage['to'])->endOfDay()->toIso8601String());
+                                $sLeft = $pct(\Illuminate\Support\Carbon::parse($shortage->from)->startOfDay()->toIso8601String());
+                                $sRight = $pct(\Illuminate\Support\Carbon::parse($shortage->to)->endOfDay()->toIso8601String());
                                 $sW = max(0.4, $sRight - $sLeft);
                             @endphp
-                            <div wire:key="short-{{ $shortage['from'] }}"
-                                 class="absolute top-0 h-full {{ $shortage['in_buffer_zone'] ? 'opacity-60' : '' }}"
-                                 style="left: {{ $sLeft }}%; width: {{ $sW }}%; background: {{ $shortage['in_buffer_zone'] ? 'var(--amber, #f59e0b)' : 'var(--red, #ef4444)' }};"
-                                 title="{{ \Illuminate\Support\Carbon::parse($shortage['from'])->format('j M') }}: {{ __('short by :n', ['n' => $shortage['severity']]) }}{{ $shortage['in_buffer_zone'] ? ' ('.__('in buffer zone').')' : '' }}"></div>
+                            <div wire:key="short-{{ $shortage->from }}"
+                                 class="absolute top-0 h-full {{ $shortage->in_buffer_zone ? 'opacity-60' : '' }}"
+                                 style="left: {{ $sLeft }}%; width: {{ $sW }}%; background: {{ $shortage->in_buffer_zone ? 'var(--amber, #f59e0b)' : 'var(--red, #ef4444)' }};"
+                                 title="{{ \Illuminate\Support\Carbon::parse($shortage->from)->format('j M') }}: {{ __('short by :n', ['n' => $shortage->severity]) }}{{ $shortage->in_buffer_zone ? ' ('.__('in buffer zone').')' : '' }}"></div>
                         @endforeach
                     </div>
                     <div class="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-[var(--text-muted)]">

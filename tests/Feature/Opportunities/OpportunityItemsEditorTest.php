@@ -310,3 +310,68 @@ it('toggles a line as optional', function () {
 
     expect($item->fresh()->is_optional)->toBeTrue();
 });
+
+it('substitutes a line product via the picker-driven substituteItem method', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $original = Product::factory()->create(['name' => 'Original Fixture', 'sku' => 'ORIG-1']);
+    $replacement = Product::factory()->create(['name' => 'Replacement Fixture', 'sku' => 'REPL-1']);
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $original->id, 4);
+
+    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+
+    expect($item->item_id)->toBe($original->id);
+
+    // The substitute picker in the edit-line modal calls substituteItem(itemId, productId)
+    // with the chosen replacement; the line keeps its quantity but swaps product + name.
+    $component->call('substituteItem', $item->id, $replacement->id)->assertHasNoErrors();
+
+    $updated = $item->fresh();
+
+    expect($updated->item_id)->toBe($replacement->id)
+        ->and($updated->item_type)->toBe(Product::class)
+        ->and($updated->name)->toBe('Replacement Fixture')
+        ->and((float) $updated->quantity)->toBe(4.0);
+});
+
+it('errors when substituting with a non-existent replacement product', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $product = Product::factory()->create();
+
+    $this->actingAs($this->owner);
+
+    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $product->id, 1);
+
+    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+
+    $component->call('substituteItem', $item->id, 999999)->assertHasErrors('product');
+
+    expect($item->fresh()->item_id)->toBe($product->id);
+});
+
+it('gates substituting a line product on opportunities.edit', function () {
+    $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
+    $product = Product::factory()->create();
+    $replacement = Product::factory()->create();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('addProduct', $product->id, 1);
+
+    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo('opportunities.access', 'opportunities.view');
+    $this->actingAs($viewer);
+
+    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+        ->call('substituteItem', $item->id, $replacement->id)
+        ->assertForbidden();
+
+    expect($item->fresh()->item_id)->toBe($product->id);
+});

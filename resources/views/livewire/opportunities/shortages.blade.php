@@ -389,7 +389,7 @@ new #[Layout('components.layouts.app')] class extends Component
         {{-- ============================================================ --}}
         {{--  CONVERT-TO-ORDER GATE PRE-CHECK (§7) + dispatch policy       --}}
         {{-- ============================================================ --}}
-        <x-signals.panel title="Conversion &amp; Dispatch Checks">
+        <x-signals.panel title="Conversion & Dispatch Checks">
             <div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
                 <div class="rounded-md border border-[var(--border)] p-4">
                     <div class="mb-2 flex items-center justify-between gap-2">

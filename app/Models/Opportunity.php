@@ -332,6 +332,18 @@ class Opportunity extends Model implements HasSchema
     }
 
     /**
+     * Scope to opportunities currently flagged with an availability shortage. Drives
+     * the index page's "With shortages" toggle and the dashboard widget deep-link.
+     *
+     * @param  Builder<Opportunity>  $query
+     * @return Builder<Opportunity>
+     */
+    public function scopeWithShortage(Builder $query): Builder
+    {
+        return $query->where('has_shortage', true);
+    }
+
+    /**
      * Format money columns in the opportunity's own snapshotted currency, falling
      * back to the company base currency when none is set.
      */

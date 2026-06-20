@@ -259,9 +259,13 @@ it('cancels a resolution with a reason', function () {
 
 it('shows the gate pre-check decision driven by the store policy', function () {
     // Block policy on a store with unresolved shortages → the gate shows Block.
+    // The acting user must NOT hold shortages.ignore: an owner (or any holder of
+    // the ignore permission) relaxes Block → Warn, so the gate would not block.
     [$opportunity] = shortOpportunityForTab($this->owner, $this->store, ShortagePolicy::Block);
 
-    $this->actingAs($this->owner);
+    $resolver = User::factory()->create();
+    $resolver->givePermissionTo('opportunities.access', 'opportunities.view', 'shortages.view', 'shortages.resolve');
+    $this->actingAs($resolver);
 
     Volt::test('opportunities.shortages', ['opportunity' => $opportunity])
         ->assertSee('Convert to Order gate')

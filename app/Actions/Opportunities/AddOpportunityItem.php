@@ -6,6 +6,7 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\OpportunityData;
 use App\Models\Opportunity;
+use App\Models\OpportunityItem;
 use App\Services\SequenceAllocator;
 use App\Services\Shortages\ItemShortageProbe;
 use App\Verbs\Events\Opportunities\ItemAdded;
@@ -51,7 +52,14 @@ class AddOpportunityItem
         // by VersionCreated to target a specific brand-new version).
         $versionId = $data->version_id ?? ($opportunity->active_version_id > 0 ? $opportunity->active_version_id : null);
 
-        $this->commitVerbs(function () use ($opportunity, $data, $startsAt, $endsAt, $versionId, &$itemId): void {
+        // Resolve the display position. An explicit sort_order (clone/version paths
+        // preserving the source order) is honoured; otherwise the line is appended
+        // after the opportunity's existing items in the same version scope. The
+        // resolved value is baked into the ItemAdded event below, so a Verbs replay
+        // reproduces the identical position.
+        $sortOrder = $data->sort_order ?? $this->nextSortOrder($opportunity->id, $versionId);
+
+        $this->commitVerbs(function () use ($opportunity, $data, $startsAt, $endsAt, $versionId, $sortOrder, &$itemId): void {
             // Allocate the replay-stable small PK and bake it into the event so a
             // truncate + Verbs::replay() rebuild reproduces the identical id.
             $itemId = app(SequenceAllocator::class)->next('opportunity_items');
@@ -72,7 +80,7 @@ class AddOpportunityItem
                 is_optional: $data->is_optional,
                 manual_unit_price: $data->unit_price,
                 discount_percent: $data->discount_percent,
-                sort_order: $data->sort_order,
+                sort_order: $sortOrder,
                 custom_fields: $data->custom_fields,
                 notes: $data->notes,
             );
@@ -96,5 +104,23 @@ class AddOpportunityItem
     private function toIso(?\DateTimeInterface $value): ?string
     {
         return $value !== null ? Carbon::parse($value)->toIso8601String() : null;
+    }
+
+    /**
+     * The next display position for an appended line: one past the highest existing
+     * `sort_order` in the same opportunity + version scope, or 0 for the first line.
+     */
+    private function nextSortOrder(int $opportunityId, ?int $versionId): int
+    {
+        $max = OpportunityItem::query()
+            ->where('opportunity_id', $opportunityId)
+            ->when(
+                $versionId !== null,
+                fn ($query) => $query->where('version_id', $versionId),
+                fn ($query) => $query->whereNull('version_id'),
+            )
+            ->max('sort_order');
+
+        return $max === null ? 0 : ((int) $max) + 1;
     }
 }

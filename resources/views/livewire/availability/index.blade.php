@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
@@ -88,14 +87,36 @@ new #[Layout('components.layouts.app')] #[Title('Equipment Availability')] class
     }
 
     /**
+     * Build the Echo listeners dynamically so the per-product channel is only
+     * registered once a product is selected (Gantt mode). Interpolating a
+     * `{ganttProductId}` placeholder via `#[On]` throws when the property is null
+     * (calendar mode), so the channel strings are resolved here from the already-set
+     * `storeId` / `ganttProductId` instead — the store channel is always present
+     * (storeId is set in mount), the product channel is conditional. The dot-prefixed
+     * custom broadcast name follows the Livewire 4 / Laravel Echo convention; the
+     * Echo client bundle is wired (M8-4a).
+     *
+     * @return array<string, string>
+     */
+    public function getListeners(): array
+    {
+        $listeners = [
+            'echo-private:availability.store.'.$this->storeId.',.availability.changed' => 'onStoreAvailabilityChanged',
+        ];
+
+        if ($this->ganttProductId !== null) {
+            $listeners['echo-private:availability.product.'.$this->ganttProductId.'.store.'.$this->storeId.',.availability.changed']
+                = 'onProductAvailabilityChanged';
+        }
+
+        return $listeners;
+    }
+
+    /**
      * Re-read the read model when the store's availability changes. The broadcast
      * payload is only a light signal — the computed properties re-evaluate on the
-     * next render and pull the authoritative figures from the read model. The
-     * dynamic `{storeId}` segment and the dot-prefixed custom broadcast name
-     * follow the Livewire 4 / Laravel Echo convention; the Echo client bundle is
-     * wired (M8-4a).
+     * next render and pull the authoritative figures from the read model.
      */
-    #[On('echo-private:availability.store.{storeId},.availability.changed')]
     public function onStoreAvailabilityChanged(): void
     {
         // No-op: presence of the listener triggers a re-render, which re-evaluates
@@ -109,7 +130,6 @@ new #[Layout('components.layouts.app')] #[Title('Equipment Availability')] class
      * Gantt live even where the commercial store-scoping layer narrows the
      * store-wide channel's audience.
      */
-    #[On('echo-private:availability.product.{ganttProductId}.store.{storeId},.availability.changed')]
     public function onProductAvailabilityChanged(): void
     {
         unset($this->gantt, $this->shortageCount);

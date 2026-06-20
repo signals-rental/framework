@@ -9,6 +9,7 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Livewire;
 use Livewire\Volt\Volt;
 
 /*
@@ -174,6 +175,64 @@ it('bulk archives then bulk restores opportunities', function () {
         ->call('restoreSelected', [$opportunity->id]);
 
     expect(Opportunity::find($opportunity->id)->trashed())->toBeFalse();
+});
+
+it('filters to shortage opportunities when the shortage toggle is on', function () {
+    Opportunity::factory()->withShortage()->create(['subject' => 'Shortage Job']);
+    Opportunity::factory()->create(['subject' => 'Healthy Job']);
+
+    Volt::test('opportunities.index')
+        ->assertSee('Shortage Job')
+        ->assertSee('Healthy Job')
+        ->call('toggleShortageFilter')
+        ->assertSet('shortageFilter', true)
+        ->assertSee('Shortage Job')
+        ->assertDontSee('Healthy Job');
+});
+
+it('toggles the shortage filter off again', function () {
+    Opportunity::factory()->withShortage()->create(['subject' => 'Shortage Job']);
+    Opportunity::factory()->create(['subject' => 'Healthy Job']);
+
+    Volt::test('opportunities.index')
+        ->call('toggleShortageFilter')
+        ->assertSet('shortageFilter', true)
+        ->call('toggleShortageFilter')
+        ->assertSet('shortageFilter', false)
+        ->assertSee('Shortage Job')
+        ->assertSee('Healthy Job');
+});
+
+it('counts shortage opportunities for the chip regardless of the toggle', function () {
+    Opportunity::factory()->withShortage()->count(2)->create();
+    Opportunity::factory()->create();
+
+    Volt::test('opportunities.index')
+        ->assertSet('shortageCount', 2)
+        ->call('toggleShortageFilter')
+        // The toggle narrows the listing but the chip still reports the full count.
+        ->assertSet('shortageCount', 2)
+        ->assertSet('totalCount', 2);
+});
+
+it('hydrates the shortage filter from the has_shortage url param (deep link)', function () {
+    Opportunity::factory()->withShortage()->create(['subject' => 'Linked Shortage']);
+    Opportunity::factory()->create(['subject' => 'Other Job']);
+
+    // The dashboard "With Shortages" stat deep-links via ?has_shortage=1; the
+    // #[Url(as: 'has_shortage')] bool property round-trips that into the filter.
+    Livewire::withQueryParams(['has_shortage' => 1])
+        ->test('opportunities.index')
+        ->assertSet('shortageFilter', true)
+        ->assertSee('Linked Shortage')
+        ->assertDontSee('Other Job');
+});
+
+it('passes the withShortage scope to the data table when the filter is on', function () {
+    Volt::test('opportunities.index')
+        ->call('toggleShortageFilter')
+        ->assertSet('shortageFilter', true)
+        ->assertViewHas('scopes', fn (array $scopes): bool => ($scopes['withShortage'] ?? null) === true);
 });
 
 it('forbids archiving for a user without opportunities.delete', function () {

@@ -118,7 +118,7 @@ new #[Layout('components.layouts.app')] class extends Component
             $this->endsAt = $opportunity->ends_at?->format('Y-m-d H:i');
             $this->chargeStartsAt = $opportunity->charge_starts_at?->format('Y-m-d H:i');
             $this->chargeEndsAt = $opportunity->charge_ends_at?->format('Y-m-d H:i');
-            $this->pricesIncludeTax = $opportunity->prices_include_tax;
+            $this->pricesIncludeTax = (bool) $opportunity->prices_include_tax;
             $this->tags = $opportunity->tag_list ?? [];
 
             $this->customFieldValues = $this->loadCustomFieldValuesFrom($opportunity);
@@ -151,9 +151,11 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        $like = Member::query()->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
         return Member::query()
             ->where('is_active', true)
-            ->where('name', 'ilike', '%'.RansackFilter::escapeLike($this->memberSearch).'%')
+            ->where('name', $like, '%'.RansackFilter::escapeLike($this->memberSearch).'%')
             ->orderBy('name')
             ->limit(15)
             ->get(['id', 'name']);
@@ -190,9 +192,11 @@ new #[Layout('components.layouts.app')] class extends Component
             return collect();
         }
 
+        $like = Member::query()->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
         return Member::query()
             ->where('is_active', true)
-            ->where('name', 'ilike', '%'.RansackFilter::escapeLike($this->venueSearch).'%')
+            ->where('name', $like, '%'.RansackFilter::escapeLike($this->venueSearch).'%')
             ->orderBy('name')
             ->limit(15)
             ->get(['id', 'name']);

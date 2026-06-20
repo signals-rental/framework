@@ -345,9 +345,9 @@ new #[Layout('components.layouts.app')] class extends Component
         <div class="space-y-6">
             {{-- Totals --}}
             <x-signals.stat-grid style="grid-template-columns: repeat(3, 1fr);">
-                <x-signals.stat-card color="green" label="Charge Total" :value="$formatter->money($opportunity->charge_total)" />
-                <x-signals.stat-card color="blue" label="Excl. Tax" :value="$formatter->money($opportunity->charge_excluding_tax_total)" />
-                <x-signals.stat-card color="amber" label="Tax" :value="$formatter->money($opportunity->tax_total)" />
+                <x-signals.stat-card color="green" label="Charge Total" :value="$formatter->money($opportunity->charge_total ?? 0)" />
+                <x-signals.stat-card color="blue" label="Excl. Tax" :value="$formatter->money($opportunity->charge_excluding_tax_total ?? 0)" />
+                <x-signals.stat-card color="amber" label="Tax" :value="$formatter->money($opportunity->tax_total ?? 0)" />
             </x-signals.stat-grid>
 
             {{-- Line items summary (read-only — full read-only tab is /items, the
@@ -369,8 +369,8 @@ new #[Layout('components.layouts.app')] class extends Component
                                     <tr wire:key="item-{{ $item->id }}">
                                         <td>{{ $item->name }}</td>
                                         <td class="text-right" style="font-family: var(--font-mono);">{{ rtrim(rtrim(number_format((float) $item->quantity, 2), '0'), '.') }}</td>
-                                        <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($item->unit_price) }}</td>
-                                        <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($item->total) }}</td>
+                                        <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($item->unit_price ?? 0) }}</td>
+                                        <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($item->total ?? 0) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

@@ -122,6 +122,7 @@ when the event store is rebuilt.
 | `opportunity.status_promoted` | An opportunity's status is promoted along its workflow |
 | `opportunity.cloned` | An opportunity is cloned into a new opportunity |
 | `opportunity.deleted` | An opportunity is soft-deleted |
+| `opportunity.restored` | A soft-deleted opportunity is restored |
 | `opportunity.deal_price_set` | A negotiated deal total is set |
 | `opportunity.deal_price_cleared` | A negotiated deal total is cleared |
 | `opportunity.item_added` | A line item is added |

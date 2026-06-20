@@ -2,6 +2,7 @@
 
 namespace App\Data\Opportunities;
 
+use App\Actions\Opportunities\AddOpportunityItem;
 use App\Data\Casts\MoneyInput;
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
@@ -32,7 +33,13 @@ class AddOpportunityItemData extends Data
         public ?string $ends_at = null,
         public bool $is_optional = false,
         public ?string $discount_percent = null,
-        public int $sort_order = 0,
+        /**
+         * The 0-based display position. When null (the default for a fresh add) the
+         * {@see AddOpportunityItem} action appends the line
+         * after the opportunity's existing items; an explicit value (e.g. the
+         * clone/version paths preserving the source order) is honoured as-is.
+         */
+        public ?int $sort_order = null,
         public ?string $notes = null,
         /** @var array<string, mixed>|null */
         public ?array $custom_fields = null,

@@ -17,10 +17,19 @@ it('registers the broadcasting auth route', function () {
 });
 
 it('rejects unauthenticated private-channel authorization requests', function () {
+    // The `/broadcasting/auth` route carries the `auth` middleware (bootstrap/app.php),
+    // so a guest is rejected before reaching the channel callbacks. A browser POST is
+    // redirected to login; an Echo XHR subscription (JSON) gets a hard 401. Either way
+    // the guest never receives a channel authorization signature.
     $this->post('/broadcasting/auth', [
         'channel_name' => 'private-availability.opportunity.1',
         'socket_id' => '123.456',
-    ])->assertForbidden();
+    ])->assertRedirect(route('login'));
+
+    $this->postJson('/broadcasting/auth', [
+        'channel_name' => 'private-availability.opportunity.1',
+        'socket_id' => '123.456',
+    ])->assertUnauthorized();
 });
 
 it('authorizes an authenticated user for an opportunity availability channel', function () {

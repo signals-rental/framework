@@ -137,8 +137,12 @@ class ProductSearchService
      */
     private function applyTrigramRank(Builder $builder, string $query): Builder
     {
+        // Set the session trigram threshold that the `%` operator compares against.
+        // `set_limit()` returns `real`, so it must run as its own statement — it
+        // cannot live in a WHERE/AND boolean context.
+        $builder->getModel()->getConnection()->statement('SELECT set_limit(?)', [self::TRGM_THRESHOLD]);
+
         return $builder
-            ->whereRaw('set_limit(?)', [self::TRGM_THRESHOLD])
             ->where(function (Builder $q) use ($query): void {
                 $q->whereRaw('name % ?', [$query])
                     ->orWhereRaw('coalesce(sku, \'\') % ?', [$query]);

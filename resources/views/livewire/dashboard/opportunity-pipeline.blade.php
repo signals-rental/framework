@@ -41,7 +41,7 @@
                 </div>
             </a>
 
-            <a href="{{ route('opportunities.index') }}"
+            <a href="{{ route('opportunities.index', ['has_shortage' => 1]) }}"
                wire:navigate
                class="s-stat-card">
                 <div class="s-stat-icon s-stat-icon-amber">

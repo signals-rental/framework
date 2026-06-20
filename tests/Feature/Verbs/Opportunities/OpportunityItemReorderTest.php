@@ -46,7 +46,13 @@ function reorderItem(Opportunity $opportunity, string $name): OpportunityItem
         'unit_price' => 1000,
     ]));
 
-    return $opportunity->items()->latest('id')->firstOrFail();
+    // Query the model directly: the `items()` relation default-orders by
+    // `sort_order`, which would defeat `latest('id')` once the lines carry distinct
+    // sort orders (the just-added line is always the highest id).
+    return OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->latest('id')
+        ->firstOrFail();
 }
 
 it('persists the new sort_order across the reordered items', function () {

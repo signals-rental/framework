@@ -54,7 +54,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                 <td>{{ $cost->description }}</td>
                                 <td>{{ $cost->cost_type->label() }}</td>
                                 <td>{{ $cost->transaction_type->label() }}</td>
-                                <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($cost->amount) }}</td>
+                                <td class="text-right" style="font-family: var(--font-mono);">{{ $formatter->money($cost->amount ?? 0) }}</td>
                                 <td class="text-right" style="font-family: var(--font-mono);">{{ rtrim(rtrim(number_format((float) $cost->quantity, 2), '0'), '.') }}</td>
                                 <td>
                                     @if($cost->is_optional)
