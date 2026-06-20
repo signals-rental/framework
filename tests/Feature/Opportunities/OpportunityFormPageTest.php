@@ -154,6 +154,40 @@ it('updates an existing opportunity through the UpdateOpportunity action', funct
         ->and($fresh->reference)->toBe('REF-NEW');
 });
 
+it('persists the schedule & logistics fields through the form (C-data-1)', function () {
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.form')
+        ->set('subject', 'Scheduled Hire')
+        ->set('storeId', $this->store->id)
+        ->set('deliverStartsAt', '2026-07-02 08:00')
+        ->set('collectEndsAt', '2026-07-06 13:00')
+        ->set('orderedAt', '2026-06-15 09:30')
+        ->set('useChargeableDays', true)
+        ->set('chargeableDays', '2.5')
+        ->set('openEndedRental', true)
+        ->set('customerCollecting', true)
+        ->set('customerReturning', true)
+        ->set('deliveryInstructions', 'Gate B')
+        ->set('collectionInstructions', 'Bay 3')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect();
+
+    $opportunity = Opportunity::query()->where('subject', 'Scheduled Hire')->firstOrFail();
+
+    expect($opportunity->deliver_starts_at)->not->toBeNull()
+        ->and($opportunity->collect_ends_at)->not->toBeNull()
+        ->and($opportunity->ordered_at)->not->toBeNull()
+        ->and((bool) $opportunity->use_chargeable_days)->toBeTrue()
+        ->and((string) $opportunity->chargeable_days)->toBe('2.5')
+        ->and((bool) $opportunity->open_ended_rental)->toBeTrue()
+        ->and((bool) $opportunity->customer_collecting)->toBeTrue()
+        ->and((bool) $opportunity->customer_returning)->toBeTrue()
+        ->and($opportunity->delivery_instructions)->toBe('Gate B')
+        ->and($opportunity->collection_instructions)->toBe('Bay 3');
+});
+
 it('hides the prices_include_tax checkbox on the edit form (create-only)', function () {
     $opportunity = Opportunity::factory()->create(['store_id' => $this->store->id]);
 

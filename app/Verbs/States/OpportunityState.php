@@ -61,6 +61,69 @@ class OpportunityState extends State
 
     public ?CarbonImmutable $charge_ends_at = null;
 
+    // Event-logistics lifecycle dates (C3a). Each phase is a start/end pair,
+    // in physical-workflow order. All nullable, so old snapshots replay unchanged.
+    public ?CarbonImmutable $prep_starts_at = null;
+
+    public ?CarbonImmutable $prep_ends_at = null;
+
+    public ?CarbonImmutable $load_starts_at = null;
+
+    public ?CarbonImmutable $load_ends_at = null;
+
+    public ?CarbonImmutable $deliver_starts_at = null;
+
+    public ?CarbonImmutable $deliver_ends_at = null;
+
+    public ?CarbonImmutable $setup_starts_at = null;
+
+    public ?CarbonImmutable $setup_ends_at = null;
+
+    public ?CarbonImmutable $show_starts_at = null;
+
+    public ?CarbonImmutable $show_ends_at = null;
+
+    public ?CarbonImmutable $takedown_starts_at = null;
+
+    public ?CarbonImmutable $takedown_ends_at = null;
+
+    public ?CarbonImmutable $collect_starts_at = null;
+
+    public ?CarbonImmutable $collect_ends_at = null;
+
+    public ?CarbonImmutable $unload_starts_at = null;
+
+    public ?CarbonImmutable $unload_ends_at = null;
+
+    public ?CarbonImmutable $deprep_starts_at = null;
+
+    public ?CarbonImmutable $deprep_ends_at = null;
+
+    /** Milestone: when the opportunity was ordered (C3a). */
+    public ?CarbonImmutable $ordered_at = null;
+
+    /** Milestone: when the quotation expires / becomes invalid (C3a). */
+    public ?CarbonImmutable $quote_invalid_at = null;
+
+    /** Whether the rental is billed on a manual chargeable-day count (C3b). */
+    public bool $use_chargeable_days = false;
+
+    /** Manual chargeable-day count as a decimal string, e.g. "2.5" (C3b). */
+    public ?string $chargeable_days = null;
+
+    /** Whether the rental is open-ended (no fixed return) (C3b). */
+    public bool $open_ended_rental = false;
+
+    /** Whether the customer is collecting the goods themselves (C3c). */
+    public bool $customer_collecting = false;
+
+    /** Whether the customer is returning the goods themselves (C3c). */
+    public bool $customer_returning = false;
+
+    public ?string $delivery_instructions = null;
+
+    public ?string $collection_instructions = null;
+
     /**
      * Free-form tag labels (RMS `tag_list`), projected to the JSONB
      * `opportunities.tag_list` column.

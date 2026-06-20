@@ -54,6 +54,35 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $ends_at
  * @property Carbon|null $charge_starts_at
  * @property Carbon|null $charge_ends_at
+ * @property Carbon|null $prep_starts_at
+ * @property Carbon|null $prep_ends_at
+ * @property Carbon|null $load_starts_at
+ * @property Carbon|null $load_ends_at
+ * @property Carbon|null $deliver_starts_at
+ * @property Carbon|null $deliver_ends_at
+ * @property Carbon|null $setup_starts_at
+ * @property Carbon|null $setup_ends_at
+ * @property Carbon|null $show_starts_at
+ * @property Carbon|null $show_ends_at
+ * @property Carbon|null $takedown_starts_at
+ * @property Carbon|null $takedown_ends_at
+ * @property Carbon|null $collect_starts_at
+ * @property Carbon|null $collect_ends_at
+ * @property Carbon|null $unload_starts_at
+ * @property Carbon|null $unload_ends_at
+ * @property Carbon|null $deprep_starts_at
+ * @property Carbon|null $deprep_ends_at
+ * @property Carbon|null $ordered_at
+ * @property Carbon|null $quote_invalid_at
+ * @property bool $use_chargeable_days
+ * @property string|null $chargeable_days
+ * @property bool $open_ended_rental
+ * @property bool $customer_collecting
+ * @property bool $customer_returning
+ * @property string|null $delivery_instructions
+ * @property string|null $collection_instructions
+ * @property int|null $source_opportunity_id
+ * @property bool $invoiced
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -93,6 +122,34 @@ class Opportunity extends Model implements HasSchema
         'ends_at',
         'charge_starts_at',
         'charge_ends_at',
+        'prep_starts_at',
+        'prep_ends_at',
+        'load_starts_at',
+        'load_ends_at',
+        'deliver_starts_at',
+        'deliver_ends_at',
+        'setup_starts_at',
+        'setup_ends_at',
+        'show_starts_at',
+        'show_ends_at',
+        'takedown_starts_at',
+        'takedown_ends_at',
+        'collect_starts_at',
+        'collect_ends_at',
+        'unload_starts_at',
+        'unload_ends_at',
+        'deprep_starts_at',
+        'deprep_ends_at',
+        'ordered_at',
+        'quote_invalid_at',
+        'use_chargeable_days',
+        'chargeable_days',
+        'open_ended_rental',
+        'customer_collecting',
+        'customer_returning',
+        'delivery_instructions',
+        'collection_instructions',
+        'source_opportunity_id',
         'currency_code',
         'exchange_rate',
         'exchange_rate_locked',
@@ -128,6 +185,32 @@ class Opportunity extends Model implements HasSchema
             'ends_at' => 'datetime',
             'charge_starts_at' => 'datetime',
             'charge_ends_at' => 'datetime',
+            'prep_starts_at' => 'datetime',
+            'prep_ends_at' => 'datetime',
+            'load_starts_at' => 'datetime',
+            'load_ends_at' => 'datetime',
+            'deliver_starts_at' => 'datetime',
+            'deliver_ends_at' => 'datetime',
+            'setup_starts_at' => 'datetime',
+            'setup_ends_at' => 'datetime',
+            'show_starts_at' => 'datetime',
+            'show_ends_at' => 'datetime',
+            'takedown_starts_at' => 'datetime',
+            'takedown_ends_at' => 'datetime',
+            'collect_starts_at' => 'datetime',
+            'collect_ends_at' => 'datetime',
+            'unload_starts_at' => 'datetime',
+            'unload_ends_at' => 'datetime',
+            'deprep_starts_at' => 'datetime',
+            'deprep_ends_at' => 'datetime',
+            'ordered_at' => 'datetime',
+            'quote_invalid_at' => 'datetime',
+            'use_chargeable_days' => 'boolean',
+            'chargeable_days' => 'decimal:1',
+            'open_ended_rental' => 'boolean',
+            'customer_collecting' => 'boolean',
+            'customer_returning' => 'boolean',
+            'source_opportunity_id' => 'integer',
             'exchange_rate' => 'decimal:10',
             'exchange_rate_locked' => 'boolean',
             'tax_locked' => 'boolean',
@@ -168,8 +251,18 @@ class Opportunity extends Model implements HasSchema
         $builder->datetime('ends_at')->label('Ends')->sortable()->filterable();
         $builder->datetime('charge_starts_at')->label('Charge Starts')->sortable()->filterable();
         $builder->datetime('charge_ends_at')->label('Charge Ends')->sortable()->filterable();
+        $builder->datetime('deliver_starts_at')->label('Delivery Starts')->sortable()->filterable();
+        $builder->datetime('deliver_ends_at')->label('Delivery Ends')->sortable()->filterable();
+        $builder->datetime('collect_starts_at')->label('Collection Starts')->sortable()->filterable();
+        $builder->datetime('collect_ends_at')->label('Collection Ends')->sortable()->filterable();
+        $builder->datetime('ordered_at')->label('Ordered')->sortable()->filterable();
+        $builder->datetime('quote_invalid_at')->label('Quote Expires')->sortable()->filterable();
         $builder->integer('charge_total')->label('Charge Total')->sortable();
         $builder->boolean('invoiced')->label('Invoiced')->filterable()->sortable()->groupable();
+        $builder->boolean('use_chargeable_days')->label('Uses Chargeable Days')->filterable()->groupable();
+        $builder->boolean('open_ended_rental')->label('Open-Ended Rental')->filterable()->groupable();
+        $builder->boolean('customer_collecting')->label('Customer Collecting')->filterable()->groupable();
+        $builder->boolean('customer_returning')->label('Customer Returning')->filterable()->groupable();
         $builder->boolean('has_shortage')->label('Has Shortage')->filterable()->sortable()->groupable();
         $builder->json('tag_list')->label('Tags')->searchable()->filterable();
         $builder->datetime('created_at')->label('Created')->sortable()->filterable();
@@ -205,6 +298,17 @@ class Opportunity extends Model implements HasSchema
     public function owner(): BelongsTo
     {
         return $this->belongsTo(Member::class, 'owned_by');
+    }
+
+    /**
+     * The opportunity this one was cloned from (clone lineage), or null when it
+     * was created directly rather than cloned.
+     *
+     * @return BelongsTo<Opportunity, $this>
+     */
+    public function sourceOpportunity(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_opportunity_id');
     }
 
     /**

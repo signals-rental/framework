@@ -81,6 +81,63 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public ?string $chargeEndsAt = null;
 
+    // Event-logistics lifecycle dates (C3a).
+    public ?string $prepStartsAt = null;
+
+    public ?string $prepEndsAt = null;
+
+    public ?string $loadStartsAt = null;
+
+    public ?string $loadEndsAt = null;
+
+    public ?string $deliverStartsAt = null;
+
+    public ?string $deliverEndsAt = null;
+
+    public ?string $setupStartsAt = null;
+
+    public ?string $setupEndsAt = null;
+
+    public ?string $showStartsAt = null;
+
+    public ?string $showEndsAt = null;
+
+    public ?string $takedownStartsAt = null;
+
+    public ?string $takedownEndsAt = null;
+
+    public ?string $collectStartsAt = null;
+
+    public ?string $collectEndsAt = null;
+
+    public ?string $unloadStartsAt = null;
+
+    public ?string $unloadEndsAt = null;
+
+    public ?string $deprepStartsAt = null;
+
+    public ?string $deprepEndsAt = null;
+
+    public ?string $orderedAt = null;
+
+    public ?string $quoteInvalidAt = null;
+
+    // Chargeable-days + open-ended-rental controls (C3b).
+    public bool $useChargeableDays = false;
+
+    public ?string $chargeableDays = null;
+
+    public bool $openEndedRental = false;
+
+    // Customer collecting/returning flags (C3c).
+    public bool $customerCollecting = false;
+
+    public bool $customerReturning = false;
+
+    public string $deliveryInstructions = '';
+
+    public string $collectionInstructions = '';
+
     public bool $pricesIncludeTax = false;
 
     /** @var array<int, string> */
@@ -118,6 +175,33 @@ new #[Layout('components.layouts.app')] class extends Component
             $this->endsAt = $opportunity->ends_at?->format('Y-m-d H:i');
             $this->chargeStartsAt = $opportunity->charge_starts_at?->format('Y-m-d H:i');
             $this->chargeEndsAt = $opportunity->charge_ends_at?->format('Y-m-d H:i');
+            $this->prepStartsAt = $opportunity->prep_starts_at?->format('Y-m-d H:i');
+            $this->prepEndsAt = $opportunity->prep_ends_at?->format('Y-m-d H:i');
+            $this->loadStartsAt = $opportunity->load_starts_at?->format('Y-m-d H:i');
+            $this->loadEndsAt = $opportunity->load_ends_at?->format('Y-m-d H:i');
+            $this->deliverStartsAt = $opportunity->deliver_starts_at?->format('Y-m-d H:i');
+            $this->deliverEndsAt = $opportunity->deliver_ends_at?->format('Y-m-d H:i');
+            $this->setupStartsAt = $opportunity->setup_starts_at?->format('Y-m-d H:i');
+            $this->setupEndsAt = $opportunity->setup_ends_at?->format('Y-m-d H:i');
+            $this->showStartsAt = $opportunity->show_starts_at?->format('Y-m-d H:i');
+            $this->showEndsAt = $opportunity->show_ends_at?->format('Y-m-d H:i');
+            $this->takedownStartsAt = $opportunity->takedown_starts_at?->format('Y-m-d H:i');
+            $this->takedownEndsAt = $opportunity->takedown_ends_at?->format('Y-m-d H:i');
+            $this->collectStartsAt = $opportunity->collect_starts_at?->format('Y-m-d H:i');
+            $this->collectEndsAt = $opportunity->collect_ends_at?->format('Y-m-d H:i');
+            $this->unloadStartsAt = $opportunity->unload_starts_at?->format('Y-m-d H:i');
+            $this->unloadEndsAt = $opportunity->unload_ends_at?->format('Y-m-d H:i');
+            $this->deprepStartsAt = $opportunity->deprep_starts_at?->format('Y-m-d H:i');
+            $this->deprepEndsAt = $opportunity->deprep_ends_at?->format('Y-m-d H:i');
+            $this->orderedAt = $opportunity->ordered_at?->format('Y-m-d H:i');
+            $this->quoteInvalidAt = $opportunity->quote_invalid_at?->format('Y-m-d H:i');
+            $this->useChargeableDays = (bool) $opportunity->use_chargeable_days;
+            $this->chargeableDays = $opportunity->chargeable_days !== null ? (string) $opportunity->chargeable_days : null;
+            $this->openEndedRental = (bool) $opportunity->open_ended_rental;
+            $this->customerCollecting = (bool) $opportunity->customer_collecting;
+            $this->customerReturning = (bool) $opportunity->customer_returning;
+            $this->deliveryInstructions = $opportunity->delivery_instructions ?? '';
+            $this->collectionInstructions = $opportunity->collection_instructions ?? '';
             $this->pricesIncludeTax = (bool) $opportunity->prices_include_tax;
             $this->tags = $opportunity->tag_list ?? [];
 
@@ -264,6 +348,46 @@ new #[Layout('components.layouts.app')] class extends Component
             'prices_include_tax' => $this->pricesIncludeTax,
             'tag_list' => $this->tags !== [] ? array_values($this->tags) : null,
             'custom_fields' => $this->customFieldValues,
+            ...$this->scheduleAndLogisticsPayload(),
+        ];
+    }
+
+    /**
+     * The C-data-1 schedule + logistics fields shared by the create and update
+     * payloads. Empty instruction strings collapse to null so the column clears.
+     *
+     * @return array<string, mixed>
+     */
+    private function scheduleAndLogisticsPayload(): array
+    {
+        return [
+            'prep_starts_at' => $this->prepStartsAt,
+            'prep_ends_at' => $this->prepEndsAt,
+            'load_starts_at' => $this->loadStartsAt,
+            'load_ends_at' => $this->loadEndsAt,
+            'deliver_starts_at' => $this->deliverStartsAt,
+            'deliver_ends_at' => $this->deliverEndsAt,
+            'setup_starts_at' => $this->setupStartsAt,
+            'setup_ends_at' => $this->setupEndsAt,
+            'show_starts_at' => $this->showStartsAt,
+            'show_ends_at' => $this->showEndsAt,
+            'takedown_starts_at' => $this->takedownStartsAt,
+            'takedown_ends_at' => $this->takedownEndsAt,
+            'collect_starts_at' => $this->collectStartsAt,
+            'collect_ends_at' => $this->collectEndsAt,
+            'unload_starts_at' => $this->unloadStartsAt,
+            'unload_ends_at' => $this->unloadEndsAt,
+            'deprep_starts_at' => $this->deprepStartsAt,
+            'deprep_ends_at' => $this->deprepEndsAt,
+            'ordered_at' => $this->orderedAt,
+            'quote_invalid_at' => $this->quoteInvalidAt,
+            'use_chargeable_days' => $this->useChargeableDays,
+            'chargeable_days' => $this->chargeableDays !== null && $this->chargeableDays !== '' ? $this->chargeableDays : null,
+            'open_ended_rental' => $this->openEndedRental,
+            'customer_collecting' => $this->customerCollecting,
+            'customer_returning' => $this->customerReturning,
+            'delivery_instructions' => $this->deliveryInstructions ?: null,
+            'collection_instructions' => $this->collectionInstructions ?: null,
         ];
     }
 
@@ -289,6 +413,7 @@ new #[Layout('components.layouts.app')] class extends Component
             'charge_ends_at' => $this->chargeEndsAt,
             'tag_list' => array_values($this->tags),
             'custom_fields' => $this->customFieldValues,
+            ...$this->scheduleAndLogisticsPayload(),
         ];
     }
 
@@ -429,6 +554,77 @@ new #[Layout('components.layouts.app')] class extends Component
                         </div>
                     </x-signals.form-section>
 
+                    <x-signals.form-section title="Schedule & Logistics">
+                        <div class="space-y-4">
+                            {{-- Event-logistics lifecycle date pairs (prep → load → deliver → setup → show → takedown → collect → unload → deprep). --}}
+                            @php
+                                $lifecyclePhases = [
+                                    ['Prep', 'prepStartsAt', 'prepEndsAt'],
+                                    ['Load', 'loadStartsAt', 'loadEndsAt'],
+                                    ['Deliver', 'deliverStartsAt', 'deliverEndsAt'],
+                                    ['Setup', 'setupStartsAt', 'setupEndsAt'],
+                                    ['Show', 'showStartsAt', 'showEndsAt'],
+                                    ['Takedown', 'takedownStartsAt', 'takedownEndsAt'],
+                                    ['Collect', 'collectStartsAt', 'collectEndsAt'],
+                                    ['Unload', 'unloadStartsAt', 'unloadEndsAt'],
+                                    ['Deprep', 'deprepStartsAt', 'deprepEndsAt'],
+                                ];
+                            @endphp
+                            @foreach($lifecyclePhases as [$phaseLabel, $startProp, $endProp])
+                                <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1" wire:key="phase-{{ $startProp }}">
+                                    <div>
+                                        <label class="s-field-label mb-1 block">{{ $phaseLabel }} Starts</label>
+                                        <x-signals.datetime-input
+                                            :value="$$startProp"
+                                            placeholder="Select date & time"
+                                            x-on:input="if (typeof $event.detail === 'string' || $event.detail === null) $wire.set('{{ $startProp }}', $event.detail)"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="s-field-label mb-1 block">{{ $phaseLabel }} Ends</label>
+                                        <x-signals.datetime-input
+                                            :value="$$endProp"
+                                            placeholder="Select date & time"
+                                            x-on:input="if (typeof $event.detail === 'string' || $event.detail === null) $wire.set('{{ $endProp }}', $event.detail)"
+                                        />
+                                    </div>
+                                </div>
+                            @endforeach
+
+                            {{-- Milestone datetimes. --}}
+                            <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+                                <div>
+                                    <label class="s-field-label mb-1 block">Ordered At</label>
+                                    <x-signals.datetime-input
+                                        :value="$orderedAt"
+                                        placeholder="Select date & time"
+                                        x-on:input="if (typeof $event.detail === 'string' || $event.detail === null) $wire.set('orderedAt', $event.detail)"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="s-field-label mb-1 block">Quote Expires At</label>
+                                    <x-signals.datetime-input
+                                        :value="$quoteInvalidAt"
+                                        placeholder="Select date & time"
+                                        x-on:input="if (typeof $event.detail === 'string' || $event.detail === null) $wire.set('quoteInvalidAt', $event.detail)"
+                                    />
+                                </div>
+                            </div>
+
+                            {{-- Customer collect/return self-service flags. --}}
+                            <div class="space-y-2 pt-1">
+                                <flux:checkbox wire:model="customerCollecting" label="Customer collecting"
+                                    description="The customer collects the goods themselves." />
+                                <flux:checkbox wire:model="customerReturning" label="Customer returning"
+                                    description="The customer returns the goods themselves." />
+                            </div>
+
+                            {{-- Delivery / collection instructions. --}}
+                            <flux:textarea wire:model="deliveryInstructions" label="Delivery Instructions" rows="2" />
+                            <flux:textarea wire:model="collectionInstructions" label="Collection Instructions" rows="2" />
+                        </div>
+                    </x-signals.form-section>
+
                     <x-signals.form-section title="Pricing">
                         <div class="space-y-3">
                             <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
@@ -457,6 +653,18 @@ new #[Layout('components.layouts.app')] class extends Component
                                 <flux:checkbox wire:model="pricesIncludeTax" label="Prices include tax"
                                     description="Whether entered prices are tax-inclusive. Set at creation only." />
                             @endif
+
+                            {{-- Chargeable-days + open-ended-rental controls (C3b). --}}
+                            <div class="space-y-3 pt-2">
+                                <flux:checkbox wire:model.live="useChargeableDays" label="Use chargeable days"
+                                    description="Bill on a manual chargeable-day count rather than the hire period." />
+                                <div x-show="$wire.useChargeableDays" x-cloak>
+                                    <flux:input wire:model="chargeableDays" type="number" step="0.1" min="0"
+                                        label="Chargeable Days" placeholder="e.g. 2.5" />
+                                </div>
+                                <flux:checkbox wire:model="openEndedRental" label="Open-ended rental"
+                                    description="The rental has no fixed return date." />
+                            </div>
                         </div>
                     </x-signals.form-section>
 

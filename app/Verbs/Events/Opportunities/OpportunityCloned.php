@@ -51,6 +51,15 @@ class OpportunityCloned extends Event
     {
         $opportunity = Opportunity::query()->where('state_id', $state->id)->firstOrFail();
 
+        // Persist the clone lineage onto the new row (C3e). The genesis
+        // OpportunityCreated has already projected this row; this event runs
+        // after it (and after the item/cost replays) within the same atomic
+        // clone commit, so the column is written exactly once and replay
+        // reproduces it deterministically from the stored source_opportunity_id.
+        if ($this->source_opportunity_id !== 0) {
+            $opportunity->forceFill(['source_opportunity_id' => $this->source_opportunity_id])->save();
+        }
+
         $this->recordAudit(
             $opportunity,
             'opportunity.cloned',

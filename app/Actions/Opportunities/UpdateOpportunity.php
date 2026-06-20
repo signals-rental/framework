@@ -22,13 +22,35 @@ class UpdateOpportunity
      * The clearable header fields, modelled as {@see Optional} on the DTO so an
      * EXPLICIT null clears the column while an absent key leaves it unchanged.
      */
-    private const OPTIONAL_FIELDS = ['venue_id', 'reference', 'description', 'external_description', 'tag_list'];
+    private const OPTIONAL_FIELDS = [
+        'venue_id', 'reference', 'description', 'external_description',
+        'chargeable_days', 'delivery_instructions', 'collection_instructions', 'tag_list',
+    ];
 
     /**
      * The remaining header fields use plain-nullable semantics: null means
      * "leave unchanged" (they are not clearable through this update).
      */
-    private const NULLABLE_FIELDS = ['subject', 'member_id', 'store_id', 'owned_by', 'starts_at', 'ends_at', 'charge_starts_at', 'charge_ends_at'];
+    private const NULLABLE_FIELDS = [
+        'subject', 'member_id', 'store_id', 'owned_by',
+        'starts_at', 'ends_at', 'charge_starts_at', 'charge_ends_at',
+        'prep_starts_at', 'prep_ends_at', 'load_starts_at', 'load_ends_at',
+        'deliver_starts_at', 'deliver_ends_at', 'setup_starts_at', 'setup_ends_at',
+        'show_starts_at', 'show_ends_at', 'takedown_starts_at', 'takedown_ends_at',
+        'collect_starts_at', 'collect_ends_at', 'unload_starts_at', 'unload_ends_at',
+        'deprep_starts_at', 'deprep_ends_at', 'ordered_at', 'quote_invalid_at',
+        'use_chargeable_days', 'open_ended_rental', 'customer_collecting', 'customer_returning',
+    ];
+
+    /**
+     * DTO field names that map to a differently-named event/state field, so the
+     * provided set carries the event's field name (which {@see OpportunityUpdated}
+     * matches against its FIELDS constant). The `invoiced` DTO field projects to
+     * the `is_invoiced` state property.
+     *
+     * @var array<string, string>
+     */
+    private const FIELD_ALIASES = ['invoiced' => 'is_invoiced'];
 
     public function __invoke(Opportunity $opportunity, UpdateOpportunityData $data): OpportunityData
     {
@@ -52,6 +74,34 @@ class UpdateOpportunity
                 ends_at: $data->ends_at,
                 charge_starts_at: $data->charge_starts_at,
                 charge_ends_at: $data->charge_ends_at,
+                prep_starts_at: $data->prep_starts_at,
+                prep_ends_at: $data->prep_ends_at,
+                load_starts_at: $data->load_starts_at,
+                load_ends_at: $data->load_ends_at,
+                deliver_starts_at: $data->deliver_starts_at,
+                deliver_ends_at: $data->deliver_ends_at,
+                setup_starts_at: $data->setup_starts_at,
+                setup_ends_at: $data->setup_ends_at,
+                show_starts_at: $data->show_starts_at,
+                show_ends_at: $data->show_ends_at,
+                takedown_starts_at: $data->takedown_starts_at,
+                takedown_ends_at: $data->takedown_ends_at,
+                collect_starts_at: $data->collect_starts_at,
+                collect_ends_at: $data->collect_ends_at,
+                unload_starts_at: $data->unload_starts_at,
+                unload_ends_at: $data->unload_ends_at,
+                deprep_starts_at: $data->deprep_starts_at,
+                deprep_ends_at: $data->deprep_ends_at,
+                ordered_at: $data->ordered_at,
+                quote_invalid_at: $data->quote_invalid_at,
+                use_chargeable_days: $data->use_chargeable_days,
+                chargeable_days: $this->resolveOptional($data->chargeable_days),
+                open_ended_rental: $data->open_ended_rental,
+                customer_collecting: $data->customer_collecting,
+                customer_returning: $data->customer_returning,
+                delivery_instructions: $this->resolveOptional($data->delivery_instructions),
+                collection_instructions: $this->resolveOptional($data->collection_instructions),
+                is_invoiced: $data->invoiced,
                 tag_list: $this->resolveTagList($data->tag_list),
             );
         });
@@ -86,6 +136,12 @@ class UpdateOpportunity
             if ($data->{$field} !== null) {
                 $provided[] = $field;
             }
+        }
+
+        // `invoiced` is a nullable-bool DTO field (null = unchanged) that projects
+        // to the differently-named `is_invoiced` state property.
+        if ($data->invoiced !== null) {
+            $provided[] = self::FIELD_ALIASES['invoiced'];
         }
 
         return $provided;

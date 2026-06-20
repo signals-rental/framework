@@ -26,11 +26,34 @@ class OpportunityUpdated extends Event
 {
     use RecordsOpportunityAudit;
 
+    /**
+     * The lifecycle/milestone datetime fields this event may touch. Each is
+     * carried as an ISO string in the payload and parsed to CarbonImmutable in
+     * apply() (mirroring `starts_at`/`charge_starts_at`).
+     */
+    private const DATE_FIELDS = [
+        'starts_at', 'ends_at', 'charge_starts_at', 'charge_ends_at',
+        'prep_starts_at', 'prep_ends_at', 'load_starts_at', 'load_ends_at',
+        'deliver_starts_at', 'deliver_ends_at', 'setup_starts_at', 'setup_ends_at',
+        'show_starts_at', 'show_ends_at', 'takedown_starts_at', 'takedown_ends_at',
+        'collect_starts_at', 'collect_ends_at', 'unload_starts_at', 'unload_ends_at',
+        'deprep_starts_at', 'deprep_ends_at', 'ordered_at', 'quote_invalid_at',
+    ];
+
     /** The header fields this event may touch, in projection order. */
     private const FIELDS = [
         'subject', 'member_id', 'venue_id', 'store_id', 'owned_by',
-        'reference', 'description', 'external_description', 'starts_at', 'ends_at',
-        'charge_starts_at', 'charge_ends_at', 'tag_list',
+        'reference', 'description', 'external_description',
+        'starts_at', 'ends_at', 'charge_starts_at', 'charge_ends_at',
+        'prep_starts_at', 'prep_ends_at', 'load_starts_at', 'load_ends_at',
+        'deliver_starts_at', 'deliver_ends_at', 'setup_starts_at', 'setup_ends_at',
+        'show_starts_at', 'show_ends_at', 'takedown_starts_at', 'takedown_ends_at',
+        'collect_starts_at', 'collect_ends_at', 'unload_starts_at', 'unload_ends_at',
+        'deprep_starts_at', 'deprep_ends_at', 'ordered_at', 'quote_invalid_at',
+        'use_chargeable_days', 'chargeable_days', 'open_ended_rental',
+        'customer_collecting', 'customer_returning',
+        'delivery_instructions', 'collection_instructions',
+        'is_invoiced', 'tag_list',
     ];
 
     /**
@@ -54,6 +77,34 @@ class OpportunityUpdated extends Event
         public ?string $ends_at = null,
         public ?string $charge_starts_at = null,
         public ?string $charge_ends_at = null,
+        public ?string $prep_starts_at = null,
+        public ?string $prep_ends_at = null,
+        public ?string $load_starts_at = null,
+        public ?string $load_ends_at = null,
+        public ?string $deliver_starts_at = null,
+        public ?string $deliver_ends_at = null,
+        public ?string $setup_starts_at = null,
+        public ?string $setup_ends_at = null,
+        public ?string $show_starts_at = null,
+        public ?string $show_ends_at = null,
+        public ?string $takedown_starts_at = null,
+        public ?string $takedown_ends_at = null,
+        public ?string $collect_starts_at = null,
+        public ?string $collect_ends_at = null,
+        public ?string $unload_starts_at = null,
+        public ?string $unload_ends_at = null,
+        public ?string $deprep_starts_at = null,
+        public ?string $deprep_ends_at = null,
+        public ?string $ordered_at = null,
+        public ?string $quote_invalid_at = null,
+        public ?bool $use_chargeable_days = null,
+        public ?string $chargeable_days = null,
+        public ?bool $open_ended_rental = null,
+        public ?bool $customer_collecting = null,
+        public ?bool $customer_returning = null,
+        public ?string $delivery_instructions = null,
+        public ?string $collection_instructions = null,
+        public ?bool $is_invoiced = null,
         /** @var list<string>|null */
         public ?array $tag_list = null,
     ) {}
@@ -69,13 +120,20 @@ class OpportunityUpdated extends Event
     public function apply(OpportunityState $state): void
     {
         foreach ($this->changedFields() as $field) {
-            $state->{$field} = match ($field) {
-                'starts_at', 'ends_at', 'charge_starts_at', 'charge_ends_at' => $this->{$field} !== null
+            $state->{$field} = match (true) {
+                // Datetime fields parse their ISO string to CarbonImmutable; a
+                // provided null clears the column.
+                in_array($field, self::DATE_FIELDS, true) => $this->{$field} !== null
                     ? CarbonImmutable::parse($this->{$field})
                     : null,
                 // A provided null clears the tags to an empty list, never null,
                 // so the projection's JSONB column stays a normalised array.
-                'tag_list' => $this->tag_list ?? [],
+                $field === 'tag_list' => $this->tag_list ?? [],
+                // The boolean flags are non-nullable on the state; a provided
+                // null coalesces to false so the state property never goes null.
+                in_array($field, ['use_chargeable_days', 'open_ended_rental', 'customer_collecting', 'customer_returning', 'is_invoiced'], true) => (bool) $this->{$field},
+                // chargeable_days (nullable decimal string) and all other scalars
+                // pass straight through.
                 default => $this->{$field},
             };
         }
@@ -91,7 +149,7 @@ class OpportunityUpdated extends Event
         $changedFields = $this->changedFields();
         $oldRow = Opportunity::query()->where('state_id', $state->id)->first();
         $oldValues = $oldRow !== null
-            ? $this->snapshotFrom($changedFields, fn (string $field): mixed => $this->normalise($oldRow->getAttribute($field)))
+            ? $this->snapshotFrom($changedFields, fn (string $field): mixed => $this->normalise($oldRow->getAttribute($this->columnFor($field))))
             : null;
 
         Opportunity::query()
@@ -109,6 +167,34 @@ class OpportunityUpdated extends Event
                 'ends_at' => $state->ends_at,
                 'charge_starts_at' => $state->charge_starts_at,
                 'charge_ends_at' => $state->charge_ends_at,
+                'prep_starts_at' => $state->prep_starts_at,
+                'prep_ends_at' => $state->prep_ends_at,
+                'load_starts_at' => $state->load_starts_at,
+                'load_ends_at' => $state->load_ends_at,
+                'deliver_starts_at' => $state->deliver_starts_at,
+                'deliver_ends_at' => $state->deliver_ends_at,
+                'setup_starts_at' => $state->setup_starts_at,
+                'setup_ends_at' => $state->setup_ends_at,
+                'show_starts_at' => $state->show_starts_at,
+                'show_ends_at' => $state->show_ends_at,
+                'takedown_starts_at' => $state->takedown_starts_at,
+                'takedown_ends_at' => $state->takedown_ends_at,
+                'collect_starts_at' => $state->collect_starts_at,
+                'collect_ends_at' => $state->collect_ends_at,
+                'unload_starts_at' => $state->unload_starts_at,
+                'unload_ends_at' => $state->unload_ends_at,
+                'deprep_starts_at' => $state->deprep_starts_at,
+                'deprep_ends_at' => $state->deprep_ends_at,
+                'ordered_at' => $state->ordered_at,
+                'quote_invalid_at' => $state->quote_invalid_at,
+                'use_chargeable_days' => $state->use_chargeable_days,
+                'chargeable_days' => $state->chargeable_days,
+                'open_ended_rental' => $state->open_ended_rental,
+                'customer_collecting' => $state->customer_collecting,
+                'customer_returning' => $state->customer_returning,
+                'delivery_instructions' => $state->delivery_instructions,
+                'collection_instructions' => $state->collection_instructions,
+                'invoiced' => $state->is_invoiced,
                 'tag_list' => $state->tag_list,
             ]);
 
@@ -148,6 +234,17 @@ class OpportunityUpdated extends Event
             self::FIELDS,
             fn (string $field): bool => in_array($field, $this->provided, true),
         ));
+    }
+
+    /**
+     * Map a logical field name to its projection COLUMN. The `is_invoiced` state
+     * property (RMS `is_invoiced` naming) projects to the `invoiced` column, so
+     * the old-value audit snapshot reads the right attribute; every other field
+     * name matches its column one-to-one.
+     */
+    protected function columnFor(string $field): string
+    {
+        return $field === 'is_invoiced' ? 'invoiced' : $field;
     }
 
     /**

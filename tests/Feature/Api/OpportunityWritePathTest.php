@@ -146,6 +146,70 @@ describe('custom_fields on mutation responses', function () {
     });
 });
 
+describe('C-data-1 scalar fields write path', function () {
+    it('persists lifecycle dates, chargeable days, and customer flags on create', function () {
+        $token = raWriteToken($this->owner);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/opportunities', [
+                'subject' => 'Scalar fields',
+                'deliver_starts_at' => '2026-07-02T08:00:00Z',
+                'collect_ends_at' => '2026-07-06T13:00:00Z',
+                'ordered_at' => '2026-06-15T09:30:00Z',
+                'quote_invalid_at' => '2026-06-30T23:59:00Z',
+                'use_chargeable_days' => true,
+                'chargeable_days' => '2.5',
+                'open_ended_rental' => true,
+                'customer_collecting' => true,
+                'customer_returning' => true,
+                'delivery_instructions' => 'Gate B',
+                'collection_instructions' => 'Bay 3',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('opportunity.deliver_starts_at', '2026-07-02T08:00:00.000Z')
+            ->assertJsonPath('opportunity.ordered_at', '2026-06-15T09:30:00.000Z')
+            ->assertJsonPath('opportunity.use_chargeable_days', true)
+            ->assertJsonPath('opportunity.chargeable_days', '2.5')
+            ->assertJsonPath('opportunity.open_ended_rental', true)
+            ->assertJsonPath('opportunity.customer_collecting', true)
+            ->assertJsonPath('opportunity.delivery_instructions', 'Gate B');
+
+        $opportunity = Opportunity::query()->findOrFail($response->json('opportunity.id'));
+        expect($opportunity->deliver_starts_at)->not->toBeNull()
+            ->and((bool) $opportunity->use_chargeable_days)->toBeTrue()
+            ->and((string) $opportunity->chargeable_days)->toBe('2.5')
+            ->and((bool) $opportunity->customer_returning)->toBeTrue()
+            ->and($opportunity->collection_instructions)->toBe('Bay 3');
+    });
+
+    it('wires the invoiced flag through the update path', function () {
+        $opportunity = raCreateOpportunity($this->owner, ['subject' => 'Invoice via API']);
+        $token = raWriteToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/opportunities/{$opportunity->id}", ['invoiced' => true])
+            ->assertOk()
+            ->assertJsonPath('opportunity.invoiced', true);
+
+        expect((bool) $opportunity->refresh()->invoiced)->toBeTrue();
+    });
+
+    it('filters opportunities by invoiced and customer_collecting', function () {
+        $invoiced = raCreateOpportunity($this->owner, ['subject' => 'Invoiced one', 'customer_collecting' => true]);
+        raCreateOpportunity($this->owner, ['subject' => 'Plain one']);
+
+        Opportunity::query()->whereKey($invoiced->id)->update(['invoiced' => true]);
+
+        $token = $this->owner->createToken('test', ['opportunities:read'])->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/opportunities?q[invoiced_true]=1')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('opportunities.0.id', $invoiced->id);
+    });
+});
+
 /**
  * Create an opportunity through the real event pipeline as the actor, then log
  * out so a tokened HTTP request authenticates solely via its bearer token.
