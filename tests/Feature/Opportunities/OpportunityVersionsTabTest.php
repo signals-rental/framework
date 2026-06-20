@@ -9,7 +9,7 @@ use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\CreateVersionData;
 use App\Enums\VersionStatus;
 use App\Enums\VersionType;
-use App\Models\Activity;
+use App\Models\ActionLog;
 use App\Models\Opportunity;
 use App\Models\OpportunityVersion;
 use App\Models\User;
@@ -106,28 +106,58 @@ it('renders the versions tab for a user with opportunities.view', function () {
         ->assertSee('Quote Versions');
 });
 
-it('renders both the version tree and the timeline on the merged tab', function () {
-    // The show-page restructure folded the standalone Activities tab into the
-    // Versions tab (renamed "Versions & Timeline"): the component now renders the
-    // quote-version tree (LEFT) AND the opportunity's activity timeline (RIGHT,
-    // labelled "Timeline") together in a two-column layout.
+it('renders the version tree alongside the read-only lifecycle event timeline', function () {
+    // B4: the RIGHT panel is the opportunity's OWN lifecycle event history (its
+    // action_logs rows — the model-event stream as originally spec'd), READ-ONLY,
+    // rendered next to the quote-version tree (LEFT) in a two-column layout. The
+    // helper fires real lifecycle events (created → item added → quoted) as the
+    // owner, so those audit rows appear with their human label and the firing actor.
     $opportunity = quotationForVersionsTab($this->owner);
     makeTabVersion($this->owner, $opportunity);
 
-    Activity::factory()->create([
-        'subject' => 'Follow up with client',
-        'regarding_type' => Opportunity::class,
-        'regarding_id' => $opportunity->id,
-        'owned_by' => $this->owner->id,
-    ]);
+    // The lifecycle events the helper fired are recorded against this opportunity.
+    expect(ActionLog::query()
+        ->forEntity($opportunity->getMorphClass(), $opportunity->id)
+        ->whereIn('action', ['opportunity.created', 'opportunity.quoted'])
+        ->count())->toBe(2);
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.versions', ['opportunity' => $opportunity->refresh()])
         ->assertOk()
-        ->assertSee('Quote Versions')
+        ->assertSee('Quote Versions')   // LEFT version panel still renders.
+        ->assertSee('Timeline')          // RIGHT lifecycle panel header.
+        ->assertSee('Opportunity created') // A seeded lifecycle event, human-labelled.
+        ->assertSee('Converted to quotation')
+        ->assertSee($this->owner->name); // The firing actor is shown on the entry.
+});
+
+it('shows the lifecycle timeline strictly read-only — no add-activity affordance', function () {
+    // B4 removes the old activities data-table + its "New Activity" button from this
+    // panel: the timeline is now a read-only event history with no way to add to it.
+    $opportunity = quotationForVersionsTab($this->owner);
+    makeTabVersion($this->owner, $opportunity);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.versions', ['opportunity' => $opportunity->refresh()])
+        ->assertOk()
         ->assertSee('Timeline')
-        ->assertSee('Follow up with client');
+        ->assertDontSee('New Activity');
+});
+
+it('renders the timeline empty state when the opportunity has no audit history', function () {
+    // A factory-built opportunity has no event stream and no action_logs, so the
+    // lifecycle timeline shows its read-only empty state (and still no add button).
+    $opportunity = Opportunity::factory()->create();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.versions', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertSee('Timeline')
+        ->assertSee('No history yet')
+        ->assertDontSee('New Activity');
 });
 
 it('forbids the versions tab for a user without opportunities.view', function () {

@@ -17,8 +17,15 @@
         default => 's-badge-zinc',
     };
     $status = $opportunity->statusEnum();
+
+    // B6: surface the active quote version number after the subject in the header
+    // title (e.g. "Subject — v3"). Omitted gracefully when there is no active version.
+    $activeVersionNumber = $opportunity->activeVersion?->version_number;
+    $headerTitle = $activeVersionNumber
+        ? $opportunity->subject.' — v'.$activeVersionNumber
+        : $opportunity->subject;
 @endphp
-<x-signals.page-header :title="$opportunity->subject">
+<x-signals.page-header :title="$headerTitle">
     <x-slot:breadcrumbs>
         <a href="{{ route('opportunities.index') }}" wire:navigate class="text-[var(--link)] hover:underline">Opportunities</a>
         <span class="mx-1 text-[var(--text-muted)]">/</span>
@@ -44,27 +51,16 @@
         </a>
         @if($showActions ?? false)
             {{-- $availableActions is provided by the overview component's with(); each
-                 verdict is {key, label, allowed, reason, code}. Allowed actions render
-                 as wire:click buttons; denials render greyed-out with the reason as a
-                 tooltip. Map: convert_to_quotation→convertToQuotation,
-                 convert_to_order→convertToOrder, reinstate→reinstate,
-                 revert_to_quotation→revertToQuotation, clone→cloneOpportunity,
-                 unlock_locks→unlockRates, delete→archive. --}}
+                 verdict is {key, label, allowed, reason, code}. Allowed actions stage a
+                 styled confirmation (B1): the item calls prepareAction(key, label,
+                 message) and opens the shared `confirm-action` modal rather than firing
+                 a native wire:confirm dialog. Confirm there runs confirmPendingAction(),
+                 which dispatches to the whitelisted wire method on the Show component.
+                 Denials render greyed-out with the reason as a tooltip. --}}
             @php
-                $actionMethods = [
-                    'convert_to_quotation' => 'convertToQuotation',
-                    'convert_to_order' => 'convertToOrder',
-                    'reinstate' => 'reinstate',
-                    'revert_to_quotation' => 'revertToQuotation',
-                    'unlock_locks' => 'unlockRates',
-                    'clone' => 'cloneOpportunity',
-                    'delete' => 'archive',
-                ];
-                // Every Actions item requires confirmation before it fires (an extra
-                // gate on top of the guard/permission dry-run). Mirrors the index-page
-                // archive-confirm intent using Livewire's native wire:confirm so the
-                // dropdown-item action is blocked until the user accepts.
-                $actionConfirms = [
+                // The confirmation copy shown in the shared modal, per verdict key. The
+                // key→wire-method mapping lives on the component (confirmableActions()).
+                $actionMessages = [
                     'convert_to_quotation' => __('Convert this opportunity to a quotation?'),
                     'convert_to_order' => __('Convert this quotation to an order? Reserved demand becomes confirmed.'),
                     'reinstate' => __('Reinstate this opportunity?'),
@@ -88,16 +84,15 @@
                     <div class="s-dropdown-divider"></div>
                 @endif
                 @foreach(($availableActions ?? []) as $action)
-                    @php $method = $actionMethods[$action['key']] ?? null; @endphp
+                    @php $message = $actionMessages[$action['key']] ?? __('Are you sure?'); @endphp
                     @if($action['key'] === 'clone')
                         <div class="s-dropdown-divider"></div>
                     @endif
-                    @if($action['allowed'] && $method)
+                    @if($action['allowed'] && isset($actionMessages[$action['key']]))
                         <button
                             type="button"
-                            wire:click="{{ $method }}"
-                            wire:confirm="{{ $actionConfirms[$action['key']] ?? __('Are you sure?') }}"
-                            x-on:click="open = false"
+                            wire:click="prepareAction('{{ $action['key'] }}', @js($action['label']), @js($message))"
+                            x-on:click="open = false; $dispatch('open-modal', 'confirm-action')"
                             class="s-dropdown-item"
                             style="width: 100%; text-align: left;"
                             wire:key="action-{{ $action['key'] }}"

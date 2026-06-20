@@ -4,11 +4,21 @@
     // `items()` is already active-version-scoped (opportunity-lifecycle.md §8.7).
     $opportunity->loadCount(['items', 'costs', 'attachments', 'participants']);
 
-    // The Shortages tab is gated on `shortages.view`; the live shortage count
-    // (computed, never stored) drives the badge so the tab flags outstanding
-    // shortfall at a glance. Detection only ever runs for users who can see it.
+    // B3: allocation/dispatch (Assets) and shortage resolution (Shortages) only
+    // apply once demand is committed — i.e. for an ORDER, or a QUOTATION that has
+    // been moved to RESERVED. The two tabs are hidden for drafts and open (non-
+    // reserved) quotations. Derived from the state/status enums, never a hardcoded
+    // status list, so configurable statuses inherit the predicate.
+    $allocationTabsVisible = $opportunity->state === \App\Enums\OpportunityState::Order
+        || ($opportunity->state === \App\Enums\OpportunityState::Quotation
+            && $opportunity->statusEnum() === \App\Enums\OpportunityStatus::QuotationReserved);
+
+    // The Shortages tab is additionally gated on `shortages.view`; the live shortage
+    // count (computed, never stored) drives the badge so the tab flags outstanding
+    // shortfall at a glance. Detection only ever runs for users who can see it AND
+    // only when the allocation tabs are visible at all.
     $shortageTabCount = 0;
-    if (\Illuminate\Support\Facades\Gate::allows('shortages.view')) {
+    if ($allocationTabsVisible && \Illuminate\Support\Facades\Gate::allows('shortages.view')) {
         $shortageTabCount = app(\App\Services\Shortages\ShortageDetector::class)
             ->forOpportunity($opportunity)
             ->unresolved()
@@ -28,11 +38,13 @@
 <x-signals.module-tabs
     :tabs="array_values(array_filter([
         ['name' => 'overview', 'label' => 'Overview', 'route' => route('opportunities.show', $opportunity)],
-        ['name' => 'assets', 'label' => 'Assets', 'route' => route('opportunities.assets', $opportunity)],
+        $allocationTabsVisible
+            ? ['name' => 'assets', 'label' => 'Assets', 'route' => route('opportunities.assets', $opportunity)]
+            : null,
         \Illuminate\Support\Facades\Gate::allows('opportunities.view')
             ? ['name' => 'versions', 'label' => 'Versions & Timeline', 'route' => route('opportunities.versions', $opportunity), 'count' => $opportunity->version_count ?? 0]
             : null,
-        \Illuminate\Support\Facades\Gate::allows('shortages.view')
+        $allocationTabsVisible && \Illuminate\Support\Facades\Gate::allows('shortages.view')
             ? ['name' => 'shortages', 'label' => 'Shortages', 'route' => route('opportunities.shortages', $opportunity), 'count' => $shortageTabCount]
             : null,
         ['name' => 'costs', 'label' => 'Costs', 'route' => route('opportunities.costs', $opportunity), 'count' => $opportunity->costs_count ?? 0],

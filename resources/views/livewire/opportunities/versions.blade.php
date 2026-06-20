@@ -14,12 +14,15 @@ use App\Data\Opportunities\VersionDiffData;
 use App\Enums\OpportunityState;
 use App\Enums\VersionStatus;
 use App\Enums\VersionType;
-use App\Livewire\Concerns\HasActivityActions;
+use App\Livewire\Concerns\HasAuditTimeline;
+use App\Models\ActionLog;
 use App\Models\Opportunity;
 use App\Models\OpportunityVersion;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -42,10 +45,18 @@ use Livewire\Volt\Component;
  * and the opportunity's state (a Quotation): the legality mirrors the validate()
  * guards on the underlying version events, so an illegal move is never surfaced and,
  * if raced, surfaces as a flashed 422 rather than a crash.
+ *
+ * The RIGHT panel is the opportunity's own lifecycle event history (B4) — the
+ * model-event timeline as originally spec'd (opportunity-lifecycle.md §"event stream
+ * provides full audit trail"). It is rendered READ-ONLY from the opportunity's
+ * `action_logs` rows: every state-mutating Verbs event records one human-readable
+ * audit row (action key + actor + timestamp + old→new) via {@see RecordsOpportunityAudit},
+ * replay-stable and carrying the firing actor that the raw `verb_events.metadata`
+ * does not round-trip after replay (M2). There is NO ability to add timeline entries.
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
-    use HasActivityActions;
+    use HasAuditTimeline;
 
     public Opportunity $opportunity;
 
@@ -323,9 +334,178 @@ new #[Layout('components.layouts.app')] class extends Component
             'versions' => $versions,
             'versionCount' => $versions->count(),
             'diff' => $this->diff($versions),
-            // Activity timeline (folded in from the former standalone Activities tab).
-            'activityColumns' => $this->activityColumns(),
-            'activityScopes' => ['forOpportunity' => $this->opportunity->id],
+            // The opportunity's lifecycle event history (B4) — read-only, newest-first.
+            'timeline' => $this->lifecycleTimeline(),
+        ];
+    }
+
+    /**
+     * The opportunity's own lifecycle event history, newest-first, shaped for the
+     * read-only timeline render. Sourced from `action_logs` (each Verbs event records
+     * one replay-stable audit row with the firing actor), capped at
+     * {@see HasAuditTimeline::$auditTimelineLimit}.
+     *
+     * @return Collection<int, array{title: string, color: ?string, icon: string, actor: ?string, at: ?Carbon, detail: ?string}>
+     */
+    protected function lifecycleTimeline(): Collection
+    {
+        return ActionLog::query()
+            ->with('user')
+            ->forEntity($this->opportunity->getMorphClass(), (int) $this->opportunity->id)
+            ->latest('created_at')
+            ->latest('id')
+            ->limit($this->auditTimelineLimit)
+            ->get()
+            ->map(fn (ActionLog $log): array => [
+                'title' => $this->lifecycleLabel($log->action),
+                'color' => $this->timelineColor($log->action),
+                'icon' => $this->lifecycleIcon($log->action),
+                'actor' => $log->user?->name,
+                'at' => $log->created_at instanceof Carbon ? $log->created_at : null,
+                'detail' => $this->lifecycleDetail($log),
+            ])
+            ->values();
+    }
+
+    /**
+     * Human label for a lifecycle action key. A small explicit map covers the keys
+     * whose default headline reads awkwardly; everything else falls back to a
+     * headline of the suffix (e.g. `opportunity.item_added` → "Item added").
+     */
+    protected function lifecycleLabel(string $action): string
+    {
+        $suffix = Str::after($action, 'opportunity.');
+
+        return $this->lifecycleLabelMap()[$suffix]
+            ?? Str::of($suffix)->replace('_', ' ')->ucfirst()->toString();
+    }
+
+    /**
+     * Explicit suffix → label overrides for the lifecycle timeline.
+     *
+     * @return array<string, string>
+     */
+    protected function lifecycleLabelMap(): array
+    {
+        return [
+            'created' => __('Opportunity created'),
+            'updated' => __('Details updated'),
+            'quoted' => __('Converted to quotation'),
+            'converted_to_order' => __('Converted to order'),
+            'status_changed' => __('Status changed'),
+            'status_promoted' => __('Status promoted'),
+            'reverted_to_quotation' => __('Reverted to quotation'),
+            'reinstated' => __('Reinstated'),
+            'restored' => __('Restored'),
+            'deleted' => __('Deleted'),
+            'cloned' => __('Cloned'),
+            'item_added' => __('Item added'),
+            'item_removed' => __('Item removed'),
+            'item_quantity_changed' => __('Item quantity changed'),
+            'item_price_overridden' => __('Item price overridden'),
+            'item_discount_set' => __('Item discount set'),
+            'item_dates_changed' => __('Item dates changed'),
+            'item_substituted' => __('Item substituted'),
+            'items_reordered' => __('Items reordered'),
+            'deal_price_set' => __('Deal price set'),
+            'deal_price_cleared' => __('Deal price cleared'),
+            'cost_added' => __('Cost added'),
+            'cost_updated' => __('Cost updated'),
+            'cost_removed' => __('Cost removed'),
+            'asset_allocated' => __('Asset allocated'),
+            'asset_deallocated' => __('Asset de-allocated'),
+            'asset_prepared' => __('Asset prepared'),
+            'asset_dispatched' => __('Asset dispatched'),
+            'asset_on_hire' => __('Asset on hire'),
+            'asset_returned' => __('Asset returned'),
+            'asset_checked' => __('Asset checked'),
+            'asset_substituted' => __('Asset substituted'),
+            'bulk_dispatched' => __('Bulk dispatched'),
+            'bulk_returned' => __('Bulk returned'),
+            'version_created' => __('Version created'),
+            'version_activated' => __('Version activated'),
+            'version_sent' => __('Version sent'),
+            'version_accepted' => __('Version accepted'),
+            'version_declined' => __('Version declined'),
+            'version_relabelled' => __('Version relabelled'),
+            'version_deleted' => __('Version deleted'),
+            'version_superseded' => __('Version superseded'),
+        ];
+    }
+
+    /**
+     * Flux icon name for a lifecycle action, grouped by domain (status, items,
+     * assets/dispatch, versions, lifecycle), for at-a-glance scanning.
+     */
+    protected function lifecycleIcon(string $action): string
+    {
+        $suffix = Str::after($action, 'opportunity.');
+
+        return match (true) {
+            $suffix === 'created' => 'sparkles',
+            $suffix === 'deleted' => 'trash',
+            in_array($suffix, ['converted_to_order', 'quoted', 'status_changed', 'status_promoted', 'reverted_to_quotation', 'reinstated', 'restored', 'cloned'], true) => 'arrow-path-rounded-square',
+            in_array($suffix, ['asset_dispatched', 'bulk_dispatched', 'asset_on_hire'], true) => 'truck',
+            in_array($suffix, ['asset_returned', 'bulk_returned', 'asset_checked'], true) => 'arrow-uturn-left',
+            Str::startsWith($suffix, 'asset_') => 'cube',
+            Str::startsWith($suffix, 'item') => 'list-bullet',
+            Str::startsWith($suffix, 'version_') => 'document-duplicate',
+            Str::contains($suffix, ['price', 'cost', 'deal']) => 'currency-pound',
+            default => 'clock',
+        };
+    }
+
+    /**
+     * A compact old→new detail line where the audit row carries a meaningful
+     * before/after (e.g. a status change), else null. Scalar values only — nested
+     * payloads are summarised as a key list rather than dumped.
+     */
+    protected function lifecycleDetail(ActionLog $log): ?string
+    {
+        $new = $log->new_values ?? [];
+        $old = $log->old_values ?? [];
+
+        if (array_key_exists('status', $new)) {
+            $from = $this->scalarLabel($old['status'] ?? null);
+            $to = $this->scalarLabel($new['status'] ?? null);
+
+            if ($to !== null) {
+                return $from !== null ? "{$from} → {$to}" : $to;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Render a scalar audit value as a short label, or null when not scalar/empty.
+     */
+    protected function scalarLabel(mixed $value): ?string
+    {
+        if ($value === null || $value === '' || is_array($value)) {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value ? __('Yes') : __('No');
+        }
+
+        return Str::of((string) $value)->replace('_', ' ')->ucfirst()->toString();
+    }
+
+    /**
+     * Opportunity lifecycle colours: creation/restoration green, deletion red,
+     * order/dispatch transitions blue, returns amber.
+     *
+     * @return array<string, list<string>>
+     */
+    protected function timelineColorMap(): array
+    {
+        return [
+            'green' => ['.created', '.restored', '.reinstated', '.version_accepted', '.asset_returned'],
+            'red' => ['.deleted', '.version_declined', '.item_removed', '.asset_deallocated'],
+            'blue' => ['.converted_to_order', '.status_promoted', '.asset_dispatched', '.bulk_dispatched', '.asset_on_hire', '.version_activated'],
+            'amber' => ['.status_changed', '.reverted_to_quotation', '.bulk_returned'],
         ];
     }
 }; ?>
@@ -568,32 +748,47 @@ new #[Layout('components.layouts.app')] class extends Component
 
         </div>{{-- /LEFT column --}}
 
-        {{-- ---------- RIGHT: activity timeline ---------- --}}
+        {{-- ---------- RIGHT: lifecycle event timeline (read-only) ---------- --}}
         <div class="min-w-0 space-y-6">
 
         {{-- ============================================================ --}}
-        {{--  TIMELINE (folded in from the former Activities tab)          --}}
+        {{--  TIMELINE (B4) — the opportunity's own lifecycle event        --}}
+        {{--  history (action_logs), READ-ONLY, newest-first. No add.      --}}
         {{-- ============================================================ --}}
         <x-signals.panel title="{{ __('Timeline') }}">
-            <x-slot:headerActions>
-                <a href="{{ route('activities.create', ['regarding_type' => 'Opportunity', 'regarding_id' => $opportunity->id]) }}" wire:navigate class="s-btn s-btn-sm s-btn-primary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    {{ __('New Activity') }}
-                </a>
-            </x-slot:headerActions>
+            @if($timeline->isEmpty())
+                <x-signals.empty
+                    title="{{ __('No history yet') }}"
+                    description="{{ __('The opportunity\'s lifecycle events — status changes, line items, dispatch and returns — appear here as they happen.') }}">
+                    <x-slot:icon><flux:icon.clock class="!size-7" /></x-slot:icon>
+                </x-signals.empty>
+            @else
+                <x-signals.timeline>
+                    @foreach($timeline as $event)
+                        <x-signals.timeline-item
+                            :color="$event['color']"
+                            :title="$event['title']"
+                            wire:key="timeline-{{ $loop->index }}"
+                        >
+                            <x-slot:icon>
+                                <flux:icon :icon="$event['icon']" class="!size-3.5" />
+                            </x-slot:icon>
 
-            <livewire:components.data-table
-                :columns="$activityColumns"
-                :model="\App\Models\Activity::class"
-                :searchable="['subject']"
-                :with="['owner']"
-                :scopes="$activityScopes"
-                :refresh-events="['activity-completed', 'activity-deleted']"
-                default-sort="-created_at"
-                empty-message="No activities for this opportunity."
-                actions-view="livewire.activities.partials.row-actions"
-                :key="'opportunity-activities-' . $opportunity->id"
-            />
+                            <div class="flex flex-col gap-0.5">
+                                @if($event['detail'])
+                                    <span class="font-medium text-[var(--text-default)]">{{ $event['detail'] }}</span>
+                                @endif
+                                <span class="text-[12px] text-[var(--text-muted)]">
+                                    @if($event['at'])@localdatetime($event['at'])@endif
+                                    @if($event['actor'])
+                                        · {{ __('by') }} {{ $event['actor'] }}
+                                    @endif
+                                </span>
+                            </div>
+                        </x-signals.timeline-item>
+                    @endforeach
+                </x-signals.timeline>
+            @endif
         </x-signals.panel>
 
         </div>{{-- /RIGHT column --}}

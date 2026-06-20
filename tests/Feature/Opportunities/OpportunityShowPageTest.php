@@ -113,20 +113,84 @@ it('renders the convert-to-quotation action button on a draft for an owner', fun
         ->assertSee('Convert to Quotation');
 });
 
-it('gates every allowed Actions split-button item behind a confirm', function () {
-    // Each available (allowed) Actions item must require a confirmation before it
-    // fires — rendered as a wire:confirm on the dropdown button. A draft has
-    // convert_to_quotation, clone and archive allowed for an owner.
+it('gates every allowed Actions split-button item behind the shared confirm modal', function () {
+    // B1: each allowed Actions item stages a styled confirmation rather than firing a
+    // native wire:confirm dialog — it calls prepareAction(...) and opens the shared
+    // `confirm-action` modal. A draft has convert_to_quotation, clone and archive
+    // allowed for an owner, each rendered as a prepareAction call (NOT wire:confirm).
     $opportunity = Opportunity::factory()->create();
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
         ->assertOk()
-        // convert_to_quotation, clone and archive confirms.
-        ->assertSeeHtml('wire:confirm="Convert this opportunity to a quotation?"')
-        ->assertSeeHtml('wire:confirm="Clone this opportunity into a new draft?"')
-        ->assertSeeHtml('wire:confirm="Archive this opportunity? It can be restored later."');
+        // The native JS confirm has been removed entirely.
+        ->assertDontSeeHtml('wire:confirm')
+        // Each allowed item stages its key through prepareAction and opens the modal.
+        ->assertSeeHtml("prepareAction('convert_to_quotation'")
+        ->assertSeeHtml("prepareAction('clone'")
+        ->assertSeeHtml("prepareAction('delete'")
+        ->assertSeeHtml("open-modal', 'confirm-action'")
+        // The single shared confirm modal + its confirm trigger are present.
+        ->assertSeeHtml('wire:click="confirmPendingAction"');
+});
+
+it('runs the staged Actions item through confirmPendingAction (clone)', function () {
+    // Staging `clone` then confirming must dispatch to cloneOpportunity, which
+    // clones the opportunity and redirects to the new record's show page.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Clone Via Modal');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('prepareAction', 'clone', 'Clone', 'Clone this opportunity into a new draft?')
+        ->assertSet('pendingAction', 'clone')
+        ->call('confirmPendingAction')
+        ->assertSet('pendingAction', null)
+        ->assertRedirect();
+
+    // A second opportunity now exists (the clone).
+    expect(Opportunity::query()->count())->toBe(2);
+});
+
+it('runs the staged Actions item through confirmPendingAction (convert_to_quotation)', function () {
+    // Staging `convert_to_quotation` then confirming must dispatch to the
+    // convertToQuotation transition, moving the draft to a quotation.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Convert Via Modal');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('prepareAction', 'convert_to_quotation', 'Convert to Quotation', 'Convert this opportunity to a quotation?')
+        ->call('confirmPendingAction')
+        ->assertSet('pendingAction', null);
+
+    expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
+});
+
+it('ignores a confirmPendingAction call with no staged action', function () {
+    // Defensive: confirming with nothing staged is a harmless no-op (the draft is
+    // unchanged) and clears any pending state.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'No Staged Action');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('confirmPendingAction')
+        ->assertSet('pendingAction', null);
+
+    expect($opportunity->fresh()->state)->toBe(OpportunityState::Draft);
+});
+
+it('does not stage an unconfirmable key via prepareAction', function () {
+    // prepareAction whitelists the confirmable keys; an unknown key is not staged.
+    $opportunity = Opportunity::factory()->create();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('prepareAction', 'not_a_real_action', 'Bogus', 'Nope')
+        ->assertSet('pendingAction', null);
 });
 
 it('gates edit-requiring actions as permission_denied for a view-only user', function () {
@@ -206,6 +270,87 @@ it('omits the version row when the opportunity has no active version', function 
     Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
         ->assertOk()
         ->assertDontSee('v1');
+});
+
+it('shows the active version number in the page header after the subject', function () {
+    // B6: the page-header title carries the active version number after the subject
+    // (e.g. "Subject — v3"), derived from the opportunity's active version.
+    $opportunity = Opportunity::factory()->quotation()->create(['subject' => 'Header Version Opp']);
+
+    $version = OpportunityVersion::factory()->create([
+        'opportunity_id' => $opportunity->id,
+        'version_number' => 4,
+    ]);
+
+    $opportunity->forceFill(['active_version_id' => $version->id])->save();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
+        ->assertOk()
+        ->assertSee('Header Version Opp — v4');
+});
+
+it('omits the header version suffix when the opportunity has no active version', function () {
+    // B6: with no active version the title is just the subject (no "— v" suffix).
+    $opportunity = Opportunity::factory()->create(['subject' => 'No Header Version', 'active_version_id' => 0]);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
+        ->assertOk()
+        ->assertSee('No Header Version')
+        ->assertDontSee('No Header Version — v');
+});
+
+it('hides the Assets and Shortages tabs for a draft opportunity', function () {
+    // B3: allocation/dispatch + shortage resolution only apply to a reserved
+    // quotation or an order — a draft shows neither tab.
+    $opportunity = Opportunity::factory()->create(['subject' => 'Draft Tabs']);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertDontSee(route('opportunities.assets', $opportunity))
+        ->assertDontSee(route('opportunities.shortages', $opportunity));
+});
+
+it('hides the Assets and Shortages tabs for an open (non-reserved) quotation', function () {
+    // B3: a provisional quotation is not yet reserved, so the allocation tabs stay
+    // hidden.
+    $opportunity = Opportunity::factory()->quotation()->create(['subject' => 'Open Quote Tabs']);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertDontSee(route('opportunities.assets', $opportunity))
+        ->assertDontSee(route('opportunities.shortages', $opportunity));
+});
+
+it('shows the Assets and Shortages tabs for a reserved quotation', function () {
+    // B3: a quotation in Reserved status DOES surface both allocation tabs.
+    $opportunity = Opportunity::factory()->reserved()->create(['subject' => 'Reserved Quote Tabs']);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertSee(route('opportunities.assets', $opportunity))
+        ->assertSee(route('opportunities.shortages', $opportunity));
+});
+
+it('shows the Assets and Shortages tabs for an order', function () {
+    // B3: an order surfaces both allocation tabs.
+    $opportunity = Opportunity::factory()->order()->create(['subject' => 'Order Tabs']);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertSee(route('opportunities.assets', $opportunity))
+        ->assertSee(route('opportunities.shortages', $opportunity));
 });
 
 it('renders a configured custom field on the custom-fields tab', function () {
@@ -318,6 +463,38 @@ it('moves a quotation to a legal status via the change_status picker', function 
         ->call('changeStatus', OpportunityStatus::QuotationReserved->statusValue());
 
     expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::QuotationReserved);
+});
+
+it('closes the change-status modal on a successful status change', function () {
+    // B2: a successful change_status move dispatches `close-modal` for `change-status`
+    // so the picker modal closes.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Close On Success');
+    (new ConvertToQuotation)($opportunity);
+    $opportunity = $opportunity->fresh();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('changeStatus', OpportunityStatus::QuotationReserved->statusValue())
+        ->assertDispatched('close-modal', 'change-status');
+
+    expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::QuotationReserved);
+});
+
+it('keeps the change-status modal open when the target status is invalid', function () {
+    // B2: an illegal target flashes an error and leaves the status unchanged — the
+    // modal stays open (no close-modal dispatch) so the reason is visible.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Stay Open On Error');
+    (new ConvertToQuotation)($opportunity);
+    $opportunity = $opportunity->fresh();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('changeStatus', 9)
+        ->assertNotDispatched('close-modal');
+
+    expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::QuotationProvisional);
 });
 
 it('rejects an illegal change_status target not belonging to the current state', function () {

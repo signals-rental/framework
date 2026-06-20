@@ -39,11 +39,79 @@ new #[Layout('components.layouts.app')] class extends Component
 {
     public Opportunity $opportunity;
 
+    /**
+     * The Actions split-button items confirm through a single shared styled modal
+     * (B1) rather than per-item native JS dialogs: an item sets the pending wire
+     * method + its label/message and opens `confirm-action`; the modal's Confirm
+     * button calls confirmPendingAction(), which dispatches to the stored method.
+     * Only the methods whitelisted in confirmableActions() may be invoked this way.
+     */
+    public ?string $pendingAction = null;
+
+    public string $pendingLabel = '';
+
+    public string $pendingMessage = '';
+
     public function mount(Opportunity $opportunity): void
     {
         Gate::authorize('opportunities.view');
 
         $this->opportunity = $opportunity->load(['member', 'venue', 'store', 'owner', 'activeVersion']);
+    }
+
+    /**
+     * The Actions wire-methods that may be invoked through the shared confirm modal,
+     * keyed by the verdict key the header renders. Whitelisting the dispatch target
+     * keeps confirmPendingAction() from calling arbitrary component methods.
+     *
+     * @return array<string, string>
+     */
+    protected function confirmableActions(): array
+    {
+        return [
+            'convert_to_quotation' => 'convertToQuotation',
+            'convert_to_order' => 'convertToOrder',
+            'reinstate' => 'reinstate',
+            'revert_to_quotation' => 'revertToQuotation',
+            'unlock_locks' => 'unlockRates',
+            'clone' => 'cloneOpportunity',
+            'delete' => 'archive',
+        ];
+    }
+
+    /**
+     * Stage an Actions item for confirmation: record the pending verdict key (mapped
+     * to a whitelisted wire method) plus the label/message the shared modal shows.
+     * The header opens the `confirm-action` modal once this has been set.
+     */
+    public function prepareAction(string $key, string $label, string $message): void
+    {
+        if (! array_key_exists($key, $this->confirmableActions())) {
+            return;
+        }
+
+        $this->pendingAction = $key;
+        $this->pendingLabel = $label;
+        $this->pendingMessage = $message;
+    }
+
+    /**
+     * Run the staged Actions item. Dispatches to the whitelisted wire method, closes
+     * the confirm modal, and clears the pending state. A no-op when nothing is staged
+     * or the staged key is not confirmable (defensive — the UI never stages otherwise).
+     */
+    public function confirmPendingAction(): mixed
+    {
+        $method = $this->confirmableActions()[$this->pendingAction] ?? null;
+
+        $this->pendingAction = null;
+        $this->dispatch('close-modal', 'confirm-action');
+
+        if ($method === null) {
+            return null;
+        }
+
+        return $this->{$method}();
     }
 
     public function rendering(View $view): void
@@ -114,7 +182,13 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $this->runTransition(fn () => (new ChangeOpportunityStatus)($this->opportunity, $target));
 
-        $this->dispatch('close-modal', 'change-status');
+        // B2: only close the change-status modal once the move actually succeeded.
+        // runTransition() flashes an `error` on an authorisation/guard failure and
+        // leaves the status unchanged — keep the modal open in that case so the
+        // flashed reason is visible and the user can pick a different target.
+        if (! session()->has('error')) {
+            $this->dispatch('close-modal', 'change-status');
+        }
     }
 
     /**
@@ -487,7 +561,6 @@ new #[Layout('components.layouts.app')] class extends Component
                         <button type="button"
                                 wire:key="status-option-{{ $option['value'] }}"
                                 wire:click="changeStatus({{ $option['value'] }})"
-                                wire:confirm="{{ __('Change the status to :label?', ['label' => $option['label']]) }}"
                                 class="s-btn s-btn-outline-blue w-full justify-start">
                             {{ $option['label'] }}
                         </button>
@@ -500,4 +573,28 @@ new #[Layout('components.layouts.app')] class extends Component
             </x-slot:footer>
         </x-signals.modal>
     @endif
+
+    {{-- ============================================================ --}}
+    {{--  SHARED ACTION-CONFIRM MODAL (B1)                             --}}
+    {{--                                                               --}}
+    {{--  A single styled modal confirms EVERY Actions split-button    --}}
+    {{--  item (clone, archive, convert×2, reinstate, revert, unlock)  --}}
+    {{--  in place of per-item native `wire:confirm` dialogs. Each     --}}
+    {{--  header item stages the pending action (prepareAction) + opens --}}
+    {{--  this modal; Confirm calls confirmPendingAction(), which       --}}
+    {{--  dispatches to the staged, whitelisted wire method and closes  --}}
+    {{--  the modal. Mirrors the index-page archive-confirm styling.    --}}
+    {{-- ============================================================ --}}
+    <x-signals.modal name="confirm-action" title="{{ $pendingLabel ?: __('Confirm action') }}" size="sm">
+        <p class="text-sm text-[var(--text-muted)]">{{ $pendingMessage ?: __('Are you sure?') }}</p>
+
+        <x-slot:footer>
+            <button type="button" x-on:click="$dispatch('close-modal', 'confirm-action')" class="s-btn s-btn-sm">{{ __('Cancel') }}</button>
+            <button type="button"
+                    wire:click="confirmPendingAction"
+                    class="s-btn s-btn-sm s-btn-primary">
+                {{ $pendingLabel ?: __('Confirm') }}
+            </button>
+        </x-slot:footer>
+    </x-signals.modal>
 </section>
