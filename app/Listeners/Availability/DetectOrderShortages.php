@@ -12,6 +12,7 @@ use App\Services\Shortages\ShortageDetector;
 use App\Services\Shortages\ShortageEventRecorder;
 use App\ValueObjects\ShortageCollection;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Builder;
 use Thunk\Verbs\Facades\Verbs;
 
 /**
@@ -63,12 +64,18 @@ class DetectOrderShortages implements ShouldQueue
 
         OpportunityItem::query()
             ->whereIn('id', $itemIds)
+            // Narrow to lines whose parent opportunity is an Order at the DB level
+            // rather than loading every line and filtering in PHP.
+            ->whereHas('opportunity', fn (Builder $query) => $query->where('state', OpportunityState::Order->value))
             ->with('opportunity')
             ->get()
             ->each(function (OpportunityItem $item): void {
                 $opportunity = $item->opportunity;
 
-                if ($opportunity === null || $opportunity->state !== OpportunityState::Order) {
+                // The opportunity is guaranteed present and an Order by the
+                // whereHas above; this guards only against a row vanishing between
+                // the filtered read and the eager load.
+                if ($opportunity === null) {
                     return;
                 }
 

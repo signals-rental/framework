@@ -8,8 +8,9 @@ use App\Models\AvailabilityEvent;
  * The kinds of event recorded in the `availability_events` log.
  *
  * Demand lifecycle changes, recalculations, stock changes and overdue
- * extensions are wired today (M2 + M3). Shortage detection/clear and resolution
- * events are emitted by the shortage subsystem (M3-5 Track C).
+ * extensions (the latter via {@see self::DemandOverdue}) are wired today
+ * (M2 + M3). Shortage detection/clear and resolution events are emitted by the
+ * shortage subsystem (M3-5 Track C).
  *
  * @see AvailabilityEvent
  */
@@ -23,9 +24,6 @@ enum AvailabilityEventType: string
 
     /** A demand was deactivated (moved to Closed or Void). */
     case DemandReleased = 'demand_released';
-
-    /** A demand's period was extended (overdue / turnaround). */
-    case DemandExtended = 'demand_extended';
 
     /** A stock level was adjusted (purchase, write-off, count). */
     case StockChanged = 'stock_changed';

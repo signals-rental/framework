@@ -1,12 +1,14 @@
 <?php
 
 use App\Actions\Opportunities\AddOpportunityItem;
+use App\Actions\Opportunities\AllocateAsset;
 use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ClearDealPrice;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
+use App\Actions\Opportunities\DispatchBulkQuantity;
 use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\SetDealPrice;
@@ -14,6 +16,8 @@ use App\Actions\Opportunities\SetItemDiscount;
 use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
 use App\Data\Opportunities\AddOpportunityItemData;
+use App\Data\Opportunities\AllocateAssetData;
+use App\Data\Opportunities\BulkDispatchData;
 use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunityData;
@@ -26,9 +30,13 @@ use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
+use App\Models\Product;
+use App\Models\StockLevel;
+use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Thunk\Verbs\Exceptions\EventNotValid;
 
@@ -202,6 +210,85 @@ it('removes a line item, deletes the row, and rolls totals back down', function 
 
     expect(OpportunityItem::query()->whereKey($item->id)->exists())->toBeFalse()
         ->and($opportunity->refresh()->charge_total)->toBe(0);
+});
+
+it('removes a line with no allocation or dispatch', function () {
+    $opportunity = makeOpportunity();
+    $item = addManualItem($opportunity);
+
+    // No assets allocated, no bulk dispatched — removal succeeds.
+    (new RemoveOpportunityItem)($item->refresh());
+
+    expect(OpportunityItem::query()->whereKey($item->id)->exists())->toBeFalse();
+});
+
+it('blocks removing a line with an allocated serialised asset', function () {
+    [$from, $to] = [Carbon::parse('2026-09-01T09:00:00Z'), Carbon::parse('2026-09-05T17:00:00Z')];
+    $store = Store::factory()->create(['timezone' => 'UTC']);
+    $product = Product::factory()->rental()->serialised()->create();
+    $asset = StockLevel::factory()->serialised()->create(['product_id' => $product->id, 'store_id' => $store->id]);
+
+    $opportunity = makeOpportunity([
+        'store_id' => $store->id,
+        'starts_at' => $from->toIso8601String(),
+        'ends_at' => $to->toIso8601String(),
+    ]);
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_id' => $product->id,
+        'item_type' => Product::class,
+        'quantity' => '1',
+        'unit_price' => 5000,
+    ]));
+    $item = $opportunity->refresh()->items()->latest('id')->firstOrFail();
+
+    (new ConvertToQuotation)($opportunity->refresh());
+    (new ConvertToOrder)($opportunity->refresh());
+
+    (new AllocateAsset)($item->refresh(), AllocateAssetData::from(['stock_level_id' => $asset->id]));
+
+    expect(fn () => (new RemoveOpportunityItem)($item->refresh()))
+        ->toThrow(EventNotValid::class);
+
+    // The line is still present (the guard short-circuited before handle()).
+    expect(OpportunityItem::query()->whereKey($item->id)->exists())->toBeTrue();
+});
+
+it('blocks removing a bulk line with dispatched quantity', function () {
+    [$from, $to] = [Carbon::parse('2026-09-01T09:00:00Z'), Carbon::parse('2026-09-05T17:00:00Z')];
+    $store = Store::factory()->create(['timezone' => 'UTC']);
+    $product = Product::factory()->rental()->bulk()->create();
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $store->id,
+        'quantity_held' => 10,
+    ]);
+
+    $opportunity = makeOpportunity([
+        'store_id' => $store->id,
+        'starts_at' => $from->toIso8601String(),
+        'ends_at' => $to->toIso8601String(),
+    ]);
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_id' => $product->id,
+        'item_type' => Product::class,
+        'quantity' => '3',
+        'unit_price' => 5000,
+    ]));
+    $item = $opportunity->refresh()->items()->latest('id')->firstOrFail();
+
+    (new ConvertToQuotation)($opportunity->refresh());
+    (new ConvertToOrder)($opportunity->refresh());
+
+    (new DispatchBulkQuantity)($item->refresh(), BulkDispatchData::from(['quantity' => '2']));
+
+    expect(fn () => (new RemoveOpportunityItem)($item->refresh()))
+        ->toThrow(EventNotValid::class);
+
+    expect(OpportunityItem::query()->whereKey($item->id)->exists())->toBeTrue();
 });
 
 it('overrides the headline charge_total via a deal price and restores it on clear', function () {

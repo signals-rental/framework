@@ -3,6 +3,7 @@
 namespace App\Verbs\Events\Opportunities;
 
 use App\Models\OpportunityItem;
+use App\Models\OpportunityItemAsset;
 use App\Verbs\Events\Opportunities\Concerns\PricesOpportunityItems;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\States\OpportunityItemState;
@@ -27,7 +28,34 @@ class ItemRemoved extends Event
     public function validate(OpportunityItemState $state): void
     {
         $this->assertItemMutable($state);
-        // TODO(M5): guard dispatched/allocated assets
+
+        // Removal must not strand committed fulfilment. Mirroring the
+        // {@see ItemQuantityChanged} guard: a line with serialised assets still
+        // allocated to it, or with bulk quantity already dispatched, cannot be
+        // removed — the assets must be deallocated / returned first. Both are read
+        // from the projection (validate() runs before handle(), so the rows
+        // reflect the pre-removal state) and replay-safely reproduce.
+        $allocatedAssets = OpportunityItemAsset::query()
+            ->where('opportunity_item_id', $state->opportunity_item_id)
+            ->count();
+
+        $this->assert(
+            $allocatedAssets === 0,
+            sprintf(
+                'Cannot remove a line with %d allocated asset(s); deallocate first.',
+                $allocatedAssets,
+            ),
+        );
+
+        $dispatched = (int) round((float) $state->dispatched_quantity);
+
+        $this->assert(
+            $dispatched === 0,
+            sprintf(
+                'Cannot remove a line with %d already-dispatched unit(s); return them first.',
+                $dispatched,
+            ),
+        );
     }
 
     public function apply(OpportunityItemState $state): void

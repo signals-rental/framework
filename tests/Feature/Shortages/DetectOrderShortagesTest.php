@@ -151,6 +151,60 @@ it('ignores quote-state opportunities (only confirmed orders are proactively mon
         ->exists())->toBeFalse();
 });
 
+it('excludes a non-Order opportunity item at the DB level even when it shares the product/store with an Order', function () {
+    $product = Product::factory()->rental()->bulk()->create();
+    // Only 2 units of stock; both lines below want 4, so each would be short.
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'quantity_held' => 2,
+    ]);
+
+    // An Order line — this one MUST be detected.
+    $orderItem = confirmedOrderItem($this->store, $product, 4);
+
+    // A Quotation line on the SAME product/store — this one must be excluded by
+    // the DB-level state filter, never reaching the per-item shortage check.
+    $quote = Opportunity::factory()->quotation()->create([
+        'store_id' => $this->store->id,
+        'starts_at' => Carbon::parse('2026-07-01T09:00:00Z'),
+        'ends_at' => Carbon::parse('2026-07-05T17:00:00Z'),
+    ]);
+    $quoteItem = OpportunityItem::factory()->create([
+        'opportunity_id' => $quote->id,
+        'name' => $product->name,
+        'item_type' => Product::class,
+        'item_id' => $product->id,
+        'quantity' => 4,
+    ]);
+    Demand::factory()
+        ->phase(DemandPhase::Committed)
+        ->window(Carbon::parse('2026-07-01T09:00:00Z'), Carbon::parse('2026-07-05T17:00:00Z'))
+        ->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 4,
+            'source_type' => 'opportunity_item',
+            'source_id' => $quoteItem->id,
+            'metadata' => [],
+        ]);
+
+    $this->listener->handle(new AvailabilityChanged($product->id, $this->store->id));
+
+    // The Order line is detected.
+    expect(AvailabilityEvent::query()
+        ->where('event_type', AvailabilityEventType::ShortageDetected->value)
+        ->where('source_type', 'opportunity_item')
+        ->where('source_id', $orderItem->id)
+        ->exists())->toBeTrue()
+        // The quote line is NOT — excluded by the DB state filter.
+        ->and(AvailabilityEvent::query()
+            ->where('event_type', AvailabilityEventType::ShortageDetected->value)
+            ->where('source_type', 'opportunity_item')
+            ->where('source_id', $quoteItem->id)
+            ->exists())->toBeFalse();
+});
+
 it('emits nothing when no demands reference the changed product/store', function () {
     $product = Product::factory()->rental()->bulk()->create();
 

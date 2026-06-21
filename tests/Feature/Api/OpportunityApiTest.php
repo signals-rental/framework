@@ -10,6 +10,7 @@ use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 use App\Jobs\DeliverWebhook;
+use App\Models\CustomField;
 use App\Models\CustomView;
 use App\Models\Member;
 use App\Models\Opportunity;
@@ -245,6 +246,40 @@ describe('GET /api/v1/opportunities/{id}', function () {
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson("/api/v1/opportunities/{$opportunity->id}")
             ->assertNotFound();
+    });
+
+    it('populates custom_fields on the show endpoint (default eager-load)', function () {
+        CustomField::factory()->create([
+            'name' => 'po_reference',
+            'module_type' => 'Opportunity',
+        ]);
+
+        $opportunity = Opportunity::factory()->create(['subject' => 'With CF']);
+        $opportunity->syncCustomFields(['po_reference' => 'PO-123']);
+
+        $token = readToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/opportunities/{$opportunity->id}")
+            ->assertOk()
+            ->assertJsonPath('opportunity.custom_fields.po_reference', 'PO-123');
+    });
+
+    it('populates custom_fields on the index endpoint without an explicit include', function () {
+        CustomField::factory()->create([
+            'name' => 'po_reference',
+            'module_type' => 'Opportunity',
+        ]);
+
+        $opportunity = Opportunity::factory()->create();
+        $opportunity->syncCustomFields(['po_reference' => 'PO-456']);
+
+        $token = readToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/opportunities')
+            ->assertOk()
+            ->assertJsonPath('opportunities.0.custom_fields.po_reference', 'PO-456');
     });
 });
 

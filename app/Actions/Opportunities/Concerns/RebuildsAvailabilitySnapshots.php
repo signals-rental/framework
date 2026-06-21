@@ -26,6 +26,13 @@ use App\Observers\DemandObserver;
  * idempotently). It is dispatched once per distinct product/store touched by the
  * batch, from the action (request-time) — never from an event handle(), so it never
  * runs during a Verbs replay.
+ *
+ * **Sync vs async (availability.async_threshold_products).** A small batch
+ * touching at most `availability.async_threshold_products` distinct products is
+ * rebuilt INLINE (`dispatchSync`) so the caller sees a fresh read model
+ * immediately. A larger batch — which would block the request on many
+ * rolling-horizon recomputes — is QUEUED instead, one job per product/store, so
+ * the request returns promptly and the workers absorb the recompute load.
  */
 trait RebuildsAvailabilitySnapshots
 {
@@ -33,6 +40,11 @@ trait RebuildsAvailabilitySnapshots
      * Dispatch a full snapshot rebuild for each distinct product/store the given
      * line items resolve to. De-duplicated so a batch touching many assets of the
      * same line enqueues a single rebuild per product/store.
+     *
+     * When the number of distinct PRODUCTS touched is at or below
+     * `availability.async_threshold_products` the rebuilds run inline (synchronous)
+     * for immediate consistency; above the threshold they are queued so a large
+     * batch never blocks the request.
      *
      * @param  iterable<OpportunityItem>  $items
      */
@@ -49,15 +61,29 @@ trait RebuildsAvailabilitySnapshots
                 continue;
             }
 
-            $key = $productId.':'.$storeId;
+            $key = (int) $productId.':'.(int) $storeId;
 
             if (isset($seen[$key])) {
                 continue;
             }
 
-            $seen[$key] = true;
+            $seen[$key] = ['product_id' => (int) $productId, 'store_id' => (int) $storeId];
+        }
 
-            RebuildSnapshotsJob::dispatch((int) $productId, (int) $storeId);
+        if ($seen === []) {
+            return;
+        }
+
+        $distinctProducts = count(array_unique(array_column($seen, 'product_id')));
+        $threshold = (int) settings('availability.async_threshold_products', 10);
+        $runInline = $distinctProducts <= $threshold;
+
+        foreach ($seen as $pair) {
+            if ($runInline) {
+                RebuildSnapshotsJob::dispatchSync($pair['product_id'], $pair['store_id']);
+            } else {
+                RebuildSnapshotsJob::dispatch($pair['product_id'], $pair['store_id']);
+            }
         }
     }
 }
