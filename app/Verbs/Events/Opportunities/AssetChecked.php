@@ -73,7 +73,7 @@ class AssetChecked extends Event
             'notes' => $this->damage_notes ?? $asset->notes,
         ])->saveQuietly();
 
-        $opportunity = $asset->item()->first()?->opportunity()->first();
+        $opportunity = $this->opportunityForAssignment($state->assignment_id);
 
         if ($opportunity !== null) {
             $this->recordAudit(
@@ -91,12 +91,8 @@ class AssetChecked extends Event
 
     public function fired(AssetAssignmentState $state): void
     {
-        $opportunity = OpportunityItemAsset::query()->whereKey($state->assignment_id)->first()
-            ?->item()->first()
-            ?->opportunity()->first();
-
         $this->promoteOpportunityFromItems(
-            $opportunity,
+            $this->opportunityForAssignment($state->assignment_id),
             $this->singleAssetOverlay($state->assignment_id, AssetAssignmentStatus::Finalised),
         );
     }

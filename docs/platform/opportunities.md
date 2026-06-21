@@ -148,6 +148,8 @@ When you convert to an order, the **accepted** version (or the active one if non
 
 When an opportunity is committed, its **exchange rate** and **tax** treatment are locked so later rate or tax-rule changes don't silently alter an agreed deal. The page header shows when locks are active, and a user with the `opportunities.unlock_rates` permission can release them with the **Unlock Rates** action — for example to re-rate an order after a deliberate FX or tax change. Releasing the locks lets subsequent edits pick up current rates again.
 
+The locks freeze the **rate and tax treatment, not the line set**. You can still add, remove, or re-date lines on a committed order — the totals recompute, but always at the frozen exchange rate (and tax stays fixed while the tax lock is active). So a locked order's total can still change when its lines genuinely change; what the locks prevent is a later FX-rate or tax-rule change re-pricing the deal you already agreed.
+
 ## Asset Allocation & Dispatch
 
 Once an opportunity is an **order**, its line items are allocated, dispatched, and returned:

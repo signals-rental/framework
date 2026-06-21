@@ -111,6 +111,6 @@ class BulkQuantityDispatched extends Event
 
     private function opportunityFor(OpportunityItemState $state): ?Opportunity
     {
-        return OpportunityItem::query()->whereKey($state->opportunity_item_id)->first()?->opportunity()->first();
+        return $this->opportunityForItem($state->opportunity_item_id);
     }
 }

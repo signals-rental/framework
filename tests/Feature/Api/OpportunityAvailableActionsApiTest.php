@@ -7,18 +7,28 @@ use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Enums\DemandPhase;
+use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
+use App\Enums\ShortageDispatchPolicy;
+use App\Enums\ShortagePolicy;
 use App\Guards\Opportunities\GuardPipeline;
 use App\Guards\Opportunities\GuardResult;
+use App\Guards\Opportunities\Rules\DispatchShortageRule;
 use App\Guards\Opportunities\Rules\FxTaxLockRule;
 use App\Guards\Opportunities\Stages\PermissionStage;
 use App\Guards\Opportunities\TransitionContext;
+use App\Models\Demand;
 use App\Models\Opportunity;
+use App\Models\Product;
+use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Opportunities\TransitionRuleRegistry;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -176,6 +186,106 @@ it('marks a privileged action denied for a permission-restricted actor', functio
         ->and(actionByKey($actions, 'unlock_locks')['code'])->toBe('permission_denied');
 });
 
+it('reports dispatch blocked by the store dispatch policy on a short order', function () {
+    // 5 held, 4 committed elsewhere over the window, this order wants 3 — short by
+    // 2 at dispatch. The confirmation gate is set to Allow so the order is created
+    // short; the store dispatch policy is Block.
+    $this->store->update([
+        'shortage_policy' => ShortagePolicy::Allow->value,
+        'shortage_dispatch_policy' => ShortageDispatchPolicy::Block->value,
+    ]);
+
+    Auth::login($this->owner);
+    $product = Product::factory()->rental()->bulk()->create();
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'quantity_held' => 5,
+    ]);
+    Demand::factory()
+        ->phase(DemandPhase::Committed)
+        ->window(Carbon::parse('2026-12-01T09:00:00Z'), Carbon::parse('2026-12-05T17:00:00Z'))
+        ->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 4,
+            'source_type' => 'opportunity_item',
+            'source_id' => 970001,
+            'metadata' => [],
+        ]);
+
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Dispatch precheck',
+        'store_id' => $this->store->id,
+        'starts_at' => '2026-12-01T09:00:00Z',
+        'ends_at' => '2026-12-05T17:00:00Z',
+    ]));
+    $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_id' => $product->id,
+        'item_type' => Product::class,
+        'quantity' => '3',
+    ]));
+    (new ConvertToQuotation)($opportunity->fresh());
+    (new ConvertToOrder)($opportunity->fresh());
+
+    $token = $this->owner->createToken('test', ['opportunities:read'])->plainTextToken;
+    $actions = $this->withHeader('Authorization', "Bearer {$token}")
+        ->getJson("/api/v1/opportunities/{$opportunity->id}/available_actions")
+        ->assertOk()
+        ->json('available_actions');
+
+    // The dispatch precheck now reflects the store Block dispatch policy.
+    expect(actionByKey($actions, 'dispatch')['allowed'])->toBeFalse()
+        ->and(actionByKey($actions, 'dispatch')['code'])->toBe(DispatchShortageRule::CODE);
+});
+
+it('reports dispatch allowed on an order with sufficient stock', function () {
+    $this->store->update([
+        'shortage_dispatch_policy' => ShortageDispatchPolicy::Block->value,
+    ]);
+
+    Auth::login($this->owner);
+    $product = Product::factory()->rental()->bulk()->create();
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'quantity_held' => 50,
+    ]);
+
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Dispatch precheck (stocked)',
+        'store_id' => $this->store->id,
+        'starts_at' => '2026-12-01T09:00:00Z',
+        'ends_at' => '2026-12-05T17:00:00Z',
+    ]));
+    $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_id' => $product->id,
+        'item_type' => Product::class,
+        'quantity' => '3',
+    ]));
+    (new ConvertToQuotation)($opportunity->fresh());
+    (new ConvertToOrder)($opportunity->fresh());
+
+    $token = $this->owner->createToken('test', ['opportunities:read'])->plainTextToken;
+    $actions = $this->withHeader('Authorization', "Bearer {$token}")
+        ->getJson("/api/v1/opportunities/{$opportunity->id}/available_actions")
+        ->assertOk()
+        ->json('available_actions');
+
+    expect(actionByKey($actions, 'dispatch')['allowed'])->toBeTrue()
+        ->and(actionByKey($actions, 'dispatch')['code'])->toBeNull();
+});
+
+it('registers the dispatch-shortage rule for the dispatch transition', function () {
+    $registry = app(TransitionRuleRegistry::class);
+
+    expect($registry->has('dispatch_shortage'))->toBeTrue();
+});
+
 it('requires the opportunities:read ability', function () {
     $opportunity = actionsQuotation($this->owner, $this->store);
 
@@ -211,6 +321,107 @@ it('check() returns an allow for a transition that run() permits', function () {
 
     // Parity: run() does not throw for the same context (an uncaught throw fails the test).
     app(GuardPipeline::class)->run($context);
+});
+
+it('routes convert_to_quotation through the pipeline (no rule registered, behaviour unchanged)', function () {
+    Auth::login($this->owner);
+
+    // A fresh draft (not yet a quotation).
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Draft to quote',
+        'store_id' => $this->store->id,
+        'starts_at' => '2026-12-01T09:00:00Z',
+        'ends_at' => '2026-12-05T17:00:00Z',
+    ]));
+    $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => 'PA Stack',
+        'quantity' => '1',
+        'unit_price' => 5000,
+    ]));
+
+    $context = new TransitionContext(
+        transition: ConvertToQuotation::TRANSITION,
+        opportunity: $opportunity->refresh(),
+        permission: 'opportunities.edit',
+    );
+
+    // No business rule is registered for this key, so check() allows and run() does
+    // not throw — and the action still converts the draft to a quotation.
+    expect(app(GuardPipeline::class)->check($context)->allowed)->toBeTrue();
+
+    (new ConvertToQuotation)($opportunity->refresh());
+
+    expect($opportunity->refresh()->state)->toBe(OpportunityState::Quotation);
+});
+
+it('forbids change_status for an actor without opportunities.edit', function () {
+    $viewer = User::factory()->create();
+    $viewer->assignRole('Read Only');
+    $opportunity = actionsQuotation($this->owner, $this->store);
+
+    expect($viewer->can('opportunities.edit'))->toBeFalse();
+
+    $this->actingAs($viewer);
+
+    // The pipeline's PermissionStage enforces opportunities.edit exactly as the
+    // action's prior bare Gate::authorize did — a 403 for an unauthorised actor.
+    expect(fn () => (new ChangeOpportunityStatus)($opportunity->refresh(), OpportunityStatus::QuotationProvisional))
+        ->toThrow(AuthorizationException::class);
+});
+
+it('check() reports the dispatch shortage block where the rule denies', function () {
+    $this->store->update([
+        'shortage_policy' => ShortagePolicy::Allow->value,
+        'shortage_dispatch_policy' => ShortageDispatchPolicy::Block->value,
+    ]);
+
+    Auth::login($this->owner);
+    $product = Product::factory()->rental()->bulk()->create();
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'quantity_held' => 5,
+    ]);
+    Demand::factory()
+        ->phase(DemandPhase::Committed)
+        ->window(Carbon::parse('2026-12-01T09:00:00Z'), Carbon::parse('2026-12-05T17:00:00Z'))
+        ->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity' => 4,
+            'source_type' => 'opportunity_item',
+            'source_id' => 970002,
+            'metadata' => [],
+        ]);
+
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Dispatch check',
+        'store_id' => $this->store->id,
+        'starts_at' => '2026-12-01T09:00:00Z',
+        'ends_at' => '2026-12-05T17:00:00Z',
+    ]));
+    $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_id' => $product->id,
+        'item_type' => Product::class,
+        'quantity' => '3',
+    ]));
+    (new ConvertToQuotation)($opportunity->fresh());
+    (new ConvertToOrder)($opportunity->fresh());
+
+    $context = new TransitionContext(
+        transition: DispatchShortageRule::TRANSITION,
+        opportunity: $opportunity->refresh(),
+        permission: 'opportunities.edit',
+    );
+
+    // The precheck is side-effect-free: it reports the block without dispatching
+    // and without emitting telemetry.
+    $result = app(GuardPipeline::class)->check($context);
+    expect($result->denied())->toBeTrue()
+        ->and($result->code)->toBe(DispatchShortageRule::CODE);
 });
 
 it('check() returns a fx_tax_locked deny where run() throws, with no side effects', function () {

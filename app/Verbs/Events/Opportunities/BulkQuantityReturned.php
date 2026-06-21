@@ -97,10 +97,8 @@ class BulkQuantityReturned extends Event
 
     public function fired(OpportunityItemState $state): void
     {
-        $opportunity = OpportunityItem::query()->whereKey($state->opportunity_item_id)->first()?->opportunity()->first();
-
         $this->promoteOpportunityFromItems(
-            $opportunity,
+            $this->opportunityForItem($state->opportunity_item_id),
             $this->singleBulkOverlay($state->opportunity_item_id, $state->dispatched_quantity, $state->returned_quantity),
         );
     }

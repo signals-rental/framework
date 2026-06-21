@@ -111,12 +111,8 @@ class AssetReturned extends Event
 
     public function fired(AssetAssignmentState $state): void
     {
-        $opportunity = OpportunityItemAsset::query()->whereKey($state->assignment_id)->first()
-            ?->item()->first()
-            ?->opportunity()->first();
-
         $this->promoteOpportunityFromItems(
-            $opportunity,
+            $this->opportunityForAssignment($state->assignment_id),
             $this->singleAssetOverlay($state->assignment_id, AssetAssignmentStatus::CheckedIn),
         );
     }

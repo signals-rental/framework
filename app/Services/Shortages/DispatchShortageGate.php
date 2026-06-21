@@ -3,6 +3,7 @@
 namespace App\Services\Shortages;
 
 use App\Enums\ShortageDispatchPolicy;
+use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\Store;
 use App\ValueObjects\DispatchGateResult;
@@ -51,6 +52,29 @@ class DispatchShortageGate
     public function enforceForItem(OpportunityItem $item): DispatchGateResult
     {
         return $this->enforceForItems([$item]);
+    }
+
+    /**
+     * Evaluate the gate across an opportunity's lines WITHOUT side effects — no
+     * `shortage.detected` telemetry, no throw — and return the decision. The
+     * read-only counterpart of {@see enforceForItems()}, mirroring
+     * {@see ShortageConfirmationGate::evaluate()}.
+     *
+     * Powers the `available_actions` dispatch precheck (via
+     * {@see App\Guards\Opportunities\Rules\DispatchShortageRule}): it reports
+     * whether dispatching the order WOULD be blocked by the store's
+     * {@see ShortageDispatchPolicy}, without booking anything out. Write-time
+     * enforcement stays in {@see enforceForItem()} / {@see enforceForItems()},
+     * which operate per-line and surface held-item metadata.
+     */
+    public function evaluateForOpportunity(Opportunity $opportunity): DispatchGateResult
+    {
+        $opportunity->loadMissing('items');
+
+        $shortages = $this->detectForItems($opportunity->items);
+        $policy = $opportunity->store?->dispatchPolicy() ?? ShortageDispatchPolicy::default();
+
+        return new DispatchGateResult($policy, $shortages);
     }
 
     /**

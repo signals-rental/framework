@@ -3,6 +3,7 @@
 namespace App\Verbs\Events\Opportunities\Concerns;
 
 use App\Enums\AssetAssignmentStatus;
+use App\Enums\FulfilmentPhase;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 use App\Enums\StockMethod;
@@ -12,6 +13,7 @@ use App\Models\Product;
 use App\Services\Opportunities\AutoPromotionContext;
 use App\Verbs\Events\Opportunities\OpportunityStatusPromoted;
 use Brick\Math\BigDecimal;
+use Illuminate\Database\Eloquent\Collection;
 use Thunk\Verbs\Event;
 use Thunk\Verbs\Lifecycle\Broker;
 
@@ -83,7 +85,11 @@ trait PromotesOpportunityStatus
             return;
         }
 
-        $opportunity = $opportunity->fresh();
+        // Reload the opportunity ONCE with its items (and each item's assets +
+        // catalogue entity) eager-loaded, so the derivation reads the up-to-date
+        // status projection and tallies every line without any further per-event
+        // round-trips (no separate fresh() + items()->get()).
+        $opportunity = $opportunity->fresh(['items.assets', 'items.item']);
 
         if ($opportunity === null) {
             return;
@@ -97,7 +103,7 @@ trait PromotesOpportunityStatus
             return;
         }
 
-        $derived = $this->deriveOrderStatus($opportunity, $overlay);
+        $derived = $this->deriveOrderStatus($opportunity->items, $overlay)->toStatus();
 
         if ($derived === null || $derived === $current) {
             return;
@@ -109,6 +115,39 @@ trait PromotesOpportunityStatus
             opportunity_id: $opportunity->state_id,
             to_status: $derived->statusValue(),
         );
+    }
+
+    /**
+     * Resolve the parent {@see Opportunity} for an asset assignment in a SINGLE
+     * query, replacing the three-hop assignment → item → opportunity model walk.
+     *
+     * The join is read-only and order-independent (it touches no event state), so it
+     * is safe to call from either `fired()` or `handle()` without affecting replay or
+     * the Verbs lifecycle ordering.
+     */
+    protected function opportunityForAssignment(int $assignmentId): ?Opportunity
+    {
+        return Opportunity::query()
+            ->join('opportunity_items', 'opportunity_items.opportunity_id', '=', 'opportunities.id')
+            ->join('opportunity_item_assets', 'opportunity_item_assets.opportunity_item_id', '=', 'opportunity_items.id')
+            ->where('opportunity_item_assets.id', $assignmentId)
+            ->select('opportunities.*')
+            ->first();
+    }
+
+    /**
+     * Resolve the parent {@see Opportunity} for a line item in a SINGLE query,
+     * replacing the two-hop item → opportunity model walk used by the bulk events.
+     *
+     * Read-only and order-independent — safe from either `fired()` or `handle()`.
+     */
+    protected function opportunityForItem(int $itemId): ?Opportunity
+    {
+        return Opportunity::query()
+            ->join('opportunity_items', 'opportunity_items.opportunity_id', '=', 'opportunities.id')
+            ->where('opportunity_items.id', $itemId)
+            ->select('opportunities.*')
+            ->first();
     }
 
     /**
@@ -132,19 +171,28 @@ trait PromotesOpportunityStatus
     }
 
     /**
-     * Derive the §7.6 aggregate Order status from every line item, or null when no
-     * item has progressed past Active (nothing dispatched yet → leave Active).
+     * Derive the §7.6 aggregate {@see FulfilmentPhase} from every line item. The
+     * caller maps the phase to a concrete {@see OpportunityStatus} via
+     * {@see FulfilmentPhase::toStatus()} — the named statuses are never referenced
+     * here, only the phase axis.
      *
+     * {@see FulfilmentPhase::NotStarted} is returned when nothing has been
+     * dispatched anywhere (the order stays Active; no promotion is implied).
+     *
+     * Items must already have their `assets` and `item` relations loaded; this
+     * method performs no further queries.
+     *
+     * @param  Collection<int, OpportunityItem>  $items
      * @param  Overlay  $overlay
      */
-    private function deriveOrderStatus(Opportunity $opportunity, array $overlay): ?OpportunityStatus
+    private function deriveOrderStatus(Collection $items, array $overlay): FulfilmentPhase
     {
         $hasUndispatched = false;
         $hasUnreturned = false;
         $hasUncheckedReturn = false;
         $anyDispatched = false;
 
-        foreach ($opportunity->items()->with('assets', 'item')->get() as $item) {
+        foreach ($items as $item) {
             $tally = $this->tallyItem($item, $overlay);
 
             $hasUndispatched = $hasUndispatched || $tally['undispatched'];
@@ -153,25 +201,14 @@ trait PromotesOpportunityStatus
             $anyDispatched = $anyDispatched || $tally['any_dispatched'];
         }
 
-        // Nothing has been dispatched anywhere → the order is still Active; no
-        // promotion is implied.
-        if (! $anyDispatched) {
-            return null;
-        }
-
-        if ($hasUndispatched) {
-            return OpportunityStatus::OrderDispatched;
-        }
-
-        if ($hasUnreturned) {
-            return OpportunityStatus::OrderOnHire;
-        }
-
-        if ($hasUncheckedReturn) {
-            return OpportunityStatus::OrderReturned;
-        }
-
-        return OpportunityStatus::OrderChecked;
+        return match (true) {
+            // Nothing has been dispatched anywhere → still Active.
+            ! $anyDispatched => FulfilmentPhase::NotStarted,
+            $hasUndispatched => FulfilmentPhase::PendingDispatch,
+            $hasUnreturned => FulfilmentPhase::OnHire,
+            $hasUncheckedReturn => FulfilmentPhase::Returned,
+            default => FulfilmentPhase::Checked,
+        };
     }
 
     /**

@@ -70,6 +70,13 @@ use Illuminate\Support\Carbon;
  * `tax_locked` is honoured explicitly: {@see rollUp()} skips the final grouped tax
  * pass and preserves the stored `tax_total` / `charge_including_tax_total`, so a
  * later tax-rule or rate change can never move a confirmed order's tax.
+ *
+ * What the locks freeze is the RATE and TAX TREATMENT, not the line set: structural
+ * edits (adding, removing or re-dating lines) on a locked order still recompute the
+ * net `charge_total` — but always at the frozen `exchange_rate` snapshot, and (while
+ * `tax_locked`) without re-deriving tax. So a locked order's headline can still move
+ * when its lines genuinely change; what can never move it is a later FX-rate or
+ * tax-rule change re-pricing the already-agreed basis.
  */
 class OpportunityTotalsCalculator
 {

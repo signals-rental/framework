@@ -86,6 +86,7 @@ use App\Enums\AssetAssignmentStatus;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 use App\Guards\Opportunities\GuardPipeline;
+use App\Guards\Opportunities\Rules\DispatchShortageRule;
 use App\Guards\Opportunities\Rules\ShortageConfirmationRule;
 use App\Guards\Opportunities\TransitionContext;
 use App\Http\Controllers\Api\Controller;
@@ -452,7 +453,7 @@ class OpportunityController extends Controller
 
         $actions = [
             // Draft → Quotation.
-            $this->describeAction($opportunity, 'convert_to_quotation', 'Convert to Quotation', 'opportunities.edit', 'opportunity.convert_to_quotation',
+            $this->describeAction($opportunity, 'convert_to_quotation', 'Convert to Quotation', 'opportunities.edit', ConvertToQuotation::TRANSITION,
                 statePrecondition: fn (): ?array => $isDraft ? null : ['Only a draft can be converted to a quotation.', 'invalid_state']),
 
             // Quotation → Order (runs the shortage confirmation gate precheck).
@@ -460,7 +461,7 @@ class OpportunityController extends Controller
                 statePrecondition: fn (): ?array => $isQuotation && ! $status->isClosed() ? null : ['Only an open quotation can be converted to an order.', 'invalid_state']),
 
             // Within-state status move.
-            $this->describeAction($opportunity, 'change_status', 'Change Status', 'opportunities.edit', 'opportunity.change_status',
+            $this->describeAction($opportunity, 'change_status', 'Change Status', 'opportunities.edit', ChangeOpportunityStatus::TRANSITION,
                 statePrecondition: fn (): ?array => $status->isClosed() ? ['A closed opportunity cannot change status.', 'invalid_state'] : null),
 
             // Lost/Dead/Postponed/Cancelled → active.
@@ -487,7 +488,7 @@ class OpportunityController extends Controller
             $this->describeAction($opportunity, 'clone', 'Clone', 'opportunities.create', null),
 
             // Dispatch — relevant once the order has allocated assets.
-            $this->describeAction($opportunity, 'dispatch', 'Dispatch', 'opportunities.edit', 'opportunity.dispatch',
+            $this->describeAction($opportunity, 'dispatch', 'Dispatch', 'opportunities.edit', DispatchShortageRule::TRANSITION,
                 statePrecondition: fn (): ?array => $isOrder && ! $status->isClosed() ? null : ['Assets can only be dispatched on an open order.', 'invalid_state']),
 
             // Soft-delete.

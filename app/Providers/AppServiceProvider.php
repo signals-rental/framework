@@ -7,6 +7,7 @@ use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Contracts\Availability\AvailabilityStrategyContract;
 use App\Guards\Opportunities\Contracts\ApprovalGate;
 use App\Guards\Opportunities\PluginValidatorRegistry;
+use App\Guards\Opportunities\Rules\DispatchShortageRule;
 use App\Guards\Opportunities\Rules\FxTaxLockRule;
 use App\Guards\Opportunities\Rules\ShortageConfirmationRule;
 use App\Guards\Opportunities\Stages\AutoApprovalGate;
@@ -232,6 +233,11 @@ class AppServiceProvider extends ServiceProvider
             // FX/tax lock enforcement: a rate/tax edit on a locked (confirmed)
             // order is rejected until the locks are released.
             $registry->register($app->make(FxTaxLockRule::class));
+
+            // Dispatch shortage policy — precheck-only: surfaces the store dispatch
+            // policy Block in `available_actions`. Write-time enforcement stays in
+            // the per-line DispatchShortageGate calls inside the dispatch actions.
+            $registry->register($app->make(DispatchShortageRule::class));
 
             return $registry;
         });

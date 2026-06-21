@@ -138,41 +138,17 @@ class RecalculationPipeline
 
             // Compute each slot's availability into an ordered result set first, so
             // the post-calculation hook can adjust the final numbers before any
-            // snapshot is written.
-            /** @var SupportCollection<int, array{slot_start: Carbon, total_stock: int, total_demanded: int, available: int, breakdown: array<string, int>}> $slotResults */
-            $slotResults = new SupportCollection;
-
-            // The check-in queue per slot, keyed by UTC slot-start ISO. Computed
-            // up front (NOT carried through the strategy collection, so the
-            // strategy contract's slot shape stays unchanged) and looked up at
-            // upsert time. Informational only — it never affects `available`.
-            /** @var array<string, int> $pendingCheckinBySlot */
-            $pendingCheckinBySlot = [];
-
-            foreach ($slots as $slotStart) {
-                $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
-
-                [$demanded, $breakdown] = $this->sumDemandForSlot($demands, $slotStart, $slotEnd);
-
-                $pendingCheckin = $this->pendingCheckinForSlot($pendingCheckinDemands, $slotStart, $slotEnd);
-
-                if ($pendingCheckin > 0) {
-                    // Fold the check-in queue into the breakdown under the
-                    // `returned_not_checked` key (availability-engine.md
-                    // §"Pending check-in visibility") so a dashboard widget can
-                    // read it from the snapshot's demand_breakdown too.
-                    $breakdown['returned_not_checked'] = $pendingCheckin;
-                    $pendingCheckinBySlot[$slotStart->copy()->utc()->toIso8601String()] = $pendingCheckin;
-                }
-
-                $slotResults->push([
-                    'slot_start' => $slotStart,
-                    'total_stock' => $totalStock,
-                    'total_demanded' => $demanded,
-                    'available' => $totalStock - $demanded,
-                    'breakdown' => $breakdown,
-                ]);
-            }
+            // snapshot is written. `$pendingCheckinBySlot` (keyed by UTC slot-start
+            // ISO) is computed alongside but kept OUT of the strategy collection so
+            // the strategy contract's slot shape stays unchanged; it is looked up at
+            // upsert time and is informational only (never affects `available`).
+            [$slotResults, $pendingCheckinBySlot] = $this->processSlots(
+                $slots,
+                $timezone,
+                $totalStock,
+                $demands,
+                $pendingCheckinDemands,
+            );
 
             // Step 5 — post-calculation hook. The strategy may clamp/floor the
             // final per-slot numbers (buffer-stock minimums, caps). The OSS
@@ -184,57 +160,20 @@ class RecalculationPipeline
             // this recalc — step 7/8 shortage emission below.
             $previousAvailability = $this->previousAvailability($productId, $storeId, $slotResults);
 
-            // Per-slot `available` (and `pending_checkin`) captured for the daily
-            // rollup below. Keyed by the slot start (UTC) so the rollup can
-            // re-derive the local calendar day each slot belongs to.
-            /** @var list<array{0: Carbon, 1: int, 2: int}> $slotAvailability */
-            $slotAvailability = [];
+            $applied = $this->applySlotResults(
+                $productId,
+                $storeId,
+                $slotResults,
+                $pendingCheckinBySlot,
+                $previousAvailability,
+                $timezone,
+                $now,
+            );
 
-            $hasShortage = false;
-            $slotCount = 0;
-
-            // Did ANY slot newly dip below zero / newly recover this recalc?
-            $crossedIntoShortage = false;
-            $crossedOutOfShortage = false;
-
-            foreach ($slotResults as $result) {
-                $slotPendingCheckin = $pendingCheckinBySlot[$result['slot_start']->copy()->utc()->toIso8601String()] ?? 0;
-
-                $this->upsertSnapshot(
-                    $productId,
-                    $storeId,
-                    $result['slot_start'],
-                    $result['total_stock'],
-                    $result['total_demanded'],
-                    $result['available'],
-                    $result['breakdown'],
-                    $slotPendingCheckin,
-                    $now,
-                );
-
-                $slotAvailability[] = [$result['slot_start'], $result['available'], $slotPendingCheckin];
-
-                // A slot with no prior snapshot is treated as previously
-                // non-negative (zero stock pressure) so a brand-new negative slot
-                // counts as a crossing INTO shortage.
-                $key = $result['slot_start']->copy()->utc()->toIso8601String();
-                $previous = $previousAvailability[$key] ?? 0;
-                $current = $result['available'];
-
-                if ($previous >= 0 && $current < 0) {
-                    $crossedIntoShortage = true;
-                } elseif ($previous < 0 && $current >= 0) {
-                    $crossedOutOfShortage = true;
-                }
-
-                if ($current < 0) {
-                    $hasShortage = true;
-                }
-
-                $slotCount++;
-            }
-
-            $this->rollUpDailySummaries($productId, $storeId, $slotAvailability, $timezone, $now);
+            $hasShortage = $applied['has_shortage'];
+            $slotCount = $applied['slot_count'];
+            $crossedIntoShortage = $applied['crossed_into_shortage'];
+            $crossedOutOfShortage = $applied['crossed_out_of_shortage'];
 
             $this->logRecalculated($productId, $storeId, $from, $to, $slotCount);
 
@@ -506,11 +445,162 @@ class RecalculationPipeline
     }
 
     /**
-     * Upsert a single snapshot row keyed by product/store/slot.
+     * Compute each slot's availability into an ordered result set, plus the
+     * per-slot pending check-in queue (kept out of the result set so the strategy
+     * contract's slot shape is unchanged). Pure: it performs no I/O — fetches
+     * happen in the caller — and produces exactly the values the previous inline
+     * loop did, so the post-calculation hook and downstream writes are unaffected.
+     *
+     * @param  iterable<int, Carbon>  $slots
+     * @param  iterable<int, Demand>  $demands
+     * @param  Collection<int, Demand>  $pendingCheckinDemands
+     * @return array{0: SupportCollection<int, array{slot_start: Carbon, total_stock: int, total_demanded: int, available: int, breakdown: array<string, int>}>, 1: array<string, int>}
+     */
+    private function processSlots(
+        iterable $slots,
+        ?string $timezone,
+        int $totalStock,
+        iterable $demands,
+        Collection $pendingCheckinDemands,
+    ): array {
+        /** @var SupportCollection<int, array{slot_start: Carbon, total_stock: int, total_demanded: int, available: int, breakdown: array<string, int>}> $slotResults */
+        $slotResults = new SupportCollection;
+
+        /** @var array<string, int> $pendingCheckinBySlot */
+        $pendingCheckinBySlot = [];
+
+        foreach ($slots as $slotStart) {
+            $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
+
+            [$demanded, $breakdown] = $this->sumDemandForSlot($demands, $slotStart, $slotEnd);
+
+            $pendingCheckin = $this->pendingCheckinForSlot($pendingCheckinDemands, $slotStart, $slotEnd);
+
+            if ($pendingCheckin > 0) {
+                // Fold the check-in queue into the breakdown under the
+                // `returned_not_checked` key (availability-engine.md
+                // §"Pending check-in visibility") so a dashboard widget can
+                // read it from the snapshot's demand_breakdown too.
+                $breakdown['returned_not_checked'] = $pendingCheckin;
+                $pendingCheckinBySlot[$slotStart->copy()->utc()->toIso8601String()] = $pendingCheckin;
+            }
+
+            $slotResults->push([
+                'slot_start' => $slotStart,
+                'total_stock' => $totalStock,
+                'total_demanded' => $demanded,
+                'available' => $totalStock - $demanded,
+                'breakdown' => $breakdown,
+            ]);
+        }
+
+        return [$slotResults, $pendingCheckinBySlot];
+    }
+
+    /**
+     * Persist the (post-hook) slot results: batch-upsert the snapshot rows, roll
+     * the affected days up into daily summaries, and report the slot count,
+     * shortage flag, and the zero-crossing flags the shortage emitter needs.
+     *
+     * The writes are identical in content to the previous per-slot
+     * `updateOrCreate` loop — only batched — so idempotency and replay-safety are
+     * preserved. The slot-result ITERATION ORDER is unchanged, so the crossing
+     * detection and `slotAvailability` rollup ordering match exactly.
+     *
+     * @param  SupportCollection<int, array{slot_start: Carbon, total_stock: int, total_demanded: int, available: int, breakdown: array<string, int>}>  $slotResults
+     * @param  array<string, int>  $pendingCheckinBySlot
+     * @param  array<string, int>  $previousAvailability
+     * @return array{has_shortage: bool, slot_count: int, crossed_into_shortage: bool, crossed_out_of_shortage: bool}
+     */
+    private function applySlotResults(
+        int $productId,
+        int $storeId,
+        SupportCollection $slotResults,
+        array $pendingCheckinBySlot,
+        array $previousAvailability,
+        ?string $timezone,
+        Carbon $now,
+    ): array {
+        // Per-slot `available` (and `pending_checkin`) captured for the daily
+        // rollup below. Keyed by the slot start (UTC) so the rollup can re-derive
+        // the local calendar day each slot belongs to.
+        /** @var list<array{0: Carbon, 1: int, 2: int}> $slotAvailability */
+        $slotAvailability = [];
+
+        // Accumulated snapshot rows, upserted in one batched statement after the
+        // loop (chunked to stay under Postgres' bind-parameter ceiling).
+        /** @var list<array<string, mixed>> $snapshotRows */
+        $snapshotRows = [];
+
+        $hasShortage = false;
+        $slotCount = 0;
+
+        // Did ANY slot newly dip below zero / newly recover this recalc?
+        $crossedIntoShortage = false;
+        $crossedOutOfShortage = false;
+
+        foreach ($slotResults as $result) {
+            $slotPendingCheckin = $pendingCheckinBySlot[$result['slot_start']->copy()->utc()->toIso8601String()] ?? 0;
+
+            $snapshotRows[] = $this->snapshotRow(
+                $productId,
+                $storeId,
+                $result['slot_start'],
+                $result['total_stock'],
+                $result['total_demanded'],
+                $result['available'],
+                $result['breakdown'],
+                $slotPendingCheckin,
+                $now,
+            );
+
+            $slotAvailability[] = [$result['slot_start'], $result['available'], $slotPendingCheckin];
+
+            // A slot with no prior snapshot is treated as previously non-negative
+            // (zero stock pressure) so a brand-new negative slot counts as a
+            // crossing INTO shortage.
+            $key = $result['slot_start']->copy()->utc()->toIso8601String();
+            $previous = $previousAvailability[$key] ?? 0;
+            $current = $result['available'];
+
+            if ($previous >= 0 && $current < 0) {
+                $crossedIntoShortage = true;
+            } elseif ($previous < 0 && $current >= 0) {
+                $crossedOutOfShortage = true;
+            }
+
+            if ($current < 0) {
+                $hasShortage = true;
+            }
+
+            $slotCount++;
+        }
+
+        $this->batchUpsertSnapshots($snapshotRows);
+
+        $this->rollUpDailySummaries($productId, $storeId, $slotAvailability, $timezone, $now);
+
+        return [
+            'has_shortage' => $hasShortage,
+            'slot_count' => $slotCount,
+            'crossed_into_shortage' => $crossedIntoShortage,
+            'crossed_out_of_shortage' => $crossedOutOfShortage,
+        ];
+    }
+
+    /**
+     * Build one snapshot upsert row keyed by product/store/slot.
+     *
+     * The values are run through a transient model so they are cast/serialised
+     * exactly as {@see AvailabilitySnapshot::save()} would write them (Carbon →
+     * datetime string, breakdown array → JSON, ints as-is). `upsert()` does NOT
+     * apply casts to its value rows, so pre-casting here keeps the stored bytes
+     * identical to the previous `updateOrCreate` path.
      *
      * @param  array<string, int>  $breakdown
+     * @return array<string, mixed>
      */
-    private function upsertSnapshot(
+    private function snapshotRow(
         int $productId,
         int $storeId,
         Carbon $slotStart,
@@ -520,27 +610,60 @@ class RecalculationPipeline
         array $breakdown,
         int $pendingCheckin,
         Carbon $calculatedAt,
-    ): void {
-        AvailabilitySnapshot::query()->updateOrCreate(
-            [
-                'product_id' => $productId,
-                'store_id' => $storeId,
-                'slot_start' => $slotStart,
-            ],
-            [
-                'total_stock' => $totalStock,
-                'total_demanded' => $totalDemanded,
-                // `available` is honoured as supplied so a post-calculation
-                // strategy hook's adjustment (buffer-stock floor, cap) is
-                // persisted, rather than re-derived from stock minus demand.
-                'available' => $available,
-                'demand_breakdown' => $breakdown,
-                // Informational check-in queue size for this slot (returned but
-                // not yet inspected) — does not affect `available`.
-                'pending_checkin_quantity' => $pendingCheckin,
-                'calculated_at' => $calculatedAt,
-            ],
-        );
+    ): array {
+        return (new AvailabilitySnapshot)->forceFill([
+            'product_id' => $productId,
+            'store_id' => $storeId,
+            'slot_start' => $slotStart,
+            'total_stock' => $totalStock,
+            'total_demanded' => $totalDemanded,
+            // `available` is honoured as supplied so a post-calculation strategy
+            // hook's adjustment (buffer-stock floor, cap) is persisted, rather than
+            // re-derived from stock minus demand.
+            'available' => $available,
+            'demand_breakdown' => $breakdown,
+            // Informational check-in queue size for this slot (returned but not yet
+            // inspected) — does not affect `available`.
+            'pending_checkin_quantity' => $pendingCheckin,
+            'calculated_at' => $calculatedAt,
+        ])->getAttributes();
+    }
+
+    /**
+     * Batch-upsert the accumulated snapshot rows in one statement per chunk.
+     *
+     * Conflicts are resolved on the `(product_id, store_id, slot_start)` unique
+     * index (`uq_snapshots_product_store_slot`), updating exactly the columns the
+     * previous per-row `updateOrCreate` updated — never the unique keys and never
+     * `created_at` (`upsert()` adds `updated_at` to the update set automatically).
+     *
+     * Chunked at 1,000 rows so a wide horizon stays well under Postgres'
+     * bind-parameter ceiling (~11 columns × 1,000 = ~11k binds per statement).
+     * `upsert()` fires no model events; the previous `updateOrCreate` path had no
+     * observers/broadcasts bound to AvailabilitySnapshot, so none are lost.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function batchUpsertSnapshots(array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        foreach (array_chunk($rows, 1000) as $chunk) {
+            AvailabilitySnapshot::query()->upsert(
+                $chunk,
+                ['product_id', 'store_id', 'slot_start'],
+                [
+                    'total_stock',
+                    'total_demanded',
+                    'available',
+                    'demand_breakdown',
+                    'pending_checkin_quantity',
+                    'calculated_at',
+                ],
+            );
+        }
     }
 
     /**
@@ -649,22 +772,61 @@ class RecalculationPipeline
             $byDay[$day]['pending_checkin'] = max($byDay[$day]['pending_checkin'], $pendingCheckin);
         }
 
+        // Build all touched-day rows, cast/serialised through a transient model so
+        // the stored bytes match the previous `updateOrCreate` path exactly, then
+        // upsert them in one statement. The day is pinned to midnight so the cast
+        // `date` value matches the stored `Y-m-d 00:00:00` representation — a bare
+        // `Y-m-d` string would miss the existing row and force a duplicate insert.
+        /** @var list<array<string, mixed>> $rows */
+        $rows = [];
+
         foreach ($byDay as $day => $bounds) {
-            // Match on the day at midnight so the lookup value matches the stored,
-            // `date`-cast representation (`Y-m-d 00:00:00`) — a bare `Y-m-d`
-            // string would miss the existing row and force a duplicate insert.
-            AvailabilityDailySummary::query()->updateOrCreate(
+            $rows[] = (new AvailabilityDailySummary)->forceFill([
+                'product_id' => $productId,
+                'store_id' => $storeId,
+                'date' => Carbon::parse($day)->startOfDay(),
+                'min_available' => $bounds['min'],
+                'max_available' => $bounds['max'],
+                'pending_checkin_quantity' => $bounds['pending_checkin'],
+                'has_shortage' => $bounds['min'] < 0,
+                'calculated_at' => $calculatedAt,
+            ])->getAttributes();
+        }
+
+        $this->batchUpsertDailySummaries($rows);
+    }
+
+    /**
+     * Batch-upsert the accumulated daily-summary rows in one statement per chunk.
+     *
+     * Conflicts are resolved on the `(product_id, store_id, date)` unique index
+     * (`uq_daily_summaries_product_store_date`), updating exactly the columns the
+     * previous per-day `updateOrCreate` updated — never the unique keys and never
+     * `created_at` (`upsert()` adds `updated_at` automatically).
+     *
+     * Chunked at 1,000 rows (one row per touched calendar day; a recalc window
+     * rarely approaches that, but the chunk keeps the bind count bounded regardless).
+     * `upsert()` fires no model events; the previous path had no observers/broadcasts
+     * bound to AvailabilityDailySummary, so none are lost.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function batchUpsertDailySummaries(array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        foreach (array_chunk($rows, 1000) as $chunk) {
+            AvailabilityDailySummary::query()->upsert(
+                $chunk,
+                ['product_id', 'store_id', 'date'],
                 [
-                    'product_id' => $productId,
-                    'store_id' => $storeId,
-                    'date' => Carbon::parse($day)->startOfDay(),
-                ],
-                [
-                    'min_available' => $bounds['min'],
-                    'max_available' => $bounds['max'],
-                    'pending_checkin_quantity' => $bounds['pending_checkin'],
-                    'has_shortage' => $bounds['min'] < 0,
-                    'calculated_at' => $calculatedAt,
+                    'min_available',
+                    'max_available',
+                    'pending_checkin_quantity',
+                    'has_shortage',
+                    'calculated_at',
                 ],
             );
         }
