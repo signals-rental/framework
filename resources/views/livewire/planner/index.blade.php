@@ -408,12 +408,12 @@ new #[Layout('components.layouts.app')] #[Title('Job Planner')] class extends Co
     <div class="s-panel mb-4">
         <div class="s-panel-body flex flex-wrap items-end gap-4">
             <div class="flex flex-col gap-1">
-                <label class="s-label" for="planner-date">{{ __('Date') }}</label>
+                <label class="s-field-label" for="planner-date">{{ __('Date') }}</label>
                 <input id="planner-date" type="date" wire:model.live="date" class="s-input" />
             </div>
 
             <div class="flex flex-col gap-1">
-                <label class="s-label" for="planner-view">{{ __('View') }}</label>
+                <label class="s-field-label" for="planner-view">{{ __('View') }}</label>
                 <select id="planner-view" wire:model.live="viewPeriod" class="s-select">
                     <option value="1w">{{ __('1 Week') }}</option>
                     <option value="2w">{{ __('2 Weeks') }}</option>
@@ -423,7 +423,7 @@ new #[Layout('components.layouts.app')] #[Title('Job Planner')] class extends Co
             </div>
 
             <div class="flex flex-col gap-1">
-                <label class="s-label" for="planner-store">{{ __('Store') }}</label>
+                <label class="s-field-label" for="planner-store">{{ __('Store') }}</label>
                 <select id="planner-store" wire:model.live="storeId" class="s-select">
                     <option value="0">{{ __('All stores') }}</option>
                     @foreach($this->stores as $store)
@@ -433,7 +433,7 @@ new #[Layout('components.layouts.app')] #[Title('Job Planner')] class extends Co
             </div>
 
             <div class="flex flex-col gap-1">
-                <span class="s-label">{{ __('Include') }}</span>
+                <span class="s-field-label">{{ __('Include') }}</span>
                 <div class="flex items-center gap-3">
                     <label class="flex items-center gap-1.5 text-[12px] text-[var(--text-primary)]">
                         <input type="checkbox" wire:model.live="includeQuotations" class="s-checkbox" /> {{ __('Quotations') }}
@@ -445,14 +445,14 @@ new #[Layout('components.layouts.app')] #[Title('Job Planner')] class extends Co
             </div>
 
             <div class="flex flex-1 flex-col gap-1" style="min-width: 180px;">
-                <label class="s-label" for="planner-search">{{ __('Search') }}</label>
+                <label class="s-field-label" for="planner-search">{{ __('Search') }}</label>
                 <input id="planner-search" type="search" wire:model.live.debounce.300ms="search"
                        placeholder="{{ __('Subject, number or member') }}" class="s-input" />
             </div>
 
             {{-- Gantt <-> Overlap toggle --}}
             <div class="flex flex-col gap-1">
-                <span class="s-label">{{ __('Layout') }}</span>
+                <span class="s-field-label">{{ __('Layout') }}</span>
                 <div class="inline-flex rounded-sm border border-[var(--card-border)] p-0.5">
                     <button type="button" wire:click="$set('mode', 'gantt')"
                             class="s-btn s-btn-sm {{ $mode === 'gantt' ? 's-btn-primary' : 's-btn-ghost' }}">{{ __('Gantt') }}</button>

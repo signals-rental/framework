@@ -121,8 +121,8 @@
                         @endforeach
                     </div>
                     <div class="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-[var(--text-muted)]">
-                        <span class="flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm" style="background: var(--red, #ef4444);"></span> {{ __('On-hire conflict') }}</span>
-                        <span class="flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm opacity-60" style="background: var(--amber, #f59e0b);"></span> {{ __('In buffer zone (may be resolvable)') }}</span>
+                        <span class="flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm" style="background: var(--red);"></span> {{ __('On-hire conflict') }}</span>
+                        <span class="flex items-center gap-1.5"><span class="inline-block h-3 w-3 rounded-sm opacity-60" style="background: var(--amber);"></span> {{ __('In buffer zone (may be resolvable)') }}</span>
                     </div>
                 </div>
             @endif

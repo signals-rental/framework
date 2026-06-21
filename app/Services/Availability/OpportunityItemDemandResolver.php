@@ -705,24 +705,11 @@ class OpportunityItemDemandResolver implements DemandResolverContract
      */
     protected function resolveProduct(OpportunityItem $item): ?Product
     {
-        if ($item->item_id === null || ! $this->referencesProduct($item->item_type)) {
+        if (! $item->isProductBacked()) {
             return null;
         }
 
         return Product::query()->find($item->item_id);
-    }
-
-    /**
-     * Whether the given polymorphic type refers to a product. Accepts the model
-     * FQN and the short `product` morph alias.
-     */
-    protected function referencesProduct(?string $type): bool
-    {
-        if ($type === null) {
-            return false;
-        }
-
-        return $type === Product::class || strtolower($type) === 'product';
     }
 
     /**

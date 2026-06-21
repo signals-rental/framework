@@ -2,7 +2,6 @@
 
 namespace App\Verbs\Events\Opportunities\Concerns;
 
-use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Services\Availability\OpportunityItemDemandResolver;
 use App\Services\Opportunities\OpportunityTotalsCalculator;
@@ -41,6 +40,8 @@ use Thunk\Verbs\Facades\Verbs;
  */
 trait PricesOpportunityItems
 {
+    use RollsUpOpportunityTotals;
+
     /**
      * Guard a line-item mutation: the parent opportunity must not be closed and
      * the line must not already be removed. Reads the parent status from the
@@ -54,16 +55,7 @@ trait PricesOpportunityItems
             'A removed line item cannot be modified.',
         );
 
-        $closed = Opportunity::query()
-            ->whereKey($state->opportunity_id)
-            ->first()
-            ?->statusEnum()
-            ->isClosed() ?? false;
-
-        $this->assert(
-            ! $closed,
-            'A closed opportunity\'s line items cannot be modified.',
-        );
+        $this->assertOpportunityNotClosed($state->opportunity_id, 'line items');
     }
 
     /**
@@ -79,16 +71,6 @@ trait PricesOpportunityItems
         if ($opportunity !== null) {
             $calculator->rollUp($opportunity);
         }
-    }
-
-    /**
-     * Roll the totals up onto the parent without repricing any line (used after a
-     * removal, where the line is gone, or an optional toggle that only shifts which
-     * lines count toward the totals).
-     */
-    protected function rollUpOnly(Opportunity $opportunity): void
-    {
-        app(OpportunityTotalsCalculator::class)->rollUp($opportunity);
     }
 
     /**

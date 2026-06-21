@@ -2,15 +2,14 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\ResolvesOpportunityAssets;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\QuickPrepareAssetsData;
 use App\Models\Opportunity;
-use App\Models\OpportunityItemAsset;
 use App\Verbs\Events\Opportunities\AssetPrepared;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Prepares (picks/packs) several allocated assets of one opportunity in a SINGLE
@@ -29,7 +28,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class QuickPrepareAssets
 {
-    use CommitsVerbsEvents;
+    use CommitsVerbsEvents, ResolvesOpportunityAssets;
 
     public function __invoke(Opportunity $opportunity, QuickPrepareAssetsData $data): OpportunityData
     {
@@ -49,16 +48,5 @@ class QuickPrepareAssets
         });
 
         return OpportunityData::fromModel($opportunity->fresh(['items', 'items.assets']) ?? $opportunity);
-    }
-
-    private function assetForOpportunity(int $assetId, Opportunity $opportunity): OpportunityItemAsset
-    {
-        $asset = OpportunityItemAsset::query()->whereKey($assetId)->with('item')->first();
-
-        if ($asset === null || $asset->item === null || $asset->item->opportunity_id !== $opportunity->id) {
-            throw new NotFoundHttpException('An asset in the batch does not belong to the opportunity.');
-        }
-
-        return $asset;
     }
 }

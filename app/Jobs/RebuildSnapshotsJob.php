@@ -68,21 +68,13 @@ class RebuildSnapshotsJob implements ShouldQueue
 
     public function handle(RecalculationPipeline $pipeline): void
     {
-        $now = Carbon::now('UTC');
-
-        $pastDays = (int) settings('availability.snapshot_horizon_past_days', 90);
-        $futureDays = (int) settings('availability.snapshot_horizon_future_days', 365);
-
         // Default to the full rolling horizon; an explicit window is clamped to it
         // by the pipeline so an out-of-horizon request cannot materialise an
         // unbounded number of slots.
-        $from = $this->from !== null
-            ? Carbon::parse($this->from)
-            : $now->copy()->subDays(max(0, $pastDays))->startOfDay();
+        [$horizonFrom, $horizonTo] = $pipeline->fullHorizon();
 
-        $to = $this->to !== null
-            ? Carbon::parse($this->to)
-            : $now->copy()->addDays(max(0, $futureDays))->endOfDay();
+        $from = $this->from !== null ? Carbon::parse($this->from) : $horizonFrom;
+        $to = $this->to !== null ? Carbon::parse($this->to) : $horizonTo;
 
         $pipeline->recalculate($this->productId, $this->storeId, $from, $to);
     }

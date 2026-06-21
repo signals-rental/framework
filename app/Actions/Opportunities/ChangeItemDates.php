@@ -2,6 +2,7 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\FormatsOpportunityDates;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\OpportunityData;
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Gate;
  */
 class ChangeItemDates
 {
-    use CommitsVerbsEvents;
+    use CommitsVerbsEvents, FormatsOpportunityDates;
 
     public function __invoke(OpportunityItem $item, ChangeItemDatesData $data): OpportunityData
     {
@@ -53,10 +54,5 @@ class ChangeItemDates
         app(ItemShortageProbe::class)->probe($item->refresh());
 
         return OpportunityData::fromModel($opportunity->fresh(['items']));
-    }
-
-    private function toIso(?\DateTimeInterface $value): ?string
-    {
-        return $value !== null ? Carbon::parse($value)->toIso8601String() : null;
     }
 }

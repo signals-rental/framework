@@ -2,12 +2,10 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\ValidatesOpportunityMember;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
-use App\Enums\MembershipType;
-use App\Models\Address;
-use App\Models\Member;
 use App\Models\Opportunity;
 use App\Services\CurrencyService;
 use App\Services\Opportunities\OpportunityNumberGenerator;
@@ -22,7 +20,7 @@ use Illuminate\Validation\ValidationException;
  */
 class CreateOpportunity
 {
-    use CommitsVerbsEvents;
+    use CommitsVerbsEvents, ValidatesOpportunityMember;
 
     public function __invoke(CreateOpportunityData $data): OpportunityData
     {
@@ -127,55 +125,15 @@ class CreateOpportunity
 
     /**
      * Assert that every supplied address FK points at an {@see Address} owned by
-     * the given member (polymorphic addressable_type = Member, addressable_id =
-     * member_id). Closes the IDOR where an API caller targets another member's
-     * address. A mismatch (including a non-Member-owned address, or any address when
-     * no member is set) is surfaced as a 422 rather than silently dropped.
+     * the given member. Closes the IDOR where an API caller targets another
+     * member's address. Each field is checked via the shared single-address guard.
      *
      * @param  array<string, int|null>  $addressIds  field name => supplied id
      */
     private function assertAddressesBelongToMember(?int $memberId, array $addressIds): void
     {
         foreach ($addressIds as $field => $addressId) {
-            if ($addressId === null) {
-                continue;
-            }
-
-            $belongs = $memberId !== null && Address::query()
-                ->whereKey($addressId)
-                ->where('addressable_type', Member::class)
-                ->where('addressable_id', $memberId)
-                ->exists();
-
-            if (! $belongs) {
-                throw ValidationException::withMessages([
-                    $field => ['The selected address does not belong to this opportunity\'s member.'],
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Assert that the supplied opportunity customer (when one is set) is an
-     * Organisation member. A Contact/User/Venue — or a missing member — is rejected
-     * with a 422 so an opportunity cannot be created against a non-organisation
-     * customer. A null member_id is allowed (the header customer is optional).
-     */
-    private function assertMemberIsOrganisation(?int $memberId): void
-    {
-        if ($memberId === null) {
-            return;
-        }
-
-        $isOrganisation = Member::query()
-            ->whereKey($memberId)
-            ->where('membership_type', MembershipType::Organisation->value)
-            ->exists();
-
-        if (! $isOrganisation) {
-            throw ValidationException::withMessages([
-                'member_id' => ['The opportunity customer must be an organisation.'],
-            ]);
+            $this->assertAddressBelongsToMember($field, $addressId, $memberId);
         }
     }
 
@@ -191,7 +149,7 @@ class CreateOpportunity
             return $currency;
         }
 
-        return settings('company.base_currency', 'GBP');
+        return app(CurrencyService::class)->baseCurrencyCode();
     }
 
     /**
@@ -206,9 +164,9 @@ class CreateOpportunity
      */
     private function resolveExchangeRate(string $currency): string
     {
-        $base = settings('company.base_currency', 'GBP');
+        $base = app(CurrencyService::class)->baseCurrencyCode();
 
-        if (! is_string($base) || $base === '' || $currency === $base) {
+        if ($base === '' || $currency === $base) {
             return '1';
         }
 

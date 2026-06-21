@@ -2,12 +2,11 @@
 
 namespace App\Listeners\Availability;
 
-use App\Enums\AvailabilityEventType;
 use App\Enums\OpportunityState;
 use App\Events\Availability\AvailabilityChanged;
-use App\Models\AvailabilityEvent;
 use App\Models\Demand;
 use App\Models\OpportunityItem;
+use App\Services\Shortages\ItemShortageProbe;
 use App\Services\Shortages\PipelineShortageEmitter;
 use App\Services\Shortages\ShortageDetector;
 use App\Services\Shortages\ShortageEventRecorder;
@@ -47,6 +46,7 @@ class DetectOrderShortages implements ShouldQueue
     public function __construct(
         private readonly ShortageDetector $detector,
         private readonly ShortageEventRecorder $events,
+        private readonly ItemShortageProbe $probe,
     ) {}
 
     public function handle(AvailabilityChanged $event): void
@@ -77,7 +77,7 @@ class DetectOrderShortages implements ShouldQueue
                 // Only emit when there is an unresolved shortage AND this line does
                 // not already have an open (uncleared) detection — so a standing
                 // shortage is announced once, not on every recalc.
-                if ($shortage === null || ! $shortage->isUnresolved() || $this->alreadyOpen($item->id)) {
+                if ($shortage === null || ! $shortage->isUnresolved() || $this->probe->hasOpenShortageForItemId($item->id)) {
                     return;
                 }
 
@@ -102,25 +102,5 @@ class DetectOrderShortages implements ShouldQueue
             ->pluck('source_id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();
-    }
-
-    /**
-     * Whether the line already has an outstanding (not-yet-cleared) shortage in
-     * the availability event log — its most recent shortage event is a detection.
-     */
-    private function alreadyOpen(int $opportunityItemId): bool
-    {
-        $latest = AvailabilityEvent::query()
-            ->where('source_type', 'opportunity_item')
-            ->where('source_id', $opportunityItemId)
-            ->whereIn('event_type', [
-                AvailabilityEventType::ShortageDetected->value,
-                AvailabilityEventType::ShortageResolved->value,
-            ])
-            ->latest('id')
-            ->value('event_type');
-
-        return $latest === AvailabilityEventType::ShortageDetected->value
-            || $latest === AvailabilityEventType::ShortageDetected;
     }
 }

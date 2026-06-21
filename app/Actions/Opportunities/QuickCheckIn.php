@@ -3,20 +3,19 @@
 namespace App\Actions\Opportunities;
 
 use App\Actions\Opportunities\Concerns\RebuildsAvailabilitySnapshots;
+use App\Actions\Opportunities\Concerns\ResolvesOpportunityAssets;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\QuickCheckInData;
 use App\Enums\AssetAssignmentStatus;
 use App\Enums\AssetCondition;
 use App\Models\Opportunity;
-use App\Models\OpportunityItemAsset;
 use App\Services\Opportunities\AutoPromotionContext;
 use App\Verbs\Events\Opportunities\AssetChecked;
 use App\Verbs\Events\Opportunities\AssetReturned;
 use App\Verbs\Events\Opportunities\Concerns\PromotesOpportunityStatus;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Checks several serialised assets back into one opportunity in a SINGLE atomic
@@ -34,7 +33,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class QuickCheckIn
 {
-    use CommitsVerbsEvents, PromotesOpportunityStatus, RebuildsAvailabilitySnapshots;
+    use CommitsVerbsEvents, PromotesOpportunityStatus, RebuildsAvailabilitySnapshots, ResolvesOpportunityAssets;
 
     public function __invoke(Opportunity $opportunity, QuickCheckInData $data): OpportunityData
     {
@@ -84,16 +83,5 @@ class QuickCheckIn
         $this->rebuildSnapshotsForItems($fresh->items);
 
         return OpportunityData::fromModel($fresh);
-    }
-
-    private function assetForOpportunity(int $assetId, Opportunity $opportunity): OpportunityItemAsset
-    {
-        $asset = OpportunityItemAsset::query()->whereKey($assetId)->with('item')->first();
-
-        if ($asset === null || $asset->item === null || $asset->item->opportunity_id !== $opportunity->id) {
-            throw new NotFoundHttpException('An asset in the batch does not belong to the opportunity.');
-        }
-
-        return $asset;
     }
 }

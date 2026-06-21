@@ -211,6 +211,23 @@ class Demand extends Model
     }
 
     /**
+     * This demand's quantity net of any partial return. Bulk demands may carry a
+     * `metadata.returned_quantity`; serialised demands are a single unit with no
+     * partial-return concept. Floored at zero so an over-stated return can never
+     * produce negative demand.
+     *
+     * This is the single source of the "how many units does this demand still
+     * occupy" figure used by every per-slot availability sum (the recalculation
+     * pipeline's snapshot build and the live point/worst-slot reads alike).
+     */
+    public function effectiveQuantity(): int
+    {
+        $returned = max(0, (int) ($this->metadata['returned_quantity'] ?? 0));
+
+        return max(0, $this->quantity - $returned);
+    }
+
+    /**
      * Scope to demands with a known end date (not the sentinel).
      *
      * @param  Builder<Demand>  $query

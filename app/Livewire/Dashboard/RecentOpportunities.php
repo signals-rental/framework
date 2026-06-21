@@ -45,8 +45,12 @@ class RecentOpportunities extends Component
     {
         $canAccess = Gate::allows('opportunities.access');
 
+        // Gate before the query: an unauthorized user gets an empty collection
+        // without ever running the recent() query.
+        $opportunities = $canAccess ? $this->recent() : collect();
+
         return view('livewire.dashboard.recent-opportunities', [
-            'opportunities' => $canAccess ? $this->recent() : collect(),
+            'opportunities' => $opportunities,
             'canAccess' => $canAccess,
         ]);
     }

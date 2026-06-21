@@ -3,15 +3,17 @@
 namespace App\Services\Shortages;
 
 use App\Enums\OpportunityState;
+use App\Enums\ShortageResolutionStatus;
 use App\Enums\StockMethod;
 use App\Models\Demand;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\Product;
-use App\Models\ShortageResolution;
+use App\Models\ShortageResolutionItem;
 use App\Services\AvailabilityService;
 use App\ValueObjects\Shortage;
 use App\ValueObjects\ShortageCollection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 /**
@@ -132,18 +134,18 @@ class ShortageDetector
 
     /**
      * Active resolution coverage already recorded for a line item — the quantity
-     * netted off to produce `remaining_shortfall` (§2.3).
+     * netted off to produce `remaining_shortfall` (§2.3). Summed in a single
+     * aggregate query over the resolution-item pivot, scoped to active resolutions.
      */
     private function resolvedQuantityFor(int $opportunityItemId): int
     {
-        return (int) ShortageResolution::query()
-            ->active()
-            ->forItem($opportunityItemId)
-            ->with('items')
-            ->get()
-            ->sum(static fn (ShortageResolution $resolution): int => (int) $resolution->items
-                ->where('opportunity_item_id', $opportunityItemId)
-                ->sum('quantity_allocated'));
+        return (int) ShortageResolutionItem::query()
+            ->whereHas('resolution', static fn (Builder $query): Builder => $query->whereNotIn('status', [
+                ShortageResolutionStatus::Cancelled->value,
+                ShortageResolutionStatus::Failed->value,
+            ]))
+            ->where('opportunity_item_id', $opportunityItemId)
+            ->sum('quantity_allocated');
     }
 
     /**
@@ -166,22 +168,18 @@ class ShortageDetector
      * Resolve the catalogue product a line item refers to via its polymorphic
      * `item_type`/`item_id`. Non-product lines (services, ad-hoc) resolve to null
      * and never produce a shortage.
+     *
+     * NOTE: resolved with an explicit find() (rather than the polymorphic `item`
+     * relation) because `item_type` may be stored as the short `product` morph
+     * alias, which the morphTo relation cannot resolve without a registered morph
+     * map — find() honours {@see OpportunityItem::isProductBacked()} for both forms.
      */
     private function resolveProduct(OpportunityItem $item): ?Product
     {
-        if ($item->item_id === null || ! $this->referencesProduct($item->item_type)) {
+        if (! $item->isProductBacked()) {
             return null;
         }
 
         return Product::query()->find($item->item_id);
-    }
-
-    private function referencesProduct(?string $type): bool
-    {
-        if ($type === null) {
-            return false;
-        }
-
-        return $type === Product::class || strtolower($type) === 'product';
     }
 }

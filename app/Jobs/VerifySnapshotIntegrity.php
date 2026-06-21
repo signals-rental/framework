@@ -9,7 +9,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -58,12 +57,7 @@ class VerifySnapshotIntegrity implements ShouldQueue
             return;
         }
 
-        $now = Carbon::now('UTC');
-        $pastDays = (int) settings('availability.snapshot_horizon_past_days', 90);
-        $futureDays = (int) settings('availability.snapshot_horizon_future_days', 365);
-
-        $from = $now->copy()->subDays(max(0, $pastDays))->startOfDay();
-        $to = $now->copy()->addDays(max(0, $futureDays))->endOfDay();
+        [$from, $to] = $pipeline->fullHorizon();
 
         foreach ($sample as [$productId, $storeId]) {
             // Capture the stored availabilities keyed by slot before recomputing.

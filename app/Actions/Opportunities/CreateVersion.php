@@ -2,18 +2,16 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\ClonesOpportunityItems;
 use App\Concerns\CommitsVerbsEvents;
-use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateVersionData;
 use App\Data\Opportunities\OpportunityVersionData;
 use App\Enums\VersionType;
 use App\Models\Opportunity;
-use App\Models\OpportunityItem;
 use App\Models\OpportunityVersion;
 use App\Services\SequenceAllocator;
 use App\Verbs\Events\Opportunities\VersionCreated;
 use App\Verbs\Events\Opportunities\VersionSuperseded;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -36,7 +34,7 @@ use Spatie\LaravelData\Optional;
  */
 class CreateVersion
 {
-    use CommitsVerbsEvents;
+    use ClonesOpportunityItems, CommitsVerbsEvents;
 
     public function __invoke(Opportunity $opportunity, CreateVersionData $data): OpportunityVersionData
     {
@@ -133,52 +131,5 @@ class CreateVersion
         }
 
         return null;
-    }
-
-    /**
-     * Copy a source line item into an add-item payload scoped to the new version.
-     * Mirrors {@see CloneOpportunity::itemDataFrom} — a product-backed line
-     * reprices from the rate engine on the clone; a manual/no-product line carries
-     * its manual price through.
-     */
-    private function itemDataFrom(OpportunityItem $item, int $versionId): AddOpportunityItemData
-    {
-        return AddOpportunityItemData::from([
-            'name' => $item->name,
-            'item_id' => $item->item_id,
-            'item_type' => $item->item_type,
-            'description' => $item->description,
-            'quantity' => (string) $item->quantity,
-            'transaction_type' => $item->transaction_type->value,
-            'charge_period' => $item->charge_period->value,
-            'starts_at' => $this->toIso($item->starts_at),
-            'ends_at' => $this->toIso($item->ends_at),
-            'is_optional' => $item->is_optional,
-            'discount_percent' => $item->discount_percent,
-            'sort_order' => $item->sort_order,
-            'notes' => $item->notes,
-            'custom_fields' => $item->custom_fields,
-            'currency' => $item->currency_code ?? 'GBP',
-            'unit_price' => $this->manualUnitPrice($item),
-            'version_id' => $versionId,
-        ]);
-    }
-
-    /**
-     * The source line's MANUAL price override, if any. A product-backed line
-     * reprices from the rate engine (null); a no-product line is inherently manual.
-     */
-    private function manualUnitPrice(OpportunityItem $item): ?int
-    {
-        if ($item->item_id === null) {
-            return $item->unit_price !== 0 ? $item->unit_price : null;
-        }
-
-        return null;
-    }
-
-    private function toIso(?\DateTimeInterface $value): ?string
-    {
-        return $value !== null ? Carbon::parse($value)->toIso8601String() : null;
     }
 }

@@ -50,6 +50,15 @@ class RecalculationPipeline
     ) {}
 
     /**
+     * Per-instance cache of store timezones, keyed by store id. A store's
+     * timezone is static within a request/job, so this avoids the repeated
+     * single-column SELECT every point-read / recalc otherwise fires.
+     *
+     * @var array<int, string|null>
+     */
+    private array $storeTimezones = [];
+
+    /**
      * Recalculate snapshots for the product/store over the half-open window
      * `[$from, $to)`. No-op for products that do not track availability.
      *
@@ -143,7 +152,7 @@ class RecalculationPipeline
             foreach ($slots as $slotStart) {
                 $slotEnd = $this->slotCalculator->advance($slotStart, $timezone);
 
-                [$demanded, $breakdown] = $this->demandForSlot($demands, $slotStart, $slotEnd);
+                [$demanded, $breakdown] = $this->sumDemandForSlot($demands, $slotStart, $slotEnd);
 
                 $pendingCheckin = $this->pendingCheckinForSlot($pendingCheckinDemands, $slotStart, $slotEnd);
 
@@ -362,6 +371,31 @@ class RecalculationPipeline
     }
 
     /**
+     * The full rolling snapshot horizon around now as a half-open window:
+     * `[now - past_days (start of day), now + future_days (end of day)]`, reading
+     * the `availability.snapshot_horizon_past_days` / `_future_days` settings once.
+     *
+     * Shared by the maintenance/recompute jobs ({@see RecalculateAvailabilityJob},
+     * {@see RebuildSnapshotsJob}, {@see VerifySnapshotIntegrity}) so the default
+     * rebuild window is defined in exactly one place and matches the bounds
+     * {@see clampToHorizon()} enforces.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public function fullHorizon(): array
+    {
+        $now = Carbon::now('UTC');
+
+        $pastDays = (int) settings('availability.snapshot_horizon_past_days', 90);
+        $futureDays = (int) settings('availability.snapshot_horizon_future_days', 365);
+
+        $from = $now->copy()->subDays(max(0, $pastDays))->startOfDay();
+        $to = $now->copy()->addDays(max(0, $futureDays))->endOfDay();
+
+        return [$from, $to];
+    }
+
+    /**
      * Total sellable stock for a product at a store.
      *
      * Bulk products: the sum of `quantity_held` across the store's bulk stock
@@ -373,17 +407,34 @@ class RecalculationPipeline
      */
     public function totalStock(Product $product, int $storeId): int
     {
-        $serialisedCount = StockLevel::query()
+        // One grouped pass over the product/store stock rows: per stock category
+        // we read both the row count (serialised basis) and the summed
+        // quantity_held (bulk basis). The serialised basis takes the COUNT of
+        // serialised rows; the bulk basis takes the rounded SUM of bulk rows.
+        //
+        // The discriminator is aliased to `category` (a plain int, not the model's
+        // enum-cast `stock_category`) so it is compared against the enum's backing
+        // values without relying on the cast surviving an aggregate select.
+        /** @var Collection<int, StockLevel> $rows */
+        $rows = StockLevel::query()
             ->where('product_id', $product->id)
             ->where('store_id', $storeId)
-            ->where('stock_category', StockCategory::SerialisedStock)
-            ->count();
+            ->selectRaw('stock_category as category, COUNT(*) as cnt, COALESCE(SUM(quantity_held), 0) as held')
+            ->groupBy('stock_category')
+            ->get();
 
-        $bulkHeld = (float) StockLevel::query()
-            ->where('product_id', $product->id)
-            ->where('store_id', $storeId)
-            ->where('stock_category', StockCategory::BulkStock)
-            ->sum('quantity_held');
+        $serialisedCount = 0;
+        $bulkHeld = 0.0;
+
+        foreach ($rows as $row) {
+            $category = (int) $row->getAttributeValue('category');
+
+            if ($category === StockCategory::SerialisedStock->value) {
+                $serialisedCount += (int) $row->getAttributeValue('cnt');
+            } elseif ($category === StockCategory::BulkStock->value) {
+                $bulkHeld += (float) $row->getAttributeValue('held');
+            }
+        }
 
         // Each basis is summed independently and combined: a product may legally
         // carry both bulk and serialised rows at a store.
@@ -410,24 +461,26 @@ class RecalculationPipeline
     }
 
     /**
-     * Sum the demand quantity overlapping a single `[slotStart, slotEnd)` slot
-     * and build the per-source breakdown. Bulk demands are netted against any
-     * `metadata.returned_quantity`.
+     * Sum the effective demand quantity overlapping a single `[slotStart, slotEnd)`
+     * slot and build the per-source breakdown. Each demand contributes its
+     * {@see Demand::effectiveQuantity()} (quantity net of any partial return);
+     * zero-quantity demands are skipped so they never appear in the breakdown.
      *
      * Overlap is tested against the demand's BUFFERED bounds (turnaround/prep
-     * baked in) — the same window the fetch overlaps on — so snapshots and daily
-     * summaries reflect a unit being occupied through its prep/turnaround slots,
-     * matching the Postgres `period &&` fetch on every driver.
+     * baked in) — the same window the fetch overlaps on — so snapshots, daily
+     * summaries and the live reads all reflect a unit being occupied through its
+     * prep/turnaround slots, matching the Postgres `period &&` fetch on every
+     * driver.
      *
-     * Accepts the base {@see SupportCollection} so the (possibly strategy-adjusted)
-     * demand set from {@see AvailabilityStrategyContract::preCalculation()} — which
-     * may no longer be an {@see Collection} (Eloquent) instance — is summed
-     * uniformly.
+     * Accepts any `iterable` of demands so the recalculation build (a possibly
+     * strategy-adjusted {@see SupportCollection}) and the live reads (an Eloquent
+     * {@see Collection}) share one summing definition. This is the single
+     * authoritative per-slot demand sum for the whole availability engine.
      *
-     * @param  SupportCollection<int, Demand>  $demands
+     * @param  iterable<int, Demand>  $demands
      * @return array{0: int, 1: array<string, int>}
      */
-    private function demandForSlot(SupportCollection $demands, Carbon $slotStart, Carbon $slotEnd): array
+    public function sumDemandForSlot(iterable $demands, Carbon $slotStart, Carbon $slotEnd): array
     {
         $total = 0;
         $breakdown = [];
@@ -439,7 +492,7 @@ class RecalculationPipeline
                 continue;
             }
 
-            $quantity = $this->effectiveQuantity($demand);
+            $quantity = $demand->effectiveQuantity();
 
             if ($quantity <= 0) {
                 continue;
@@ -450,17 +503,6 @@ class RecalculationPipeline
         }
 
         return [$total, $breakdown];
-    }
-
-    /**
-     * The demand's quantity net of partial returns. Bulk demands may carry a
-     * `metadata.returned_quantity`; serialised demands are always a single unit.
-     */
-    private function effectiveQuantity(Demand $demand): int
-    {
-        $returned = (int) ($demand->metadata['returned_quantity'] ?? 0);
-
-        return max(0, $demand->quantity - max(0, $returned));
     }
 
     /**
@@ -585,7 +627,7 @@ class RecalculationPipeline
             return;
         }
 
-        $tz = $this->normaliseTimezone($timezone);
+        $tz = $this->slotCalculator->normaliseTimezone($timezone);
 
         /** @var array<string, array{min: int, max: int, pending_checkin: int}> $byDay */
         $byDay = [];
@@ -629,21 +671,6 @@ class RecalculationPipeline
     }
 
     /**
-     * Resolve the timezone to use for day-boundary grouping, defaulting to the
-     * application timezone when the store has none. Mirrors
-     * {@see SlotCalculator}'s normalisation so summaries bucket on the same local
-     * calendar day the slots were aligned to.
-     */
-    private function normaliseTimezone(?string $timezone): string
-    {
-        if ($timezone === null || trim($timezone) === '') {
-            return (string) config('app.timezone', 'UTC');
-        }
-
-        return $timezone;
-    }
-
-    /**
      * Append an `availability_recalculated` event for the affected range.
      */
     private function logRecalculated(int $productId, int $storeId, Carbon $from, Carbon $to, int $slotCount): void
@@ -661,11 +688,15 @@ class RecalculationPipeline
     }
 
     /**
-     * The IANA timezone for a store, falling back to the application timezone.
+     * The IANA timezone for a store (or null when the store has none / does not
+     * exist), memoised per instance.
+     *
+     * Public so the read path ({@see AvailabilityService}) shares one definition
+     * and one cache rather than re-querying `stores.timezone` on every point read.
      */
-    private function storeTimezone(int $storeId): ?string
+    public function storeTimezone(int $storeId): ?string
     {
-        return Store::query()->whereKey($storeId)->value('timezone');
+        return $this->storeTimezones[$storeId] ??= Store::query()->whereKey($storeId)->value('timezone');
     }
 
     /**

@@ -2,17 +2,15 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\ClonesOpportunityItems;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\AddOpportunityCostData;
-use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
 use App\Models\Opportunity;
 use App\Models\OpportunityCost;
-use App\Models\OpportunityItem;
 use App\Verbs\Events\Opportunities\OpportunityCloned;
 use App\Verbs\Events\Opportunities\OpportunityCreated;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Thunk\Verbs\Facades\Verbs;
 
@@ -35,7 +33,7 @@ use Thunk\Verbs\Facades\Verbs;
  */
 class CloneOpportunity
 {
-    use CommitsVerbsEvents;
+    use ClonesOpportunityItems, CommitsVerbsEvents;
 
     public function __invoke(Opportunity $source): OpportunityData
     {
@@ -101,34 +99,6 @@ class CloneOpportunity
     }
 
     /**
-     * Copy a source line item into an add-item payload. The manual price override
-     * (`unit_price`) is passed through as already-minor units; a null defers the
-     * clone to the rate engine exactly as the source did.
-     */
-    private function itemDataFrom(OpportunityItem $item): AddOpportunityItemData
-    {
-        return AddOpportunityItemData::from([
-            'name' => $item->name,
-            'item_id' => $item->item_id,
-            'item_type' => $item->item_type,
-            'description' => $item->description,
-            'quantity' => (string) $item->quantity,
-            'transaction_type' => $item->transaction_type->value,
-            'charge_period' => $item->charge_period->value,
-            'starts_at' => $this->toIso($item->starts_at),
-            'ends_at' => $this->toIso($item->ends_at),
-            'is_optional' => $item->is_optional,
-            'discount_percent' => $item->discount_percent,
-            'sort_order' => $item->sort_order,
-            'notes' => $item->notes,
-            'custom_fields' => $item->custom_fields,
-            'currency' => $item->currency_code ?? 'GBP',
-            // Already-minor units: an int passes straight through the MoneyInput cast.
-            'unit_price' => $this->manualUnitPrice($item),
-        ]);
-    }
-
-    /**
      * Copy a source cost into an add-cost payload. `amount` is the per-unit charge
      * in already-minor units (passed straight through the MoneyInput cast).
      */
@@ -145,32 +115,5 @@ class CloneOpportunity
             'currency' => $cost->currency_code ?? 'GBP',
             'amount' => $cost->amount,
         ]);
-    }
-
-    /**
-     * The source line's MANUAL price override, if one was set. An item priced by
-     * the rate engine carries no manual override, so the clone must NOT pass its
-     * resolved unit_price (which would freeze it as a manual override) — it returns
-     * null so the clone reprices from the rate engine. A manual override is
-     * detected when the stored unit_price diverges from a rate-resolvable line, but
-     * since the projection does not persist the override flag, we treat a line with
-     * NO product reference (so no rate could ever apply) as carrying a manual price.
-     */
-    private function manualUnitPrice(OpportunityItem $item): ?int
-    {
-        // A line with no product reference can never be rate-priced, so its
-        // unit_price is inherently manual and must be carried to the clone.
-        if ($item->item_id === null) {
-            return $item->unit_price !== 0 ? $item->unit_price : null;
-        }
-
-        // A product-backed line reprices from the rate engine on the clone; do not
-        // pin its resolved price as a manual override.
-        return null;
-    }
-
-    private function toIso(?\DateTimeInterface $value): ?string
-    {
-        return $value !== null ? Carbon::parse($value)->toIso8601String() : null;
     }
 }

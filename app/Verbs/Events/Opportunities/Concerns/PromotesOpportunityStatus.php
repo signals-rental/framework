@@ -144,7 +144,7 @@ trait PromotesOpportunityStatus
         $hasUncheckedReturn = false;
         $anyDispatched = false;
 
-        foreach ($opportunity->items()->with('assets')->get() as $item) {
+        foreach ($opportunity->items()->with('assets', 'item')->get() as $item) {
             $tally = $this->tallyItem($item, $overlay);
 
             $hasUndispatched = $hasUndispatched || $tally['undispatched'];
@@ -278,10 +278,9 @@ trait PromotesOpportunityStatus
 
     private function isSerialised(OpportunityItem $item): bool
     {
-        $product = $item->item_type !== null && $item->item_id !== null
-            ? Product::query()->find($item->item_id)
-            : null;
+        $product = $item->item;
 
-        return $product?->stock_method === StockMethod::Serialised;
+        return $product instanceof Product
+            && $product->stock_method === StockMethod::Serialised;
     }
 }

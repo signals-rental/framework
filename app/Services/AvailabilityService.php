@@ -672,11 +672,16 @@ class AvailabilityService
 
         $registry = app(DemandSourceRegistry::class);
 
+        // Bulk-fetch the parent opportunities for opportunity_item demands once
+        // (keyed by id) so resolveSourceName() reads from the map instead of
+        // firing one query per bar.
+        $opportunities = $this->opportunitiesForDemands($demands);
+
         $bars = $demands
             ->map(fn (Demand $demand): GanttDemandBarData => GanttDemandBarData::fromDemand(
                 $demand,
                 $registry->has($demand->source_type) ? $registry->get($demand->source_type)->colour : null,
-                $this->resolveSourceName($demand),
+                $this->resolveSourceName($demand, $registry, $opportunities),
             ))
             ->values()
             ->all();
@@ -707,27 +712,63 @@ class AvailabilityService
     }
 
     /**
+     * Bulk-fetch the parent opportunities referenced by `opportunity_item`
+     * demands (via `metadata.opportunity_id`), keyed by id, so the Gantt bar
+     * mapping resolves source names without an N+1 lookup per bar.
+     *
+     * @param  Collection<int, Demand>  $demands
+     * @return SupportCollection<int, Opportunity>
+     */
+    private function opportunitiesForDemands(Collection $demands): SupportCollection
+    {
+        $opportunityIds = $demands
+            ->filter(static fn (Demand $demand): bool => $demand->source_type === 'opportunity_item')
+            ->map(static fn (Demand $demand): ?int => isset($demand->metadata['opportunity_id'])
+                ? (int) $demand->metadata['opportunity_id']
+                : null)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($opportunityIds === []) {
+            return new SupportCollection;
+        }
+
+        /** @var SupportCollection<int, Opportunity> $opportunities */
+        $opportunities = Opportunity::query()
+            ->whereKey($opportunityIds)
+            ->get()
+            ->keyBy('id');
+
+        return $opportunities;
+    }
+
+    /**
      * A human-readable name for a demand's source entity, for the Gantt bar
      * tooltip/click target. Opportunity-item demands resolve to the parent
-     * opportunity's subject/number; other sources fall back to a
-     * "{display name} #{id}" label from the registry, or the raw type when the
-     * source is unregistered.
+     * opportunity's subject/number (read from the pre-fetched map); other sources
+     * fall back to a "{display name} #{id}" label from the registry, or the raw
+     * type when the source is unregistered.
+     *
+     * @param  SupportCollection<int, Opportunity>  $opportunities  pre-fetched parents keyed by id
      */
-    private function resolveSourceName(Demand $demand): ?string
-    {
+    private function resolveSourceName(
+        Demand $demand,
+        DemandSourceRegistry $registry,
+        SupportCollection $opportunities,
+    ): ?string {
         if ($demand->source_type === 'opportunity_item') {
             $opportunityId = $demand->metadata['opportunity_id'] ?? null;
 
             if ($opportunityId !== null) {
-                $opportunity = Opportunity::query()->find((int) $opportunityId);
+                $opportunity = $opportunities->get((int) $opportunityId);
 
                 if ($opportunity !== null) {
                     return $opportunity->subject ?? $opportunity->number;
                 }
             }
         }
-
-        $registry = app(DemandSourceRegistry::class);
 
         if ($registry->has($demand->source_type)) {
             return $registry->get($demand->source_type)->displayName.' #'.$demand->source_id;
@@ -822,38 +863,17 @@ class AvailabilityService
     }
 
     /**
-     * Sum the demand in a pre-fetched collection overlapping a slot.
-     *
-     * Per-slot attribution uses the demand's BUFFERED bounds (turnaround/prep
-     * baked in) — the same window the fetch overlaps on — so a unit is correctly
-     * counted as occupied during its own prep/turnaround slots, matching the
-     * Postgres `period &&` fetch on every driver.
+     * Sum the demand in a pre-fetched collection overlapping a slot, delegating
+     * to the pipeline's shared per-slot summer so the live reads and the snapshot
+     * build use one identical definition (buffered-bounds overlap +
+     * partial-return netting + per-source breakdown).
      *
      * @param  Collection<int, Demand>  $demands
      * @return array{0: int, 1: array<string, int>}
      */
     private function sumDemandIn(Collection $demands, Carbon $slotStart, Carbon $slotEnd): array
     {
-        $total = 0;
-        $breakdown = [];
-
-        foreach ($demands as $demand) {
-            if (! ($demand->bufferedStartsAt()->lessThan($slotEnd) && $demand->bufferedEndsAt()->greaterThan($slotStart))) {
-                continue;
-            }
-
-            $returned = max(0, (int) ($demand->metadata['returned_quantity'] ?? 0));
-            $quantity = max(0, $demand->quantity - $returned);
-
-            if ($quantity <= 0) {
-                continue;
-            }
-
-            $total += $quantity;
-            $breakdown[$demand->source_type] = ($breakdown[$demand->source_type] ?? 0) + $quantity;
-        }
-
-        return [$total, $breakdown];
+        return $this->pipeline->sumDemandForSlot($demands, $slotStart, $slotEnd);
     }
 
     /**
@@ -889,10 +909,12 @@ class AvailabilityService
     }
 
     /**
-     * The IANA timezone for a store, falling back to the application timezone.
+     * The IANA timezone for a store, delegating to the pipeline so the read and
+     * write paths share one (memoised) definition and avoid re-querying
+     * `stores.timezone` on every point read.
      */
     private function storeTimezone(int $storeId): ?string
     {
-        return Store::query()->whereKey($storeId)->value('timezone');
+        return $this->pipeline->storeTimezone($storeId);
     }
 }

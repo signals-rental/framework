@@ -310,20 +310,70 @@ POST /api/v1/opportunities
 
 Creates the opportunity as a **Draft / Open**. A zero-padded RMS `number` (e.g. `"0000000042"`) is auto-generated from a per-store running sequence and returned in the response. Money is supplied as a decimal string or minor-unit integer and returned as a decimal string.
 
+### Identity & Header
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `subject` | string | Yes | The opportunity subject (max 255) |
-| `member_id` | integer | No | Owning member (must exist, not archived) |
+| `member_id` | integer | No | Owning member — must be an Organisation member (not archived) |
 | `venue_id` | integer | No | Venue member |
 | `owned_by` | integer | No | Owner member |
 | `store_id` | integer | No | Store |
-| `reference` | string | No | External reference / PO number |
+| `reference` | string | No | External reference / PO number (max 255) |
 | `description` | string | No | Internal description |
 | `external_description` | string | No | Customer-facing description |
+| `currency` | string | No | ISO-4217 currency code (default `GBP`) |
+| `prices_include_tax` | boolean | No | Whether entered prices are tax-inclusive (set at create time only) |
+| `charge_total` | numeric | No | Header charge total (int = minor units, decimal string/float = major units) |
+| `rating` | integer | No | Sales priority rating 0–5 |
+| `tag_list` | string[] | No | Tag labels |
+| `custom_fields` | object | No | Custom field values as a flat key/value map |
+
+### Hire & Charge Dates
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
 | `starts_at` | date | No | Hire start |
 | `ends_at` | date | No | Hire end (on/after `starts_at`) |
-| `currency` | string | No | ISO-4217 code (default `GBP`) |
-| `charge_total` | numeric | No | Header charge total |
+| `charge_starts_at` | date | No | Chargeable period start |
+| `charge_ends_at` | date | No | Chargeable period end (on/after `charge_starts_at`) |
+
+### Event Logistics Dates
+
+All fields are optional ISO 8601 date strings. Each phase is a `_starts_at` / `_ends_at` pair.
+
+| Field pair | Description |
+|------------|-------------|
+| `prep_starts_at` / `prep_ends_at` | Warehouse preparation window |
+| `load_starts_at` / `load_ends_at` | Loading window |
+| `deliver_starts_at` / `deliver_ends_at` | Delivery window |
+| `setup_starts_at` / `setup_ends_at` | Setup/rigging window |
+| `show_starts_at` / `show_ends_at` | Show/event window |
+| `takedown_starts_at` / `takedown_ends_at` | Takedown/de-rig window |
+| `collect_starts_at` / `collect_ends_at` | Collection window |
+| `unload_starts_at` / `unload_ends_at` | Unloading window |
+| `deprep_starts_at` / `deprep_ends_at` | De-preparation window |
+| `ordered_at` | Timestamp when the opportunity was converted to an order |
+| `quote_invalid_at` | Date/time after which the quote expires |
+
+### Fulfilment Flags
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `use_chargeable_days` | boolean | No | Whether `chargeable_days` overrides the duration calculation (default `false`) |
+| `chargeable_days` | numeric string | No | Override chargeable day count |
+| `open_ended_rental` | boolean | No | Whether the hire has no fixed return date (default `false`) |
+| `customer_collecting` | boolean | No | Customer collects from store (default `false`) |
+| `customer_returning` | boolean | No | Customer returns to store (default `false`) |
+
+### Delivery & Collection
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `delivery_address_id` | integer | No | Member address id for delivery (must belong to `member_id`) |
+| `collection_address_id` | integer | No | Member address id for collection (must belong to `member_id`) |
+| `delivery_instructions` | string | No | Free-text delivery instructions |
+| `collection_instructions` | string | No | Free-text collection instructions |
 
 Returns `201` with the created opportunity under the `opportunity` key.
 
@@ -333,7 +383,72 @@ Returns `201` with the created opportunity under the `opportunity` key.
 PUT /api/v1/opportunities/{id}
 ```
 
-Partial update of editable header fields (same fields as create, all optional). A **closed/terminal** opportunity (Complete, Cancelled, Lost, Dead) cannot be edited and yields a `422`.
+Partial update of editable header fields. All fields are optional — omitted fields are left unchanged. A **closed/terminal** opportunity (Complete, Cancelled, Lost, Dead) cannot be edited and yields a `422`.
+
+For nullable clearable fields (`venue_id`, `reference`, `description`, `external_description`, `delivery_instructions`, `collection_instructions`, `delivery_address_id`, `collection_address_id`, `chargeable_days`, `rating`, `tag_list`) an **explicit `null`** clears the value; **omitting the key entirely** leaves it unchanged.
+
+### Identity & Header
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `subject` | string | Opportunity subject (max 255) |
+| `member_id` | integer\|null | Owning member — must be an Organisation member |
+| `venue_id` | integer\|null | Venue member (null clears) |
+| `owned_by` | integer\|null | Owner member |
+| `store_id` | integer\|null | Store |
+| `reference` | string\|null | External reference / PO number (null clears) |
+| `description` | string\|null | Internal description (null clears) |
+| `external_description` | string\|null | Customer-facing description (null clears) |
+| `rating` | integer\|null | Sales priority rating 0–5 (null clears) |
+| `tag_list` | string[]\|null | Replacement tag list (null clears all tags) |
+| `custom_fields` | object | Custom field values to update |
+
+### Hire & Charge Dates
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `starts_at` | date\|null | Hire start |
+| `ends_at` | date\|null | Hire end (on/after `starts_at`) |
+| `charge_starts_at` | date\|null | Chargeable period start |
+| `charge_ends_at` | date\|null | Chargeable period end |
+
+### Event Logistics Dates
+
+All fields are optional ISO 8601 date strings. Providing a value sets or moves the date; omitting the key leaves it unchanged. Dates in this group are **not clearable** via null — use the Create path or contact the store's team if a date must be removed.
+
+| Field pair | Description |
+|------------|-------------|
+| `prep_starts_at` / `prep_ends_at` | Warehouse preparation window |
+| `load_starts_at` / `load_ends_at` | Loading window |
+| `deliver_starts_at` / `deliver_ends_at` | Delivery window |
+| `setup_starts_at` / `setup_ends_at` | Setup/rigging window |
+| `show_starts_at` / `show_ends_at` | Show/event window |
+| `takedown_starts_at` / `takedown_ends_at` | Takedown/de-rig window |
+| `collect_starts_at` / `collect_ends_at` | Collection window |
+| `unload_starts_at` / `unload_ends_at` | Unloading window |
+| `deprep_starts_at` / `deprep_ends_at` | De-preparation window |
+| `ordered_at` | Timestamp when converted to an order |
+| `quote_invalid_at` | Quote expiry date/time |
+
+### Fulfilment Flags
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `use_chargeable_days` | boolean | Toggle chargeable-days override |
+| `chargeable_days` | numeric string\|null | Override chargeable day count (null clears) |
+| `open_ended_rental` | boolean | Toggle open-ended rental |
+| `customer_collecting` | boolean | Toggle customer-collects flag |
+| `customer_returning` | boolean | Toggle customer-returns flag |
+| `invoiced` | boolean | Mark the opportunity as invoiced |
+
+### Delivery & Collection
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `delivery_address_id` | integer\|null | Member address id for delivery (null clears) |
+| `collection_address_id` | integer\|null | Member address id for collection (null clears) |
+| `delivery_instructions` | string\|null | Free-text delivery instructions (null clears) |
+| `collection_instructions` | string\|null | Free-text collection instructions (null clears) |
 
 ## Delete Opportunity
 

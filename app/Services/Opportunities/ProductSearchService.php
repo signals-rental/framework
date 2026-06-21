@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductRate;
 use App\Services\Api\RansackFilter;
 use App\Services\AvailabilityService;
+use App\Services\CurrencyService;
 use App\Services\RateEngine\RateCalculator;
 use App\Services\RateEngine\RateResolver;
 use App\ValueObjects\CalculationContext;
@@ -321,9 +322,9 @@ class ProductSearchService
      */
     private function currencyCode(): string
     {
-        $base = settings('company.base_currency', 'GBP');
+        $base = app(CurrencyService::class)->baseCurrencyCode();
 
-        return is_string($base) && $base !== '' ? $base : 'GBP';
+        return $base !== '' ? $base : 'GBP';
     }
 
     /**

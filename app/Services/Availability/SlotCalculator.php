@@ -144,6 +144,11 @@ class SlotCalculator
     /**
      * The hard ceiling on slots a single generation may produce, read from
      * config with a safe default.
+     *
+     * NB: this is an infra safety-bound guarding against an unbounded slot
+     * blow-up, NOT an admin-tunable per-tenant runtime value — so it lives in
+     * `config('availability.max_slots_per_recalculation')`, read directly here,
+     * rather than in `settings()` (mirrors `availability.kit_nesting_max_depth`).
      */
     private function maxSlots(): int
     {
@@ -172,8 +177,12 @@ class SlotCalculator
     /**
      * Resolve the timezone to use, defaulting to the application timezone when
      * the store has none.
+     *
+     * Public so higher-level collaborators (e.g. {@see RecalculationPipeline}'s
+     * daily-summary rollup) bucket on the same local calendar day the slots were
+     * aligned to, sharing one normalisation definition.
      */
-    private function normaliseTimezone(?string $timezone): string
+    public function normaliseTimezone(?string $timezone): string
     {
         if ($timezone === null || trim($timezone) === '') {
             return (string) config('app.timezone', 'UTC');

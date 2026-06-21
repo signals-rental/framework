@@ -2,16 +2,13 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\ValidatesOpportunityMember;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
-use App\Enums\MembershipType;
-use App\Models\Address;
-use App\Models\Member;
 use App\Models\Opportunity;
 use App\Verbs\Events\Opportunities\OpportunityUpdated;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\Optional;
 
 /**
@@ -20,7 +17,7 @@ use Spatie\LaravelData\Optional;
  */
 class UpdateOpportunity
 {
-    use CommitsVerbsEvents;
+    use CommitsVerbsEvents, ValidatesOpportunityMember;
 
     /**
      * The clearable header fields, modelled as {@see Optional} on the DTO so an
@@ -155,41 +152,7 @@ class UpdateOpportunity
                 continue;
             }
 
-            $belongs = $memberId !== null && Address::query()
-                ->whereKey($value)
-                ->where('addressable_type', Member::class)
-                ->where('addressable_id', $memberId)
-                ->exists();
-
-            if (! $belongs) {
-                throw ValidationException::withMessages([
-                    $field => ['The selected address does not belong to this opportunity\'s member.'],
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Assert that a newly-supplied opportunity customer is an Organisation member.
-     * A null member_id means "leave unchanged" on this update path and is skipped;
-     * a non-null value that is not an Organisation (Contact/User/Venue, or missing)
-     * is rejected with a 422.
-     */
-    private function assertMemberIsOrganisation(?int $memberId): void
-    {
-        if ($memberId === null) {
-            return;
-        }
-
-        $isOrganisation = Member::query()
-            ->whereKey($memberId)
-            ->where('membership_type', MembershipType::Organisation->value)
-            ->exists();
-
-        if (! $isOrganisation) {
-            throw ValidationException::withMessages([
-                'member_id' => ['The opportunity customer must be an organisation.'],
-            ]);
+            $this->assertAddressBelongsToMember($field, (int) $value, $memberId);
         }
     }
 

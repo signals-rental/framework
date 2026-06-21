@@ -11,6 +11,7 @@ use App\Models\OpportunityItem;
 use App\Models\OpportunityVersion;
 use App\Models\Product;
 use App\Models\ProductTaxClass;
+use App\Services\CurrencyService;
 use App\Services\RateEngine\RateCalculator;
 use App\Services\RateEngine\RateResolver;
 use App\Services\TaxCalculator;
@@ -93,9 +94,9 @@ class OpportunityTotalsCalculator
             return $code;
         }
 
-        $base = settings('company.base_currency', 'GBP');
+        $base = app(CurrencyService::class)->baseCurrencyCode();
 
-        return is_string($base) && $base !== '' ? $base : 'GBP';
+        return $base !== '' ? $base : 'GBP';
     }
 
     /**
@@ -512,20 +513,11 @@ class OpportunityTotalsCalculator
 
     private function resolveProduct(OpportunityItem $item): ?Product
     {
-        if ($item->item_id === null || ! $this->referencesProduct($item->item_type)) {
+        if (! $item->isProductBacked()) {
             return null;
         }
 
         return Product::query()->find($item->item_id);
-    }
-
-    private function referencesProduct(?string $type): bool
-    {
-        if ($type === null) {
-            return false;
-        }
-
-        return $type === Product::class || strtolower($type) === 'product';
     }
 
     private function mapTransactionType(LineItemTransactionType $type): RateTransactionType

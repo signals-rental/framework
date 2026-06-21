@@ -36,12 +36,13 @@ class OpportunityPipeline extends Component
             ->ofState(OpportunityState::Quotation)
             ->count();
 
-        $orders = Opportunity::query()
-            ->ofState(OpportunityState::Order)
-            ->count();
+        // The orders and due-soon counts share the same Order-state base query; build
+        // it once and clone for each derived count.
+        $orderBase = Opportunity::query()->ofState(OpportunityState::Order);
 
-        $dueSoon = Opportunity::query()
-            ->ofState(OpportunityState::Order)
+        $orders = (clone $orderBase)->count();
+
+        $dueSoon = (clone $orderBase)
             ->whereNotNull('starts_at')
             ->whereBetween('starts_at', [Carbon::now(), Carbon::now()->addDays($this->dueSoonDays)])
             ->count();

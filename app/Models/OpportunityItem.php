@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -180,6 +181,33 @@ class OpportunityItem extends Model implements HasSchema
     public function assets(): HasMany
     {
         return $this->hasMany(OpportunityItemAsset::class, 'opportunity_item_id');
+    }
+
+    /**
+     * The catalogue entity this line references (typically a {@see Product}),
+     * resolved polymorphically from `item_type`/`item_id`. Eager-load this to
+     * avoid per-line lookups when deriving stock semantics.
+     *
+     * @return MorphTo<Model, $this>
+     */
+    public function item(): MorphTo
+    {
+        return $this->morphTo('item', 'item_type', 'item_id');
+    }
+
+    /**
+     * Whether this line references a catalogue {@see Product} — it has a concrete
+     * `item_id` and an `item_type` that resolves to Product (the model FQN or the
+     * short `product` morph alias). Non-product lines (services, ad-hoc) generate no
+     * demand and are never priced by the rate engine.
+     */
+    public function isProductBacked(): bool
+    {
+        if ($this->item_id === null || $this->item_type === null) {
+            return false;
+        }
+
+        return $this->item_type === Product::class || strtolower($this->item_type) === 'product';
     }
 
     /**

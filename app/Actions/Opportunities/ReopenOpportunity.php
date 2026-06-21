@@ -2,10 +2,9 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\RunsOpportunityTransition;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityData;
-use App\Guards\Opportunities\GuardPipeline;
-use App\Guards\Opportunities\TransitionContext;
 use App\Models\Opportunity;
 use App\Verbs\Events\Opportunities\OpportunityReopened;
 
@@ -24,26 +23,13 @@ use App\Verbs\Events\Opportunities\OpportunityReopened;
  */
 class ReopenOpportunity
 {
-    use CommitsVerbsEvents;
+    use CommitsVerbsEvents, RunsOpportunityTransition;
 
     /** The transition key this action drives through the guard pipeline. */
     public const string TRANSITION = 'opportunity.reopen';
 
     public function __invoke(Opportunity $opportunity, ?string $reason = null): OpportunityData
     {
-        $this->commitVerbs(function () use ($opportunity, $reason): void {
-            app(GuardPipeline::class)->run(new TransitionContext(
-                transition: self::TRANSITION,
-                opportunity: $opportunity,
-                permission: 'opportunities.edit',
-            ));
-
-            OpportunityReopened::fire(
-                opportunity_id: $opportunity->state_id,
-                reason: $reason,
-            );
-        });
-
-        return OpportunityData::fromModel($opportunity->refresh());
+        return $this->runTransition(self::TRANSITION, $opportunity, OpportunityReopened::class, $reason);
     }
 }

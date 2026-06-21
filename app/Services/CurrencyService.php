@@ -101,4 +101,13 @@ class CurrencyService
 
         return Currency::query()->where('code', $code)->firstOrFail();
     }
+
+    /**
+     * The company base-currency code from settings, defaulting to GBP when entirely
+     * unconfigured.
+     */
+    public function baseCurrencyCode(): string
+    {
+        return settings('company.base_currency', 'GBP');
+    }
 }

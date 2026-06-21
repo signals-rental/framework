@@ -2,6 +2,7 @@
 
 namespace App\Actions\Opportunities;
 
+use App\Actions\Opportunities\Concerns\FormatsOpportunityDates;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\OpportunityData;
@@ -25,7 +26,7 @@ use Illuminate\Support\Facades\Gate;
  */
 class AddOpportunityItem
 {
-    use CommitsVerbsEvents;
+    use CommitsVerbsEvents, FormatsOpportunityDates;
 
     public function __invoke(Opportunity $opportunity, AddOpportunityItemData $data): OpportunityData
     {
@@ -99,11 +100,6 @@ class AddOpportunityItem
         }
 
         return OpportunityData::fromModel($fresh ?? $opportunity);
-    }
-
-    private function toIso(?\DateTimeInterface $value): ?string
-    {
-        return $value !== null ? Carbon::parse($value)->toIso8601String() : null;
     }
 
     /**

@@ -1,6 +1,6 @@
 ---
 title: Equipment Availability
-description: Read equipment availability over time with a products-by-days calendar grid and a per-product demand-bar Gantt timeline.
+description: Read equipment availability over time with a by-product-group grid, a products-by-days calendar, and a per-product demand-bar Gantt timeline.
 ---
 
 ## Overview
@@ -11,18 +11,53 @@ The **Equipment Availability** page shows, at a glance, how much of each product
 
 The page lives under the **Job Planning** section of the navigation (the "Equipment Availability" link) and is gated on the `availability.view` permission. It is read-only — it reflects bookings made on opportunities elsewhere; it does not itself create demand.
 
-## Choosing What to Read
+Three view modes are available, switched from the top-right toolbar: **By Group** (the default), **Calendar**, and **Timeline** (Gantt). All state — store, dates, view, and filters — is persisted in the URL so a link reopens exactly as shared.
 
-A toolbar drives what the page shows:
+## By Product Group
+
+The **By Group** view is the default landing view. It shows a **products-by-days grid scoped to a single product group**, making it the fastest way to check whether your lighting stock, audio stock, or any other category has room in a window.
+
+### Controls
 
 | Control | Effect |
 |---------|--------|
-| **Store** | The store to read availability for. Defaults to the default store. |
+| **Product Group** | The group whose products fill the rows. Required — select a group to populate the grid. |
+| **Store** | The store to read availability for. |
+| **Product type** | Filter rows to Rental or Sale products, or show all. |
+| **Start date** | The first day of the window. |
+| **Days** | The window length: 7, 14, 28, 30, or 60 days. Default 30. |
+| **Shortages only** | Hide rows with no shortage cell in the window. |
+| **Warnings only** | Hide rows with no warning (low-but-positive) cell in the window. |
+| **Include quotes** | Whether provisional (quotation-stage) demand counts towards held. |
+
+### Reading the grid
+
+Each row is a product in the group; each column is a day. Cells are colour-coded by availability state:
+
+| Colour | Meaning |
+|--------|---------|
+| Green | Available — comfortably in stock for this day. |
+| Amber | Warning — low but still positive (2 units or fewer remaining). |
+| Red | Shortage — demand exceeds stock (`available ≤ 0` with a shortage). |
+| Cyan | Booked — every unit is committed but nothing is oversold (available = 0, no shortage). |
+
+Each cell shows **`available (held)`** — the free quantity and, in parentheses, how much of the total stock is committed. Weekend columns are shaded to help read multi-week windows at a glance.
+
+Clicking a product name opens its **per-product timeline** (Gantt view) so you can drill from a shortage cell directly into the demand breakdown.
+
+Rows are paginated (20 per page) for large groups.
+
+## Choosing What to Read (Calendar & Timeline)
+
+When switching to the Calendar or Timeline view, the toolbar changes to a date-range and product-filter form:
+
+| Control | Effect |
+|---------|--------|
+| **Store** | The store to read availability for. |
 | **From / To** | The date range. Defaults to today through four weeks out. |
 | **Products** | An optional filter to narrow the calendar grid to specific products. |
-| **View** | Switch between the **Calendar** grid and the per-product **Gantt** timeline. |
 
-The store, dates, products, and view are all remembered in the URL, so an availability link reopens exactly as shared.
+The previous/next buttons step the range by one week.
 
 ## Calendar View
 

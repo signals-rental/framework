@@ -2,7 +2,6 @@
 
 namespace App\Verbs\Events\Opportunities\Concerns;
 
-use App\Models\Opportunity;
 use App\Models\OpportunityCost;
 use App\Services\Opportunities\OpportunityTotalsCalculator;
 use App\Verbs\States\OpportunityCostState;
@@ -24,6 +23,8 @@ use Thunk\Verbs\Event;
  */
 trait PricesOpportunityCosts
 {
+    use RollsUpOpportunityTotals;
+
     /**
      * Guard a cost mutation: the parent opportunity must not be closed and the
      * cost must not already be removed. Reads the parent status from the
@@ -37,16 +38,7 @@ trait PricesOpportunityCosts
             'A removed cost cannot be modified.',
         );
 
-        $closed = Opportunity::query()
-            ->whereKey($state->opportunity_id)
-            ->first()
-            ?->statusEnum()
-            ->isClosed() ?? false;
-
-        $this->assert(
-            ! $closed,
-            'A closed opportunity\'s costs cannot be modified.',
-        );
+        $this->assertOpportunityNotClosed($state->opportunity_id, 'costs');
     }
 
     /**
@@ -62,15 +54,6 @@ trait PricesOpportunityCosts
         if ($opportunity !== null) {
             $calculator->rollUp($opportunity);
         }
-    }
-
-    /**
-     * Roll the totals up onto the parent without repricing any cost (used after a
-     * removal, where the cost row is gone).
-     */
-    protected function rollUpOnly(Opportunity $opportunity): void
-    {
-        app(OpportunityTotalsCalculator::class)->rollUp($opportunity);
     }
 
     /**

@@ -9,7 +9,6 @@ use App\Models\ShortageResolution;
 use App\Models\ShortageResolutionItem;
 use App\Services\Shortages\ShortageEventRecorder;
 use App\ValueObjects\Shortage;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Shared machinery for built-in shortage resolvers: recording a
@@ -46,7 +45,7 @@ abstract class AbstractShortageResolver implements ShortageResolverContract
         array $metadata = [],
         ?int $cost = null,
     ): ShortageResolution {
-        $resolution = DB::transaction(function () use ($shortage, $quantityResolved, $status, $metadata, $cost): ShortageResolution {
+        $resolution = ShortageResolution::query()->getModel()->getConnection()->transaction(function () use ($shortage, $quantityResolved, $status, $metadata, $cost): ShortageResolution {
             $resolution = ShortageResolution::query()->create([
                 'resolver_key' => $this->key(),
                 'resolution_type' => $this->resolutionType()->value,

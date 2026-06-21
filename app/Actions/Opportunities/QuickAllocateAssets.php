@@ -44,6 +44,17 @@ class QuickAllocateAssets
             // over-allocation count guard is enforced here across the whole batch.
             $batchCounts = [];
 
+            // Pre-fetch the already-allocated count for every targeted line in a
+            // single grouped query (keyed by line id), instead of a COUNT() per
+            // iteration. The in-batch running count is added on top below.
+            $itemIds = array_map(static fn (array $allocation): int => (int) $allocation['opportunity_item_id'], $data->allocations);
+
+            $existingCounts = OpportunityItemAsset::query()
+                ->selectRaw('opportunity_item_id, COUNT(*) as cnt')
+                ->whereIn('opportunity_item_id', $itemIds)
+                ->groupBy('opportunity_item_id')
+                ->pluck('cnt', 'opportunity_item_id');
+
             foreach ($data->allocations as $allocation) {
                 $item = OpportunityItem::query()->whereKey($allocation['opportunity_item_id'])->first();
 
@@ -51,9 +62,7 @@ class QuickAllocateAssets
                     throw new NotFoundHttpException('A line item in the batch does not belong to the opportunity.');
                 }
 
-                $alreadyAllocated = OpportunityItemAsset::query()
-                    ->where('opportunity_item_id', $item->id)
-                    ->count();
+                $alreadyAllocated = (int) ($existingCounts[$item->id] ?? 0);
 
                 $batchCounts[$item->id] = ($batchCounts[$item->id] ?? 0) + 1;
 

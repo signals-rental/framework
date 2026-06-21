@@ -70,7 +70,7 @@
                         <td class="sticky left-0 z-10 bg-[var(--card-bg)]">
                             <div class="flex items-center gap-1.5">
                                 <button type="button" wire:click="showGantt({{ $row['product_id'] }})"
-                                        class="s-btn-text text-left font-medium text-[var(--blue)] hover:underline"
+                                        class="s-cell-link text-left font-medium text-[var(--blue)] hover:underline"
                                         title="{{ __('Open timeline') }}">
                                     {{ $row['product_name'] ?? __('Product #:id', ['id' => $row['product_id']]) }}
                                 </button>

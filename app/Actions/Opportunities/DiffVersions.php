@@ -6,6 +6,7 @@ use App\Data\Opportunities\VersionDiffData;
 use App\Data\Opportunities\VersionDiffItemData;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityVersion;
+use App\Services\CurrencyService;
 use Brick\Money\Currency;
 use Brick\Money\Money;
 use Illuminate\Support\Collection;
@@ -28,13 +29,6 @@ use Illuminate\Validation\ValidationException;
  */
 class DiffVersions
 {
-    /**
-     * The opportunity's currency, resolved per invocation; used to format every
-     * money figure in the diff (both versions share one opportunity). Defaults to
-     * the company base currency, never a hardcoded 'GBP'.
-     */
-    private string $currencyCode = 'GBP';
-
     public function __invoke(OpportunityVersion $source, OpportunityVersion $target): VersionDiffData
     {
         Gate::authorize('opportunities.view');
@@ -45,8 +39,11 @@ class DiffVersions
             ]);
         }
 
-        $this->currencyCode = $source->opportunity->currency_code
-            ?? settings('company.base_currency', 'GBP');
+        // The opportunity's currency (both versions share one opportunity) formats
+        // every money figure; defaults to the company base currency, never a
+        // hardcoded literal.
+        $currencyCode = $source->opportunity->currency_code
+            ?? app(CurrencyService::class)->baseCurrencyCode();
 
         $sourceItems = $this->keyItems($source->items()->get());
         $targetItems = $this->keyItems($target->items()->get());
@@ -57,13 +54,13 @@ class DiffVersions
 
         foreach ($targetItems as $key => $targetItem) {
             if (! isset($sourceItems[$key])) {
-                $added[] = $this->addedLine($targetItem);
+                $added[] = $this->addedLine($targetItem, $currencyCode);
             }
         }
 
         foreach ($sourceItems as $key => $sourceItem) {
             if (! isset($targetItems[$key])) {
-                $removed[] = $this->removedLine($sourceItem);
+                $removed[] = $this->removedLine($sourceItem, $currencyCode);
 
                 continue;
             }
@@ -71,7 +68,7 @@ class DiffVersions
             $targetItem = $targetItems[$key];
 
             if ($this->hasChanged($sourceItem, $targetItem)) {
-                $changed[] = $this->changedLine($sourceItem, $targetItem);
+                $changed[] = $this->changedLine($sourceItem, $targetItem, $currencyCode);
             }
         }
 
@@ -86,9 +83,9 @@ class DiffVersions
             added: $added,
             removed: $removed,
             changed: $changed,
-            source_total: $this->money($sourceTotal),
-            target_total: $this->money($targetTotal),
-            net_change: $this->money($targetTotal - $sourceTotal),
+            source_total: $this->money($sourceTotal, $currencyCode),
+            target_total: $this->money($targetTotal, $currencyCode),
+            net_change: $this->money($targetTotal - $sourceTotal, $currencyCode),
         );
     }
 
@@ -139,7 +136,7 @@ class DiffVersions
             || $source->total !== $target->total;
     }
 
-    private function addedLine(OpportunityItem $item): VersionDiffItemData
+    private function addedLine(OpportunityItem $item, string $currencyCode): VersionDiffItemData
     {
         return new VersionDiffItemData(
             item_id: $item->item_id,
@@ -148,16 +145,16 @@ class DiffVersions
             source_quantity: null,
             target_quantity: (string) $item->quantity,
             source_unit_price: null,
-            target_unit_price: $this->money($item->unit_price),
+            target_unit_price: $this->money($item->unit_price, $currencyCode),
             source_discount_percent: null,
             target_discount_percent: $item->discount_percent !== null ? (string) $item->discount_percent : null,
             source_total: null,
-            target_total: $this->money($item->total),
-            total_delta: $this->money($item->total),
+            target_total: $this->money($item->total, $currencyCode),
+            total_delta: $this->money($item->total, $currencyCode),
         );
     }
 
-    private function removedLine(OpportunityItem $item): VersionDiffItemData
+    private function removedLine(OpportunityItem $item, string $currencyCode): VersionDiffItemData
     {
         return new VersionDiffItemData(
             item_id: $item->item_id,
@@ -165,17 +162,17 @@ class DiffVersions
             name: $item->name,
             source_quantity: (string) $item->quantity,
             target_quantity: null,
-            source_unit_price: $this->money($item->unit_price),
+            source_unit_price: $this->money($item->unit_price, $currencyCode),
             target_unit_price: null,
             source_discount_percent: $item->discount_percent !== null ? (string) $item->discount_percent : null,
             target_discount_percent: null,
-            source_total: $this->money($item->total),
+            source_total: $this->money($item->total, $currencyCode),
             target_total: null,
-            total_delta: $this->money(-$item->total),
+            total_delta: $this->money(-$item->total, $currencyCode),
         );
     }
 
-    private function changedLine(OpportunityItem $source, OpportunityItem $target): VersionDiffItemData
+    private function changedLine(OpportunityItem $source, OpportunityItem $target, string $currencyCode): VersionDiffItemData
     {
         return new VersionDiffItemData(
             item_id: $target->item_id,
@@ -183,13 +180,13 @@ class DiffVersions
             name: $target->name,
             source_quantity: (string) $source->quantity,
             target_quantity: (string) $target->quantity,
-            source_unit_price: $this->money($source->unit_price),
-            target_unit_price: $this->money($target->unit_price),
+            source_unit_price: $this->money($source->unit_price, $currencyCode),
+            target_unit_price: $this->money($target->unit_price, $currencyCode),
             source_discount_percent: $source->discount_percent !== null ? (string) $source->discount_percent : null,
             target_discount_percent: $target->discount_percent !== null ? (string) $target->discount_percent : null,
-            source_total: $this->money($source->total),
-            target_total: $this->money($target->total),
-            total_delta: $this->money($target->total - $source->total),
+            source_total: $this->money($source->total, $currencyCode),
+            target_total: $this->money($target->total, $currencyCode),
+            total_delta: $this->money($target->total - $source->total, $currencyCode),
         );
     }
 
@@ -213,9 +210,9 @@ class DiffVersions
      * Format minor units as a signed decimal string (RMS money format) at the
      * opportunity currency's natural scale (JPY 0dp, GBP 2dp, KWD 3dp).
      */
-    private function money(int $minor): string
+    private function money(int $minor, string $currencyCode): string
     {
-        $currency = Currency::of($this->currencyCode);
+        $currency = Currency::of($currencyCode);
 
         return (string) Money::ofMinor($minor, $currency)
             ->getAmount()

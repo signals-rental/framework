@@ -2,6 +2,7 @@
 
 namespace App\Data\Casts;
 
+use App\Services\CurrencyService;
 use Brick\Math\Exception\NumberFormatException;
 use Brick\Math\Exception\RoundingNecessaryException;
 use Brick\Money\Exception\MoneyMismatchException;
@@ -85,8 +86,7 @@ class MoneyInput implements Cast
             return strtoupper($currency);
         }
 
-        /** @var string $base */
-        $base = settings('company.base_currency', 'GBP') ?? 'GBP';
+        $base = app(CurrencyService::class)->baseCurrencyCode();
 
         return strtoupper($base);
     }

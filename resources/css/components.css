@@ -151,6 +151,20 @@
   border-color: var(--red);
 }
 
+/* Warning (amber) */
+.s-btn-warning {
+  background: var(--amber);
+  color: #ffffff;
+  border-color: var(--amber);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--amber) 30%, transparent);
+}
+
+.s-btn-warning:hover {
+  background: color-mix(in srgb, var(--amber) 85%, #000);
+  border-color: color-mix(in srgb, var(--amber) 85%, #000);
+  color: #ffffff;
+}
+
 /* Ghost (no border, no bg) */
 .s-btn-ghost {
   background: transparent;

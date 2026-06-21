@@ -113,13 +113,7 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
      */
     public function handle(RecalculationPipeline $pipeline): void
     {
-        $now = Carbon::now('UTC');
-
-        $pastDays = (int) settings('availability.snapshot_horizon_past_days', 90);
-        $futureDays = (int) settings('availability.snapshot_horizon_future_days', 365);
-
-        $from = $now->copy()->subDays(max(0, $pastDays))->startOfDay();
-        $to = $now->copy()->addDays(max(0, $futureDays))->endOfDay();
+        [$from, $to] = $pipeline->fullHorizon();
 
         $result = $pipeline->recalculate($this->productId, $this->storeId, $from, $to);
 
