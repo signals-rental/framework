@@ -111,14 +111,14 @@
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
             "@php -r \"@mkdir('build/coverage', 0755, true);\"",
-            "@php -d memory_limit=-1 artisan test --parallel --exclude-group=env-writing --coverage-php build/coverage/parallel.php",
+            "@php -d memory_limit=-1 artisan test --parallel --testsuite=Unit,Feature --exclude-group=env-writing --coverage-php build/coverage/parallel.php",
             "@php -d memory_limit=-1 artisan test --group=env-writing --coverage-php build/coverage/env-writing.php",
             "@php -d memory_limit=-1 bin/coverage-merge.php build/coverage --text"
         ],
         "test:coverage-html": [
             "Composer\\Config::disableProcessTimeout",
             "@php -r \"@mkdir('build/coverage', 0755, true);\"",
-            "@php -d memory_limit=-1 artisan test --parallel --exclude-group=env-writing --coverage-php build/coverage/parallel.php",
+            "@php -d memory_limit=-1 artisan test --parallel --testsuite=Unit,Feature --exclude-group=env-writing --coverage-php build/coverage/parallel.php",
             "@php -d memory_limit=-1 artisan test --group=env-writing --coverage-php build/coverage/env-writing.php",
             "@php -d memory_limit=-1 bin/coverage-merge.php build/coverage --html=build/coverage/html"
         ],
