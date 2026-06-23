@@ -554,8 +554,8 @@ describe('Asset allocation endpoints', function () {
             // least one item to be confirmed (opportunity-lifecycle.md §12.1).
             (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
                 'name' => $product->name,
-                'item_id' => $product->id,
-                'item_type' => Product::class,
+                'itemable_id' => $product->id,
+                'itemable_type' => Product::class,
                 'quantity' => '2',
                 'transaction_type' => LineItemTransactionType::Rental->value,
             ]));

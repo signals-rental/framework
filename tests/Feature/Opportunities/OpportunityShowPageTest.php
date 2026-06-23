@@ -172,6 +172,42 @@ it('runs the staged Actions item through confirmPendingAction (convert_to_quotat
     expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
 });
 
+it('closes the confirm modal and clears the pending state after an on-page transition', function () {
+    // UX fix: the slow event-sourced transitions left the shared confirm modal open
+    // because close-modal was dispatched before the action ran. confirmPendingAction
+    // must now dispatch close-modal for `confirm-action` as the FINAL step and reset
+    // the pending label/message so the modal reliably closes once the action lands.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Close Modal After Action');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('prepareAction', 'convert_to_quotation', 'Convert to Quotation', 'Convert this opportunity to a quotation?')
+        ->assertSet('pendingAction', 'convert_to_quotation')
+        ->assertSet('pendingLabel', 'Convert to Quotation')
+        ->assertSet('pendingMessage', 'Convert this opportunity to a quotation?')
+        ->call('confirmPendingAction')
+        ->assertSet('pendingAction', null)
+        ->assertSet('pendingLabel', '')
+        ->assertSet('pendingMessage', '')
+        ->assertDispatched('close-modal', 'confirm-action');
+
+    expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
+});
+
+it('still closes the confirm modal when nothing is staged', function () {
+    // A defensive confirm with no staged action also closes the modal so a stray
+    // confirm click can never strand the modal open.
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Close Modal No Action');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('confirmPendingAction')
+        ->assertSet('pendingAction', null)
+        ->assertDispatched('close-modal', 'confirm-action');
+});
+
 it('runs the staged Actions item through confirmPendingAction (revert_to_draft)', function () {
     // Staging `revert_to_draft` then confirming must dispatch to the revertToDraft
     // transition, moving the open quotation back to a draft.
@@ -307,15 +343,17 @@ it('shows the active version number under Number in Key Attributes', function ()
         ->assertSee('v3');
 });
 
-it('omits the version row when the opportunity has no active version', function () {
-    $opportunity = Opportunity::factory()->create(['active_version_id' => 0]);
+it('omits the Key Attributes version row when the opportunity has no active version', function () {
+    $opportunity = Opportunity::factory()->create(['subject' => 'No Version Row Opp', 'active_version_id' => 0]);
 
     $this->actingAs($this->owner);
 
-    // 'v' + a number never appears when there is no active version (active_version_id 0).
+    // The Key Attributes "Version" data-row is omitted when there is no active
+    // version (active_version_id 0). The header title still shows a default "— v1"
+    // (#4), so we assert the data-list row label specifically is absent.
     Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
         ->assertOk()
-        ->assertDontSee('v1');
+        ->assertDontSeeHtml('s-data-list-label">Version</div>');
 });
 
 it('shows the active version number in the page header after the subject', function () {
@@ -337,16 +375,16 @@ it('shows the active version number in the page header after the subject', funct
         ->assertSee('Header Version Opp — v4');
 });
 
-it('omits the header version suffix when the opportunity has no active version', function () {
-    // B6: with no active version the title is just the subject (no "— v" suffix).
+it('defaults the header version suffix to v1 when the opportunity has no active version (#4)', function () {
+    // #4: the page-header title ALWAYS shows a version number — when there is no
+    // explicit versioning it defaults to v1 (derived from version_count, min 1).
     $opportunity = Opportunity::factory()->create(['subject' => 'No Header Version', 'active_version_id' => 0]);
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
         ->assertOk()
-        ->assertSee('No Header Version')
-        ->assertDontSee('No Header Version — v');
+        ->assertSee('No Header Version — v1');
 });
 
 it('hides the Assets and Shortages tabs for a draft opportunity', function () {
@@ -558,4 +596,17 @@ it('rejects an illegal change_status target not belonging to the current state',
 
     // Status unchanged — still Provisional.
     expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::QuotationProvisional);
+});
+
+it('refreshes the projection when the line-item editor reports a totals change (#10)', function () {
+    $opportunity = Opportunity::factory()->create(['subject' => 'Totals Listener Opp'])->fresh();
+
+    $this->actingAs($this->owner);
+
+    // The Show component listens for opportunity-totals-updated (dispatched by the
+    // nested line-item editor after a qty/rate/discount change) and refreshes its
+    // own projection so the sidebar Totals + header stay in sync.
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('onTotalsUpdated')
+        ->assertOk();
 });

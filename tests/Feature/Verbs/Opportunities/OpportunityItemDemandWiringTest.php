@@ -51,8 +51,8 @@ it('creates a single product-level demand for a bulk product line', function () 
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '3',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -75,8 +75,8 @@ it('creates one demand per allocated asset for a serialised product line', funct
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -108,8 +108,8 @@ it('updates demands when the quantity changes', function () {
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -128,8 +128,8 @@ it('voids demands when the line is removed', function () {
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -152,8 +152,8 @@ it('rebuilds demands idempotently on replay without churning availability events
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -201,8 +201,8 @@ it('runs the ItemShortageProbe after a quantity change (§2.4 trigger)', functio
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -225,4 +225,49 @@ it('runs the ItemShortageProbe after a quantity change (§2.4 trigger)', functio
         ->where('source_type', 'opportunity_item')
         ->where('source_id', $item->id)
         ->exists())->toBeTrue();
+});
+
+it('skips the group row in demand sync and pricing rollup while wiring only the product', function () {
+    $opportunity = makeOpportunityWithDates($this->store);
+    $product = Product::factory()->rental()->bulk()->create();
+
+    // A structural GROUP row (no catalogue reference) followed by a product line
+    // nested beneath it. The consumers must tolerate the null-itemable group
+    // without erroring, and must claim availability/pricing only for the product.
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => 'Lighting',
+        'item_type' => 'group',
+        'quantity' => '1',
+    ]));
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'item_type' => 'product',
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
+        'quantity' => '3',
+        'transaction_type' => LineItemTransactionType::Rental->value,
+        'parent_path' => '0001',
+    ]));
+
+    $group = $opportunity->items()->where('item_type', 'group')->firstOrFail();
+    $productItem = $opportunity->items()->where('item_type', 'product')->firstOrFail();
+
+    // The group row has no catalogue reference and never produces a demand.
+    expect($group->itemable_id)->toBeNull()
+        ->and($group->isProductBacked())->toBeFalse()
+        ->and(Demand::query()->where('source_id', $group->id)->count())->toBe(0);
+
+    // Exactly one product-level demand is synced for the product line only.
+    $productDemands = Demand::query()
+        ->where('source_type', 'opportunity_item')
+        ->where('source_id', $productItem->id)
+        ->get();
+
+    expect($productDemands)->toHaveCount(1)
+        ->and((int) $productDemands->first()->quantity)->toBe(3);
+
+    // The group is not priced; only the product line rolls up into the totals.
+    expect((int) $group->total)->toBe(0)
+        ->and((int) Opportunity::query()->whereKey($opportunity->id)->value('charge_total'))->toBe((int) $productItem->total);
 });

@@ -34,8 +34,8 @@ class ItemSubstituted extends Event
 
     public function apply(OpportunityItemState $state): void
     {
-        $state->item_id = $this->item_id;
-        $state->item_type = $this->item_type;
+        $state->itemable_id = $this->item_id;
+        $state->itemable_type = $this->item_type;
 
         if ($this->name !== null) {
             $state->name = $this->name;
@@ -52,11 +52,11 @@ class ItemSubstituted extends Event
             return;
         }
 
-        $oldValues = ['item_id' => $item->id, 'product_id' => $item->item_id, 'name' => $item->name];
+        $oldValues = ['item_id' => $item->id, 'product_id' => $item->itemable_id, 'name' => $item->name];
 
         $item->forceFill([
-            'item_id' => $state->item_id,
-            'item_type' => $state->item_type,
+            'itemable_id' => $state->itemable_id,
+            'itemable_type' => $state->itemable_type,
             'name' => $state->name,
         ])->saveQuietly();
 
@@ -71,7 +71,7 @@ class ItemSubstituted extends Event
             $this->recordAudit(
                 $opportunity,
                 'opportunity.item_substituted',
-                newValues: ['item_id' => $item->id, 'product_id' => $item->item_id, 'name' => $item->name, 'total' => $item->total],
+                newValues: ['item_id' => $item->id, 'product_id' => $item->itemable_id, 'name' => $item->name, 'total' => $item->total],
                 oldValues: $oldValues,
             );
         }

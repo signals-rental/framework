@@ -167,7 +167,7 @@ it('swaps demands to the active version on activation', function () {
 
     // Replace the manual line with a product line so it raises demand.
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-        'name' => $productA->name, 'item_id' => $productA->id, 'item_type' => Product::class, 'quantity' => '2',
+        'name' => $productA->name, 'itemable_id' => $productA->id, 'itemable_type' => Product::class, 'quantity' => '2',
     ]));
 
     $v1 = (new CreateVersion)($opportunity->refresh(), CreateVersionData::from([]));
@@ -179,7 +179,7 @@ it('swaps demands to the active version on activation', function () {
     // Alternative v2 with product B becomes active.
     $v2 = (new CreateVersion)($opportunity->refresh(), CreateVersionData::from(['version_type' => VersionType::Alternative->value]));
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-        'name' => $productB->name, 'item_id' => $productB->id, 'item_type' => Product::class, 'quantity' => '1',
+        'name' => $productB->name, 'itemable_id' => $productB->id, 'itemable_type' => Product::class, 'quantity' => '1',
     ]));
     $opportunity->refresh();
 
@@ -334,10 +334,10 @@ it('diffs two versions: added, removed, changed, and net change', function () {
     ]));
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
-        'name' => $productChanged->name, 'item_id' => $productChanged->id, 'item_type' => Product::class, 'quantity' => '2', 'unit_price' => 5000,
+        'name' => $productChanged->name, 'itemable_id' => $productChanged->id, 'itemable_type' => Product::class, 'quantity' => '2', 'unit_price' => 5000,
     ]));
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-        'name' => $productRemoved->name, 'item_id' => $productRemoved->id, 'item_type' => Product::class, 'quantity' => '1', 'unit_price' => 2000,
+        'name' => $productRemoved->name, 'itemable_id' => $productRemoved->id, 'itemable_type' => Product::class, 'quantity' => '1', 'unit_price' => 2000,
     ]));
     (new ConvertToQuotation)($opportunity->refresh());
 
@@ -347,8 +347,8 @@ it('diffs two versions: added, removed, changed, and net change', function () {
     // new product line.
     $v2 = (new CreateVersion)($opportunity->refresh(), CreateVersionData::from([]));
     $v2Model = OpportunityVersion::query()->whereKey($v2->id)->firstOrFail();
-    $changedLine = $v2Model->items->firstWhere('item_id', $productChanged->id);
-    $removedLine = $v2Model->items->firstWhere('item_id', $productRemoved->id);
+    $changedLine = $v2Model->items->firstWhere('itemable_id', $productChanged->id);
+    $removedLine = $v2Model->items->firstWhere('itemable_id', $productRemoved->id);
 
     (new ChangeItemQuantity)($changedLine->refresh(), ChangeItemQuantityData::from(['quantity' => '4']));
     // Re-assert the manual unit price (a product line reprices via the rate engine
@@ -356,7 +356,7 @@ it('diffs two versions: added, removed, changed, and net change', function () {
     (new OverrideItemPrice)($changedLine->refresh(), OverrideItemPriceData::from(['unit_price' => 5000]));
     (new RemoveOpportunityItem)($removedLine->refresh());
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-        'name' => $productAdded->name, 'item_id' => $productAdded->id, 'item_type' => Product::class, 'quantity' => '1', 'unit_price' => 1000,
+        'name' => $productAdded->name, 'itemable_id' => $productAdded->id, 'itemable_type' => Product::class, 'quantity' => '1', 'unit_price' => 1000,
     ]));
 
     $diff = (new DiffVersions)(
@@ -477,12 +477,12 @@ it('diffs two lines of the same product without collapsing them', function () {
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
-        'name' => $productA->name, 'item_id' => $productA->id, 'item_type' => Product::class,
-        'quantity' => '2', 'unit_price' => 5000, 'sort_order' => 1,
+        'name' => $productA->name, 'itemable_id' => $productA->id, 'itemable_type' => Product::class,
+        'quantity' => '2', 'unit_price' => 5000,
     ]));
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-        'name' => $productA->name, 'item_id' => $productA->id, 'item_type' => Product::class,
-        'quantity' => '1', 'unit_price' => 3000, 'sort_order' => 2,
+        'name' => $productA->name, 'itemable_id' => $productA->id, 'itemable_type' => Product::class,
+        'quantity' => '1', 'unit_price' => 3000,
     ]));
     (new ConvertToQuotation)($opportunity->refresh());
 

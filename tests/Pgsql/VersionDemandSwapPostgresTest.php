@@ -67,7 +67,7 @@ it('swaps serialised-asset demands between versions without violating the exclus
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
-        'name' => $product->name, 'item_id' => $product->id, 'item_type' => Product::class, 'quantity' => '1',
+        'name' => $product->name, 'itemable_id' => $product->id, 'itemable_type' => Product::class, 'quantity' => '1',
     ]));
     (new ConvertToQuotation)($opportunity->refresh());
 

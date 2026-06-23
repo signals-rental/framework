@@ -70,8 +70,8 @@ function makeInvariantQuotation(Store $store, Product $product, string $quantity
 
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => $quantity,
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));

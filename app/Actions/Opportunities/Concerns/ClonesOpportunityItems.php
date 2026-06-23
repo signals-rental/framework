@@ -31,8 +31,9 @@ trait ClonesOpportunityItems
     {
         return AddOpportunityItemData::from([
             'name' => $item->name,
-            'item_id' => $item->item_id,
-            'item_type' => $item->item_type,
+            'itemable_id' => $item->itemable_id,
+            'itemable_type' => $item->itemable_type,
+            'item_type' => $item->item_type->value,
             'description' => $item->description,
             'quantity' => (string) $item->quantity,
             'transaction_type' => $item->transaction_type->value,
@@ -41,7 +42,6 @@ trait ClonesOpportunityItems
             'ends_at' => $this->toIso($item->ends_at),
             'is_optional' => $item->is_optional,
             'discount_percent' => $item->discount_percent,
-            'sort_order' => $item->sort_order,
             'notes' => $item->notes,
             'custom_fields' => $item->custom_fields,
             'currency' => $item->currency_code ?? 'GBP',
@@ -60,7 +60,7 @@ trait ClonesOpportunityItems
      */
     protected function manualUnitPrice(OpportunityItem $item): ?int
     {
-        if ($item->item_id === null) {
+        if ($item->itemable_id === null) {
             return $item->unit_price !== 0 ? $item->unit_price : null;
         }
 

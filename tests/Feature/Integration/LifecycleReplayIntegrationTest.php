@@ -78,8 +78,8 @@ it('reconstructs every projection and status identically after a full lifecycle 
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'unit_price' => 7500,
         'transaction_type' => LineItemTransactionType::Rental->value,

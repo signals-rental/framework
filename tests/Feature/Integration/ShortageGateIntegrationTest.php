@@ -86,8 +86,8 @@ function shortQuotationForGate(Store $store, ShortagePolicy $policy): array
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '3',
     ]));
     (new ConvertToQuotation)($opportunity->fresh());
@@ -178,8 +178,8 @@ describe('R1 lifecycle invariants', function () {
         $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
         (new ConvertToQuotation)($opportunity);
         (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-            'name' => $this->product->name, 'item_id' => $this->product->id,
-            'item_type' => Product::class, 'quantity' => '1',
+            'name' => $this->product->name, 'itemable_id' => $this->product->id,
+            'itemable_type' => Product::class, 'quantity' => '1',
             'transaction_type' => LineItemTransactionType::Rental->value,
         ]));
         (new ConvertToOrder)($opportunity->refresh());
@@ -203,8 +203,8 @@ describe('R1 lifecycle invariants', function () {
         $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
         (new ConvertToQuotation)($opportunity);
         (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-            'name' => $this->product->name, 'item_id' => $this->product->id,
-            'item_type' => Product::class, 'quantity' => '1',
+            'name' => $this->product->name, 'itemable_id' => $this->product->id,
+            'itemable_type' => Product::class, 'quantity' => '1',
         ]));
         (new ConvertToOrder)($opportunity->refresh());
         $item = $opportunity->items()->firstOrFail();
@@ -229,7 +229,7 @@ describe('R1 lifecycle invariants', function () {
         $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
         (new ConvertToQuotation)($opportunity);
         (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-            'name' => $product->name, 'item_id' => $product->id, 'item_type' => Product::class, 'quantity' => '3',
+            'name' => $product->name, 'itemable_id' => $product->id, 'itemable_type' => Product::class, 'quantity' => '3',
         ]));
         $item = $opportunity->items()->firstOrFail();
 

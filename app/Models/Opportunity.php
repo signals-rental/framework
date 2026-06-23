@@ -384,7 +384,7 @@ class Opportunity extends Model implements HasSchema
     public function items(): HasMany
     {
         return $this->hasMany(OpportunityItem::class, 'opportunity_id')
-            ->orderBy('sort_order')
+            ->orderBy('path')
             ->where(function ($query): void {
                 $query->whereNull('opportunity_items.version_id')
                     ->orWhereExists(function ($sub): void {
@@ -405,7 +405,7 @@ class Opportunity extends Model implements HasSchema
      */
     public function allItems(): HasMany
     {
-        return $this->hasMany(OpportunityItem::class, 'opportunity_id')->orderBy('sort_order');
+        return $this->hasMany(OpportunityItem::class, 'opportunity_id')->orderBy('path');
     }
 
     /**

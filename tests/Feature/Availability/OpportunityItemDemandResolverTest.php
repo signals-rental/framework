@@ -36,8 +36,8 @@ function makeDemandItem(
     ]);
 
     return OpportunityItem::factory()->for($opportunity)->create(array_merge([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 3,
     ], $itemAttributes));
 }
@@ -222,8 +222,8 @@ it('uses the opportunity charge window when demand_date_source is charge', funct
     ]);
 
     $item = OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 1,
         'starts_at' => null,
         'ends_at' => null,
@@ -259,8 +259,8 @@ it('falls back to operational dates when charge bounds are unset under the charg
     ]);
 
     $item = OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 1,
         'starts_at' => null,
         'ends_at' => null,
@@ -289,8 +289,8 @@ it('treats an open-ended item as indefinite via the sentinel', function () {
     ]);
 
     $item = OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'starts_at' => null,
         'ends_at' => null,
     ]);
@@ -330,8 +330,8 @@ it('reads an indefinite item over a bounded, horizon-sized slot set without trip
     ]);
 
     $item = OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 2,
         'starts_at' => null,
         'ends_at' => null,
@@ -374,8 +374,8 @@ it('skips creating demands when the opportunity has no store', function () {
 
     $opportunity = Opportunity::factory()->order()->create(['store_id' => null]);
     $item = OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
     ]);
 
     demandResolver()->syncDemands($item);
@@ -388,8 +388,8 @@ it('skips non-product line items', function () {
     $opportunity = Opportunity::factory()->order()->create(['store_id' => $store->id]);
 
     $item = OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => null,
-        'item_id' => null,
+        'itemable_type' => null,
+        'itemable_id' => null,
     ]);
 
     demandResolver()->syncDemands($item);

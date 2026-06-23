@@ -98,8 +98,8 @@ it('prices a rate-backed line via the engine and stores the net total + tax rate
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => (string) $quantity,
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -161,8 +161,8 @@ it('computes totals against the company base currency (not a hardcoded GBP) for 
     $item = OpportunityItem::factory()->create([
         'opportunity_id' => $opportunity->id,
         'version_id' => null,
-        'item_id' => null,
-        'item_type' => null,
+        'itemable_id' => null,
+        'itemable_type' => null,
         'quantity' => '1',
         'unit_price' => 1000,
         'discount_percent' => null,
@@ -202,8 +202,8 @@ it('applies the line discount to the net before computing tax', function () {
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -276,8 +276,8 @@ it('taxes a mixed-tax-class basket per group with final rounding, not a blended 
     foreach ([$product1, $product2] as $product) {
         (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
             'name' => $product->name,
-            'item_id' => $product->id,
-            'item_type' => Product::class,
+            'itemable_id' => $product->id,
+            'itemable_type' => Product::class,
             'quantity' => '1',
             'transaction_type' => LineItemTransactionType::Rental->value,
         ]));
@@ -350,8 +350,8 @@ it('reproduces identical rate-priced totals on replay for a fully dateless oppor
     // opportunity, exercising the baked-now() fallback.
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));

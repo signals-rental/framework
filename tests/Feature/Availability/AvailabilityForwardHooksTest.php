@@ -54,8 +54,8 @@ describe('opportunity_items store overrides', function () {
             'ends_at' => Carbon::parse('2026-08-05T17:00:00Z'),
         ]);
         $item = OpportunityItem::factory()->for($opportunity)->create([
-            'item_type' => Product::class,
-            'item_id' => $product->id,
+            'itemable_type' => Product::class,
+            'itemable_id' => $product->id,
             'quantity' => 2,
             'dispatch_store_id' => $dispatchStore->id,
         ]);
@@ -79,8 +79,8 @@ describe('opportunity_items store overrides', function () {
             'ends_at' => Carbon::parse('2026-08-05T17:00:00Z'),
         ]);
         $item = OpportunityItem::factory()->for($opportunity)->create([
-            'item_type' => Product::class,
-            'item_id' => $product->id,
+            'itemable_type' => Product::class,
+            'itemable_id' => $product->id,
             'quantity' => 2,
         ]);
 

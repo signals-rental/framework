@@ -72,8 +72,8 @@ function probedItem(Store $store, int $held, int $competing, int $quantity): Opp
     return OpportunityItem::factory()->create([
         'opportunity_id' => $opportunity->id,
         'name' => $product->name,
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => $quantity,
     ]);
 }
@@ -113,7 +113,7 @@ it('emits shortage.cleared only when the line previously had an open shortage', 
 
     // Free up stock so the line is now serviceable, then re-probe.
     Demand::query()->where('source_type', 'opportunity_item')
-        ->where('product_id', $item->item_id)
+        ->where('product_id', $item->itemable_id)
         ->where('source_type', 'opportunity_item')
         ->whereNot('source_id', $item->id)
         ->delete();

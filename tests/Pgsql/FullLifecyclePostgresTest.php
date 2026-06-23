@@ -82,8 +82,8 @@ it('keeps demand and availability accurate through a full serialised lifecycle o
     (new ConvertToQuotation)($opportunity);
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -144,7 +144,7 @@ it('closes a demand at the return time without a backwards tstzrange when an ass
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new ConvertToQuotation)($opportunity);
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-        'name' => $product->name, 'item_id' => $product->id, 'item_type' => Product::class,
+        'name' => $product->name, 'itemable_id' => $product->id, 'itemable_type' => Product::class,
         'quantity' => '1', 'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
     (new ConvertToOrder)($opportunity->refresh());
@@ -179,7 +179,7 @@ it('blocks double-booking the same physical asset over an overlapping window (ex
         $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
         (new ConvertToQuotation)($opportunity);
         (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-            'name' => $product->name, 'item_id' => $product->id, 'item_type' => Product::class,
+            'name' => $product->name, 'itemable_id' => $product->id, 'itemable_type' => Product::class,
             'quantity' => '1', 'transaction_type' => LineItemTransactionType::Rental->value,
         ]));
         (new ConvertToOrder)($opportunity->refresh());

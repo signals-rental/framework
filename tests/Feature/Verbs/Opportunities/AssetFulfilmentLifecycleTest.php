@@ -78,8 +78,8 @@ function makeFulfilmentOrder(Store $store, Product $product, string $quantity = 
     // line item to be confirmed (opportunity-lifecycle.md §12.1 convert guard).
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => $quantity,
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -140,7 +140,7 @@ it('rejects dispatching on a quote (Order-only guard)', function () {
     (new ChangeOpportunityStatus)($opportunity->refresh(), OpportunityStatus::QuotationReserved);
 
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
-        'name' => $this->product->name, 'item_id' => $this->product->id, 'item_type' => Product::class, 'quantity' => '1',
+        'name' => $this->product->name, 'itemable_id' => $this->product->id, 'itemable_type' => Product::class, 'quantity' => '1',
     ]));
     $item = $opportunity->items()->firstOrFail();
     $asset = makeAsset($this->store, $this->product);

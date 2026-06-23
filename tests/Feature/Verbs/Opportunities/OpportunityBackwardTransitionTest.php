@@ -166,8 +166,8 @@ it('rejects reverting an order with a dispatched asset', function () {
     (new ConvertToQuotation)($opportunity);
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
     ]));
     (new ConvertToOrder)($opportunity->refresh());
@@ -232,8 +232,8 @@ function backwardProductQuotation(Store $store): array
 
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
     ]));
 

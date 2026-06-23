@@ -52,7 +52,7 @@ class AssetSubstituted extends Event
         $this->assert($stockLevel !== null, 'The substitute stock level does not exist.');
 
         $this->assert(
-            $stockLevel !== null && $item !== null && $stockLevel->product_id === $item->item_id,
+            $stockLevel !== null && $item !== null && $stockLevel->product_id === $item->itemable_id,
             'The substitute stock level does not belong to the line item\'s product.',
         );
 

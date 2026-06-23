@@ -2,6 +2,7 @@
 
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\AssignItemToSection;
+use App\Actions\Opportunities\AssignSectionParent;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\CreateOpportunitySection;
 use App\Actions\Opportunities\DeleteOpportunitySection;
@@ -9,6 +10,7 @@ use App\Actions\Opportunities\RenameOpportunitySection;
 use App\Actions\Opportunities\ReorderOpportunitySections;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AssignItemToSectionData;
+use App\Data\Opportunities\AssignSectionParentData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\CreateOpportunitySectionData;
 use App\Data\Opportunities\RenameOpportunitySectionData;
@@ -275,4 +277,125 @@ it('denies assigning an item to a section without permission', function () {
     $this->actingAs(User::factory()->create());
 
     (new AssignItemToSection)($item, AssignItemToSectionData::from(['section_id' => $section->id]));
+})->throws(AuthorizationException::class);
+
+/*
+|--------------------------------------------------------------------------
+| AssignSectionParent — drag-to-nest re-parenting
+|--------------------------------------------------------------------------
+*/
+
+it('re-parents a section under another via AssignSectionParent', function () {
+    $opportunity = sectionOpportunity();
+
+    $parent = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Parent']));
+    $mover = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Mover']));
+
+    $moverModel = OpportunitySection::query()->whereKey($mover->id)->firstOrFail();
+
+    (new AssignSectionParent)(
+        $moverModel,
+        AssignSectionParentData::from(['parent_id' => $parent->id, 'sort_order' => 0]),
+    );
+
+    expect($moverModel->fresh()->parent_id)->toBe($parent->id);
+});
+
+it('promotes a section to the top level with a null parent', function () {
+    $opportunity = sectionOpportunity();
+
+    $parent = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Parent']));
+    $child = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Child', 'parent_id' => $parent->id]));
+
+    $childModel = OpportunitySection::query()->whereKey($child->id)->firstOrFail();
+    expect($childModel->parent_id)->toBe($parent->id);
+
+    (new AssignSectionParent)(
+        $childModel,
+        AssignSectionParentData::from(['parent_id' => null, 'sort_order' => 0]),
+    );
+
+    expect($childModel->fresh()->parent_id)->toBeNull();
+});
+
+it('refuses to nest a section under one of its own descendants (cycle)', function () {
+    $opportunity = sectionOpportunity();
+
+    $a = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'A']));
+    $b = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'B', 'parent_id' => $a->id]));
+
+    $aModel = OpportunitySection::query()->whereKey($a->id)->firstOrFail();
+
+    // Nesting A under its own child B would create a cycle.
+    expect(fn () => (new AssignSectionParent)(
+        $aModel,
+        AssignSectionParentData::from(['parent_id' => $b->id]),
+    ))->toThrow(ValidationException::class);
+
+    expect($aModel->fresh()->parent_id)->toBeNull();
+});
+
+it('refuses a re-parent that would push the moved subtree beyond the depth limit', function () {
+    $opportunity = sectionOpportunity();
+
+    // Build a depth-4 chain L1 > L2 > L3 > L4 (so L1 has a subtree height of 3).
+    $l1 = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'L1']));
+    $l2 = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'L2', 'parent_id' => $l1->id]));
+    $l3 = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'L3', 'parent_id' => $l2->id]));
+    $l4 = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'L4', 'parent_id' => $l3->id]));
+
+    // A separate top-level target.
+    $target = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Target']));
+
+    $l1Model = OpportunitySection::query()->whereKey($l1->id)->firstOrFail();
+
+    // Nesting L1 (subtree height 3) under Target (depth 1) -> L1 at depth 2, L4 at
+    // depth 5 — exactly the limit (MAX_DEPTH=5), so this is allowed.
+    (new AssignSectionParent)(
+        $l1Model,
+        AssignSectionParentData::from(['parent_id' => $target->id]),
+    );
+    expect($l1Model->fresh()->parent_id)->toBe($target->id);
+
+    // Now nest Target (which now carries the whole L1>L2>L3>L4 chain beneath it,
+    // subtree height 4) under a fresh top-level parent -> deepest would be depth 6.
+    $deep = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Deep']));
+    $targetModel = OpportunitySection::query()->whereKey($target->id)->firstOrFail();
+
+    expect(fn () => (new AssignSectionParent)(
+        $targetModel,
+        AssignSectionParentData::from(['parent_id' => $deep->id]),
+    ))->toThrow(ValidationException::class);
+
+    expect($targetModel->fresh()->parent_id)->toBeNull();
+});
+
+it('refuses a parent section from a different opportunity', function () {
+    $opportunity = sectionOpportunity();
+    $other = sectionOpportunity();
+
+    $section = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Mine']));
+    $foreign = (new CreateOpportunitySection)($other, CreateOpportunitySectionData::from(['name' => 'Theirs']));
+
+    $sectionModel = OpportunitySection::query()->whereKey($section->id)->firstOrFail();
+
+    expect(fn () => (new AssignSectionParent)(
+        $sectionModel,
+        AssignSectionParentData::from(['parent_id' => $foreign->id]),
+    ))->toThrow(ValidationException::class);
+});
+
+it('gates re-parenting on opportunities.edit', function () {
+    $opportunity = sectionOpportunity();
+    $parent = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Parent']));
+    $section = (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from(['name' => 'Mover']));
+
+    $sectionModel = OpportunitySection::query()->whereKey($section->id)->firstOrFail();
+
+    $this->actingAs(User::factory()->create());
+
+    (new AssignSectionParent)(
+        $sectionModel,
+        AssignSectionParentData::from(['parent_id' => $parent->id]),
+    );
 })->throws(AuthorizationException::class);

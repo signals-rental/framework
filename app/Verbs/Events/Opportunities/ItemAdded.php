@@ -2,6 +2,7 @@
 
 namespace App\Verbs\Events\Opportunities;
 
+use App\Enums\OpportunityItemType;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Services\SequenceAllocator;
@@ -34,8 +35,11 @@ class ItemAdded extends Event
         public ?int $state_id = null,
         public int $opportunity_id = 0,
         public ?int $version_id = null,
-        public ?int $item_id = null,
-        public ?string $item_type = null,
+        public ?int $itemable_id = null,
+        public ?string $itemable_type = null,
+        public string $item_type = 'product',
+        public string $path = '',
+        public ?int $revenue_group_id = null,
         public string $name = '',
         public ?string $description = null,
         public string $quantity = '1',
@@ -46,7 +50,6 @@ class ItemAdded extends Event
         public bool $is_optional = false,
         public ?int $manual_unit_price = null,
         public ?string $discount_percent = null,
-        public int $sort_order = 0,
         /** @var array<string, mixed>|null */
         public ?array $custom_fields = null,
         public ?string $notes = null,
@@ -57,8 +60,11 @@ class ItemAdded extends Event
         $state->opportunity_item_id = $this->opportunity_item_id;
         $state->opportunity_id = $this->opportunity_id;
         $state->version_id = $this->version_id;
-        $state->item_id = $this->item_id;
+        $state->itemable_id = $this->itemable_id;
+        $state->itemable_type = $this->itemable_type;
         $state->item_type = $this->item_type;
+        $state->path = $this->path;
+        $state->revenue_group_id = $this->revenue_group_id;
         $state->name = $this->name;
         $state->description = $this->description;
         $state->quantity = $this->quantity;
@@ -70,7 +76,6 @@ class ItemAdded extends Event
         $state->manual_unit_price = $this->manual_unit_price;
         $state->unit_price = $this->manual_unit_price ?? 0;
         $state->discount_percent = $this->discount_percent;
-        $state->sort_order = $this->sort_order;
         $state->custom_fields = $this->custom_fields;
         $state->notes = $this->notes;
         $state->is_removed = false;
@@ -87,8 +92,11 @@ class ItemAdded extends Event
                 'state_id' => $state->id,
                 'opportunity_id' => $state->opportunity_id,
                 'version_id' => $state->version_id,
-                'item_id' => $state->item_id,
+                'itemable_id' => $state->itemable_id,
+                'itemable_type' => $state->itemable_type,
                 'item_type' => $state->item_type,
+                'path' => $state->path,
+                'revenue_group_id' => $state->revenue_group_id,
                 'name' => $state->name,
                 'description' => $state->description,
                 'quantity' => $state->quantity,
@@ -100,15 +108,21 @@ class ItemAdded extends Event
                 'transaction_type' => $state->transaction_type,
                 'starts_at' => $state->starts_at,
                 'ends_at' => $state->ends_at,
-                'sort_order' => $state->sort_order,
                 'is_optional' => $state->is_optional,
                 'custom_fields' => $state->custom_fields,
                 'notes' => $state->notes,
             ],
         );
 
-        $this->repriceAndRollUp($item, $state->manual_unit_price);
-        $this->syncDemand($item);
+        $role = OpportunityItemType::from($state->item_type);
+
+        if ($role->isPriceable()) {
+            $this->repriceAndRollUp($item, $state->manual_unit_price);
+        }
+
+        if ($role->generatesDemand()) {
+            $this->syncDemand($item);
+        }
 
         if ($opportunity !== null) {
             $item->refresh();

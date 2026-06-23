@@ -1,9 +1,12 @@
 <?php
 
 use App\Actions\Members\CreateAddress;
+use App\Actions\Opportunities\AddOpportunityParticipant;
 use App\Actions\Opportunities\CreateOpportunity;
+use App\Actions\Opportunities\RemoveOpportunityParticipant;
 use App\Actions\Opportunities\UpdateOpportunity;
 use App\Data\Members\CreateAddressData;
+use App\Data\Opportunities\AddOpportunityParticipantData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Enums\MembershipType;
@@ -16,6 +19,7 @@ use App\Models\CustomField;
 use App\Models\ListName;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityParticipant;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\Api\RansackFilter;
@@ -188,6 +192,32 @@ new #[Layout('components.layouts.app')] class extends Component
 
     /** @var array<string, mixed> */
     public array $customFieldValues = [];
+
+    // Participant add panel (#6) — only rendered in edit mode. Distinct property
+    // names from the member/venue pickers so they never collide; mirrors the
+    // participants tab's add flow and calls the SAME AddOpportunityParticipant action.
+    public string $participantMemberSearch = '';
+
+    public ?int $participantMemberId = null;
+
+    public ?string $participantMemberSelectedName = null;
+
+    public string $participantRole = '';
+
+    public bool $participantMute = false;
+
+    /**
+     * The free-text roles the participant add panel suggests (the column is a plain
+     * string, so any value is accepted by the action).
+     *
+     * @var list<string>
+     */
+    public const PARTICIPANT_SUGGESTED_ROLES = [
+        'Primary contact',
+        'Secondary contact',
+        'Account manager',
+        'Site contact',
+    ];
 
     public function mount(?Opportunity $opportunity = null): void
     {
@@ -585,13 +615,128 @@ new #[Layout('components.layouts.app')] class extends Component
             ->get();
     }
 
+    // -------------------------------------------------------------------------
+    // Participant add panel (#6) — edit mode only
+    // -------------------------------------------------------------------------
+
+    /**
+     * Search organisation/contact members not already attached, for the participant
+     * picker. Mirrors the participants tab's getMemberOptionsProperty.
+     *
+     * @return Collection<int, Member>
+     */
+    #[Computed]
+    public function participantMemberOptions(): Collection
+    {
+        if ($this->opportunityId === null || trim($this->participantMemberSearch) === '') {
+            return collect();
+        }
+
+        $like = Member::query()->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
+        return Member::query()
+            ->where('is_active', true)
+            ->whereIn('membership_type', [MembershipType::Organisation, MembershipType::Contact])
+            ->whereNotIn('id', OpportunityParticipant::query()->where('opportunity_id', $this->opportunityId)->pluck('member_id'))
+            ->where('name', $like, '%'.RansackFilter::escapeLike($this->participantMemberSearch).'%')
+            ->orderBy('name')
+            ->limit(15)
+            ->get(['id', 'name', 'membership_type']);
+    }
+
+    /**
+     * The opportunity's current participants (edit mode), member eager-loaded.
+     *
+     * @return Collection<int, OpportunityParticipant>
+     */
+    #[Computed]
+    public function participants(): Collection
+    {
+        if ($this->opportunityId === null) {
+            return collect();
+        }
+
+        return OpportunityParticipant::query()
+            ->where('opportunity_id', $this->opportunityId)
+            ->with('member')
+            ->get();
+    }
+
+    public function selectParticipantMember(int $id): void
+    {
+        $member = Member::query()
+            ->where('is_active', true)
+            ->whereIn('membership_type', [MembershipType::Organisation, MembershipType::Contact])
+            ->find($id);
+
+        if ($member === null) {
+            return;
+        }
+
+        $this->participantMemberId = $member->id;
+        $this->participantMemberSelectedName = $member->name;
+        $this->participantMemberSearch = '';
+    }
+
+    public function clearParticipantMember(): void
+    {
+        $this->participantMemberId = null;
+        $this->participantMemberSelectedName = null;
+        $this->participantMemberSearch = '';
+    }
+
+    /**
+     * Attach the selected member to the opportunity as a participant, via the SAME
+     * AddOpportunityParticipant action the participants tab + API use. Edit-mode only.
+     */
+    public function addParticipant(): void
+    {
+        if ($this->opportunityId === null) {
+            return;
+        }
+
+        Gate::authorize('opportunities.edit');
+
+        if ($this->participantMemberId === null) {
+            throw ValidationException::withMessages([
+                'participantMemberId' => 'Select a member to add.',
+            ]);
+        }
+
+        $opportunity = Opportunity::findOrFail($this->opportunityId);
+
+        (new AddOpportunityParticipant)($opportunity, AddOpportunityParticipantData::from([
+            'member_id' => $this->participantMemberId,
+            'role' => trim($this->participantRole) === '' ? null : trim($this->participantRole),
+            'mute' => $this->participantMute,
+        ]));
+
+        $this->reset(['participantMemberId', 'participantMemberSelectedName', 'participantMemberSearch', 'participantRole', 'participantMute']);
+        unset($this->participants);
+    }
+
+    public function removeParticipant(int $participantId): void
+    {
+        if ($this->opportunityId === null) {
+            return;
+        }
+
+        $participant = OpportunityParticipant::query()
+            ->where('opportunity_id', $this->opportunityId)
+            ->findOrFail($participantId);
+
+        (new RemoveOpportunityParticipant)($participant);
+
+        unset($this->participants);
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function with(): array
     {
         $addressTypes = ListName::query()->where('name', 'Address Type')->first()
-            ?->values()->where('is_active', true)->sortBy('sort_order')->values() ?? collect();
+            ?->values()->where('is_active', true)->orderBy('sort_order')->get() ?? collect();
 
         return [
             'isEditing' => $this->opportunityId !== null,
@@ -966,6 +1111,92 @@ new #[Layout('components.layouts.app')] class extends Component
                     @if($groupedCustomFields->isNotEmpty())
                         <x-signals.form-section title="Custom Fields">
                             <x-signals.custom-fields-editor :groupedCustomFields="$groupedCustomFields" />
+                        </x-signals.form-section>
+                    @endif
+
+                    {{-- Participants (#6) — only available once the opportunity exists --}}
+                    {{-- (edit mode), so a member can be attached in a named role. Uses --}}
+                    {{-- the SAME AddOpportunityParticipant action as the participants tab. --}}
+                    @if($isEditing)
+                        <x-signals.form-section title="Participants">
+                            <div class="space-y-3">
+                                {{-- Member picker --}}
+                                <div>
+                                    <label class="s-field-label mb-1 block">Member</label>
+                                    @if($participantMemberSelectedName)
+                                        <div class="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
+                                            <span class="flex-1 truncate">{{ $participantMemberSelectedName }}</span>
+                                            <button type="button" wire:click="clearParticipantMember" class="text-[var(--text-muted)] hover:text-[var(--text-primary)] shrink-0">&times;</button>
+                                        </div>
+                                    @else
+                                        <div x-data="{ open: false }" x-on:click.away="open = false" class="relative">
+                                            <flux:input
+                                                wire:model.live.debounce.300ms="participantMemberSearch"
+                                                placeholder="Search organisations or contacts..."
+                                                x-on:focus="open = true"
+                                                x-on:input="open = true"
+                                                autocomplete="off"
+                                            />
+                                            @if($this->participantMemberOptions->isNotEmpty())
+                                                <div x-show="open" x-cloak class="absolute z-50 mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] shadow-lg max-h-60 overflow-y-auto">
+                                                    @foreach($this->participantMemberOptions as $option)
+                                                        <button
+                                                            type="button"
+                                                            wire:key="participant-option-{{ $option->id }}"
+                                                            wire:click="selectParticipantMember({{ $option->id }})"
+                                                            x-on:click="open = false"
+                                                            class="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--bg-secondary)] transition-colors"
+                                                        >
+                                                            {{ $option->name }}
+                                                            <span class="text-[var(--text-muted)]">· {{ $option->membership_type->label() }}</span>
+                                                        </button>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endif
+                                    @error('participantMemberId') <p class="mt-1 text-sm text-[var(--red)]">{{ $message }}</p> @enderror
+                                </div>
+
+                                {{-- Role (free-text, suggested set via datalist) --}}
+                                <div>
+                                    <flux:input
+                                        wire:model="participantRole"
+                                        label="Role"
+                                        placeholder="e.g. Primary contact"
+                                        list="form-participant-role-suggestions"
+                                        maxlength="100"
+                                    />
+                                    <datalist id="form-participant-role-suggestions">
+                                        @foreach(self::PARTICIPANT_SUGGESTED_ROLES as $suggested)
+                                            <option value="{{ $suggested }}"></option>
+                                        @endforeach
+                                    </datalist>
+                                </div>
+
+                                <div class="flex items-center justify-between gap-3">
+                                    <flux:checkbox wire:model="participantMute" label="Mute" />
+                                    <flux:button type="button" wire:click="addParticipant" variant="primary" size="sm">Add participant</flux:button>
+                                </div>
+
+                                @if($this->participants->isNotEmpty())
+                                    <ul class="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
+                                        @foreach($this->participants as $participant)
+                                            <li wire:key="form-participant-{{ $participant->id }}" class="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                                                <span class="min-w-0 flex-1 truncate">
+                                                    {{ $participant->member?->name ?? '—' }}
+                                                    @if($participant->role)<span class="text-[var(--text-muted)]"> · {{ $participant->role }}</span>@endif
+                                                    @if($participant->mute)<span class="s-badge s-badge-amber ml-1">Muted</span>@endif
+                                                </span>
+                                                <button type="button"
+                                                    wire:click="removeParticipant({{ $participant->id }})"
+                                                    wire:confirm="Remove this participant?"
+                                                    class="text-[var(--text-muted)] hover:text-[var(--red)] shrink-0">Remove</button>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
                         </x-signals.form-section>
                     @endif
                 </div>

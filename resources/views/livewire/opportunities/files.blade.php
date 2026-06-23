@@ -6,8 +6,11 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use App\Livewire\Concerns\HasOpportunityActions;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use HasOpportunityActions;
+
     use HasFileActions;
 
     public Opportunity $opportunity;
@@ -35,12 +38,15 @@ new #[Layout('components.layouts.app')] class extends Component {
      */
     public function with(): array
     {
-        return $this->fileData();
+        return [
+            ...$this->opportunityActionData(),
+            ...$this->fileData(),
+        ];
     }
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Files'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Files', 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'files'])
 
     <div class="flex-1 px-6 py-4 max-md:px-5 max-sm:px-3">
@@ -63,4 +69,5 @@ new #[Layout('components.layouts.app')] class extends Component {
 
     {{-- Upload Modal (separate Livewire component for file upload isolation) --}}
     <livewire:components.file-upload-modal :model-type="\App\Models\Opportunity::class" :model-id="$opportunity->id" />
+    @include('livewire.opportunities.partials.opportunity-action-modals')
 </section>

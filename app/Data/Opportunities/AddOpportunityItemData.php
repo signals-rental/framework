@@ -2,10 +2,10 @@
 
 namespace App\Data\Opportunities;
 
-use App\Actions\Opportunities\AddOpportunityItem;
 use App\Data\Casts\MoneyInput;
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
+use App\Enums\OpportunityItemType;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Spatie\LaravelData\Attributes\WithCast;
@@ -23,8 +23,25 @@ class AddOpportunityItemData extends Data
 {
     public function __construct(
         public string $name,
-        public ?int $item_id = null,
-        public ?string $item_type = null,
+        /** Polymorphic catalogue reference — the itemable's integer PK. */
+        public ?int $itemable_id = null,
+        /** Polymorphic catalogue reference — the itemable's fully-qualified class. */
+        public ?string $itemable_type = null,
+        /**
+         * Structural role of the row in the unified line-item tree
+         * ({@see OpportunityItemType}: group/product/accessory/service). Distinct
+         * from the polymorphic catalogue reference above.
+         */
+        public string $item_type = 'product',
+        /**
+         * The parent group/product path under which to nest the new line (e.g.
+         * '0001'). Null adds the line at the top level. The
+         * {@see AddOpportunityItem} action allocates the concrete child/top-level
+         * path within this scope via {@see App\Services\Opportunities\ItemTreeService}.
+         */
+        public ?string $parent_path = null,
+        /** Optional revenue-group classification for reporting. */
+        public ?int $revenue_group_id = null,
         public ?string $description = null,
         public string $quantity = '1',
         public int $transaction_type = LineItemTransactionType::Rental->value,
@@ -33,13 +50,6 @@ class AddOpportunityItemData extends Data
         public ?string $ends_at = null,
         public bool $is_optional = false,
         public ?string $discount_percent = null,
-        /**
-         * The 0-based display position. When null (the default for a fresh add) the
-         * {@see AddOpportunityItem} action appends the line
-         * after the opportunity's existing items; an explicit value (e.g. the
-         * clone/version paths preserving the source order) is honoured as-is.
-         */
-        public ?int $sort_order = null,
         public ?string $notes = null,
         /** @var array<string, mixed>|null */
         public ?array $custom_fields = null,
@@ -61,8 +71,11 @@ class AddOpportunityItemData extends Data
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'item_id' => ['sometimes', 'nullable', 'integer'],
-            'item_type' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'itemable_id' => ['sometimes', 'nullable', 'integer'],
+            'itemable_type' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'item_type' => ['sometimes', 'string', Rule::enum(OpportunityItemType::class)],
+            'parent_path' => ['sometimes', 'nullable', 'string'],
+            'revenue_group_id' => ['sometimes', 'nullable', 'integer'],
             'description' => ['sometimes', 'nullable', 'string'],
             'quantity' => ['sometimes', 'numeric', 'min:0'],
             // Sub-rental is a Phase 4 deliverable with no creation path yet, so it
@@ -86,7 +99,6 @@ class AddOpportunityItemData extends Data
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],
             'is_optional' => ['sometimes', 'boolean'],
             'discount_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
-            'sort_order' => ['sometimes', 'integer', 'min:0'],
             'notes' => ['sometimes', 'nullable', 'string'],
             'custom_fields' => ['sometimes', 'nullable', 'array'],
             'currency' => ['sometimes', 'string', 'size:3'],

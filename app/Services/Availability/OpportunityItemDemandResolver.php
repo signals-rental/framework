@@ -699,8 +699,8 @@ class OpportunityItemDemandResolver implements DemandResolverContract
     /**
      * Resolve the catalogue product a line item refers to.
      *
-     * Line items carry a polymorphic catalogue reference (`item_type`/
-     * `item_id`). Only product-backed items generate demands; everything else
+     * Line items carry a polymorphic catalogue reference (`itemable_type`/
+     * `itemable_id`). Only product-backed items generate demands; everything else
      * (services, ad-hoc lines) resolves to null and creates no demand.
      */
     protected function resolveProduct(OpportunityItem $item): ?Product
@@ -709,7 +709,7 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             return null;
         }
 
-        return Product::query()->find($item->item_id);
+        return Product::query()->find($item->itemable_id);
     }
 
     /**

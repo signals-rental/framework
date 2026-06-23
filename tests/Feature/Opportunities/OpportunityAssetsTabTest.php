@@ -77,8 +77,8 @@ function makeAssetsTabOrder(User $actor, Store $store, Product $product, string 
     (new ConvertToQuotation)($opportunity);
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => $quantity,
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -296,8 +296,8 @@ it('does not offer book out on a quotation (assets allocated but not an order)',
     (new ConvertToQuotation)($opportunity);
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $this->product->name,
-        'item_id' => $this->product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $this->product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -391,4 +391,52 @@ it('rejects an illegal fulfilment call and leaves the status unchanged', functio
 
     expect(OpportunityItemAsset::query()->whereKey($assignment->id)->firstOrFail()->status)
         ->toBe(AssetAssignmentStatus::Allocated);
+});
+
+it('renders the Actions split-button on the assets tab (#1)', function () {
+    [$opportunity] = makeAssetsTabOrder($this->owner, $this->store, $this->product);
+
+    $this->actingAs($this->owner);
+
+    // The shared Actions split-button (state-transition menu) must render on the
+    // tab pages, not just Overview — the tab now `use`s HasOpportunityActions and
+    // passes showActions => true to the shared header.
+    Volt::test('opportunities.assets', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertSee('Actions')
+        // An order surfaces the Clone action verdict, computed by the shared trait.
+        ->assertSee('Clone');
+});
+
+it('runs a shared Actions transition (clone) from the assets tab (#1)', function () {
+    [$opportunity] = makeAssetsTabOrder($this->owner, $this->store, $this->product);
+
+    $this->actingAs($this->owner);
+
+    // The trait's prepareAction + confirmPendingAction plumbing must work on the tab
+    // component: clone stages then runs CloneOpportunity and redirects.
+    Volt::test('opportunities.assets', ['opportunity' => $opportunity])
+        ->call('prepareAction', 'clone', 'Clone', 'Clone this opportunity into a new draft?')
+        ->assertSet('pendingAction', 'clone')
+        ->call('confirmPendingAction')
+        ->assertRedirect();
+
+    expect(Opportunity::query()->count())->toBe(2);
+});
+
+it('deallocates a row asset via the per-row action method (#3)', function () {
+    [$opportunity, $item] = makeAssetsTabOrder($this->owner, $this->store, $this->product);
+    $asset = makeAssetsTabAsset($this->store, $this->product);
+
+    Auth::login($this->owner);
+    $assignment = (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $asset->id]));
+
+    $this->actingAs($this->owner);
+
+    // The per-row action menu is teleported to <body>; its buttons call $wire.<method>
+    // so the actions still fire. The server method itself must remove the assignment.
+    Volt::test('opportunities.assets', ['opportunity' => $opportunity->fresh()])
+        ->call('deallocate', $assignment->id);
+
+    expect(OpportunityItemAsset::query()->whereKey($assignment->id)->exists())->toBeFalse();
 });

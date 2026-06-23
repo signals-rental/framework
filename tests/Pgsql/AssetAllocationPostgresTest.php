@@ -65,8 +65,8 @@ function makePgOrderLine(Store $store, Product $product): OpportunityItem
     // one item to be confirmed (opportunity-lifecycle.md §12.1).
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -125,8 +125,8 @@ it('allows the same asset on a non-overlapping window', function () {
     // one item to be confirmed (opportunity-lifecycle.md §12.1).
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $this->product->name,
-        'item_id' => $this->product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $this->product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));

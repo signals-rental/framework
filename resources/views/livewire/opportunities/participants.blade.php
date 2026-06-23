@@ -16,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use App\Livewire\Concerns\HasOpportunityActions;
 
 /**
  * Manage the members associated with an opportunity, each in a named role
@@ -29,6 +30,8 @@ use Livewire\Volt\Component;
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
+    use HasOpportunityActions;
+
     /**
      * The free-text roles the UI suggests (the column is a plain string, so any
      * value is accepted by the action).
@@ -174,10 +177,18 @@ new #[Layout('components.layouts.app')] class extends Component
     {
         return $this->opportunity->participants()->findOrFail($participantId);
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function with(): array
+    {
+        return $this->opportunityActionData();
+    }
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Participants'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Participants', 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'participants'])
 
     @php($canEdit = \Illuminate\Support\Facades\Gate::allows('opportunities.edit'))
@@ -315,4 +326,5 @@ new #[Layout('components.layouts.app')] class extends Component
             />
         @endif
     </div>
+    @include('livewire.opportunities.partials.opportunity-action-modals')
 </section>

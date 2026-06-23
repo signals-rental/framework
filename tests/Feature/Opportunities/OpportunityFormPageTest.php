@@ -3,8 +3,11 @@
 use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use App\Models\CustomFieldValue;
+use App\Models\ListName;
+use App\Models\ListValue;
 use App\Models\Member;
 use App\Models\Opportunity;
+use App\Models\OpportunityParticipant;
 use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -131,6 +134,72 @@ it('loads the edit form with the existing header values', function () {
         ->assertSet('reference', 'REF-EDIT')
         ->assertOk()
         ->assertSee('Save Changes');
+});
+
+it('renders the edit form (200) when an Address Type list with values exists (#7 regression)', function () {
+    // Regression: form.blade.php's with() resolved address types by calling
+    // Collection methods on the ListName `values` HasMany relation. With an
+    // Address Type list that has active values present, that chain 500'd. The fix
+    // fetches rows first; this asserts the edit GET renders without erroring.
+    $list = ListName::query()->create(['name' => 'Address Type']);
+    ListValue::factory()->for($list, 'listName')->create(['name' => 'Delivery', 'sort_order' => 1, 'is_active' => true]);
+    ListValue::factory()->for($list, 'listName')->create(['name' => 'Billing', 'sort_order' => 0, 'is_active' => true]);
+    ListValue::factory()->for($list, 'listName')->inactive()->create(['name' => 'Archived', 'sort_order' => 2]);
+
+    $opportunity = Opportunity::factory()->create(['store_id' => $this->store->id]);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.form', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertSee('Save Changes');
+});
+
+it('adds a participant from the edit form via AddOpportunityParticipant (#6)', function () {
+    $opportunity = Opportunity::factory()->create(['store_id' => $this->store->id]);
+    $contact = Member::factory()->contact()->create(['name' => 'Edit-Form Contact', 'is_active' => true]);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.form', ['opportunity' => $opportunity])
+        ->call('selectParticipantMember', $contact->id)
+        ->assertSet('participantMemberId', $contact->id)
+        ->set('participantRole', 'Site contact')
+        ->set('participantMute', true)
+        ->call('addParticipant')
+        ->assertHasNoErrors()
+        ->assertSet('participantMemberId', null);
+
+    $participant = OpportunityParticipant::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('member_id', $contact->id)
+        ->first();
+
+    expect($participant)->not->toBeNull()
+        ->and($participant->role)->toBe('Site contact')
+        ->and((bool) $participant->mute)->toBeTrue();
+});
+
+it('removes a participant from the edit form (#6)', function () {
+    $opportunity = Opportunity::factory()->create(['store_id' => $this->store->id]);
+    $participant = OpportunityParticipant::factory()->create(['opportunity_id' => $opportunity->id]);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.form', ['opportunity' => $opportunity])
+        ->call('removeParticipant', $participant->id)
+        ->assertHasNoErrors();
+
+    expect(OpportunityParticipant::query()->whereKey($participant->id)->exists())->toBeFalse();
+});
+
+it('requires a member before adding a participant from the edit form (#6)', function () {
+    $opportunity = Opportunity::factory()->create(['store_id' => $this->store->id]);
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.form', ['opportunity' => $opportunity])
+        ->call('addParticipant')
+        ->assertHasErrors('participantMemberId');
 });
 
 it('updates an existing opportunity through the UpdateOpportunity action', function () {

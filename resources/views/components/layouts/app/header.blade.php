@@ -826,6 +826,119 @@
 
         <x-signals.command-palette x-on:open-command-palette.window="toggle()" />
 
+        {{-- ============================================================ --}}
+        {{--  LIVE TOAST STACK                                            --}}
+        {{--  Renders auto-dismissing toasts in response to Livewire      --}}
+        {{--  `toast` events ($this->dispatch('toast', type, message)).   --}}
+        {{--  Success = green accent, error = red; stackable; click to     --}}
+        {{--  dismiss; auto-dismiss after ~3.5s.                          --}}
+        {{-- ============================================================ --}}
+        <div
+            id="s-toast-stack"
+            class="s-toast-stack"
+            x-data="signalsToasts()"
+            x-init="init()"
+            aria-live="polite"
+            aria-atomic="true"
+        >
+            <template x-for="toast in toasts" :key="toast.id">
+                <div
+                    class="s-toast"
+                    :class="{
+                        'visible': toast.visible,
+                        's-toast-success': toast.type === 'success',
+                        's-toast-error': toast.type === 'error',
+                    }"
+                    x-on:click="dismiss(toast.id)"
+                    role="status"
+                >
+                    <span class="s-toast-icon" x-text="toast.type === 'error' ? '✕' : '✓'"></span>
+                    <span x-text="toast.message"></span>
+                </div>
+            </template>
+        </div>
+
+        <script>
+            // Bridge the (global) Livewire `toast` event onto a plain DOM CustomEvent
+            // exactly ONCE per page load. Livewire.on() registers on the global bus and
+            // is never torn down, so registering it inside the Alpine component's init()
+            // would stack a new listener every time the component re-mounts (notably on
+            // every wire:navigate SPA transition), firing each toast N times. A window-
+            // guarded singleton keeps it to a single registration; the Alpine component
+            // then listens to the re-dispatched `signals:toast` DOM event, which Alpine
+            // auto-cleans on teardown — so exactly one toast shows per dispatch.
+            (function registerToastBridge() {
+                if (window.__signalsToastBridge) { return; }
+
+                const wire = () => {
+                    if (window.__signalsToastBridge || !window.Livewire) { return false; }
+                    window.__signalsToastBridge = true;
+                    window.Livewire.on('toast', (payload) => {
+                        const detail = Array.isArray(payload) ? payload[0] : payload;
+                        window.dispatchEvent(new CustomEvent('signals:toast', { detail: detail || {} }));
+                    });
+                    return true;
+                };
+
+                // Livewire may not have booted yet on first parse; retry on its init hook.
+                if (!wire()) {
+                    document.addEventListener('livewire:init', wire, { once: true });
+                }
+            })();
+
+            // Alpine factory for the live toast stack. Listens for the bridged
+            // `signals:toast` DOM event and renders auto-dismissing, click-to-dismiss
+            // toasts. Using a DOM event (auto-cleaned by Alpine) means re-mounting this
+            // component never accumulates duplicate listeners.
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('signalsToasts', () => ({
+                    toasts: [],
+                    _seq: 0,
+
+                    init() {
+                        this._onToast = (e) => this.push(e.detail || {});
+                        window.addEventListener('signals:toast', this._onToast);
+                    },
+
+                    destroy() {
+                        if (this._onToast) {
+                            window.removeEventListener('signals:toast', this._onToast);
+                        }
+                    },
+
+                    push({ type = 'success', message = '' } = {}) {
+                        if (!message) { return; }
+
+                        const id = ++this._seq;
+                        this.toasts.push({ id, type, message, visible: false });
+
+                        // Next frame: flip `visible` so the CSS transition runs.
+                        requestAnimationFrame(() => {
+                            const toast = this.toasts.find((t) => t.id === id);
+                            if (toast) { toast.visible = true; }
+                        });
+
+                        setTimeout(() => this.dismiss(id), 3500);
+                    },
+
+                    dismiss(id) {
+                        const toast = this.toasts.find((t) => t.id === id);
+                        if (!toast) { return; }
+
+                        toast.visible = false;
+                        // Remove after the fade-out transition completes.
+                        setTimeout(() => {
+                            this.toasts = this.toasts.filter((t) => t.id !== id);
+                        }, 260);
+                    },
+                }));
+            });
+        </script>
+
         @fluxScripts
+
+        {{-- Per-page script stack (used e.g. by the Editor Lab prototypes to load
+             DnD libraries via CDN). Pages opt in with @push('scripts'). --}}
+        @stack('scripts')
     </body>
 </html>

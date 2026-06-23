@@ -6,8 +6,11 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use App\Livewire\Concerns\HasOpportunityActions;
 
 new #[Layout('components.layouts.app')] class extends Component {
+    use HasOpportunityActions;
+
     public Opportunity $opportunity;
 
     public function mount(Opportunity $opportunity): void
@@ -42,6 +45,8 @@ new #[Layout('components.layouts.app')] class extends Component {
         $grouped = $fields->groupBy(fn ($field) => $field->group?->name ?? 'General');
 
         return [
+            ...$this->opportunityActionData(),
+
             'grouped' => $grouped,
             'values' => $values,
         ];
@@ -49,7 +54,7 @@ new #[Layout('components.layouts.app')] class extends Component {
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Custom Fields'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Custom Fields', 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'custom-fields'])
 
     <div class="flex-1 p-8 max-md:p-5 max-sm:p-3">
@@ -57,4 +62,5 @@ new #[Layout('components.layouts.app')] class extends Component {
             <x-signals.custom-fields-display :grouped="$grouped" :values="$values" emptyMessage="No custom fields have been configured for opportunities." />
         </div>
     </div>
+    @include('livewire.opportunities.partials.opportunity-action-modals')
 </section>

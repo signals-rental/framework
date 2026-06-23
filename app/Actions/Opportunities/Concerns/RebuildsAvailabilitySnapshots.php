@@ -53,7 +53,7 @@ trait RebuildsAvailabilitySnapshots
         $seen = [];
 
         foreach ($items as $item) {
-            $productId = $item->item_id;
+            $productId = $item->itemable_id;
             $opportunity = $item->relationLoaded('opportunity') ? $item->opportunity : $item->opportunity()->first();
             $storeId = $item->dispatch_store_id ?? $opportunity?->store_id;
 

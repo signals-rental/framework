@@ -524,7 +524,7 @@ class OpportunityTotalsCalculator
             return null;
         }
 
-        return Product::query()->find($item->item_id);
+        return Product::query()->find($item->itemable_id);
     }
 
     private function mapTransactionType(LineItemTransactionType $type): RateTransactionType

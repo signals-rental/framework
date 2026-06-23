@@ -49,9 +49,10 @@ class OpportunityItemState extends State
 
     /**
      * Structural role of this row in the unified Current-RMS line-item model
-     * (group / product / accessory / service).
+     * (group / product / accessory / service), stored as the backing role string
+     * for Verbs snapshot-safety. Use {@see itemType()} for the enum.
      */
-    public OpportunityItemType $item_type = OpportunityItemType::Product;
+    public string $item_type = OpportunityItemType::Product->value;
 
     /**
      * Dot-notation tree position within the opportunity's line-item tree
@@ -144,5 +145,10 @@ class OpportunityItemState extends State
     public function transactionType(): LineItemTransactionType
     {
         return LineItemTransactionType::from($this->transaction_type);
+    }
+
+    public function itemType(): OpportunityItemType
+    {
+        return OpportunityItemType::from($this->item_type);
     }
 }

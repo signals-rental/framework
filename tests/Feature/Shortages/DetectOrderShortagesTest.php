@@ -50,8 +50,8 @@ function confirmedOrderItem(Store $store, Product $product, int $quantity): Oppo
     $item = OpportunityItem::factory()->create([
         'opportunity_id' => $opportunity->id,
         'name' => $product->name,
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => $quantity,
     ]);
 
@@ -126,8 +126,8 @@ it('ignores quote-state opportunities (only confirmed orders are proactively mon
     $item = OpportunityItem::factory()->create([
         'opportunity_id' => $opportunity->id,
         'name' => $product->name,
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 4,
     ]);
     Demand::factory()
@@ -173,8 +173,8 @@ it('excludes a non-Order opportunity item at the DB level even when it shares th
     $quoteItem = OpportunityItem::factory()->create([
         'opportunity_id' => $quote->id,
         'name' => $product->name,
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 4,
     ]);
     Demand::factory()

@@ -2,10 +2,12 @@
 
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\AssignItemToSection;
+use App\Actions\Opportunities\AssignSectionParent;
 use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\CreateOpportunitySection;
 use App\Actions\Opportunities\DeleteOpportunitySection;
+use App\Actions\Opportunities\MergeOpportunityItems;
 use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\RenameOpportunitySection;
@@ -16,9 +18,11 @@ use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AssignItemToSectionData;
+use App\Data\Opportunities\AssignSectionParentData;
 use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunitySectionData;
+use App\Data\Opportunities\MergeOpportunityItemsData;
 use App\Data\Opportunities\OverrideItemPriceData;
 use App\Data\Opportunities\RenameOpportunitySectionData;
 use App\Data\Opportunities\ReorderOpportunityItemsData;
@@ -118,31 +122,34 @@ new class extends Component
     {
         $this->guardEditable();
 
-        $product = Product::query()->find($productId);
+        $this->runMutation(function () use ($productId, $quantity, $destination): void {
+            $product = Product::query()->find($productId);
 
-        if ($product === null) {
-            throw ValidationException::withMessages([
-                'product' => 'The selected product could not be found.',
+            if ($product === null) {
+                throw ValidationException::withMessages([
+                    'product' => 'The selected product could not be found.',
+                ]);
+            }
+
+            $data = AddOpportunityItemData::from([
+                'name' => $product->name,
+                'item_id' => $product->id,
+                'item_type' => Product::class,
+                'quantity' => (string) max(0.01, $quantity),
+                'currency' => $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP'),
             ]);
-        }
 
-        $data = AddOpportunityItemData::from([
-            'name' => $product->name,
-            'item_id' => $product->id,
-            'item_type' => Product::class,
-            'quantity' => (string) max(0.01, $quantity),
-            'currency' => $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP'),
-        ]);
+            $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
+            (new AddOpportunityItem)($opportunity, $data);
 
-        $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
-        (new AddOpportunityItem)($opportunity, $data);
+            // Land the brand-new line in a real section: the explicit destination if
+            // the operator chose one, otherwise find-or-create the auto-group section
+            // for the line's product category so every line always has a section_id.
+            $this->assignNewestToDestination($destination ?? $this->quickAddDestination);
 
-        // Assign the brand-new line to the chosen destination section (auto-group
-        // destinations need no assignment — they group by product implicitly).
-        $this->assignNewestToDestination($destination ?? $this->quickAddDestination);
-
-        $this->refreshOpportunity();
-        $this->dispatch('item-added');
+            $this->refreshOpportunity();
+            $this->dispatch('item-added');
+        }, 'Item added');
     }
 
     /**
@@ -158,92 +165,110 @@ new class extends Component
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        (new RemoveOpportunityItem)($item);
+        $this->runMutation(function () use ($itemId): void {
+            $item = $this->findItem($itemId);
+            (new RemoveOpportunityItem)($item);
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Item removed');
     }
 
     public function updateQuantity(int $itemId, string $quantity): void
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        (new ChangeItemQuantity)($item, ChangeItemQuantityData::from(['quantity' => $quantity]));
+        $this->runMutation(function () use ($itemId, $quantity): void {
+            $item = $this->findItem($itemId);
+            (new ChangeItemQuantity)($item, ChangeItemQuantityData::from(['quantity' => $quantity]));
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Quantity updated');
     }
 
     public function overridePrice(int $itemId, ?string $unitPrice): void
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        (new OverrideItemPrice)($item, OverrideItemPriceData::from([
-            'currency' => $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP'),
-            'unit_price' => $unitPrice === null || $unitPrice === '' ? null : $unitPrice,
-        ]));
+        $this->runMutation(function () use ($itemId, $unitPrice): void {
+            $item = $this->findItem($itemId);
+            (new OverrideItemPrice)($item, OverrideItemPriceData::from([
+                'currency' => $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP'),
+                'unit_price' => $unitPrice === null || $unitPrice === '' ? null : $unitPrice,
+            ]));
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Rate updated');
     }
 
     public function setDiscount(int $itemId, ?string $discountPercent): void
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        (new SetItemDiscount)($item, SetItemDiscountData::from([
-            'discount_percent' => $discountPercent === null || $discountPercent === '' ? null : $discountPercent,
-        ]));
+        $this->runMutation(function () use ($itemId, $discountPercent): void {
+            $item = $this->findItem($itemId);
+            (new SetItemDiscount)($item, SetItemDiscountData::from([
+                'discount_percent' => $discountPercent === null || $discountPercent === '' ? null : $discountPercent,
+            ]));
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Discount updated');
     }
 
     public function changeDates(int $itemId, ?string $startsAt, ?string $endsAt): void
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        (new ChangeItemDates)($item, ChangeItemDatesData::from([
-            'starts_at' => $startsAt === '' ? null : $startsAt,
-            'ends_at' => $endsAt === '' ? null : $endsAt,
-        ]));
+        $this->runMutation(function () use ($itemId, $startsAt, $endsAt): void {
+            $item = $this->findItem($itemId);
+            (new ChangeItemDates)($item, ChangeItemDatesData::from([
+                'starts_at' => $startsAt === '' ? null : $startsAt,
+                'ends_at' => $endsAt === '' ? null : $endsAt,
+            ]));
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Dates updated');
     }
 
     public function toggleOptional(int $itemId): void
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        (new ToggleItemOptional)($item, ToggleItemOptionalData::from([
-            'is_optional' => ! $item->is_optional,
-        ]));
+        $this->runMutation(function () use ($itemId): void {
+            $item = $this->findItem($itemId);
+            $nowOptional = ! $item->is_optional;
 
-        $this->refreshOpportunity();
+            (new ToggleItemOptional)($item, ToggleItemOptionalData::from([
+                'is_optional' => $nowOptional,
+            ]));
+
+            $this->refreshOpportunity();
+
+            $this->dispatch('toast', type: 'success', message: $nowOptional ? 'Marked optional' : 'Marked required');
+        });
     }
 
     public function substituteItem(int $itemId, int $productId): void
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        $product = Product::query()->find($productId);
+        $this->runMutation(function () use ($itemId, $productId): void {
+            $item = $this->findItem($itemId);
+            $product = Product::query()->find($productId);
 
-        if ($product === null) {
-            throw ValidationException::withMessages([
-                'product' => 'The replacement product could not be found.',
-            ]);
-        }
+            if ($product === null) {
+                throw ValidationException::withMessages([
+                    'product' => 'The replacement product could not be found.',
+                ]);
+            }
 
-        (new SubstituteItem)($item, SubstituteItemData::from([
-            'item_id' => $product->id,
-            'item_type' => Product::class,
-            'name' => $product->name,
-        ]));
+            (new SubstituteItem)($item, SubstituteItemData::from([
+                'item_id' => $product->id,
+                'item_type' => Product::class,
+                'name' => $product->name,
+            ]));
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Product substituted');
     }
 
     public string $newSectionName = '';
@@ -267,16 +292,35 @@ new class extends Component
             ->where('parent_id', $parentId)
             ->max('sort_order') + 1;
 
-        (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from([
-            'name' => $name,
-            'sort_order' => $nextOrder,
-            'parent_id' => $parentId,
-        ]));
+        try {
+            (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from([
+                'name' => $name,
+                'sort_order' => $nextOrder,
+                'parent_id' => $parentId,
+            ]));
+        } catch (ValidationException $e) {
+            // Surface the max-depth (#9) / foreign-parent rejection on the component so
+            // the modal stays open with the reason, rather than closing on a failure.
+            foreach ($e->errors() as $field => $messages) {
+                foreach ((array) $messages as $message) {
+                    $this->addError($field, $message);
+                }
+            }
+
+            $this->dispatch('toast', type: 'error', message: $this->firstMessageFrom($e));
+
+            return;
+        }
 
         $this->newSectionName = '';
         $this->newSectionParent = '';
         $this->refreshOpportunity();
-        $this->dispatch('close-modal', name: 'create-section');
+        // Positional payload: the x-signals.modal listener matches on
+        // `$event.detail === name`, so a named-arg dispatch (detail = { name: … })
+        // would never match and the modal would stay open. Mirror the Cancel
+        // button's `$dispatch('close-modal', 'create-section')`.
+        $this->dispatch('close-modal', 'create-section');
+        $this->dispatch('toast', type: 'success', message: 'Section created');
     }
 
     /**
@@ -306,24 +350,73 @@ new class extends Component
         $this->refreshOpportunity();
     }
 
+    /**
+     * Drag-and-drop handler for the section header `wire:sort`. Mirrors the line
+     * drag: `parentGroupKey` identifies the destination parent the dragged section
+     * landed under ('section-parent:{id}' to nest under another section, or
+     * 'section-parent:root' for the top level). The section is (re)parented if its
+     * parent changed — respecting the 4-level depth guard, which surfaces a refusal
+     * as an error toast and leaves the tree untouched — then its new sibling order
+     * is persisted.
+     *
+     * Sections are plain (non-event-sourced) rows, so this never touches the Verbs
+     * stream.
+     */
+    public function handleSectionSort(int $sectionId, int $position, ?string $parentGroupKey = null): void
+    {
+        $this->guardEditable();
+
+        $this->runMutation(function () use ($sectionId, $position, $parentGroupKey): void {
+            $section = $this->findSection($sectionId);
+            $targetParentId = $this->parentIdFromGroupKey($parentGroupKey);
+
+            // Re-parent (and place) the section. AssignSectionParent enforces the
+            // depth + cycle guards; on refusal it throws a ValidationException which
+            // runMutation turns into an error toast and the tree is left as-is.
+            if ($section->parent_id !== $targetParentId) {
+                (new AssignSectionParent)($section, AssignSectionParentData::from([
+                    'parent_id' => $targetParentId,
+                    'sort_order' => $position,
+                ]));
+            }
+
+            // Re-read so the moved section's parent reflects the assignment, then
+            // persist the order of the whole destination sibling set.
+            $opportunity = $this->opportunity->fresh(['sections']) ?? $this->opportunity;
+            $orderedIds = $this->computeSiblingOrder($opportunity, $sectionId, $position, $targetParentId);
+
+            if (count($orderedIds) > 0) {
+                (new ReorderOpportunitySections)($opportunity, ReorderOpportunitySectionsData::from([
+                    'section_ids' => $orderedIds,
+                ]));
+            }
+
+            $this->refreshOpportunity();
+        });
+    }
+
     public function renameSection(int $sectionId, string $name): void
     {
         $this->guardEditable();
 
-        $section = $this->findSection($sectionId);
-        (new RenameOpportunitySection)($section, RenameOpportunitySectionData::from(['name' => $name]));
+        $this->runMutation(function () use ($sectionId, $name): void {
+            $section = $this->findSection($sectionId);
+            (new RenameOpportunitySection)($section, RenameOpportunitySectionData::from(['name' => $name]));
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Group renamed');
     }
 
     public function deleteSection(int $sectionId): void
     {
         $this->guardEditable();
 
-        $section = $this->findSection($sectionId);
-        (new DeleteOpportunitySection)($section);
+        $this->runMutation(function () use ($sectionId): void {
+            $section = $this->findSection($sectionId);
+            (new DeleteOpportunitySection)($section);
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        }, 'Section deleted');
     }
 
     /**
@@ -362,16 +455,128 @@ new class extends Component
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        (new AssignItemToSection)($item, AssignItemToSectionData::from(['section_id' => $sectionId]));
+        $this->runMutation(function () use ($itemId, $sectionId): void {
+            $item = $this->findItem($itemId);
+            (new AssignItemToSection)($item, AssignItemToSectionData::from(['section_id' => $sectionId]));
 
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+
+            $label = $sectionId === null
+                ? 'auto group'
+                : ($this->findSection($sectionId)->name);
+
+            $this->dispatch('toast', type: 'success', message: 'Moved to '.$label);
+        });
+    }
+
+    /**
+     * Merge every duplicate of the given survivor line (same product, transaction
+     * type, charge period, hire window, section + optional flag) into it: the
+     * survivor's quantity becomes the sum and the duplicates are removed. The
+     * per-line "Merge duplicates" affordance calls this with the first line of a
+     * duplicate set.
+     */
+    public function mergeDuplicates(int $survivorId): void
+    {
+        $this->guardEditable();
+
+        $this->runMutation(function () use ($survivorId): void {
+            $survivor = $this->findItem($survivorId);
+            $duplicateIds = $this->duplicateIdsFor($survivor);
+
+            if ($duplicateIds === []) {
+                return;
+            }
+
+            (new MergeOpportunityItems)($survivor, MergeOpportunityItemsData::from([
+                'duplicate_item_ids' => $duplicateIds,
+            ]));
+
+            $this->refreshOpportunity();
+        }, 'Duplicates merged');
+    }
+
+    /**
+     * The ids of every OTHER line that is the same charge as the given line (and so
+     * mergeable into it).
+     *
+     * @return array<int, int>
+     */
+    private function duplicateIdsFor(OpportunityItem $survivor): array
+    {
+        return OpportunityItem::query()
+            ->where('opportunity_id', $this->opportunity->id)
+            ->whereKeyNot($survivor->id)
+            ->where('item_id', $survivor->item_id)
+            ->where('item_type', $survivor->item_type)
+            ->where('transaction_type', $survivor->getRawOriginal('transaction_type'))
+            ->where('charge_period', $survivor->getRawOriginal('charge_period'))
+            ->where('is_optional', $survivor->is_optional)
+            ->where(fn ($q) => $q->where('section_id', $survivor->section_id)
+                ->when($survivor->section_id === null, fn ($q) => $q->orWhereNull('section_id')))
+            ->where('starts_at', $survivor->starts_at)
+            ->where('ends_at', $survivor->ends_at)
+            ->whereNotNull('item_id')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * The set of line ids that have at least one duplicate elsewhere in the
+     * opportunity — used to surface the "Merge duplicates" affordance only where it
+     * applies. Keyed by line id for an O(1) Blade lookup.
+     *
+     * @return array<int, bool>
+     */
+    #[Computed]
+    public function duplicateLineIds(): array
+    {
+        $items = $this->opportunity->items()->get();
+        $byKey = [];
+
+        foreach ($items as $item) {
+            if ($item->item_id === null) {
+                continue;
+            }
+
+            $key = implode('|', [
+                $item->item_id,
+                $item->item_type,
+                $item->getRawOriginal('transaction_type'),
+                $item->getRawOriginal('charge_period'),
+                $item->is_optional ? 1 : 0,
+                $item->section_id ?? 'null',
+                optional($item->starts_at)->toIso8601String() ?? 'null',
+                optional($item->ends_at)->toIso8601String() ?? 'null',
+            ]);
+
+            $byKey[$key][] = (int) $item->id;
+        }
+
+        $flagged = [];
+
+        foreach ($byKey as $ids) {
+            if (count($ids) > 1) {
+                foreach ($ids as $id) {
+                    $flagged[$id] = true;
+                }
+            }
+        }
+
+        return $flagged;
     }
 
     /**
      * The grouped editor model: an ordered list of groups, each carrying its lines,
-     * each line carrying its accessories + availability chip + subtotal. Custom
-     * sections come first (in section sort_order), then auto product-groups.
+     * each line carrying its accessories + availability chip + subtotal.
+     *
+     * Under the unified group model every group is a real, persisted section — auto
+     * groups (auto_group_key != null) and user sections are treated IDENTICALLY here
+     * (both `kind: 'section'`, both draggable/nestable). The whole tree is the
+     * pre-order section walk; lines are bucketed by their section_id beneath their
+     * section. A safety fallback still renders any stray null-section lines under a
+     * synthesised top-level "Ungrouped" group so nothing ever disappears.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -394,9 +599,9 @@ new class extends Component
 
         $groups = [];
 
-        // 1. Custom sections, in a parent -> child pre-order so nested sub-groups
-        //    render directly beneath their parent (indented by `depth`). Always
-        //    shown even when empty so operators can drag lines into a fresh section.
+        // 1. Every section (auto + user), in a parent -> child pre-order so nested
+        //    sub-groups render directly beneath their parent (indented by `depth`).
+        //    Always shown even when empty so operators can drag lines into them.
         foreach ($this->orderedSections($opportunity->sections) as $entry) {
             $section = $entry['section'];
 
@@ -412,8 +617,12 @@ new class extends Component
             ];
         }
 
-        // 2. Auto product-group buckets, materialised lazily as lines are placed.
-        $autoBuckets = [];
+        // 2. Bucket lines under their section. Stray null-section lines (or lines
+        //    pointing at a since-deleted section) fall into a synthesised top-level
+        //    "Ungrouped" safety group rather than vanishing — the normal post-backfill
+        //    path never reaches it, but a just-deleted section can transiently leave
+        //    a line section-less until its next add re-finds an auto group.
+        $fallback = null;
 
         foreach ($items as $item) {
             $lineRow = $this->buildLineRow($item, $availability, $formatter);
@@ -425,39 +634,36 @@ new class extends Component
                 continue;
             }
 
-            [$bucketKey, $bucketLabel] = $this->autoGroupFor($item);
-
-            if (! isset($autoBuckets[$bucketKey])) {
-                $autoBuckets[$bucketKey] = [
-                    'key' => $bucketKey,
+            if ($fallback === null) {
+                $fallback = [
+                    'key' => 'auto:ungrouped',
                     'kind' => 'auto',
                     'section_id' => null,
                     'parent_id' => null,
                     'depth' => 0,
-                    'label' => $bucketLabel,
+                    'label' => __('Ungrouped'),
                     'lines' => [],
                     'subtotal' => 0,
                 ];
             }
 
-            $autoBuckets[$bucketKey]['lines'][] = $lineRow;
-            $autoBuckets[$bucketKey]['subtotal'] += $item->total;
+            $fallback['lines'][] = $lineRow;
+            $fallback['subtotal'] += $item->total;
         }
 
-        // Append auto buckets after the custom sections, sorted by label.
-        uasort($autoBuckets, fn ($a, $b) => strcasecmp((string) $a['label'], (string) $b['label']));
+        $ordered = [];
 
         foreach (array_values($groups) as $group) {
             $group['subtotal_formatted'] = $formatter->money((int) $group['subtotal']);
             $ordered[] = $group;
         }
 
-        foreach (array_values($autoBuckets) as $group) {
-            $group['subtotal_formatted'] = $formatter->money((int) $group['subtotal']);
-            $ordered[] = $group;
+        if ($fallback !== null) {
+            $fallback['subtotal_formatted'] = $formatter->money((int) $fallback['subtotal']);
+            $ordered[] = $fallback;
         }
 
-        return $ordered ?? [];
+        return $ordered;
     }
 
     /**
@@ -668,32 +874,6 @@ new class extends Component
     }
 
     /**
-     * Resolve the auto-group bucket key + label for a product-backed line, using the
-     * product's parent-group -> product-group tree. Non-product lines fall into a
-     * single "Other" bucket.
-     *
-     * @return array{0: string, 1: string}
-     */
-    private function autoGroupFor(OpportunityItem $item): array
-    {
-        if ($item->item_id === null || $item->item_type !== Product::class) {
-            return ['auto:other', __('Other')];
-        }
-
-        $product = $this->productCache()[$item->item_id] ?? null;
-        $group = $product?->productGroup;
-
-        if ($group === null) {
-            return ['auto:ungrouped', __('Ungrouped')];
-        }
-
-        $parent = $group->parent;
-        $label = $parent !== null ? $parent->name.' · '.$group->name : $group->name;
-
-        return ['auto:'.$group->id, $label];
-    }
-
-    /**
      * Cache of the Product rows referenced by the opportunity's lines, with their
      * group + accessories eager-loaded (one query for the whole editor).
      *
@@ -732,6 +912,46 @@ new class extends Component
         }
 
         return null;
+    }
+
+    /**
+     * Resolve the destination parent section id from a section-drag group key:
+     * 'section-parent:{id}' nests under that section; 'section-parent:root' (or any
+     * other value) promotes to the top level (null parent).
+     */
+    private function parentIdFromGroupKey(?string $groupKey): ?int
+    {
+        if ($groupKey !== null && str_starts_with($groupKey, 'section-parent:')) {
+            $value = substr($groupKey, strlen('section-parent:'));
+
+            return $value === 'root' ? null : (int) $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Compute the new sort order of the destination parent's child sections after a
+     * section drag, placing the moved section at the requested position among its new
+     * siblings while preserving the relative order of the rest.
+     *
+     * @return array<int, int>
+     */
+    private function computeSiblingOrder(Opportunity $opportunity, int $movedId, int $position, ?int $targetParentId): array
+    {
+        $siblings = $opportunity->sections
+            ->where('parent_id', $targetParentId)
+            ->sortBy([['sort_order', 'asc'], ['id', 'asc']])
+            ->reject(fn (OpportunitySection $s) => $s->id === $movedId)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        $position = max(0, min($position, count($siblings)));
+        array_splice($siblings, $position, 0, [$movedId]);
+
+        return $siblings;
     }
 
     /**
@@ -795,20 +1015,63 @@ new class extends Component
 
     private function assignNewestToDestination(?string $destination): void
     {
-        $sectionId = $this->sectionIdFromGroupKey($destination);
-
-        if ($sectionId === null) {
-            return;
-        }
-
         $newest = OpportunityItem::query()
             ->where('opportunity_id', $this->opportunity->id)
             ->orderByDesc('id')
             ->first();
 
-        if ($newest !== null) {
-            (new AssignItemToSection)($newest, AssignItemToSectionData::from(['section_id' => $sectionId]));
+        if ($newest === null) {
+            return;
         }
+
+        // An explicit "into …" destination wins. Otherwise (no destination, or an
+        // 'auto:…'/'group:…' key) find-or-create the real auto-group section for the
+        // line's product category so the line always lands in a persisted section
+        // rather than the legacy null-section render path.
+        $sectionId = $this->sectionIdFromGroupKey($destination)
+            ?? $this->findOrCreateAutoGroupSection($newest)->id;
+
+        (new AssignItemToSection)($newest, AssignItemToSectionData::from(['section_id' => $sectionId]));
+    }
+
+    /**
+     * Find (or create) the real, persisted auto-group section for a line's product
+     * category. Matches on `(opportunity_id, auto_group_key)`; a freshly created
+     * auto-group section is appended after every existing section (top level).
+     *
+     * Plain (non-event-sourced) row, like every other section.
+     */
+    private function findOrCreateAutoGroupSection(OpportunityItem $item): OpportunitySection
+    {
+        [$key, $label] = app(\App\Services\Opportunities\OpportunityAutoGroupResolver::class)
+            ->resolve($item, $this->productCache());
+
+        $existing = OpportunitySection::query()
+            ->where('opportunity_id', $this->opportunity->id)
+            ->where('auto_group_key', $key)
+            ->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $nextOrder = (int) OpportunitySection::query()
+            ->where('opportunity_id', $this->opportunity->id)
+            ->whereNull('parent_id')
+            ->max('sort_order');
+
+        $nextOrder = OpportunitySection::query()
+            ->where('opportunity_id', $this->opportunity->id)
+            ->whereNull('parent_id')
+            ->exists() ? $nextOrder + 1 : 0;
+
+        return OpportunitySection::create([
+            'opportunity_id' => $this->opportunity->id,
+            'parent_id' => null,
+            'auto_group_key' => $key,
+            'name' => $label,
+            'sort_order' => $nextOrder,
+        ]);
     }
 
     private function findItem(int $itemId): OpportunityItem
@@ -843,6 +1106,45 @@ new class extends Component
         return $section;
     }
 
+    /**
+     * Run a line-item mutation, firing a real-time success toast on completion or an
+     * error toast (with the human validation message) on failure. A
+     * {@see ValidationException} is re-thrown after the error toast so the component
+     * still surfaces field errors (the test suite + inline validation rely on this);
+     * the toast is purely additive UX feedback.
+     *
+     * Pass `$successMessage = null` when the caller dispatches its own context-specific
+     * success toast (e.g. the optional/required or move-to-group messages).
+     */
+    private function runMutation(callable $callback, ?string $successMessage = null): void
+    {
+        try {
+            $callback();
+        } catch (ValidationException $e) {
+            $this->dispatch('toast', type: 'error', message: $this->firstMessageFrom($e));
+
+            throw $e;
+        }
+
+        if ($successMessage !== null) {
+            $this->dispatch('toast', type: 'success', message: $successMessage);
+        }
+    }
+
+    /**
+     * The first human-readable message from a validation exception, for a toast.
+     */
+    private function firstMessageFrom(ValidationException $e): string
+    {
+        foreach ($e->errors() as $messages) {
+            foreach ((array) $messages as $message) {
+                return (string) $message;
+            }
+        }
+
+        return $e->getMessage();
+    }
+
     private function guardEditable(): void
     {
         Gate::authorize('opportunities.edit');
@@ -857,12 +1159,20 @@ new class extends Component
     /**
      * Re-read the opportunity so totals / availability / grouping recompute, and
      * bust the memoised computed properties.
+     *
+     * Also notifies the parent Show component (#10): a qty/rate/discount edit
+     * recomputes the line + this editor's footer grand total, but the Show
+     * component's sidebar Totals panel + header are a SEPARATE Livewire component
+     * and would otherwise stay stale. Dispatching `opportunity-totals-updated` lets
+     * the Show component refresh its own projection so every total stays in sync.
      */
     private function refreshOpportunity(): void
     {
         $this->opportunity = $this->opportunity->fresh() ?? $this->opportunity;
 
-        unset($this->groups, $this->destinations, $this->sectionOptions);
+        unset($this->groups, $this->destinations, $this->sectionOptions, $this->duplicateLineIds);
+
+        $this->dispatch('opportunity-totals-updated');
     }
 
     private function formatQuantity(float|string $value): string
@@ -875,11 +1185,20 @@ new class extends Component
     $opp = $this->opportunity;
     $grandTotal = app(\App\Support\Formatter::class)->money($opp->charge_total ?? 0);
     $groupKeys = array_map(fn ($g) => $g['key'], $this->groups);
+    // The editor's currency symbol, derived from a formatted zero so the client-side
+    // optimistic totals match the server's currency prefix (e.g. "£", "€", "$").
+    $currencySymbol = trim(preg_replace('/[0-9.,\s]/u', '', app(\App\Support\Formatter::class)->money(0)));
 @endphp
 
 <section
     class="w-full"
-    x-data="opportunityItemsEditor(@js($catalogue), @js($editable), @js($groupKeys))"
+    x-data="opportunityItemsEditor(@js($catalogue), @js($editable), @js($groupKeys), @js($currencySymbol))"
+    {{-- The server-authoritative ex-tax charge total (a currency-aware major-unit
+         decimal string), re-read on every morph. The footer falls back to this whenever
+         the optimistic registry is empty (e.g. after a morph replaces this component
+         instance and resets the registry), so the grand total survives the server
+         reconcile instead of collapsing to zero. --}}
+    data-server-grand-total="{{ $opp->formatMoneyCost('charge_total') }}"
 >
     {{-- Embedded line-item editor: the shared header + tabs are owned by the Show
          page that nests this component, so it renders as a section, not a page. --}}
@@ -888,7 +1207,8 @@ new class extends Component
         @if($editable)
             <div class="flex flex-wrap items-center gap-3 mb-4">
                 <div class="flex items-center gap-2 flex-1 min-w-[320px] s-panel" style="padding: 8px 10px;">
-                    <span class="text-[var(--accent)] font-bold">+</span>
+                    <span class="text-[var(--accent)] font-bold" wire:loading.remove wire:target="addProduct,quickAdd">+</span>
+                    <x-signals.spinner size="sm" class="text-[var(--accent)]" wire:loading wire:target="addProduct,quickAdd" />
                     <div class="relative flex-1" x-data="{ q: '' }">
                         <input
                             type="text"
@@ -939,17 +1259,6 @@ new class extends Component
                 description="{{ $editable ? 'Use the quick-add bar above or a blank cell to start building this kit list.' : 'This opportunity has no line items yet.' }}"
             />
         @else
-            @php
-                // Sibling ordering for the section move up/down controls: section ids
-                // grouped by parent, in display order. Lets each section header offer
-                // a reorder among its peers (persisted via reorderSections()).
-                $sectionSiblings = [];
-                foreach ($this->groups as $g) {
-                    if ($g['kind'] === 'section') {
-                        $sectionSiblings[$g['parent_id'] ?? 0][] = $g['section_id'];
-                    }
-                }
-            @endphp
             <x-signals.table-wrap>
                 <table class="s-table">
                     <thead>
@@ -967,36 +1276,43 @@ new class extends Component
                         @php
                             $collapsedKey = $group['key'];
                             $depth = $group['depth'] ?? 0;
-                            // Sibling order for this section's move controls.
-                            $siblings = $group['kind'] === 'section'
-                                ? ($sectionSiblings[$group['parent_id'] ?? 0] ?? [])
-                                : [];
-                            $sibIndex = array_search($group['section_id'] ?? null, $siblings, true);
-                            $canMoveUp = $sibIndex !== false && $sibIndex > 0;
-                            $canMoveDown = $sibIndex !== false && $sibIndex < count($siblings) - 1;
-                            $moveUpOrder = $canMoveUp
-                                ? (function () use ($siblings, $sibIndex) {
-                                    $o = $siblings;
-                                    [$o[$sibIndex - 1], $o[$sibIndex]] = [$o[$sibIndex], $o[$sibIndex - 1]];
-                                    return $o;
-                                })()
-                                : $siblings;
-                            $moveDownOrder = $canMoveDown
-                                ? (function () use ($siblings, $sibIndex) {
-                                    $o = $siblings;
-                                    [$o[$sibIndex + 1], $o[$sibIndex]] = [$o[$sibIndex], $o[$sibIndex + 1]];
-                                    return $o;
-                                })()
-                                : $siblings;
+                            // The parent key this section header belongs to, for the
+                            // section-drag sort group ('root' for a top-level section).
+                            $sectionParentKey = $group['kind'] === 'section'
+                                ? ('section-parent:'.($group['parent_id'] ?? 'root'))
+                                : null;
                         @endphp
-                        {{-- Group / section header (its own tbody — valid as a direct table child) --}}
-                        <tbody wire:key="grp-{{ $group['key'] }}">
-                            <tr class="s-table-group-row">
-                                <td colspan="5">
+                        {{-- Group / section header (its own tbody — valid as a direct table child).
+                             For a custom section, the header row is a wire:sort item in the
+                             'opportunity-sections' group keyed by its PARENT, so dragging it
+                             among its siblings reorders, and dragging it into another section's
+                             group (a different parent key) re-parents (nests) it. --}}
+                        <tbody wire:key="grp-{{ $group['key'] }}"
+                            @if($editable && $group['kind'] === 'section')
+                                wire:sort="handleSectionSort"
+                                wire:sort:group="opportunity-sections"
+                                wire:sort:group-id="{{ $sectionParentKey }}"
+                            @endif
+                        >
+                            <tr class="s-table-group-row"
+                                @if($editable && $group['kind'] === 'section')
+                                    wire:sort:item="{{ $group['section_id'] }}"
+                                @endif
+                            >
+                                {{-- Drag handle in the leading column, left-aligned in the
+                                     SAME leading position as the line-item rows' ⠿ handle.
+                                     Auto + user sections are identical here. --}}
+                                <td class="text-center">
+                                    @if($editable && $group['kind'] === 'section')
+                                        <span wire:sort:handle class="cursor-grab text-[var(--text-faint)] select-none" title="Drag to reorder or nest this group">⠿</span>
+                                    @endif
+                                </td>
+                                <td colspan="4">
                                     <div class="inline-flex items-center gap-2" style="padding-left: {{ $depth * 20 }}px;">
                                         <button
                                             type="button"
                                             class="inline-flex items-center gap-2 font-semibold"
+                                            wire:sort:ignore
                                             x-on:click="toggleGroup('{{ $collapsedKey }}')"
                                         >
                                             <span class="text-xs text-[var(--text-faint)]" x-text="isCollapsed('{{ $collapsedKey }}') ? '▸' : '▾'"></span>
@@ -1006,25 +1322,18 @@ new class extends Component
                                             <span>{{ $group['label'] }}</span>
                                             <span class="text-xs text-[var(--text-faint)]">{{ count($group['lines']) }} {{ \Illuminate\Support\Str::plural('item', count($group['lines'])) }}</span>
                                         </button>
-                                        @if($editable && $group['kind'] === 'section')
-                                            <span class="inline-flex items-center gap-0.5 ml-1">
-                                                <button type="button" class="s-btn-icon text-xs"
-                                                    @disabled(! $canMoveUp)
-                                                    title="Move section up"
-                                                    wire:click="reorderSections(@js($moveUpOrder))">▲</button>
-                                                <button type="button" class="s-btn-icon text-xs"
-                                                    @disabled(! $canMoveDown)
-                                                    title="Move section down"
-                                                    wire:click="reorderSections(@js($moveDownOrder))">▼</button>
-                                            </span>
-                                        @endif
                                     </div>
                                 </td>
                                 <td class="text-left font-mono font-semibold">{{ $group['subtotal_formatted'] }}</td>
-                                <td class="text-center">
+                                <td class="text-center" @if($editable && $group['kind'] === 'section') wire:sort:ignore @endif>
                                     @if($editable && $group['kind'] === 'section')
                                         <div class="relative inline-block" x-data="rowActionsMenu()">
-                                            <button type="button" class="s-btn-icon" x-ref="trigger" x-on:click="toggle()">⋯</button>
+                                            <button type="button" class="s-btn-icon" x-ref="trigger" x-on:click="toggle()"
+                                                wire:loading.attr="disabled"
+                                                wire:target="deleteSection({{ $group['section_id'] }}),renameSection({{ $group['section_id'] }})">⋯</button>
+                                            <x-signals.spinner size="xs"
+                                                wire:loading
+                                                wire:target="deleteSection({{ $group['section_id'] }}),renameSection({{ $group['section_id'] }})" />
                                             {{-- Teleported to <body> so the table-wrap overflow can't clip it; positioned
                                                  fixed against the trigger's rect, right-aligned and above content. --}}
                                             <template x-teleport="body">
@@ -1040,7 +1349,7 @@ new class extends Component
                                                     <button type="button" class="s-dropdown-item w-full text-left" style="color: var(--red);"
                                                         x-on:click="open = false"
                                                         wire:click="deleteSection({{ $group['section_id'] }})"
-                                                        wire:confirm="Delete this section? Its line items move back to auto-grouping.">
+                                                        wire:confirm="Delete this group? Its line items move to Ungrouped until re-grouped.">
                                                         Delete
                                                     </button>
                                                 </div>
@@ -1061,7 +1370,28 @@ new class extends Component
                             @endif
                         >
                             @foreach($group['lines'] as $line)
-                                        <tr class="s-table-line" wire:key="line-{{ $line['id'] }}" wire:sort:item="{{ $line['id'] }}">
+                                        {{-- Each editable line carries its own Alpine state seeded from the
+                                             authoritative server values. The qty/rate/discount inputs bind to it
+                                             with x-model so the line total (and the footer grand total) update
+                                             INSTANTLY client-side; the slow event-sourced server commit then
+                                             reconciles by re-seeding on the next morph (the data-* attributes are
+                                             re-read whenever Livewire re-renders this wire:key'd row). --}}
+                                        <tr class="s-table-line" wire:key="line-{{ $line['id'] }}" wire:sort:item="{{ $line['id'] }}"
+                                            @if($editable)
+                                                x-data="lineTotalEditor({
+                                                    id: {{ $line['id'] }},
+                                                    qty: {{ json_encode((float) $line['quantity_raw']) }},
+                                                    rate: {{ json_encode($line['unit_price_raw'] === null || $line['unit_price_raw'] === '' ? 0 : (float) $line['unit_price_raw']) }},
+                                                    discount: {{ json_encode($line['discount_percent'] === null || $line['discount_percent'] === '' ? 0 : (float) $line['discount_percent']) }},
+                                                    serverTotal: {{ json_encode($line['total']) }},
+                                                })"
+                                                x-init="register()"
+                                                :data-server-qty="{{ json_encode((float) $line['quantity_raw']) }}"
+                                                :data-server-rate="{{ json_encode($line['unit_price_raw'] === null || $line['unit_price_raw'] === '' ? 0 : (float) $line['unit_price_raw']) }}"
+                                                :data-server-discount="{{ json_encode($line['discount_percent'] === null || $line['discount_percent'] === '' ? 0 : (float) $line['discount_percent']) }}"
+                                                x-effect="reseed($el.dataset.serverQty, $el.dataset.serverRate, $el.dataset.serverDiscount); qty; rateInput; discount; syncRegistry()"
+                                            @endif
+                                        >
                                             <td class="text-center">
                                                 @if($editable)
                                                     <span wire:sort:handle class="cursor-grab text-[var(--text-faint)] select-none">⠿</span>
@@ -1103,28 +1433,42 @@ new class extends Component
                                             </td>
                                             <td class="text-center" wire:sort:ignore>
                                                 @if($editable)
-                                                    <input
-                                                        type="number" min="0.01" step="0.01"
-                                                        class="s-input text-center font-mono"
-                                                        style="width: 84px;"
-                                                        value="{{ $line['quantity_raw'] }}"
-                                                        wire:change="updateQuantity({{ $line['id'] }}, $event.target.value)"
-                                                    >
+                                                    <div class="inline-flex items-center gap-1">
+                                                        <input
+                                                            type="number" min="0.01" step="0.01"
+                                                            class="s-input text-center font-mono"
+                                                            style="width: 84px;"
+                                                            x-model.number="qty"
+                                                            wire:change="updateQuantity({{ $line['id'] }}, $event.target.value)"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="updateQuantity({{ $line['id'] }})"
+                                                        >
+                                                        <x-signals.spinner size="xs"
+                                                            wire:loading
+                                                            wire:target="updateQuantity({{ $line['id'] }})" />
+                                                    </div>
                                                 @else
                                                     <span class="font-mono text-[var(--text-muted)]">{{ $line['quantity'] }}</span>
                                                 @endif
                                             </td>
                                             <td class="text-left font-mono" wire:sort:ignore>
                                                 @if($editable)
-                                                    <input
-                                                        type="text" inputmode="decimal"
-                                                        class="s-input font-mono"
-                                                        style="width: 96px;"
-                                                        value="{{ $line['unit_price_raw'] }}"
-                                                        placeholder="rate"
-                                                        title="Unit rate override (blank to use the rate engine)"
-                                                        wire:change="overridePrice({{ $line['id'] }}, $event.target.value)"
-                                                    >
+                                                    <div class="inline-flex items-center gap-1">
+                                                        <input
+                                                            type="text" inputmode="decimal"
+                                                            class="s-input font-mono"
+                                                            style="width: 96px;"
+                                                            x-model="rateInput"
+                                                            placeholder="rate"
+                                                            title="Unit rate override (blank to use the rate engine)"
+                                                            wire:change="overridePrice({{ $line['id'] }}, $event.target.value)"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="overridePrice({{ $line['id'] }})"
+                                                        >
+                                                        <x-signals.spinner size="xs"
+                                                            wire:loading
+                                                            wire:target="overridePrice({{ $line['id'] }})" />
+                                                    </div>
                                                 @else
                                                     {{ $line['unit_price'] }}
                                                 @endif
@@ -1136,22 +1480,43 @@ new class extends Component
                                                             type="number" min="0" max="100" step="0.01"
                                                             class="s-input text-right font-mono"
                                                             style="width: 72px;"
-                                                            value="{{ $line['discount_percent'] }}"
+                                                            x-model.number="discount"
                                                             placeholder="0"
                                                             title="Per-line discount %"
                                                             wire:change="setDiscount({{ $line['id'] }}, $event.target.value)"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="setDiscount({{ $line['id'] }})"
                                                         >
                                                         <span class="text-xs text-[var(--text-faint)]">%</span>
+                                                        <x-signals.spinner size="xs"
+                                                            wire:loading
+                                                            wire:target="setDiscount({{ $line['id'] }})" />
                                                     </div>
                                                 @else
                                                     {{ $line['discount_percent'] !== null ? $line['discount_percent'].'%' : '—' }}
                                                 @endif
                                             </td>
-                                            <td class="text-left font-mono">{{ $line['total'] }}</td>
+                                            <td class="text-left font-mono">
+                                                @if($editable)
+                                                    {{-- Optimistic line total: x-text shows the instant client-side
+                                                         figure (qty × rate × (1 − discount%)); the slow server commit
+                                                         reconciles it via the row's reseed effect. --}}
+                                                    <span x-text="displayTotal"
+                                                        wire:loading.remove
+                                                        wire:target="updateQuantity({{ $line['id'] }}),overridePrice({{ $line['id'] }}),setDiscount({{ $line['id'] }}),toggleOptional({{ $line['id'] }}),changeDates({{ $line['id'] }})">{{ $line['total'] }}</span>
+                                                    <x-signals.spinner size="xs"
+                                                        wire:loading
+                                                        wire:target="updateQuantity({{ $line['id'] }}),overridePrice({{ $line['id'] }}),setDiscount({{ $line['id'] }}),toggleOptional({{ $line['id'] }}),changeDates({{ $line['id'] }})" />
+                                                @else
+                                                    {{ $line['total'] }}
+                                                @endif
+                                            </td>
                                             <td class="text-center" wire:sort:ignore>
                                                 @if($editable)
                                                     <div class="relative inline-block" x-data="rowActionsMenu()">
-                                                        <button type="button" class="s-btn-icon" x-ref="trigger" x-on:click="toggle()">⋯</button>
+                                                        <button type="button" class="s-btn-icon" x-ref="trigger" x-on:click="toggle()"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="removeItem({{ $line['id'] }}),toggleOptional({{ $line['id'] }}),assignToSection({{ $line['id'] }}),mergeDuplicates({{ $line['id'] }})">⋯</button>
                                                         {{-- Teleported to <body> so the table-wrap overflow can't clip it; positioned
                                                              fixed against the trigger's rect, right-aligned and above content. --}}
                                                         <template x-teleport="body">
@@ -1165,7 +1530,7 @@ new class extends Component
                                                                     Edit price / discount / dates
                                                                 </button>
                                                                 @if($line['product_id'] !== null)
-                                                                    <a href="{{ $line['availability_url'] }}" class="s-dropdown-item w-full text-left block" x-on:click="open = false">
+                                                                    <a href="{{ $line['availability_url'] }}" target="_blank" rel="noopener" class="s-dropdown-item w-full text-left block" x-on:click="open = false">
                                                                         View availability
                                                                     </a>
                                                                 @endif
@@ -1188,6 +1553,15 @@ new class extends Component
                                                                         </button>
                                                                     @endif
                                                                 @endforeach
+                                                                @if(($this->duplicateLineIds[$line['id']] ?? false))
+                                                                    <hr class="s-dropdown-sep">
+                                                                    <button type="button" class="s-dropdown-item w-full text-left"
+                                                                        x-on:click="open = false"
+                                                                        wire:click="mergeDuplicates({{ $line['id'] }})"
+                                                                        wire:confirm="Merge the matching duplicate line(s) into this one? Their quantities are summed and the duplicates removed.">
+                                                                        Merge duplicates into this line
+                                                                    </button>
+                                                                @endif
                                                                 <hr class="s-dropdown-sep">
                                                                 <button type="button" class="s-dropdown-item w-full text-left" style="color: var(--red);"
                                                                     x-on:click="open = false"
@@ -1232,11 +1606,16 @@ new class extends Component
                         </tbody>
                     @endforeach
 
-                    {{-- Charge total — a final row in line with the Total column (ex-tax). --}}
+                    {{-- Charge total — a final row in line with the Total column (ex-tax).
+                         When editable, x-text shows the reactive sum of the per-row optimistic
+                         line totals so it updates INSTANTLY; the server-rendered figure is the
+                         seed + reconciled fallback. --}}
                     <tfoot>
                         <tr class="s-table-total-row" style="border-top: 2px solid var(--card-border);">
                             <td colspan="5" class="text-right font-semibold">Charge total (ex-tax)</td>
-                            <td class="text-left font-mono font-semibold text-lg">{{ $grandTotal }}</td>
+                            <td class="text-left font-mono font-semibold text-lg"
+                                @if($editable) x-text="optimisticGrandTotal" @endif
+                            >{{ $grandTotal }}</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -1302,8 +1681,12 @@ new class extends Component
             </div>
             <x-slot:footer>
                 <button type="button" class="s-btn s-btn-ghost" x-on:click="$dispatch('close-modal', 'create-section')">Cancel</button>
-                <button type="button" class="s-btn s-btn-primary" wire:click="createSection">
-                    Create
+                <button type="button" class="s-btn s-btn-primary" wire:click="createSection"
+                    wire:loading.attr="disabled" wire:target="createSection">
+                    <span wire:loading.remove wire:target="createSection">Create</span>
+                    <span wire:loading wire:target="createSection" class="inline-flex items-center gap-1.5">
+                        <x-signals.spinner size="xs" /> Creating…
+                    </span>
                 </button>
             </x-slot:footer>
         </div>
@@ -1411,10 +1794,14 @@ new class extends Component
 
 @script
 <script>
-    Alpine.data('opportunityItemsEditor', (catalogue, editable, groupKeys = []) => ({
+    Alpine.data('opportunityItemsEditor', (catalogue, editable, groupKeys = [], currencySymbol = '£') => ({
         editable,
         controller: null,
         groupKeys,
+        currencySymbol,
+        // Registry of per-line optimistic totals (minor-unit-free major decimals),
+        // keyed by line id. Rows write into it; the footer reads the reactive sum.
+        lineTotals: {},
         collapsedGroups: {},
         expandedLines: {},
         quickAddQty: 1,
@@ -1460,6 +1847,46 @@ new class extends Component
         },
         isLineExpanded(id) { return !!this.expandedLines[id]; },
         toggleLine(id) { this.expandedLines[id] = !this.expandedLines[id]; },
+
+        // ---- optimistic totals ----
+        // Rows register their current optimistic total (a major-unit number) here so
+        // the footer can sum them instantly, ahead of the slow server commit.
+        setLineTotal(id, value) { this.lineTotals[id] = value; },
+        clearLineTotal(id) { delete this.lineTotals[id]; },
+
+        // The instant ex-tax grand total. While rows are registered (the optimistic
+        // path), it's the reactive sum of every registered line total. When the registry
+        // is empty — notably right after a Livewire morph replaces this component
+        // instance and resets `lineTotals` before the rows re-register — it falls back to
+        // the server-authoritative figure carried on the root element's
+        // `data-server-grand-total`, so the footer never collapses to £0.00.
+        get optimisticGrandTotal() {
+            const ids = Object.keys(this.lineTotals);
+
+            if (ids.length === 0) {
+                return this.serverGrandTotalFormatted();
+            }
+
+            const sum = ids.reduce((acc, id) => acc + (Number(this.lineTotals[id]) || 0), 0);
+            return this.formatMoney(sum);
+        },
+
+        // The server-rendered authoritative ex-tax charge total, formatted in the
+        // editor's currency. Read from the root element's data attribute (re-read on
+        // every morph) and reused as the empty-registry fallback above.
+        serverGrandTotalFormatted() {
+            const raw = this.$root?.dataset?.serverGrandTotal ?? '0';
+            return this.formatMoney(Number(raw) || 0);
+        },
+
+        // Format a major-unit number as the editor's currency (e.g. "£1,250.00").
+        // The server reconciles the authoritative figure; this is the optimistic view.
+        formatMoney(amount) {
+            const fixed = (Number(amount) || 0).toFixed(2);
+            const [whole, frac] = fixed.split('.');
+            const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return this.currencySymbol + grouped + '.' + frac;
+        },
 
         // ---- picker ----
         onPickerInput(target, raw, isQuickAdd, opts = {}) {
@@ -1572,6 +1999,92 @@ new class extends Component
         },
     }));
 
+    // Per-line optimistic-total state. Seeded from the authoritative server values
+    // (qty / rate / discount%), it computes the line total INSTANTLY as the operator
+    // types and registers it in the parent editor's `lineTotals` registry so the
+    // footer grand total updates without waiting for the ~1-2s event-sourced commit.
+    // When Livewire morphs the row with the server's authoritative figures, the
+    // data-server-* attributes change and `reseed()` pulls the row back to truth.
+    Alpine.data('lineTotalEditor', ({ id, qty, rate, discount, serverTotal }) => ({
+        lineId: id,
+        qty: Number(qty) || 0,
+        // The rate input is a string so a blank value (= use the rate engine) is
+        // distinguishable from 0; the optimistic maths only runs with a numeric rate.
+        rateInput: (rate === null || rate === undefined || rate === '') ? '' : String(rate),
+        discount: Number(discount) || 0,
+        // The server-rendered formatted total, used as the optimistic display whenever
+        // the rate is blank (engine-priced — the client can't recompute it).
+        serverTotal,
+        _lastSeed: null,
+
+        register() {
+            this._lastSeed = this._seedKey(this.qty, this.rateInput, this.discount);
+            this.setLineTotal(this.lineId, this.registryTotal());
+        },
+
+        destroy() {
+            this.clearLineTotal(this.lineId);
+        },
+
+        // Re-pull the row to the authoritative server values when Livewire morphs in a
+        // fresh render (the data-server-* attributes change). Guarded so it only fires
+        // when the seed actually changes, never on the operator's own keystrokes.
+        reseed(serverQty, serverRate, serverDiscount) {
+            const key = this._seedKey(serverQty, serverRate, serverDiscount);
+            if (key === this._lastSeed) { return; }
+            this._lastSeed = key;
+            this.qty = Number(serverQty) || 0;
+            this.rateInput = (serverRate === '' || serverRate === null) ? '' : String(serverRate);
+            this.discount = Number(serverDiscount) || 0;
+            this.setLineTotal(this.lineId, this.registryTotal());
+        },
+
+        _seedKey(q, r, d) {
+            return [Number(q) || 0, (r === '' || r === null) ? '' : String(r), Number(d) || 0].join('|');
+        },
+
+        // The raw optimistic line total (major units): qty × rate × (1 − discount/100).
+        // Negative discounts / blanks are clamped; a blank rate yields null (defer to
+        // the server figure).
+        numericTotal() {
+            if (this.rateInput === '' || this.rateInput === null) { return null; }
+            const rate = Number(this.rateInput);
+            if (Number.isNaN(rate)) { return null; }
+            const disc = Math.min(100, Math.max(0, Number(this.discount) || 0));
+            return (Number(this.qty) || 0) * rate * (1 - disc / 100);
+        },
+
+        // Parse a formatted server total (e.g. "£1,250.00") to a major-unit number, so
+        // engine-priced (blank-rate) lines still contribute their real value to the
+        // footer sum instead of registering as zero.
+        serverTotalNumeric() {
+            const cleaned = String(this.serverTotal ?? '').replace(/[^0-9.\-]/g, '');
+            const value = Number(cleaned);
+            return Number.isNaN(value) ? 0 : value;
+        },
+
+        // The value registered for the footer sum: the optimistic figure when the rate
+        // is set, else the parsed server figure (so engine-priced lines still count).
+        registryTotal() {
+            const total = this.numericTotal();
+            return total === null ? this.serverTotalNumeric() : total;
+        },
+
+        // Push the current optimistic total into the parent registry. Driven by an
+        // x-effect on the row so it re-runs whenever qty/rate/discount change — kept
+        // out of the displayTotal getter so the getter stays side-effect-free.
+        syncRegistry() {
+            this.setLineTotal(this.lineId, this.registryTotal());
+        },
+
+        // The formatted total to display in the line's Total cell. Falls back to the
+        // server-rendered figure when the rate is engine-priced (blank).
+        get displayTotal() {
+            const total = this.numericTotal();
+            return total === null ? this.serverTotal : this.formatMoney(total);
+        },
+    }));
+
     // Row-actions ("⋯") dropdown. Its menu is teleported to <body> so the
     // table-wrap's overflow can never clip it; on open we measure the trigger's
     // viewport rect and position the fixed menu right-aligned beneath it. Scroll
@@ -1586,10 +2099,15 @@ new class extends Component
 
         openMenu() {
             const rect = this.$refs.trigger.getBoundingClientRect();
-            // Right-align the menu's right edge to the trigger's right edge.
+            // Right-align the menu's right edge to the trigger's right edge. We MUST
+            // null out `left` (the .s-dropdown base rule sets `left: 0`); with both
+            // `left` and `right` set a `position: fixed` box stretches to the full
+            // viewport width, which is the "full-width menu" bug. Setting `left: auto`
+            // lets the menu size to its content (capped by the inline max-width) and
+            // anchor by its right edge.
             const right = Math.max(8, window.innerWidth - rect.right);
             const top = rect.bottom + 4;
-            this.menuStyle = `top: ${top}px; right: ${right}px;`;
+            this.menuStyle = `top: ${top}px; right: ${right}px; left: auto;`;
             this.open = true;
         },
 

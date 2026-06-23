@@ -101,8 +101,8 @@ it('maintains opportunities.has_shortage through the recalc job', function () {
     // Request more than is held → a genuine shortage.
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '5',
     ]));
 

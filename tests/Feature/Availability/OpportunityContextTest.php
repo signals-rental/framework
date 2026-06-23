@@ -61,8 +61,8 @@ it('reports per-line availability and flags a shortage', function () {
 
     $opportunity = contextOpportunity($this->store);
     $item = OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 3,
     ]);
 
@@ -84,8 +84,8 @@ it('reports per-line availability and flags a shortage', function () {
 it('skips line items that reference no product', function () {
     $opportunity = contextOpportunity($this->store);
     OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => null,
-        'item_id' => null,
+        'itemable_type' => null,
+        'itemable_id' => null,
         'quantity' => 2,
     ]);
 
@@ -108,8 +108,8 @@ it('honours a line dispatch_store_id override over the opportunity store', funct
 
     $opportunity = contextOpportunity($this->store);
     OpportunityItem::factory()->for($opportunity)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 2,
         'dispatch_store_id' => $override->id,
     ]);

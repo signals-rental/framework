@@ -19,11 +19,11 @@
     $status = $opportunity->statusEnum();
 
     // B6: surface the active quote version number after the subject in the header
-    // title (e.g. "Subject — v3"). Omitted gracefully when there is no active version.
-    $activeVersionNumber = $opportunity->activeVersion?->version_number;
-    $headerTitle = $activeVersionNumber
-        ? $opportunity->subject.' — v'.$activeVersionNumber
-        : $opportunity->subject;
+    // title (e.g. "Subject — v3"). A version number is ALWAYS shown — when the
+    // opportunity has no explicit versioning it defaults to v1, derived from the
+    // stored version_count (or 1 if that is empty).
+    $activeVersionNumber = $opportunity->activeVersion?->version_number ?? max((int) $opportunity->version_count, 1);
+    $headerTitle = $opportunity->subject.' — v'.$activeVersionNumber;
 @endphp
 <x-signals.page-header :title="$headerTitle">
     <x-slot:breadcrumbs>
@@ -77,8 +77,7 @@
                     <button
                         type="button"
                         x-on:click="open = false; $dispatch('open-modal', 'change-status')"
-                        class="s-dropdown-item"
-                        style="width: 100%; text-align: left;"
+                        class="s-dropdown-item w-full text-left"
                         wire:key="action-change-status"
                     >
                         Change status…
@@ -95,17 +94,16 @@
                             type="button"
                             wire:click="prepareAction('{{ $action['key'] }}', @js($action['label']), @js($message))"
                             x-on:click="open = false; $dispatch('open-modal', 'confirm-action')"
-                            class="s-dropdown-item"
-                            style="width: 100%; text-align: left;"
+                            class="s-dropdown-item w-full text-left"
                             wire:key="action-{{ $action['key'] }}"
                         >
                             {{ $action['label'] }}
                         </button>
                     @else
                         <div
-                            class="s-dropdown-item"
+                            class="s-dropdown-item w-full"
                             title="{{ $action['reason'] }}"
-                            style="opacity: .5; cursor: not-allowed; width: 100%;"
+                            style="opacity: .5; cursor: not-allowed;"
                             wire:key="action-{{ $action['key'] }}"
                         >
                             {{ $action['label'] }}

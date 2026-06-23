@@ -113,7 +113,7 @@ class ItemShortageProbe
         return Shortage::make(
             opportunityItemId: $item->id,
             opportunityId: (int) $item->opportunity_id,
-            productId: (int) ($item->item_id ?? 0),
+            productId: (int) ($item->itemable_id ?? 0),
             productName: (string) $item->name,
             storeId: (int) ($opportunity->store_id ?? 0),
             requestedQuantity: 0,

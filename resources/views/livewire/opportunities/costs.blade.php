@@ -5,12 +5,15 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use App\Livewire\Concerns\HasOpportunityActions;
 
 /**
  * Read-only costs listing for an opportunity (M8-2).
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
+    use HasOpportunityActions;
+
     public Opportunity $opportunity;
 
     public function mount(Opportunity $opportunity): void
@@ -24,10 +27,18 @@ new #[Layout('components.layouts.app')] class extends Component
     {
         $view->title($this->opportunity->subject.' — Costs');
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function with(): array
+    {
+        return $this->opportunityActionData();
+    }
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Costs'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Costs', 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'costs'])
 
     @php
@@ -75,4 +86,5 @@ new #[Layout('components.layouts.app')] class extends Component
             />
         @endif
     </div>
+    @include('livewire.opportunities.partials.opportunity-action-modals')
 </section>

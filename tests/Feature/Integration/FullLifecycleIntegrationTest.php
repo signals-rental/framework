@@ -103,8 +103,8 @@ it('runs the serialised vertical slice: create → quote → version → order �
     // Two units of a £75.00 manual line.
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'unit_price' => 7500,
         'transaction_type' => LineItemTransactionType::Rental->value,
@@ -249,8 +249,8 @@ it('runs the bulk vertical slice with partial dispatch/return and effective_quan
 
     (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '100',
         'unit_price' => 250,
     ]));

@@ -25,11 +25,12 @@ it('does not carry section_id on OpportunityItemState', function () {
     expect(property_exists(OpportunityItemState::class, 'section_id'))->toBeFalse();
 });
 
-it('defaults path to empty string and item_type to OpportunityItemType::Product', function () {
+it('defaults path to empty string and item_type to the Product role string', function () {
     $state = new OpportunityItemState;
 
     expect($state->path)->toBe('')
-        ->and($state->item_type)->toBe(OpportunityItemType::Product);
+        ->and($state->item_type)->toBe('product')
+        ->and($state->itemType())->toBe(OpportunityItemType::Product);
 });
 
 it('defaults itemable_id and itemable_type to null', function () {

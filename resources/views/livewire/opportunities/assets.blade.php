@@ -48,6 +48,7 @@ use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
+use App\Livewire\Concerns\HasOpportunityActions;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Thunk\Verbs\Exceptions\EventNotValid;
 
@@ -86,6 +87,8 @@ use Thunk\Verbs\Exceptions\EventNotValid;
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
+    use HasOpportunityActions;
+
     public Opportunity $opportunity;
 
     /** Whether the actor may mutate assignments (vs a read-only view). */
@@ -955,6 +958,8 @@ new #[Layout('components.layouts.app')] class extends Component
         ]);
 
         return [
+            ...$this->opportunityActionData(),
+
             'groups' => $this->buildGroups(),
             'freeAssets' => $this->freeAssetsForItem($this->substituteAssetItemId())->values(),
         ];
@@ -1013,7 +1018,7 @@ new #[Layout('components.layouts.app')] class extends Component
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Assets'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Assets', 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'assets'])
 
     @php
@@ -1078,7 +1083,7 @@ new #[Layout('components.layouts.app')] class extends Component
         {{-- ============================================================ --}}
         @if($canEdit)
             {{-- FUNCTIONS: the multiselect-driven Action toolbar --}}
-            <div class="s-panel" style="padding: 12px 14px;" @style(['display: none' => $subTab !== 'functions'])>
+            <div class="s-panel" style="padding: 12px 14px;" x-show="subTab === 'functions'" x-cloak>
                 <div class="flex flex-wrap items-end gap-3">
                     <div class="min-w-[220px]">
                         <label for="bulk-action" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{{ __('Action') }}</label>
@@ -1120,7 +1125,7 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             {{-- ALLOCATE scan bar --}}
-            <div class="s-panel" style="padding: 12px 14px;" @style(['display: none' => $subTab !== 'allocate'])>
+            <div class="s-panel" style="padding: 12px 14px;" x-show="subTab === 'allocate'" x-cloak>
                 <form wire:submit="scanAllocate" class="flex flex-wrap items-end gap-3">
                     <div class="min-w-[200px] flex-1">
                         <label for="alloc-asset" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{{ __('Asset') }}</label>
@@ -1145,7 +1150,7 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             {{-- PREPARE scan bar --}}
-            <div class="s-panel" style="padding: 12px 14px;" @style(['display: none' => $subTab !== 'prepare'])>
+            <div class="s-panel" style="padding: 12px 14px;" x-show="subTab === 'prepare'" x-cloak>
                 <form wire:submit="scanPrepare" class="flex flex-wrap items-end gap-3">
                     <div class="min-w-[200px] flex-1">
                         <label for="prep-asset" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{{ __('Asset') }}</label>
@@ -1160,7 +1165,7 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             {{-- BOOK OUT scan bar --}}
-            <div class="s-panel" style="padding: 12px 14px;" @style(['display: none' => $subTab !== 'book_out'])>
+            <div class="s-panel" style="padding: 12px 14px;" x-show="subTab === 'book_out'" x-cloak>
                 <form wire:submit="scanBookOut" class="flex flex-wrap items-end gap-3">
                     <div class="min-w-[200px] flex-1">
                         <label for="out-asset" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{{ __('Asset') }}</label>
@@ -1175,7 +1180,7 @@ new #[Layout('components.layouts.app')] class extends Component
             </div>
 
             {{-- CHECK IN scan bar --}}
-            <div class="s-panel" style="padding: 12px 14px;" @style(['display: none' => $subTab !== 'check_in'])>
+            <div class="s-panel" style="padding: 12px 14px;" x-show="subTab === 'check_in'" x-cloak>
                 <form wire:submit="scanCheckIn" class="flex flex-wrap items-end gap-3">
                     <div class="min-w-[200px] flex-1">
                         <label for="in-asset" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{{ __('Asset') }}</label>
@@ -1277,6 +1282,12 @@ new #[Layout('components.layouts.app')] class extends Component
                                                         x-on:keydown.escape.window="open = false"
                                                         :style="menuStyle"
                                                         style="position: fixed; z-index: 1000; min-width: 180px;">
+                                                        {{-- The menu is teleported to <body>, OUTSIDE the Livewire
+                                                             component root, so `wire:click`/`wire:confirm` lose their
+                                                             component binding (Livewire 4) and become no-ops. Calls are
+                                                             made through `$wire` (captured from the original Alpine scope,
+                                                             preserved across the teleport) so the actions actually fire;
+                                                             confirmations use a native confirm() guard in the handler. --}}
                                                         @foreach($this->assetActions($row['status']) as $act)
                                                             <button type="button"
                                                                 wire:key="act-{{ $row['id'] }}-{{ $act['action'] }}"
@@ -1284,12 +1295,9 @@ new #[Layout('components.layouts.app')] class extends Component
                                                                 @if($act['action'] === 'substitute')
                                                                     x-on:click="open = false; $wire.substitute({{ $row['id'] }}); $dispatch('open-modal', 'substitute-asset')"
                                                                 @elseif($act['confirm'])
-                                                                    x-on:click="open = false"
-                                                                    wire:click="{{ $act['action'] }}({{ $row['id'] }})"
-                                                                    wire:confirm="{{ $act['confirm'] }}"
+                                                                    x-on:click="open = false; if (window.confirm(@js($act['confirm']))) { $wire.{{ $act['action'] }}({{ $row['id'] }}); }"
                                                                 @else
-                                                                    x-on:click="open = false"
-                                                                    wire:click="{{ $act['action'] }}({{ $row['id'] }})"
+                                                                    x-on:click="open = false; $wire.{{ $act['action'] }}({{ $row['id'] }})"
                                                                 @endif>
                                                                 {{ $act['label'] }}
                                                             </button>
@@ -1297,7 +1305,7 @@ new #[Layout('components.layouts.app')] class extends Component
                                                         @if($row['container'])
                                                             <hr class="s-dropdown-sep">
                                                             <button type="button" class="s-dropdown-item w-full text-left"
-                                                                x-on:click="open = false" wire:click="clearContainer({{ $row['id'] }})">
+                                                                x-on:click="open = false; $wire.clearContainer({{ $row['id'] }})">
                                                                 {{ __('Clear container') }}
                                                             </button>
                                                         @endif
@@ -1356,6 +1364,7 @@ new #[Layout('components.layouts.app')] class extends Component
             <button type="button" wire:click="confirmSubstitute" @disabled($freeAssets->isEmpty()) class="s-btn s-btn-primary">{{ __('Substitute') }}</button>
         </x-slot:footer>
     </x-signals.modal>
+    @include('livewire.opportunities.partials.opportunity-action-modals')
 </section>
 
 @script

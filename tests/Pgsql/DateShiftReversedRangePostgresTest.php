@@ -78,7 +78,7 @@ function pgForwardShortage(Store $store, Carbon $start, Carbon $end, int $stock 
     ]);
     $item = OpportunityItem::factory()->create([
         'item_type' => 'product',
-        'item_id' => $product->id,
+        'itemable_id' => $product->id,
     ]);
 
     return Shortage::make(

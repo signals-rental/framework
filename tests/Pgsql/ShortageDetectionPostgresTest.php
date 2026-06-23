@@ -86,8 +86,8 @@ it('detects a shortage from a tstzrange-overlapping competing demand', function 
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '3',
     ]));
 
@@ -133,8 +133,8 @@ it('does not flag a shortage for a non-overlapping competing demand', function (
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '3',
     ]));
 

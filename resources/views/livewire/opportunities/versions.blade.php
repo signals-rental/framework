@@ -27,6 +27,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use App\Livewire\Concerns\HasOpportunityActions;
 
 /**
  * Opportunity Versions tab (M8-5) — the quote-versioning UI
@@ -56,6 +57,8 @@ use Livewire\Volt\Component;
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
+    use HasOpportunityActions;
+
     use HasAuditTimeline;
 
     public Opportunity $opportunity;
@@ -331,6 +334,8 @@ new #[Layout('components.layouts.app')] class extends Component
             ->get();
 
         return [
+            ...$this->opportunityActionData(),
+
             'versions' => $versions,
             'versionCount' => $versions->count(),
             'diff' => $this->diff($versions),
@@ -511,7 +516,7 @@ new #[Layout('components.layouts.app')] class extends Component
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Versions & Timeline'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Versions & Timeline', 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'versions'])
 
     @php
@@ -865,4 +870,5 @@ new #[Layout('components.layouts.app')] class extends Component
             <button type="button" wire:click="submitRename" class="s-btn s-btn-primary">{{ __('Save label') }}</button>
         </x-slot:footer>
     </x-signals.modal>
+    @include('livewire.opportunities.partials.opportunity-action-modals')
 </section>

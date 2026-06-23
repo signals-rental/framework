@@ -81,8 +81,8 @@ it('recomputes tax_total when the member changes to one with a different tax cla
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));
@@ -141,8 +141,8 @@ it('does not move tax on a non-member header update', function () {
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));

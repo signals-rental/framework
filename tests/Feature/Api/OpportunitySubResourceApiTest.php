@@ -55,8 +55,8 @@ function subResourceOrder(User $actor, Store $store, Product $product, string $q
 
         (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
             'name' => $product->name,
-            'item_id' => $product->id,
-            'item_type' => Product::class,
+            'itemable_id' => $product->id,
+            'itemable_type' => Product::class,
             'quantity' => $quantity,
             'transaction_type' => LineItemTransactionType::Rental->value,
         ]));

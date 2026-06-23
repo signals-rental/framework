@@ -87,8 +87,8 @@ it('converts a quotation to an order', function () {
     $product = Product::factory()->rental()->bulk()->create();
     (new AddOpportunityItem)(Opportunity::findOrFail($created->id), AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));

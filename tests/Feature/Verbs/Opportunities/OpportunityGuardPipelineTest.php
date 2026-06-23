@@ -35,7 +35,6 @@ use App\Services\Opportunities\TransitionRuleRegistry;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Validation\ValidationException;
 use Thunk\Verbs\Exceptions\EventNotValid;
 use Thunk\Verbs\Facades\Verbs;
 
@@ -113,14 +112,29 @@ it('locks FX and tax when a quote is converted to an order', function () {
         ->and($opportunity->tax_locked)->toBeTrue();
 });
 
-it('rejects a rate edit on a locked order via the FX/tax-lock business rule', function () {
+it('allows a manual rate override on a locked order and still recomputes the net', function () {
+    // A manual unit-price override is a STRUCTURAL edit to the agreed NET basis,
+    // not an FX-rate or tax-rule re-derivation, so the FX/tax lock must NOT block
+    // it (OpportunityTotalsCalculator "LOCKING": structural/price edits still move
+    // the net charge_total on a locked order; only later FX-rate / tax-rule
+    // re-pricing is frozen).
     [$opportunity, $item] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
 
-    (new OverrideItemPrice)($item->refresh(), OverrideItemPriceData::from(['unit_price' => 9999]));
-})->throws(ValidationException::class, 'exchange rate is locked');
+    expect($opportunity->refresh()->exchange_rate_locked)->toBeTrue();
 
-it('releases both locks via UnlockOpportunity and re-allows the rate edit', function () {
+    $lockedTax = (int) $opportunity->refresh()->tax_total;
+
+    (new OverrideItemPrice)($item->refresh(), OverrideItemPriceData::from(['unit_price' => 9999]));
+
+    expect($item->refresh()->unit_price)->toBe(9999)
+        ->and((int) $item->refresh()->total)->toBe(9999 * 2) // quantity is 2
+        // The net charge_total moved; the locked tax figure stayed frozen.
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(9999 * 2)
+        ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
+});
+
+it('releases both locks via UnlockOpportunity (the rate edit was already allowed)', function () {
     [$opportunity, $item] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
 
@@ -130,7 +144,6 @@ it('releases both locks via UnlockOpportunity and re-allows the rate edit', func
     expect($opportunity->exchange_rate_locked)->toBeFalse()
         ->and($opportunity->tax_locked)->toBeFalse();
 
-    // The previously-blocked rate edit now succeeds.
     (new OverrideItemPrice)($item->refresh(), OverrideItemPriceData::from(['unit_price' => 9999]));
 
     expect($item->refresh()->unit_price)->toBe(9999);
@@ -156,28 +169,47 @@ it('forbids unlocking without the opportunities.unlock_rates permission', functi
     (new UnlockOpportunity)($opportunity->refresh());
 })->throws(AuthorizationException::class);
 
-it('rejects a discount edit on a locked order via the FX/tax-lock business rule', function () {
+it('allows a discount edit on a locked order (a structural net edit, not an FX/tax change)', function () {
     [$opportunity, $item] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
 
-    (new SetItemDiscount)($item->refresh(), SetItemDiscountData::from(['discount_percent' => '10']));
-})->throws(ValidationException::class, 'exchange rate is locked');
+    $lockedTax = (int) $opportunity->refresh()->tax_total;
 
-it('rejects setting a deal price on a locked order via the FX/tax-lock business rule', function () {
+    (new SetItemDiscount)($item->refresh(), SetItemDiscountData::from(['discount_percent' => '10']));
+
+    // Line is 2 x 5000 = 10000; a 10% discount nets 9000.
+    expect($item->refresh()->discount_percent)->toBe('10.00')
+        ->and((int) $item->refresh()->total)->toBe(9000)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(9000)
+        ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
+});
+
+it('allows setting a deal price on a locked order (a structural net override of the headline)', function () {
     [$opportunity] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
+
+    $lockedTax = (int) $opportunity->refresh()->tax_total;
 
     (new SetDealPrice)($opportunity->refresh(), SetDealPriceData::from(['deal_total' => 12345]));
-})->throws(ValidationException::class, 'exchange rate is locked');
 
-it('rejects clearing a deal price on a locked order via the FX/tax-lock business rule', function () {
+    expect((int) $opportunity->refresh()->deal_total)->toBe(12345)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(12345)
+        ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
+});
+
+it('allows clearing a deal price on a locked order', function () {
     [$opportunity] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
+    (new SetDealPrice)($opportunity->refresh(), SetDealPriceData::from(['deal_total' => 12345]));
 
     (new ClearDealPrice)($opportunity->refresh());
-})->throws(ValidationException::class, 'exchange rate is locked');
 
-it('allows a discount and deal price once the locks are released', function () {
+    // Cleared: headline reverts to the summed net lines (2 x 5000 = 10000).
+    expect($opportunity->refresh()->deal_total)->toBeNull()
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(10000);
+});
+
+it('still allows a discount and deal price once the locks are released', function () {
     [$opportunity, $item] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
     (new UnlockOpportunity)($opportunity->refresh(), 'correcting the booking');

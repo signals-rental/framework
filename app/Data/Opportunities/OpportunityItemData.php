@@ -61,8 +61,8 @@ class OpportunityItemData extends Data
             opportunity_id: $item->opportunity_id,
             section_id: $item->section_id,
             version_id: $item->version_id,
-            item_id: $item->item_id,
-            item_type: $item->item_type,
+            item_id: $item->itemable_id,
+            item_type: $item->itemable_type,
             name: $item->name,
             description: $item->description,
             quantity: (string) $item->quantity,
@@ -78,7 +78,10 @@ class OpportunityItemData extends Data
             transaction_type_label: $item->transaction_type->label(),
             starts_at: self::formatNullableTimestamp($item->starts_at),
             ends_at: self::formatNullableTimestamp($item->ends_at),
-            sort_order: $item->sort_order,
+            // The dropped `sort_order` column is superseded by the hierarchical
+            // `path`; cast it to a monotonic int for the interim response contract
+            // (the external field is reshaped in Phase 4).
+            sort_order: (int) $item->path,
             is_optional: $item->is_optional,
             custom_fields: (object) ($item->custom_fields ?? []),
             notes: $item->notes,

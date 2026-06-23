@@ -166,11 +166,11 @@ class ShortageDetector
 
     /**
      * Resolve the catalogue product a line item refers to via its polymorphic
-     * `item_type`/`item_id`. Non-product lines (services, ad-hoc) resolve to null
-     * and never produce a shortage.
+     * `itemable_type`/`itemable_id`. Non-product lines (services, ad-hoc) resolve to
+     * null and never produce a shortage.
      *
-     * NOTE: resolved with an explicit find() (rather than the polymorphic `item`
-     * relation) because `item_type` may be stored as the short `product` morph
+     * NOTE: resolved with an explicit find() (rather than the polymorphic `itemable`
+     * relation) because `itemable_type` may be stored as the short `product` morph
      * alias, which the morphTo relation cannot resolve without a registered morph
      * map — find() honours {@see OpportunityItem::isProductBacked()} for both forms.
      */
@@ -180,6 +180,6 @@ class ShortageDetector
             return null;
         }
 
-        return Product::query()->find($item->item_id);
+        return Product::query()->find($item->itemable_id);
     }
 }

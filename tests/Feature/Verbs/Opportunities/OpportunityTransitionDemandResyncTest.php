@@ -51,8 +51,8 @@ function makeOpportunityWithLineItem(Store $store): array
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'transaction_type' => LineItemTransactionType::Rental->value,
     ]));

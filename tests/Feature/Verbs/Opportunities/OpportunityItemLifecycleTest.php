@@ -236,8 +236,8 @@ it('blocks removing a line with an allocated serialised asset', function () {
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '1',
         'unit_price' => 5000,
     ]));
@@ -273,8 +273,8 @@ it('blocks removing a bulk line with dispatched quantity', function () {
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '3',
         'unit_price' => 5000,
     ]));

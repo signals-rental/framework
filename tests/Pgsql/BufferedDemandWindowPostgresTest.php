@@ -151,8 +151,8 @@ it('sees a turnaround-buffered competing demand in availableForItem (shortage de
         'ends_at' => Carbon::parse('2026-04-15T00:00:00Z'),
     ]);
     $competingItem = OpportunityItem::factory()->for($competingOpp)->create([
-        'item_type' => Product::class,
-        'item_id' => $product->id,
+        'itemable_type' => Product::class,
+        'itemable_id' => $product->id,
         'quantity' => 3,
         'starts_at' => null,
         'ends_at' => null,

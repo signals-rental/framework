@@ -76,8 +76,8 @@ function shortOrderForDispatch(Store $store, ShortageDispatchPolicy $dispatchPol
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '3',
     ]));
     (new ConvertToQuotation)($opportunity->fresh());
@@ -153,8 +153,8 @@ it('allows a non-short dispatch through any policy', function () {
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
         'name' => $product->name,
-        'item_id' => $product->id,
-        'item_type' => Product::class,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '3',
     ]));
     (new ConvertToQuotation)($opportunity->fresh());

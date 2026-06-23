@@ -135,6 +135,14 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('opportunities/{opportunity}/custom-fields', 'opportunities.custom-fields')->name('opportunities.custom-fields')->withTrashed();
     Volt::route('opportunities/{opportunity}/files', 'opportunities.files')->name('opportunities.files')->withTrashed();
 
+    // Editor Lab — the chosen "local-first" prototype, KEPT as the design
+    // reference for the production line-item editor rebuild (RMS-unified model)
+    // until that rebuild is confirmed. The three non-chosen prototypes
+    // (jquery / sortable-tree / sortablejs) were removed 2026-06-22. Not a
+    // production route; the live Overview editor (opportunities.items) is untouched.
+    Volt::route('opportunities/{opportunity}/editor-lab/local-first', 'opportunities.prototypes.editor-local-first')
+        ->name('opportunities.editor-lab.local-first')->withTrashed();
+
     // Availability
     //
     // The standalone Equipment Availability calendar/gantt page (M8-4b). The Volt

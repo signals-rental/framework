@@ -21,9 +21,17 @@ use Illuminate\Validation\ValidationException;
  *
  * An optional `parent_id` nests the new section under another section, which must
  * belong to the SAME opportunity (a foreign parent throws a validation error).
+ * Sections may nest up to {@see self::MAX_DEPTH} levels deep; a parent already at
+ * the deepest level rejects the insert with a validation error.
  */
 class CreateOpportunitySection
 {
+    /**
+     * The deepest a section tree may nest, counting the top-level section as depth 1.
+     * A section whose parent chain would put it beyond this depth is rejected.
+     */
+    public const int MAX_DEPTH = 5;
+
     public function __invoke(Opportunity $opportunity, CreateOpportunitySectionData $data): OpportunitySectionData
     {
         Gate::authorize('opportunities.edit');
@@ -35,6 +43,28 @@ class CreateOpportunitySection
                 if ($parent === null || $parent->opportunity_id !== $opportunity->id) {
                     throw ValidationException::withMessages([
                         'parent_id' => 'The parent section does not belong to this opportunity.',
+                    ]);
+                }
+
+                // Walk the parent chain to determine the parent's depth (1-based). The
+                // new section sits one level below it; reject if that would exceed the
+                // maximum nesting depth.
+                $parentDepth = 1;
+                $cursor = $parent;
+
+                while ($cursor->parent_id !== null) {
+                    $cursor = OpportunitySection::query()->whereKey($cursor->parent_id)->first();
+
+                    if ($cursor === null) {
+                        break;
+                    }
+
+                    $parentDepth++;
+                }
+
+                if ($parentDepth + 1 > self::MAX_DEPTH) {
+                    throw ValidationException::withMessages([
+                        'parent_id' => 'Sections cannot be nested more than '.self::MAX_DEPTH.' levels deep.',
                     ]);
                 }
             }

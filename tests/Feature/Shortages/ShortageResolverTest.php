@@ -44,7 +44,7 @@ function bulkShortage(int $shortfall = 2, int $available = 1): Shortage
     $product = Product::factory()->rental()->bulk()->create();
     $item = OpportunityItem::factory()->create([
         'item_type' => 'product',
-        'item_id' => $product->id,
+        'itemable_id' => $product->id,
     ]);
 
     return Shortage::make(
@@ -313,7 +313,7 @@ it('builds only forward (start <= end) candidate windows for a valid shortage', 
     ]);
     $item = OpportunityItem::factory()->create([
         'item_type' => 'product',
-        'item_id' => $product->id,
+        'itemable_id' => $product->id,
     ]);
 
     $shortage = Shortage::make(
@@ -363,7 +363,7 @@ it('runs getOptions for a single-day (today→tomorrow) shortage without throwin
     ]);
     $item = OpportunityItem::factory()->create([
         'item_type' => 'product',
-        'item_id' => $product->id,
+        'itemable_id' => $product->id,
     ]);
 
     $today = Carbon::today('UTC')->setTime(9, 0);

@@ -40,7 +40,7 @@ function thresholdHarness(): object
 function thresholdItem(int $productId, int $storeId): OpportunityItem
 {
     $item = new OpportunityItem;
-    $item->item_id = $productId;
+    $item->itemable_id = $productId;
     $item->dispatch_store_id = $storeId;
 
     return $item;

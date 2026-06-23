@@ -8,6 +8,7 @@ use App\Models\AvailabilityEvent;
 use App\Models\Demand;
 use App\Services\Availability\RecalculationPipeline;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Thunk\Verbs\Facades\Verbs;
 
 /**
@@ -66,6 +67,16 @@ class DemandObserver
      * Enqueue a debounced availability recompute for the demand's product/store.
      * Skipped during a Verbs replay so rebuilding the event store never fans out
      * recomputes or broadcasts.
+     *
+     * The dispatch is deferred until the surrounding transaction commits. Verbs
+     * wraps each `fire()`/`commit()` cycle in a `DB::transaction`, and the
+     * {@see RecalculateAvailabilityJob} is `ShouldBeUnique` — acquiring its lock
+     * INSERTs into `cache_locks`, which on PostgreSQL fails on conflict and poisons
+     * the open Verbs transaction (`25P02 current transaction is aborted`), breaking
+     * every subsequent statement. `DB::afterCommit` runs the dispatch only once the
+     * transaction has committed (so the lock query runs outside it); when there is
+     * NO open transaction it fires the callback immediately, so the normal
+     * synchronous-flow async recompute still happens.
      */
     private function dispatchRecalculation(Demand $demand): void
     {
@@ -73,7 +84,12 @@ class DemandObserver
             return;
         }
 
-        RecalculateAvailabilityJob::dispatch((int) $demand->product_id, (int) $demand->store_id);
+        $productId = (int) $demand->product_id;
+        $storeId = (int) $demand->store_id;
+
+        DB::afterCommit(static function () use ($productId, $storeId): void {
+            RecalculateAvailabilityJob::dispatch($productId, $storeId);
+        });
     }
 
     /**

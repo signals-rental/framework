@@ -35,7 +35,7 @@
             }
         })"
     >
-        <x-signals.dropdown style="position: static; left: auto;">
+        <x-signals.dropdown style="position: static; left: auto; min-width: 200px; max-width: 280px;">
             {{ $slot }}
         </x-signals.dropdown>
     </div>

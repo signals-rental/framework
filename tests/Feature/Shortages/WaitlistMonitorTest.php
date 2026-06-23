@@ -48,7 +48,7 @@ function waitlistShortage(Store $store, Product $product, int $shortfall = 2): S
 {
     $item = OpportunityItem::factory()->create([
         'item_type' => 'product',
-        'item_id' => $product->id,
+        'itemable_id' => $product->id,
     ]);
 
     return Shortage::make(

@@ -179,7 +179,7 @@ class OpportunityVersion extends Model implements HasSchema
      */
     public function items(): HasMany
     {
-        return $this->hasMany(OpportunityItem::class, 'version_id')->orderBy('sort_order');
+        return $this->hasMany(OpportunityItem::class, 'version_id')->orderBy('path');
     }
 
     /**

@@ -112,8 +112,8 @@ class DiffVersions
         $occurrences = [];
 
         foreach ($items as $item) {
-            if ($item->item_id !== null) {
-                $productKey = "{$item->item_type}:{$item->item_id}";
+            if ($item->itemable_id !== null) {
+                $productKey = "{$item->itemable_type}:{$item->itemable_id}";
                 $occurrence = $occurrences[$productKey] ?? 0;
                 $occurrences[$productKey] = $occurrence + 1;
 
@@ -139,8 +139,8 @@ class DiffVersions
     private function addedLine(OpportunityItem $item, string $currencyCode): VersionDiffItemData
     {
         return new VersionDiffItemData(
-            item_id: $item->item_id,
-            item_type: $item->item_type,
+            item_id: $item->itemable_id,
+            item_type: $item->itemable_type,
             name: $item->name,
             source_quantity: null,
             target_quantity: (string) $item->quantity,
@@ -157,8 +157,8 @@ class DiffVersions
     private function removedLine(OpportunityItem $item, string $currencyCode): VersionDiffItemData
     {
         return new VersionDiffItemData(
-            item_id: $item->item_id,
-            item_type: $item->item_type,
+            item_id: $item->itemable_id,
+            item_type: $item->itemable_type,
             name: $item->name,
             source_quantity: (string) $item->quantity,
             target_quantity: null,
@@ -175,8 +175,8 @@ class DiffVersions
     private function changedLine(OpportunityItem $source, OpportunityItem $target, string $currencyCode): VersionDiffItemData
     {
         return new VersionDiffItemData(
-            item_id: $target->item_id,
-            item_type: $target->item_type,
+            item_id: $target->itemable_id,
+            item_type: $target->itemable_type,
             name: $target->name,
             source_quantity: (string) $source->quantity,
             target_quantity: (string) $target->quantity,

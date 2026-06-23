@@ -773,6 +773,38 @@
 .s-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
 .s-toast-icon { color: var(--green); }
 
+/* Live toast stack: anchors toasts bottom-centre and stacks them upward. Each
+   toast inside the stack is statically positioned (the stack owns placement),
+   overriding the standalone .s-toast fixed/centre rules. */
+.s-toast-stack {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.s-toast-stack .s-toast {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: translateY(20px);
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.s-toast-stack .s-toast.visible { transform: translateY(0); }
+
+/* Status variants: a coloured left accent on the navy toast body. */
+.s-toast-success { border-left: 3px solid var(--green); }
+.s-toast-success .s-toast-icon { color: var(--green); }
+.s-toast-error { border-left: 3px solid var(--red); }
+.s-toast-error .s-toast-icon { color: var(--red); }
+
 /* ================================================================ */
 /*  15. SAVE INDICATOR                                               */
 /* ================================================================ */

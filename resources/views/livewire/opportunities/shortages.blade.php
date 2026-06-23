@@ -26,6 +26,7 @@ use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
+use App\Livewire\Concerns\HasOpportunityActions;
 
 /**
  * Opportunity Shortages tab (M8-4c) — the shortage panel + resolver UI
@@ -45,6 +46,8 @@ use Livewire\Volt\Component;
  */
 new #[Layout('components.layouts.app')] class extends Component
 {
+    use HasOpportunityActions;
+
     public Opportunity $opportunity;
 
     /** Whether the actor may apply/transition/acknowledge (vs read-only view). */
@@ -280,6 +283,7 @@ new #[Layout('components.layouts.app')] class extends Component
             ->all();
 
         return [
+            ...$this->opportunityActionData(),
             'shortageRows' => $rows,
             'gate' => app(ShortageConfirmationGate::class)->evaluate($this->opportunity),
             'dispatchPolicy' => $this->opportunity->store?->dispatchPolicy()
@@ -365,7 +369,7 @@ new #[Layout('components.layouts.app')] class extends Component
 }; ?>
 
 <section class="w-full">
-    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Shortages'])
+    @include('livewire.opportunities.partials.opportunity-header', ['opportunity' => $opportunity, 'subpage' => 'Shortages', 'showActions' => true, 'canChangeStatus' => $canChangeStatus])
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'shortages'])
 
     @php
@@ -702,4 +706,5 @@ new #[Layout('components.layouts.app')] class extends Component
             </button>
         </x-slot:footer>
     </x-signals.modal>
+    @include('livewire.opportunities.partials.opportunity-action-modals')
 </section>

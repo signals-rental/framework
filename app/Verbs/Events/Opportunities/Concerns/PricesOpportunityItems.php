@@ -103,7 +103,7 @@ trait PricesOpportunityItems
         return [
             'item_id' => $item->id,
             'name' => $item->name,
-            'product_id' => $item->item_id,
+            'product_id' => $item->itemable_id,
             'quantity' => (string) $item->quantity,
             'unit_price' => $item->unit_price,
             'total' => $item->total,

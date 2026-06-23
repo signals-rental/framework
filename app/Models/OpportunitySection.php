@@ -25,9 +25,16 @@ use Illuminate\Support\Carbon;
  * section on the same opportunity, giving the editor sub-groups. The hierarchy is
  * a plain column too, so a Verbs replay never disturbs it.
  *
+ * Under the unified group model every group is a real section. Auto-created groups
+ * (product-category buckets) carry an `auto_group_key` (e.g. "auto:42") that marks
+ * them as auto groups and is the find-or-create key on the add path; user-created
+ * sections leave it NULL. Auto and user sections are otherwise identical — both are
+ * draggable, nestable, renamable and deletable.
+ *
  * @property int $id
  * @property int $opportunity_id
  * @property int|null $parent_id
+ * @property string|null $auto_group_key
  * @property string $name
  * @property int $sort_order
  * @property Carbon|null $created_at
@@ -42,6 +49,7 @@ class OpportunitySection extends Model
     protected $fillable = [
         'opportunity_id',
         'parent_id',
+        'auto_group_key',
         'name',
         'sort_order',
     ];
@@ -92,6 +100,6 @@ class OpportunitySection extends Model
      */
     public function items(): HasMany
     {
-        return $this->hasMany(OpportunityItem::class, 'section_id')->orderBy('sort_order');
+        return $this->hasMany(OpportunityItem::class, 'section_id')->orderBy('path');
     }
 }
