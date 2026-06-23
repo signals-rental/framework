@@ -4,6 +4,7 @@ namespace App\Verbs\States;
 
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
+use App\Enums\OpportunityItemType;
 use Carbon\CarbonImmutable;
 use Thunk\Verbs\State;
 
@@ -34,10 +35,35 @@ class OpportunityItemState extends State
     /** Quotation version scope (null for orders/legacy). */
     public ?int $version_id = null;
 
-    /** Catalogued item reference (polymorphic — products today). */
-    public ?int $item_id = null;
+    /**
+     * Polymorphic catalogue reference — the itemable's integer PK.
+     * Null for group rows (which have no backing catalogue entry).
+     */
+    public ?int $itemable_id = null;
 
-    public ?string $item_type = null;
+    /**
+     * Polymorphic catalogue reference — the itemable's fully-qualified class
+     * name (e.g. App\Models\Product). Null for group rows.
+     */
+    public ?string $itemable_type = null;
+
+    /**
+     * Structural role of this row in the unified Current-RMS line-item model
+     * (group / product / accessory / service).
+     */
+    public OpportunityItemType $item_type = OpportunityItemType::Product;
+
+    /**
+     * Dot-notation tree position within the opportunity's line-item tree
+     * (e.g. "1.2.1"). Set by ItemPathService and replayed via ItemsRestructured.
+     */
+    public string $path = '';
+
+    /**
+     * Revenue group FK — the OpportunityItem id of the nearest ancestor group
+     * row, or null when this item sits at the root level.
+     */
+    public ?int $revenue_group_id = null;
 
     /** Display name of the line (catalogue name snapshot or ad-hoc label). */
     public ?string $name = null;

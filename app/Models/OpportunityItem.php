@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Contracts\HasSchema;
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
+use App\Enums\OpportunityItemType;
 use App\Models\Traits\FormatsMoney;
 use App\Services\SchemaBuilder;
 use Database\Factories\OpportunityItemFactory;
@@ -32,10 +33,12 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $state_id
  * @property int $opportunity_id
- * @property int|null $section_id
  * @property int|null $version_id
- * @property int|null $item_id
- * @property string|null $item_type
+ * @property int|null $itemable_id
+ * @property string|null $itemable_type
+ * @property OpportunityItemType $item_type
+ * @property string $path
+ * @property int|null $revenue_group_id
  * @property string $name
  * @property string|null $description
  * @property string $quantity
@@ -52,7 +55,6 @@ use Illuminate\Support\Carbon;
  * @property string $returned_quantity
  * @property int|null $dispatch_store_id
  * @property int|null $return_store_id
- * @property int $sort_order
  * @property bool $is_optional
  * @property array<string, mixed>|null $custom_fields
  * @property string|null $notes
@@ -78,10 +80,12 @@ class OpportunityItem extends Model implements HasSchema
         'id',
         'state_id',
         'opportunity_id',
-        'section_id',
         'version_id',
-        'item_id',
+        'itemable_id',
+        'itemable_type',
         'item_type',
+        'path',
+        'revenue_group_id',
         'name',
         'description',
         'quantity',
@@ -98,7 +102,6 @@ class OpportunityItem extends Model implements HasSchema
         'returned_quantity',
         'dispatch_store_id',
         'return_store_id',
-        'sort_order',
         'is_optional',
         'custom_fields',
         'notes',
@@ -110,7 +113,8 @@ class OpportunityItem extends Model implements HasSchema
     protected function casts(): array
     {
         return [
-            'section_id' => 'integer',
+            'item_type' => OpportunityItemType::class,
+            'revenue_group_id' => 'integer',
             'quantity' => 'decimal:2',
             'unit_price' => 'integer',
             'charge_period' => ChargePeriod::class,
@@ -124,7 +128,6 @@ class OpportunityItem extends Model implements HasSchema
             'returned_quantity' => 'decimal:2',
             'dispatch_store_id' => 'integer',
             'return_store_id' => 'integer',
-            'sort_order' => 'integer',
             'is_optional' => 'boolean',
             'custom_fields' => 'array',
         ];
@@ -135,11 +138,11 @@ class OpportunityItem extends Model implements HasSchema
         $builder->relation('opportunity_id')->label('Opportunity')
             ->relation('opportunity', 'belongsTo', Opportunity::class, 'subject')
             ->filterable();
-        $builder->relation('section_id')->label('Section')
-            ->relation('section', 'belongsTo', OpportunitySection::class, 'name')
-            ->filterable();
-        $builder->integer('item_id')->label('Item')->filterable();
-        $builder->string('item_type')->label('Item Type')->filterable()->groupable();
+        $builder->integer('itemable_id')->label('Item')->filterable();
+        $builder->string('itemable_type')->label('Item Class')->filterable()->groupable();
+        $builder->enum('item_type')->label('Item Type')->filterable()->groupable();
+        $builder->string('path')->label('Path')->sortable();
+        $builder->integer('revenue_group_id')->label('Revenue Group')->filterable();
         $builder->string('name')->label('Name')->required()->searchable()->filterable()->sortable();
         $builder->text('description')->label('Description')->searchable();
         $builder->decimal('quantity')->label('Quantity')->filterable()->sortable();
@@ -150,7 +153,6 @@ class OpportunityItem extends Model implements HasSchema
         $builder->datetime('starts_at')->label('Starts')->filterable()->sortable();
         $builder->datetime('ends_at')->label('Ends')->filterable()->sortable();
         $builder->boolean('is_optional')->label('Optional')->filterable()->sortable();
-        $builder->integer('sort_order')->label('Sort Order')->sortable();
         $builder->datetime('created_at')->label('Created')->sortable()->filterable();
     }
 
@@ -163,19 +165,6 @@ class OpportunityItem extends Model implements HasSchema
     }
 
     /**
-     * The custom grouping (section) this line is assigned to, if any. The link
-     * is a plain, NON-event-sourced column: it is written only by plain actions,
-     * never by a Verbs event/apply()/handle(), so a replay never disturbs it.
-     * Null = the line falls back to automatic product-group grouping in the UI.
-     *
-     * @return BelongsTo<OpportunitySection, $this>
-     */
-    public function section(): BelongsTo
-    {
-        return $this->belongsTo(OpportunitySection::class, 'section_id');
-    }
-
-    /**
      * @return HasMany<OpportunityItemAsset, $this>
      */
     public function assets(): HasMany
@@ -185,29 +174,43 @@ class OpportunityItem extends Model implements HasSchema
 
     /**
      * The catalogue entity this line references (typically a {@see Product}),
-     * resolved polymorphically from `item_type`/`item_id`. Eager-load this to
-     * avoid per-line lookups when deriving stock semantics.
+     * resolved polymorphically from `itemable_type`/`itemable_id`. Eager-load this
+     * to avoid per-line lookups when deriving stock semantics.
      *
      * @return MorphTo<Model, $this>
      */
     public function item(): MorphTo
     {
-        return $this->morphTo('item', 'item_type', 'item_id');
+        return $this->morphTo('itemable', 'itemable_type', 'itemable_id');
     }
 
     /**
      * Whether this line references a catalogue {@see Product} — it has a concrete
-     * `item_id` and an `item_type` that resolves to Product (the model FQN or the
-     * short `product` morph alias). Non-product lines (services, ad-hoc) generate no
-     * demand and are never priced by the rate engine.
+     * `itemable_id` and an `itemable_type` that resolves to Product (the model FQN
+     * or the short `product` morph alias). Non-product lines (services, ad-hoc)
+     * generate no demand and are never priced by the rate engine.
      */
     public function isProductBacked(): bool
     {
-        if ($this->item_id === null || $this->item_type === null) {
+        if ($this->itemable_id === null || $this->itemable_type === null) {
             return false;
         }
 
-        return $this->item_type === Product::class || strtolower($this->item_type) === 'product';
+        return $this->itemable_type === Product::class || strtolower($this->itemable_type) === 'product';
+    }
+
+    /** Tree depth (1-based) derived from the 4-char-per-level path. */
+    public function depth(): int
+    {
+        return (int) (strlen((string) $this->path) / 4);
+    }
+
+    /** The parent row's path prefix, or null at the top level. */
+    public function parentPath(): ?string
+    {
+        $len = strlen((string) $this->path);
+
+        return $len > 4 ? substr($this->path, 0, $len - 4) : null;
     }
 
     /**

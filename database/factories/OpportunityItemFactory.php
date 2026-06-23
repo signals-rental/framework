@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
+use App\Enums\OpportunityItemType;
 use App\Models\OpportunityItem;
 use App\Services\SequenceAllocator;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -32,15 +33,16 @@ class OpportunityItemFactory extends Factory
             'state_id' => snowflake_id(),
             // Parent opportunity — caller may override via for()/state().
             'opportunity_id' => OpportunityFactory::new(),
-            'item_id' => null,
-            'item_type' => null,
+            'itemable_id' => null,
+            'itemable_type' => null,
+            'item_type' => OpportunityItemType::Product->value,
+            'path' => '0001',
             'name' => fake()->words(3, true),
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
             'charge_period' => ChargePeriod::Day->value,
             'total' => $quantity * $unitPrice,
             'transaction_type' => LineItemTransactionType::Rental->value,
-            'sort_order' => fake()->numberBetween(0, 20),
             'is_optional' => false,
         ];
     }
