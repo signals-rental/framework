@@ -5,8 +5,10 @@ use App\Actions\Opportunities\CreateOpportunity;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Enums\LineItemTransactionType;
+use App\Enums\OpportunityItemType;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
+use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -38,7 +40,11 @@ function makeApiOpportunity(User $actor): Opportunity
     Auth::login($actor);
 
     try {
-        $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'API Items']));
+        $created = (new CreateOpportunity)(CreateOpportunityData::from([
+            'subject' => 'API Items',
+            'starts_at' => '2026-07-01T09:00:00Z',
+            'ends_at' => '2026-07-05T17:00:00Z',
+        ]));
 
         return Opportunity::query()->whereKey($created->id)->firstOrFail();
     } finally {
@@ -51,11 +57,15 @@ function addApiItem(User $actor, Opportunity $opportunity): OpportunityItem
     Auth::login($actor);
 
     try {
+        $beforeIds = $opportunity->items()->pluck('id')->all();
+
         (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
             'name' => 'PA Stack', 'quantity' => '2', 'unit_price' => 5000,
         ]));
 
-        return $opportunity->items()->latest('id')->firstOrFail();
+        return $opportunity->fresh()->items
+            ->first(fn (OpportunityItem $item): bool => ! in_array($item->id, $beforeIds, true))
+            ?? $opportunity->items()->latest('id')->firstOrFail();
     } finally {
         Auth::logout();
     }
@@ -122,6 +132,58 @@ describe('POST /api/v1/opportunities/{id}/items', function () {
             ->postJson("/api/v1/opportunities/{$opportunity->id}/items", ['name' => 'X', 'quantity' => '1'])
             ->assertForbidden();
     });
+
+    it('creates a group row when item_type is group', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $token = itemWriteToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/items", [
+                'item_type' => 'group',
+                'name' => 'Front of House',
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('opportunity_items', [
+            'opportunity_id' => $opportunity->id,
+            'name' => 'Front of House',
+            'item_type' => OpportunityItemType::Group->value,
+            'itemable_id' => null,
+        ]);
+    });
+
+    it('creates an accessory under a product via principal_item_id', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $product = Product::factory()->create();
+
+        Auth::login($this->owner);
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+            'name' => 'Principal',
+            'itemable_id' => $product->id,
+            'itemable_type' => Product::class,
+            'quantity' => '1',
+            'unit_price' => 1000,
+        ]));
+        $principal = $opportunity->items()->firstOrFail();
+        Auth::logout();
+
+        $token = itemWriteToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/items", [
+                'item_type' => 'accessory',
+                'name' => 'Mic Clip',
+                'principal_item_id' => $principal->id,
+                'quantity' => '2',
+            ])
+            ->assertCreated();
+
+        $this->assertDatabaseHas('opportunity_items', [
+            'opportunity_id' => $opportunity->id,
+            'name' => 'Mic Clip',
+            'item_type' => OpportunityItemType::Accessory->value,
+        ]);
+    });
 });
 
 describe('PATCH /api/v1/opportunities/{id}/items/{item}', function () {
@@ -157,6 +219,100 @@ describe('PATCH /api/v1/opportunities/{id}/items/{item}', function () {
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->patchJson("/api/v1/opportunities/{$opportunity->id}/items/{$item->id}", ['quantity' => '3'])
+            ->assertForbidden();
+    });
+
+    it('renames a line item when only name is supplied', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $item = addApiItem($this->owner, $opportunity);
+        $token = itemWriteToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/opportunities/{$opportunity->id}/items/{$item->id}", [
+                'name' => 'Renamed Stack',
+            ])
+            ->assertOk();
+
+        expect($item->fresh()->name)->toBe('Renamed Stack');
+    });
+});
+
+describe('PATCH /api/v1/opportunities/{id}/items/tree', function () {
+    it('reorders flat items via the tree endpoint', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $a = addApiItem($this->owner, $opportunity);
+        $b = addApiItem($this->owner, $opportunity);
+        $c = addApiItem($this->owner, $opportunity);
+        $token = itemWriteToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/opportunities/{$opportunity->id}/items/tree", [
+                'nodes' => [
+                    ['id' => $c->id, 'depth' => 1],
+                    ['id' => $a->id, 'depth' => 1],
+                    ['id' => $b->id, 'depth' => 1],
+                ],
+            ])
+            ->assertOk();
+
+        expect($c->fresh()->path)->toBe('0001')
+            ->and($a->fresh()->path)->toBe('0002')
+            ->and($b->fresh()->path)->toBe('0003');
+    });
+
+    it('returns 422 when an illegal tree placement is submitted', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $product = Product::factory()->create();
+        $token = itemWriteToken($this->owner);
+
+        Auth::login($this->owner);
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+            'name' => 'Principal',
+            'itemable_id' => $product->id,
+            'itemable_type' => Product::class,
+            'quantity' => '1',
+            'unit_price' => 1000,
+        ]));
+        $principal = $opportunity->items()->firstOrFail();
+        Auth::logout();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/opportunities/{$opportunity->id}/items", [
+                'item_type' => 'accessory',
+                'name' => 'Mic Clip',
+                'principal_item_id' => $principal->id,
+                'quantity' => '1',
+            ])
+            ->assertCreated();
+
+        $accessory = $opportunity->items()->where('item_type', OpportunityItemType::Accessory)->firstOrFail();
+        $beforePaths = [
+            $principal->id => $principal->fresh()->path,
+            $accessory->id => $accessory->fresh()->path,
+        ];
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/opportunities/{$opportunity->id}/items/tree", [
+                'nodes' => [
+                    ['id' => $accessory->id, 'depth' => 1],
+                    ['id' => $principal->id, 'depth' => 1],
+                ],
+            ])
+            ->assertStatus(422);
+
+        expect($principal->fresh()->path)->toBe($beforePaths[$principal->id])
+            ->and($accessory->fresh()->path)->toBe($beforePaths[$accessory->id]);
+    });
+
+    it('requires the opportunities:write ability', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $item = addApiItem($this->owner, $opportunity);
+        $token = itemReadToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/opportunities/{$opportunity->id}/items/tree", [
+                'nodes' => [['id' => $item->id, 'depth' => 1]],
+            ])
             ->assertForbidden();
     });
 });

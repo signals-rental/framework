@@ -122,7 +122,15 @@ describe('OpportunityData completeness', function () {
             ->assertOk()
             ->assertJsonStructure([
                 'opportunity' => [
-                    'items' => ['*' => ['dispatched_quantity', 'returned_quantity']],
+                    'items' => ['*' => [
+                        'dispatched_quantity',
+                        'returned_quantity',
+                        'item_type',
+                        'path',
+                        'parent_path',
+                        'depth',
+                        'itemable_type',
+                    ]],
                 ],
             ])
             ->assertJsonPath('opportunity.items.0.dispatched_quantity', '0.00');

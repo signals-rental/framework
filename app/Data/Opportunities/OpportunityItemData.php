@@ -14,7 +14,12 @@ use Spatie\LaravelData\Lazy;
  * the stored integer minor units. Quantity and percentage fields are decimal
  * strings. Charge period and transaction type are exposed both as raw RMS
  * integers and as human-readable labels. Per-item date overrides are ISO-8601
- * UTC. The `assets` relationship is lazy — only present when eager-loaded.
+ * UTC. Tree placement uses materialised `path` + derived `parent_path`/`depth`.
+ *
+ * External field naming (RMS-unified cut):
+ *  - `item_type` — structural role (`group`/`product`/`accessory`/`service`)
+ *  - `item_id` — catalogue polymorphic PK (`itemable_id`)
+ *  - `itemable_type` — polymorphic class (`itemable_type`)
  *
  * @property Lazy|array<int, OpportunityItemAssetData> $assets
  */
@@ -27,7 +32,12 @@ class OpportunityItemData extends Data
         public int $opportunity_id,
         public ?int $version_id,
         public ?int $item_id,
-        public ?string $item_type,
+        public ?string $itemable_type,
+        public string $item_type,
+        public string $path,
+        public ?string $parent_path,
+        public int $depth,
+        public ?int $revenue_group_id,
         public string $name,
         public ?string $description,
         public string $quantity,
@@ -43,7 +53,6 @@ class OpportunityItemData extends Data
         public string $transaction_type_label,
         public ?string $starts_at,
         public ?string $ends_at,
-        public int $sort_order,
         public bool $is_optional,
         public object $custom_fields,
         public ?string $notes,
@@ -60,7 +69,12 @@ class OpportunityItemData extends Data
             opportunity_id: $item->opportunity_id,
             version_id: $item->version_id,
             item_id: $item->itemable_id,
-            item_type: $item->itemable_type,
+            itemable_type: $item->itemable_type,
+            item_type: $item->item_type->value,
+            path: (string) $item->path,
+            parent_path: $item->parentPath(),
+            depth: $item->depth(),
+            revenue_group_id: $item->revenue_group_id,
             name: $item->name,
             description: $item->description,
             quantity: (string) $item->quantity,
@@ -76,10 +90,6 @@ class OpportunityItemData extends Data
             transaction_type_label: $item->transaction_type->label(),
             starts_at: self::formatNullableTimestamp($item->starts_at),
             ends_at: self::formatNullableTimestamp($item->ends_at),
-            // The dropped `sort_order` column is superseded by the hierarchical
-            // `path`; cast it to a monotonic int for the interim response contract
-            // (the external field is reshaped in Phase 4).
-            sort_order: (int) $item->path,
             is_optional: $item->is_optional,
             custom_fields: (object) ($item->custom_fields ?? []),
             notes: $item->notes,

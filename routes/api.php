@@ -206,6 +206,7 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::post('opportunities/{opportunity}/change_status', [OpportunityController::class, 'changeStatus'])->name('api.v1.opportunities.change_status');
     // Line items (priced via the rate + tax engines; totals roll up to the parent)
     Route::post('opportunities/{opportunity}/items', [OpportunityController::class, 'storeItem'])->name('api.v1.opportunities.items.store');
+    Route::patch('opportunities/{opportunity}/items/tree', [OpportunityController::class, 'restructureItemsTree'])->name('api.v1.opportunities.items.tree');
     // Per-asset allocation sub-resource (M5). Declared before items/{item} PATCH so
     // the explicit asset routes win.
     Route::post('opportunities/{opportunity}/items/{item}/assets', [OpportunityController::class, 'storeAsset'])->name('api.v1.opportunities.items.assets.store');

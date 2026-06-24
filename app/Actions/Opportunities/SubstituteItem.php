@@ -26,7 +26,7 @@ class SubstituteItem
             ItemSubstituted::fire(
                 opportunity_item_id: $item->state_id,
                 item_id: $data->item_id,
-                item_type: $data->item_type,
+                item_type: $data->itemable_type,
                 name: $data->name,
             );
         });

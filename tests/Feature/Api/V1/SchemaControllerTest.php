@@ -103,7 +103,14 @@ describe('GET /api/v1/schema/{model}', function () {
             ->assertJsonFragment(['model' => 'opportunity_items', 'model_class' => 'OpportunityItem'])
             ->assertJsonPath('fields.name.filterable', true)
             ->assertJsonPath('fields.name.sortable', true)
-            ->assertJsonPath('fields.quantity.type', 'decimal');
+            ->assertJsonPath('fields.quantity.type', 'decimal')
+            ->assertJsonPath('fields.item_type.filterable', true)
+            ->assertJsonPath('fields.path.sortable', true)
+            ->assertJsonPath('fields.revenue_group_id.filterable', true)
+            ->assertJsonPath('fields.itemable_id.filterable', true)
+            ->assertJsonPath('fields.itemable_type.filterable', true)
+            ->assertJsonMissingPath('fields.section_id')
+            ->assertJsonMissingPath('fields.sort_order');
     });
 
     it('returns schema for opportunity_costs (R4 / CL4)', function () {

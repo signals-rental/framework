@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Opportunities\AddOpportunityAccessory;
 use App\Actions\Opportunities\AddOpportunityCost;
+use App\Actions\Opportunities\AddOpportunityGroup;
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\AddOpportunityParticipant;
 use App\Actions\Opportunities\AdjustBulkQuantity;
@@ -32,8 +34,10 @@ use App\Actions\Opportunities\ReinstateOpportunity;
 use App\Actions\Opportunities\RemoveOpportunityCost;
 use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\RemoveOpportunityParticipant;
+use App\Actions\Opportunities\RenameOpportunityItem;
 use App\Actions\Opportunities\ReopenOpportunity;
 use App\Actions\Opportunities\RestoreOpportunity;
+use App\Actions\Opportunities\RestructureOpportunityItems;
 use App\Actions\Opportunities\ReturnAsset;
 use App\Actions\Opportunities\ReturnBulkQuantity;
 use App\Actions\Opportunities\RevertAssetPreparation;
@@ -52,7 +56,9 @@ use App\Actions\Opportunities\UpdateOpportunityCost;
 use App\Actions\Opportunities\UpdateOpportunityParticipant;
 use App\Data\Api\ActionLogData;
 use App\Data\Availability\OpportunityItemAvailabilityData;
+use App\Data\Opportunities\AddOpportunityAccessoryData;
 use App\Data\Opportunities\AddOpportunityCostData;
+use App\Data\Opportunities\AddOpportunityGroupData;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AddOpportunityParticipantData;
 use App\Data\Opportunities\AllocateAssetData;
@@ -71,6 +77,8 @@ use App\Data\Opportunities\QuickAllocateAssetsData;
 use App\Data\Opportunities\QuickBookOutData;
 use App\Data\Opportunities\QuickCheckInData;
 use App\Data\Opportunities\QuickPrepareAssetsData;
+use App\Data\Opportunities\RenameOpportunityItemData;
+use App\Data\Opportunities\RestructureOpportunityItemsData;
 use App\Data\Opportunities\ReturnAssetData;
 use App\Data\Opportunities\RevertAssetStatusData;
 use App\Data\Opportunities\SetAssetContainerData;
@@ -83,6 +91,7 @@ use App\Data\Opportunities\UpdateOpportunityCostData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Data\Opportunities\UpdateOpportunityParticipantData;
 use App\Enums\AssetAssignmentStatus;
+use App\Enums\OpportunityItemType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
 use App\Guards\Opportunities\GuardPipeline;
@@ -760,29 +769,75 @@ class OpportunityController extends Controller
     /**
      * Add a line item to an opportunity.
      *
-     * The item is priced by the rate + tax engines and the opportunity totals are
-     * recomputed; the response returns the opportunity with its refreshed totals.
+     * Routes by structural `item_type`: `group` → {@see AddOpportunityGroup},
+     * `accessory` → {@see AddOpportunityAccessory} (requires `principal_item_id`),
+     * otherwise → {@see AddOpportunityItem} (product/service/ad-hoc). RMS catalogue
+     * references may be supplied as `item_id` (mapped to `itemable_id`) plus
+     * `itemable_type`. The response returns the opportunity with refreshed totals.
      */
     #[ApiResponse(201, 'Line item added')]
     public function storeItem(Request $request, Opportunity $opportunity): JsonResponse
     {
         $this->authorizeApi('opportunities.edit', 'opportunities:write');
 
-        $data = AddOpportunityItemData::from($request->validate(AddOpportunityItemData::rules()));
+        $itemType = OpportunityItemType::tryFrom((string) $request->input('item_type', OpportunityItemType::Product->value))
+            ?? OpportunityItemType::Product;
 
-        (new AddOpportunityItem)($opportunity, $data);
+        match ($itemType) {
+            OpportunityItemType::Group => (new AddOpportunityGroup)(
+                $opportunity,
+                AddOpportunityGroupData::from($request->validate(AddOpportunityGroupData::rules())),
+            ),
+            OpportunityItemType::Accessory => (new AddOpportunityAccessory)(
+                $opportunity,
+                AddOpportunityAccessoryData::from($this->mapItemableIdAlias(
+                    $request->validate(array_merge(AddOpportunityAccessoryData::rules(), [
+                        'item_id' => ['sometimes', 'nullable', 'integer'],
+                    ])),
+                )),
+            ),
+            default => (new AddOpportunityItem)(
+                $opportunity,
+                AddOpportunityItemData::from($this->mapItemableIdAlias(
+                    $request->validate(array_merge(AddOpportunityItemData::rules(), [
+                        'item_id' => ['sometimes', 'nullable', 'integer'],
+                    ])),
+                )),
+            ),
+        };
 
         return $this->respondWithFreshOpportunity($opportunity->id, Response::HTTP_CREATED);
+    }
+
+    /**
+     * Restructure the opportunity's entire line-item tree.
+     *
+     * Body `{ nodes: [{id, depth}] }` in display pre-order; illegal placement
+     * (e.g. accessory at root) yields 422 with no paths mutated.
+     */
+    #[ApiResponse(200, 'Line item tree restructured')]
+    public function restructureItemsTree(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.edit', 'opportunities:write');
+
+        $data = RestructureOpportunityItemsData::from(
+            $request->validate(RestructureOpportunityItemsData::rules()),
+        );
+
+        (new RestructureOpportunityItems)($opportunity, $data);
+
+        return $this->respondWithFreshOpportunity($opportunity->id);
     }
 
     /**
      * Update a line item.
      *
      * Accepts any subset of `quantity`, `unit_price` (null clears the override),
-     * `discount_percent`, `starts_at`/`ends_at`, `is_optional`, and `item_id`/
-     * `item_type`/`name` (substitution); each provided field dispatches its own
-     * lifecycle event in turn. The response returns the opportunity with its
-     * refreshed totals.
+     * `discount_percent`, `starts_at`/`ends_at`, `is_optional`, `item_id`/
+     * `itemable_type`/`name` (substitution), and `name` alone (rename); each provided
+     * field dispatches its own lifecycle event in turn. Tree structure is read-only
+     * here — use `PATCH …/items/tree` to reorder/nest. The response returns the
+     * opportunity with its refreshed totals.
      */
     #[ApiResponse(200, 'Line item updated')]
     public function updateItem(Request $request, Opportunity $opportunity, OpportunityItem $item): JsonResponse
@@ -811,8 +866,10 @@ class OpportunityController extends Controller
             (new ToggleItemOptional)($item, ToggleItemOptionalData::from($request->validate(ToggleItemOptionalData::rules())));
         }
 
-        if ($request->has('item_id') || $request->has('item_type')) {
+        if ($request->has('item_id') || $request->has('itemable_type')) {
             (new SubstituteItem)($item, SubstituteItemData::from($request->validate(SubstituteItemData::rules())));
+        } elseif ($request->has('name')) {
+            (new RenameOpportunityItem)($item, RenameOpportunityItemData::from($request->validate(RenameOpportunityItemData::rules())));
         }
 
         return $this->respondWithFreshOpportunity($opportunity->id);
@@ -1196,6 +1253,21 @@ class OpportunityController extends Controller
         (new ClearDealPrice)($opportunity);
 
         return $this->respondWithFreshOpportunity($opportunity->id);
+    }
+
+    /**
+     * Map RMS `item_id` to the internal `itemable_id` when the latter is omitted.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function mapItemableIdAlias(array $validated): array
+    {
+        if (array_key_exists('item_id', $validated) && ! array_key_exists('itemable_id', $validated)) {
+            $validated['itemable_id'] = $validated['item_id'];
+        }
+
+        return $validated;
     }
 
     /**
