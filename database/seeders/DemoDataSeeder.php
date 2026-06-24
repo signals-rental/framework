@@ -2,22 +2,27 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Opportunities\AddOpportunityGroup;
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
+use App\Data\Opportunities\AddOpportunityGroupData;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityData;
 use App\Enums\LineItemTransactionType;
 use App\Enums\MembershipType;
+use App\Enums\OpportunityItemType;
 use App\Enums\ProductType;
 use App\Enums\StockMethod;
+use App\Models\Accessory;
 use App\Models\Activity;
 use App\Models\Email;
 use App\Models\Member;
 use App\Models\MemberRelationship;
 use App\Models\Opportunity;
+use App\Models\OpportunityItem;
 use App\Models\Phone;
 use App\Models\Product;
 use App\Models\ProductGroup;
@@ -311,6 +316,48 @@ class DemoDataSeeder extends Seeder
                 ]),
             );
         }
+
+        $this->seedDemoProductAccessories();
+    }
+
+    /**
+     * Link included catalogue accessories so product adds can auto-materialise
+     * nested accessory rows in the unified line-item tree.
+     */
+    private function seedDemoProductAccessories(): void
+    {
+        $mic = Product::query()->where('name', 'Demo - Sennheiser EW100 G4 Radio Mic')->first();
+        $cable = Product::query()->where('name', 'Demo - XLR Cable 5m')->first();
+        $movingHead = Product::query()->where('name', 'Demo - Moving Head Beam 230W')->first();
+        $distro = Product::query()->where('name', 'Demo - 16A Power Distro')->first();
+
+        if ($mic !== null && $cable !== null) {
+            Accessory::query()->firstOrCreate(
+                [
+                    'product_id' => $mic->id,
+                    'accessory_product_id' => $cable->id,
+                ],
+                [
+                    'quantity' => '1',
+                    'included' => true,
+                    'sort_order' => 1,
+                ],
+            );
+        }
+
+        if ($movingHead !== null && $distro !== null) {
+            Accessory::query()->firstOrCreate(
+                [
+                    'product_id' => $movingHead->id,
+                    'accessory_product_id' => $distro->id,
+                ],
+                [
+                    'quantity' => '1',
+                    'included' => true,
+                    'sort_order' => 1,
+                ],
+            );
+        }
     }
 
     /**
@@ -319,7 +366,7 @@ class DemoDataSeeder extends Seeder
      * items drawn from the demo catalogue.
      *
      * Opportunities are event-sourced (Verbs): every record is created through
-     * the REAL action path (CreateOpportunity → AddOpportunityItem →
+     * the REAL action path (CreateOpportunity → AddOpportunityGroup/Item →
      * ConvertToQuotation → ConvertToOrder) so the opportunities projection,
      * demands and availability snapshots all stay consistent — never a raw
      * Opportunity::create(). The 'demo-data' tag is written onto the projection
@@ -365,7 +412,8 @@ class DemoDataSeeder extends Seeder
         // [reference, subject, target lifecycle stage]. 'draft' stops after items
         // are added; 'quotation' converts to a quote; 'order' converts through to
         // a confirmed order. A spread across all three exercises the search block,
-        // demand projections and the index counts.
+        // demand projections and the index counts. Headline refs 0001 + 0013 carry
+        // rich three-level group → product → accessory trees.
         $blueprints = [
             ['DEMO-OPP-0001', 'Summer Festival Main Stage', 'order'],
             ['DEMO-OPP-0002', 'Corporate AGM AV Package', 'order'],
@@ -375,6 +423,7 @@ class DemoDataSeeder extends Seeder
             ['DEMO-OPP-0006', 'Wedding Marquee Hire', 'draft'],
             ['DEMO-OPP-0007', 'Trade Show Booth Fit-Out', 'draft'],
             ['DEMO-OPP-0008', 'Charity Gala Staging', 'order'],
+            ['DEMO-OPP-0013', 'Arena Tour Production Package', 'order'],
         ];
 
         foreach ($blueprints as $index => [$reference, $subject, $stage]) {
@@ -400,24 +449,10 @@ class DemoDataSeeder extends Seeder
 
             $opportunity = Opportunity::query()->whereKey($data->id)->firstOrFail();
 
-            // Two or three line items per opportunity from the demo catalogue,
-            // manually priced so no rate definitions are required for the demo.
-            $lineProducts = $products->shuffle()->take(($index % 2) + 2);
-            foreach ($lineProducts as $position => $product) {
-                $productType = ProductType::from((string) $product->getRawOriginal('product_type'));
-
-                (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
-                    'name' => $product->name,
-                    'item_id' => $product->id,
-                    'item_type' => Product::class,
-                    'quantity' => (string) (($position % 3) + 1),
-                    'unit_price' => (($position + 1) * 2500),
-                    'transaction_type' => $productType === ProductType::Sale
-                        ? LineItemTransactionType::Sale->value
-                        : LineItemTransactionType::Rental->value,
-                    'starts_at' => $window['starts_at'],
-                    'ends_at' => $window['ends_at'],
-                ]));
+            if (in_array($reference, ['DEMO-OPP-0001', 'DEMO-OPP-0013'], true)) {
+                $this->seedRichDemoLineTree($opportunity, $window);
+            } else {
+                $this->seedStandardDemoLines($opportunity, $window, $index, $products);
             }
 
             $opportunity->refresh();
@@ -439,6 +474,192 @@ class DemoDataSeeder extends Seeder
         }
 
         Auth::forgetUser();
+    }
+
+    /**
+     * Headline demo opportunities: group → nested products → auto-materialised
+     * included accessories, plus a top-level crew service line.
+     *
+     * @param  array{starts_at: string, ends_at: string}  $window
+     */
+    private function seedRichDemoLineTree(Opportunity $opportunity, array $window): void
+    {
+        $audioGroup = $this->addDemoGroup($opportunity, 'Main Stage Audio');
+        $this->addDemoProductLine(
+            $opportunity,
+            $this->demoProduct('Demo - Sennheiser EW100 G4 Radio Mic'),
+            $window,
+            parentPath: $audioGroup->path,
+            quantity: '2',
+            unitPrice: 3500,
+        );
+        $this->addDemoProductLine(
+            $opportunity,
+            $this->demoProduct('Demo - Moving Head Beam 230W'),
+            $window,
+            parentPath: $audioGroup->path,
+            quantity: '4',
+            unitPrice: 8500,
+        );
+
+        $lightingGroup = $this->addDemoGroup($opportunity, 'Lighting Package');
+        $this->addDemoProductLine(
+            $opportunity,
+            $this->demoProduct('Demo - LED PAR Can RGBW'),
+            $window,
+            parentPath: $lightingGroup->path,
+            quantity: '8',
+            unitPrice: 1800,
+        );
+        $this->addDemoProductLine(
+            $opportunity,
+            $this->demoProduct('Demo - 55" LED Display Screen'),
+            $window,
+            parentPath: $lightingGroup->path,
+            quantity: '2',
+            unitPrice: 12000,
+        );
+
+        $stagingGroup = $this->addDemoGroup($opportunity, 'Staging & Decks');
+        $this->addDemoProductLine(
+            $opportunity,
+            $this->demoProduct('Demo - Stage Deck 2m x 1m'),
+            $window,
+            parentPath: $stagingGroup->path,
+            quantity: '12',
+            unitPrice: 4500,
+        );
+
+        $this->addDemoServiceLine(
+            $opportunity,
+            $this->demoProduct('Demo - On-Site Technician Day Rate'),
+            $window,
+            quantity: '3',
+            unitPrice: 45000,
+        );
+    }
+
+    /**
+     * Standard demo opportunities: a mix of grouped, flat, and service lines.
+     *
+     * @param  array{starts_at: string, ends_at: string}  $window
+     * @param  Collection<int, Product>  $products
+     */
+    private function seedStandardDemoLines(
+        Opportunity $opportunity,
+        array $window,
+        int $index,
+        Collection $products,
+    ): void {
+        $lineProducts = $products->values();
+
+        if ($index % 3 === 0) {
+            $group = $this->addDemoGroup($opportunity, 'Equipment Package');
+            $first = $lineProducts[$index % $lineProducts->count()];
+            $second = $lineProducts[($index + 1) % $lineProducts->count()];
+
+            $this->addDemoProductLine($opportunity, $first, $window, parentPath: $group->path, quantity: '2', unitPrice: 2500);
+            $this->addDemoProductLine($opportunity, $second, $window, parentPath: $group->path, quantity: '1', unitPrice: 5000);
+
+            return;
+        }
+
+        if ($index % 3 === 1) {
+            foreach ($lineProducts->shuffle()->take(2) as $position => $product) {
+                $this->addDemoProductLine(
+                    $opportunity,
+                    $product,
+                    $window,
+                    quantity: (string) (($position % 3) + 1),
+                    unitPrice: (($position + 1) * 2500),
+                );
+            }
+
+            return;
+        }
+
+        $product = $lineProducts[$index % $lineProducts->count()];
+        $this->addDemoProductLine($opportunity, $product, $window, quantity: '1', unitPrice: 3000);
+        $this->addDemoServiceLine(
+            $opportunity,
+            $this->demoProduct('Demo - On-Site Technician Day Rate'),
+            $window,
+            quantity: '1',
+            unitPrice: 45000,
+        );
+    }
+
+    private function demoProduct(string $name): Product
+    {
+        return Product::query()->where('name', $name)->firstOrFail();
+    }
+
+    private function addDemoGroup(Opportunity $opportunity, string $name, ?string $parentPath = null): OpportunityItem
+    {
+        (new AddOpportunityGroup)($opportunity, AddOpportunityGroupData::from([
+            'name' => $name,
+            'parent_path' => $parentPath,
+        ]));
+
+        $opportunity->refresh();
+
+        return $opportunity->items()
+            ->where('name', $name)
+            ->where('item_type', OpportunityItemType::Group)
+            ->orderByDesc('id')
+            ->firstOrFail();
+    }
+
+    /**
+     * @param  array{starts_at: string, ends_at: string}  $window
+     */
+    private function addDemoProductLine(
+        Opportunity $opportunity,
+        Product $product,
+        array $window,
+        ?string $parentPath = null,
+        string $quantity = '1',
+        int $unitPrice = 2500,
+    ): void {
+        $productType = ProductType::from((string) $product->getRawOriginal('product_type'));
+
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+            'name' => $product->name,
+            'itemable_id' => $product->id,
+            'itemable_type' => Product::class,
+            'item_type' => OpportunityItemType::Product->value,
+            'parent_path' => $parentPath,
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'transaction_type' => $productType === ProductType::Sale
+                ? LineItemTransactionType::Sale->value
+                : LineItemTransactionType::Rental->value,
+            'starts_at' => $window['starts_at'],
+            'ends_at' => $window['ends_at'],
+        ]));
+    }
+
+    /**
+     * @param  array{starts_at: string, ends_at: string}  $window
+     */
+    private function addDemoServiceLine(
+        Opportunity $opportunity,
+        Product $product,
+        array $window,
+        string $quantity = '1',
+        int $unitPrice = 45000,
+    ): void {
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+            'name' => $product->name,
+            'itemable_id' => $product->id,
+            'itemable_type' => Product::class,
+            'item_type' => OpportunityItemType::Service->value,
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'transaction_type' => LineItemTransactionType::Service->value,
+            'starts_at' => $window['starts_at'],
+            'ends_at' => $window['ends_at'],
+        ]));
     }
 
     /**
