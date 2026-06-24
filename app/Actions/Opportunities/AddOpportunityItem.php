@@ -180,7 +180,7 @@ class AddOpportunityItem
             return;
         }
 
-        $tree = app(ItemTreeService::class);
+        $index = 0;
 
         foreach ($accessories as $accessory) {
             $accessoryProduct = $accessory->accessoryProduct;
@@ -189,8 +189,12 @@ class AddOpportunityItem
                 continue;
             }
 
+            $index++;
             $accessoryId = app(SequenceAllocator::class)->next('opportunity_items');
-            $path = $tree->nextChildPath($opportunity->id, $versionId, $principalPath);
+            // Allocate sibling paths locally: Verbs projection for prior fires in this
+            // closure is not visible to ItemTreeService until commit, so DB lookups
+            // would return the same path for every included accessory.
+            $path = $principalPath.str_pad((string) $index, 4, '0', STR_PAD_LEFT);
             $quantity = bcmul((string) $accessory->quantity, $productQuantity, 2);
 
             ItemAdded::fire(

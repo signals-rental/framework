@@ -4,6 +4,7 @@ use App\Enums\AssetAssignmentStatus;
 use App\Enums\AssetCondition;
 use App\Enums\ChargePeriod;
 use App\Enums\LineItemTransactionType;
+use App\Enums\OpportunityItemType;
 use App\Verbs\States\AssetAssignmentState;
 use App\Verbs\States\OpportunityItemState;
 
@@ -18,8 +19,9 @@ it('instantiates an OpportunityItemState with expected defaults', function () {
     expect($state->opportunity_item_id)->toBe(0)
         ->and($state->opportunity_id)->toBe(0)
         ->and($state->version_id)->toBeNull()
-        ->and($state->item_id)->toBeNull()
-        ->and($state->item_type)->toBeNull()
+        ->and($state->itemable_id)->toBeNull()
+        ->and($state->itemable_type)->toBeNull()
+        ->and($state->item_type)->toBe(OpportunityItemType::Product->value)
         ->and($state->quantity)->toBe('0')
         ->and($state->unit_price)->toBe(0)
         ->and($state->charge_period)->toBe(ChargePeriod::Day->value)

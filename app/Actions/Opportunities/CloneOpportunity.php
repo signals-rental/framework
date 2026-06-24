@@ -46,8 +46,11 @@ class CloneOpportunity
 
             $clone = Opportunity::query()->findOrFail($created->id);
 
+            /** @var array<string, string> $pathMap */
+            $pathMap = [];
+
             foreach ($source->items->sortBy('path') as $item) {
-                (new AddOpportunityItem)($clone, $this->itemDataFrom($item));
+                $this->cloneItemWithPathRemap($clone, $item, $pathMap);
             }
 
             foreach ($source->costs as $cost) {

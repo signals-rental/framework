@@ -76,8 +76,11 @@ class CreateVersion
 
             // Clone the source version's items into the new version scope.
             if ($source !== null) {
+                /** @var array<string, string> $pathMap */
+                $pathMap = [];
+
                 foreach ($source->items()->orderBy('path')->get() as $item) {
-                    (new AddOpportunityItem)($opportunity, $this->itemDataFrom($item, $versionId));
+                    $this->cloneItemWithPathRemap($opportunity, $item, $pathMap, $versionId);
                 }
             }
 

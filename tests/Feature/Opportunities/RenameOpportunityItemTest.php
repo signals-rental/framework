@@ -15,7 +15,7 @@ use App\Verbs\Events\Opportunities\ItemAdded;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Facades\DB;
-use Spatie\LaravelData\Exceptions\ValidationException as DataValidationException;
+use Illuminate\Validation\ValidationException as DataValidationException;
 use Thunk\Verbs\Facades\Verbs;
 
 beforeEach(function () {
@@ -134,6 +134,6 @@ it('records exactly one item_renamed audit row with old and new names', function
 });
 
 it('rejects an empty name via the input DTO', function () {
-    expect(fn () => RenameOpportunityItemData::from(['name' => '']))
+    expect(fn () => RenameOpportunityItemData::validate(['name' => '']))
         ->toThrow(DataValidationException::class);
 });

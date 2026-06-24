@@ -2,7 +2,9 @@
 
 namespace App\Actions\Opportunities\Concerns;
 
+use App\Actions\Opportunities\AddOpportunityItem;
 use App\Data\Opportunities\AddOpportunityItemData;
+use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 
 /**
@@ -68,5 +70,38 @@ trait ClonesOpportunityItems
         }
 
         return null;
+    }
+
+    /**
+     * Clone one source line onto an opportunity, remapping `parent_path` through
+     * the growing old-path → new-path map so gapped source trees (from removals
+     * that do not recompact siblings) still nest correctly on the target.
+     *
+     * @param  array<string, string>  $pathMap
+     */
+    protected function cloneItemWithPathRemap(
+        Opportunity $opportunity,
+        OpportunityItem $sourceItem,
+        array &$pathMap,
+        ?int $versionId = null,
+    ): void {
+        $sourceParentPath = $sourceItem->parentPath();
+        $remappedParentPath = $sourceParentPath === null
+            ? null
+            : ($pathMap[$sourceParentPath] ?? $sourceParentPath);
+
+        $payload = $this->itemDataFrom($sourceItem, $versionId)->toArray();
+        $payload['parent_path'] = $remappedParentPath;
+
+        $existingIds = $opportunity->allItems()->pluck('id')->all();
+
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from($payload));
+
+        /** @var OpportunityItem $newItem */
+        $newItem = $opportunity->fresh()->allItems()
+            ->whereNotIn('id', $existingIds)
+            ->sole();
+
+        $pathMap[$sourceItem->path] = $newItem->path;
     }
 }

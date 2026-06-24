@@ -73,17 +73,25 @@ class OpportunityAutoGroupResolver
      */
     public function resolveLegacySectionKey(OpportunityItem $item, array $products = []): array
     {
-        [$revenueGroupId, $label] = $this->resolve($item, $products);
-
         if ($item->itemable_id === null || $item->itemable_type !== Product::class) {
-            return ['auto:other', $label];
+            return ['auto:other', __('Other')];
         }
 
-        $product = $products[$item->itemable_id] ?? Product::query()
-            ->with('productGroup.parent')
-            ->find($item->itemable_id);
+        if (! array_key_exists($item->itemable_id, $products)) {
+            $products[$item->itemable_id] = Product::query()
+                ->with('productGroup.parent')
+                ->find($item->itemable_id);
+        }
 
-        $group = $product?->productGroup;
+        $product = $products[$item->itemable_id];
+
+        if ($product === null) {
+            return ['auto:other', __('Other')];
+        }
+
+        [, $label] = $this->resolve($item, $products);
+
+        $group = $product->productGroup;
 
         if ($group === null) {
             return ['auto:ungrouped', $label];

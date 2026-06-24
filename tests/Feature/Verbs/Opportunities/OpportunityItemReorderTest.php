@@ -2,11 +2,11 @@
 
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\CreateOpportunity;
-use App\Actions\Opportunities\ReorderOpportunityItems;
+use App\Actions\Opportunities\RestructureOpportunityItems;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OpportunityItemData;
-use App\Data\Opportunities\ReorderOpportunityItemsData;
+use App\Data\Opportunities\RestructureOpportunityItemsData;
 use App\Models\ActionLog;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
@@ -46,37 +46,43 @@ function reorderItem(Opportunity $opportunity, string $name): OpportunityItem
         'unit_price' => 1000,
     ]));
 
-    // Query the model directly: the `items()` relation default-orders by
-    // `sort_order`, which would defeat `latest('id')` once the lines carry distinct
-    // sort orders (the just-added line is always the highest id).
     return OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
         ->latest('id')
         ->firstOrFail();
 }
 
-it('persists the new sort_order across the reordered items', function () {
+/**
+ * @param  list<int>  $orderedIds
+ * @return list<array{id: int, depth: int}>
+ */
+function reorderFlatNodes(array $orderedIds): array
+{
+    return array_map(
+        static fn (int $id): array => ['id' => $id, 'depth' => 1],
+        $orderedIds,
+    );
+}
+
+it('persists the new path order across the reordered items', function () {
     $opportunity = reorderOpportunity();
     $a = reorderItem($opportunity, 'A');
     $b = reorderItem($opportunity, 'B');
     $c = reorderItem($opportunity, 'C');
 
-    // Added in order A,B,C -> sort_order 0,1,2.
-    expect($a->refresh()->sort_order)->toBe(0)
-        ->and($b->refresh()->sort_order)->toBe(1)
-        ->and($c->refresh()->sort_order)->toBe(2);
+    expect($a->refresh()->path)->toBe('0001')
+        ->and($b->refresh()->path)->toBe('0002')
+        ->and($c->refresh()->path)->toBe('0003');
 
-    // Reorder to C,A,B.
-    $result = (new ReorderOpportunityItems)(
+    $result = (new RestructureOpportunityItems)(
         $opportunity->refresh(),
-        ReorderOpportunityItemsData::from(['item_ids' => [$c->id, $a->id, $b->id]]),
+        RestructureOpportunityItemsData::from(['nodes' => reorderFlatNodes([$c->id, $a->id, $b->id])]),
     );
 
-    expect($c->refresh()->sort_order)->toBe(0)
-        ->and($a->refresh()->sort_order)->toBe(1)
-        ->and($b->refresh()->sort_order)->toBe(2);
+    expect($c->refresh()->path)->toBe('0001')
+        ->and($a->refresh()->path)->toBe('0002')
+        ->and($b->refresh()->path)->toBe('0003');
 
-    // The action returns the items in the new order as OpportunityItemData.
     expect($result)->toHaveCount(3)
         ->and($result[0])->toBeInstanceOf(OpportunityItemData::class)
         ->and(array_map(fn (OpportunityItemData $d): int => $d->id, $result))
@@ -89,24 +95,20 @@ it('preserves the new order across a Verbs replay (not reset to ItemAdded)', fun
     $b = reorderItem($opportunity, 'B');
     $c = reorderItem($opportunity, 'C');
 
-    // Reorder to C,A,B — sort_order is event-sourced, so this must survive replay.
-    (new ReorderOpportunityItems)(
+    (new RestructureOpportunityItems)(
         $opportunity->refresh(),
-        ReorderOpportunityItemsData::from(['item_ids' => [$c->id, $a->id, $b->id]]),
+        RestructureOpportunityItemsData::from(['nodes' => reorderFlatNodes([$c->id, $a->id, $b->id])]),
     );
 
-    expect($c->refresh()->sort_order)->toBe(0)
-        ->and($a->refresh()->sort_order)->toBe(1)
-        ->and($b->refresh()->sort_order)->toBe(2);
+    expect($c->refresh()->path)->toBe('0001')
+        ->and($a->refresh()->path)->toBe('0002')
+        ->and($b->refresh()->path)->toBe('0003');
 
     Verbs::replay();
 
-    // The crux: replay re-applies ItemAdded (original 0,1,2) THEN
-    // ItemSortOrderChanged, so the projection reflects the reordered values, NOT
-    // ItemAdded's originals. A plain update() would have been reverted here.
-    expect($c->refresh()->sort_order)->toBe(0)
-        ->and($a->refresh()->sort_order)->toBe(1)
-        ->and($b->refresh()->sort_order)->toBe(2);
+    expect($c->refresh()->path)->toBe('0001')
+        ->and($a->refresh()->path)->toBe('0002')
+        ->and($b->refresh()->path)->toBe('0003');
 });
 
 it('rejects an item id that does not belong to the opportunity', function () {
@@ -114,24 +116,21 @@ it('rejects an item id that does not belong to the opportunity', function () {
     $a = reorderItem($opportunity, 'A');
     $b = reorderItem($opportunity, 'B');
 
-    // A line on a different opportunity (foreign id).
     $other = reorderOpportunity();
     $foreign = reorderItem($other, 'Foreign');
 
-    expect(fn () => (new ReorderOpportunityItems)(
+    expect(fn () => (new RestructureOpportunityItems)(
         $opportunity->refresh(),
-        ReorderOpportunityItemsData::from(['item_ids' => [$a->id, $foreign->id, $b->id]]),
+        RestructureOpportunityItemsData::from(['nodes' => reorderFlatNodes([$a->id, $foreign->id, $b->id])]),
     ))->toThrow(ValidationException::class);
 
-    // An unknown (non-existent) id is likewise rejected, and nothing is mutated.
-    expect(fn () => (new ReorderOpportunityItems)(
+    expect(fn () => (new RestructureOpportunityItems)(
         $opportunity->refresh(),
-        ReorderOpportunityItemsData::from(['item_ids' => [$a->id, 999999, $b->id]]),
+        RestructureOpportunityItemsData::from(['nodes' => reorderFlatNodes([$a->id, 999999, $b->id])]),
     ))->toThrow(ValidationException::class);
 
-    // Original order untouched after the rejected calls.
-    expect($a->refresh()->sort_order)->toBe(0)
-        ->and($b->refresh()->sort_order)->toBe(1);
+    expect($a->refresh()->path)->toBe('0001')
+        ->and($b->refresh()->path)->toBe('0002');
 });
 
 it('forbids reordering without the opportunities.edit permission', function () {
@@ -139,33 +138,31 @@ it('forbids reordering without the opportunities.edit permission', function () {
     $a = reorderItem($opportunity, 'A');
     $b = reorderItem($opportunity, 'B');
 
-    // A fresh user with no roles/permissions cannot pass the action gate.
     $this->actingAs(User::factory()->create());
 
-    expect(fn () => (new ReorderOpportunityItems)(
+    expect(fn () => (new RestructureOpportunityItems)(
         $opportunity->refresh(),
-        ReorderOpportunityItemsData::from(['item_ids' => [$b->id, $a->id]]),
+        RestructureOpportunityItemsData::from(['nodes' => reorderFlatNodes([$b->id, $a->id])]),
     ))->toThrow(AuthorizationException::class);
 });
 
-it('records a single opportunity.items_reordered audit row carrying the ordered ids', function () {
+it('records a single opportunity.items_restructured audit row carrying the ordered paths', function () {
     $opportunity = reorderOpportunity();
     $a = reorderItem($opportunity, 'A');
     $b = reorderItem($opportunity, 'B');
     $c = reorderItem($opportunity, 'C');
 
-    (new ReorderOpportunityItems)(
+    (new RestructureOpportunityItems)(
         $opportunity->refresh(),
-        ReorderOpportunityItemsData::from(['item_ids' => [$c->id, $a->id, $b->id]]),
+        RestructureOpportunityItemsData::from(['nodes' => reorderFlatNodes([$c->id, $a->id, $b->id])]),
     );
 
     $rows = ActionLog::query()
         ->where('auditable_type', Opportunity::class)
         ->where('auditable_id', $opportunity->id)
-        ->where('action', 'opportunity.items_reordered')
+        ->where('action', 'opportunity.items_restructured')
         ->get();
 
-    // Exactly ONE audit row for the whole reorder (the anchor event), not one per item.
     expect($rows)->toHaveCount(1);
 
     $row = $rows->first();
@@ -175,7 +172,11 @@ it('records a single opportunity.items_reordered audit row carrying the ordered 
 
     expect($row->verb_event_id)->not->toBeNull()
         ->and($row->user_id)->toBe($this->actor->id)
-        ->and($newValues['item_ids'] ?? null)->toBe([$c->id, $a->id, $b->id]);
+        ->and($newValues['paths'] ?? null)->toBe([
+            ['id' => $c->id, 'path' => '0001'],
+            ['id' => $a->id, 'path' => '0002'],
+            ['id' => $b->id, 'path' => '0003'],
+        ]);
 });
 
 it('does not duplicate the reorder audit row on replay', function () {
@@ -183,9 +184,9 @@ it('does not duplicate the reorder audit row on replay', function () {
     $a = reorderItem($opportunity, 'A');
     $b = reorderItem($opportunity, 'B');
 
-    (new ReorderOpportunityItems)(
+    (new RestructureOpportunityItems)(
         $opportunity->refresh(),
-        ReorderOpportunityItemsData::from(['item_ids' => [$b->id, $a->id]]),
+        RestructureOpportunityItemsData::from(['nodes' => reorderFlatNodes([$b->id, $a->id])]),
     );
 
     $countBefore = ActionLog::query()->where('auditable_id', $opportunity->id)->count();

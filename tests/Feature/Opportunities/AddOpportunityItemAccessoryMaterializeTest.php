@@ -70,6 +70,47 @@ it('auto-materialises included catalogue accessories under a newly added product
         ->and((float) $items[1]->quantity)->toBe(6.0);
 });
 
+it('assigns distinct sibling paths to multiple included accessories on one product', function () {
+    $opportunity = materializeTestOpportunity($this->store);
+    $product = Product::factory()->create(['name' => 'Speaker']);
+    $first = Product::factory()->create(['name' => 'Cable']);
+    $second = Product::factory()->create(['name' => 'Clamp']);
+
+    Accessory::factory()->create([
+        'product_id' => $product->id,
+        'accessory_product_id' => $first->id,
+        'quantity' => '2',
+        'included' => true,
+        'sort_order' => 1,
+    ]);
+    Accessory::factory()->create([
+        'product_id' => $product->id,
+        'accessory_product_id' => $second->id,
+        'quantity' => '0.5',
+        'included' => true,
+        'sort_order' => 2,
+    ]);
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => $product->name,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
+        'quantity' => '4',
+        'unit_price' => 1000,
+    ]));
+
+    $items = $opportunity->refresh()->items()->orderBy('path')->get();
+
+    expect($items)->toHaveCount(3)
+        ->and($items[0]->path)->toBe('0001')
+        ->and($items[1]->path)->toBe('00010001')
+        ->and($items[1]->itemable_id)->toBe($first->id)
+        ->and((float) $items[1]->quantity)->toBe(8.0)
+        ->and($items[2]->path)->toBe('00010002')
+        ->and($items[2]->itemable_id)->toBe($second->id)
+        ->and((float) $items[2]->quantity)->toBe(2.0);
+});
+
 it('does not auto-materialise accessories when the flag is disabled', function () {
     $opportunity = materializeTestOpportunity($this->store);
     $product = Product::factory()->create();
