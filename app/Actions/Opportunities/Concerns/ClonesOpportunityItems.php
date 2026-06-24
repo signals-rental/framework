@@ -34,6 +34,8 @@ trait ClonesOpportunityItems
             'itemable_id' => $item->itemable_id,
             'itemable_type' => $item->itemable_type,
             'item_type' => $item->item_type->value,
+            'parent_path' => $item->parentPath(),
+            'revenue_group_id' => $item->revenue_group_id,
             'description' => $item->description,
             'quantity' => (string) $item->quantity,
             'transaction_type' => $item->transaction_type->value,
@@ -48,6 +50,7 @@ trait ClonesOpportunityItems
             // Already-minor units: an int passes straight through the MoneyInput cast.
             'unit_price' => $this->manualUnitPrice($item),
             'version_id' => $versionId,
+            'materialize_included_accessories' => false,
         ]);
     }
 

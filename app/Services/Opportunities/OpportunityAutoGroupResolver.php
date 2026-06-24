@@ -2,46 +2,81 @@
 
 namespace App\Services\Opportunities;
 
+use App\Enums\LineItemTransactionType;
 use App\Models\OpportunityItem;
-use App\Models\OpportunitySection;
 use App\Models\Product;
-use Database\Migrations;
 
 /**
- * Resolves the automatic grouping key + label for an opportunity line item, using
- * the linked product's parent-group -> product-group tree.
+ * Resolves the revenue-group classification + display label for an opportunity
+ * line item, using the linked product's revenue-group assignment and
+ * parent-group → product-group tree.
  *
- * This is the single source of truth for auto-grouping, shared by:
- *  - the eager unification backfill ({@see Migrations} backfill),
- *  - the line-item editor's find-or-create-on-add path, and
- *  - any future consumer that needs to bucket a line into its auto group.
+ * This is the single source of truth for revenue-group bucketing, shared by:
+ *  - {@see AddOpportunityItem} when no explicit `revenue_group_id` is supplied,
+ *  - the line-item editor's group labelling, and
+ *  - any future consumer that needs to bucket a line into its revenue group.
  *
- * Under the unified group model every auto-group is a real, persisted
- * {@see OpportunitySection} whose `auto_group_key` matches the key
- * returned here, so a line is found-or-created into its real section rather than
- * being bucketed only at render time.
- *
- * The keys mirror the historical render-time bucketing exactly:
- *  - non-product / unlinked lines -> "auto:other" ("Other")
- *  - product with no group        -> "auto:ungrouped" ("Ungrouped")
- *  - product with a group         -> "auto:{groupId}" (parent · group, or group)
+ * The label mirrors the historical render-time bucketing exactly:
+ *  - non-product / unlinked lines -> null revenue group ("Other")
+ *  - product with no catalogue group -> revenue group from the product row ("Ungrouped")
+ *  - product with a catalogue group -> revenue group from the product row
+ *    (parent · group, or group)
  */
 class OpportunityAutoGroupResolver
 {
     /**
-     * Resolve the auto-group key + display label for a line item.
+     * Resolve the revenue-group id + display label for a line item.
      *
      * `$products` is an optional id-keyed cache of pre-loaded Product models (with
      * `productGroup.parent` eager-loaded) so a bulk caller can avoid N+1 queries.
      * When a needed product is absent from the cache it is loaded on demand.
      *
      * @param  array<int, Product>  $products
-     * @return array{0: string, 1: string}
+     * @return array{0: int|null, 1: string}
      */
     public function resolve(OpportunityItem $item, array $products = []): array
     {
         if ($item->itemable_id === null || $item->itemable_type !== Product::class) {
-            return ['auto:other', __('Other')];
+            return [null, __('Other')];
+        }
+
+        $product = $products[$item->itemable_id] ?? Product::query()
+            ->with('productGroup.parent')
+            ->find($item->itemable_id);
+
+        if ($product === null) {
+            return [null, __('Other')];
+        }
+
+        $revenueGroupId = $item->transaction_type === LineItemTransactionType::Sale
+            ? $product->sale_revenue_group_id
+            : $product->rental_revenue_group_id;
+
+        $group = $product->productGroup;
+
+        if ($group === null) {
+            return [$revenueGroupId, __('Ungrouped')];
+        }
+
+        $parent = $group->parent;
+        $label = $parent !== null ? $parent->name.' · '.$group->name : $group->name;
+
+        return [$revenueGroupId, $label];
+    }
+
+    /**
+     * Legacy auto-group section key for the pre-unified section backfill and the
+     * current items editor until P5 replaces it.
+     *
+     * @param  array<int, Product>  $products
+     * @return array{0: string, 1: string}
+     */
+    public function resolveLegacySectionKey(OpportunityItem $item, array $products = []): array
+    {
+        [$revenueGroupId, $label] = $this->resolve($item, $products);
+
+        if ($item->itemable_id === null || $item->itemable_type !== Product::class) {
+            return ['auto:other', $label];
         }
 
         $product = $products[$item->itemable_id] ?? Product::query()
@@ -51,11 +86,8 @@ class OpportunityAutoGroupResolver
         $group = $product?->productGroup;
 
         if ($group === null) {
-            return ['auto:ungrouped', __('Ungrouped')];
+            return ['auto:ungrouped', $label];
         }
-
-        $parent = $group->parent;
-        $label = $parent !== null ? $parent->name.' · '.$group->name : $group->name;
 
         return ['auto:'.$group->id, $label];
     }

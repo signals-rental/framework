@@ -62,6 +62,12 @@ class AddOpportunityItemData extends Data
          * When null the action resolves it from the opportunity's active version.
          */
         public ?int $version_id = null,
+        /**
+         * When true (default), adding a product auto-materialises catalogue
+         * `included` accessories as nested accessory rows. Clone/version paths set
+         * this false because they replay every row explicitly.
+         */
+        public bool $materialize_included_accessories = true,
     ) {}
 
     /**

@@ -1044,7 +1044,7 @@ new class extends Component
     private function findOrCreateAutoGroupSection(OpportunityItem $item): OpportunitySection
     {
         [$key, $label] = app(\App\Services\Opportunities\OpportunityAutoGroupResolver::class)
-            ->resolve($item, $this->productCache());
+            ->resolveLegacySectionKey($item, $this->productCache());
 
         $existing = OpportunitySection::query()
             ->where('opportunity_id', $this->opportunity->id)

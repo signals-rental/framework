@@ -79,7 +79,7 @@ it('rejects merging lines that are not the same charge', function () {
         'unit_price' => 500,
     ]));
 
-    $mismatched = $opportunity->allItems()->where('item_id', $other->id)->firstOrFail();
+    $mismatched = $opportunity->allItems()->where('itemable_id', $other->id)->firstOrFail();
 
     expect(fn () => (new MergeOpportunityItems)($survivor->refresh(), MergeOpportunityItemsData::from([
         'duplicate_item_ids' => [$mismatched->id],
@@ -92,4 +92,37 @@ it('rejects a merge with no matching duplicates supplied', function () {
     expect(fn () => (new MergeOpportunityItems)($survivor->refresh(), MergeOpportunityItemsData::from([
         'duplicate_item_ids' => [999999],
     ])))->toThrow(ValidationException::class, 'No matching duplicate');
+});
+
+it('rejects merging lines in different tree groups even when the product matches', function () {
+    $product = Product::factory()->create();
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Merge tree groups',
+        'store_id' => $this->store->id,
+        'starts_at' => '2026-12-01T09:00:00Z',
+        'ends_at' => '2026-12-05T17:00:00Z',
+    ]));
+    $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
+        'name' => $product->name,
+        'quantity' => '1',
+        'unit_price' => 1000,
+    ]));
+    (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
+        'name' => $product->name,
+        'quantity' => '1',
+        'unit_price' => 1000,
+        'parent_path' => '0001',
+    ]));
+
+    $items = $opportunity->refresh()->allItems()->orderBy('path')->get();
+
+    expect(fn () => (new MergeOpportunityItems)($items[0], MergeOpportunityItemsData::from([
+        'duplicate_item_ids' => [$items[1]->id],
+    ])))->toThrow(ValidationException::class, 'tree group');
 });

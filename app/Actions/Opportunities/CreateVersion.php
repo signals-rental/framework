@@ -76,7 +76,7 @@ class CreateVersion
 
             // Clone the source version's items into the new version scope.
             if ($source !== null) {
-                foreach ($source->items()->get() as $item) {
+                foreach ($source->items()->orderBy('path')->get() as $item) {
                     (new AddOpportunityItem)($opportunity, $this->itemDataFrom($item, $versionId));
                 }
             }

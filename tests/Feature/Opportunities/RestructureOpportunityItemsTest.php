@@ -122,13 +122,31 @@ it('preserves the new paths across a Verbs replay', function () {
         ],
     ]));
 
-    expect(OpportunityItem::query()->whereKey($prod)->value('path'))->toBe('00010001');
+    $originalProdPath = '0002';
+    expect(OpportunityItem::query()->whereKey($prod)->value('path'))->toBe('00010001')
+        ->and('00010001')->not->toBe($originalProdPath);
 
     Verbs::replay();
 
     // After replay the nested path must survive — proving paths flow through the event stream.
     expect(OpportunityItem::query()->whereKey($group)->value('path'))->toBe('0001')
-        ->and(OpportunityItem::query()->whereKey($prod)->value('path'))->toBe('00010001');
+        ->and(OpportunityItem::query()->whereKey($prod)->value('path'))->toBe('00010001')
+        ->and(OpportunityItem::query()->whereKey($prod)->value('path'))->not->toBe($originalProdPath);
+});
+
+it('rejects placing an accessory at root depth, firing nothing', function () {
+    $opportunity = restructureTestOpportunity($this->store);
+    $acc = fireRestructureTestItem($opportunity, ['item_type' => 'accessory', 'name' => 'Acc', 'path' => '0001']);
+
+    $before = OpportunityItem::query()->whereKey($acc)->value('path');
+
+    expect(fn () => (new RestructureOpportunityItems)($opportunity, RestructureOpportunityItemsData::from([
+        'nodes' => [
+            ['id' => $acc, 'depth' => 1],
+        ],
+    ])))->toThrow(ValidationException::class);
+
+    expect(OpportunityItem::query()->whereKey($acc)->value('path'))->toBe($before);
 });
 
 it('rejects placing an accessory under a non-product, firing nothing', function () {
@@ -174,6 +192,8 @@ it('rejects a node id that does not belong to the opportunity', function () {
     $other = restructureTestOpportunity($this->store);
     $foreign = fireRestructureTestItem($other, ['item_type' => 'product', 'name' => 'Foreign', 'path' => '0001']);
 
+    $beforeLocal = OpportunityItem::query()->whereKey($a)->value('path');
+
     expect(fn () => (new RestructureOpportunityItems)($opportunity, RestructureOpportunityItemsData::from([
         'nodes' => [
             ['id' => $a, 'depth' => 1],
@@ -181,8 +201,8 @@ it('rejects a node id that does not belong to the opportunity', function () {
         ],
     ])))->toThrow(ValidationException::class);
 
-    // Foreign item untouched.
-    expect(OpportunityItem::query()->whereKey($foreign)->value('path'))->toBe('0001');
+    expect(OpportunityItem::query()->whereKey($a)->value('path'))->toBe($beforeLocal)
+        ->and(OpportunityItem::query()->whereKey($foreign)->value('path'))->toBe('0001');
 });
 
 it('rejects an incomplete node list that omits one of the items', function () {
@@ -206,12 +226,16 @@ it('rejects duplicate ids in the node list', function () {
     $a = fireRestructureTestItem($opportunity, ['item_type' => 'product', 'name' => 'A', 'path' => '0001']);
     $b = fireRestructureTestItem($opportunity, ['item_type' => 'product', 'name' => 'B', 'path' => '0002']);
 
+    $before = OpportunityItem::query()->whereIn('id', [$a, $b])->pluck('path', 'id')->all();
+
     expect(fn () => (new RestructureOpportunityItems)($opportunity, RestructureOpportunityItemsData::from([
         'nodes' => [
             ['id' => $a, 'depth' => 1],
             ['id' => $a, 'depth' => 1],
         ],
     ])))->toThrow(ValidationException::class);
+
+    expect(OpportunityItem::query()->whereIn('id', [$a, $b])->pluck('path', 'id')->all())->toBe($before);
 });
 
 it('records exactly one items_restructured audit row carrying the ordered paths', function () {

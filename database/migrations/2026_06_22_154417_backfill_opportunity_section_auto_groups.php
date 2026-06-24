@@ -75,7 +75,7 @@ return new class extends Migration
             $sectionByKey = [];
 
             foreach ($items as $item) {
-                [$key, $label] = $resolver->resolve($item, $products);
+                [$key, $label] = $resolver->resolveLegacySectionKey($item, $products);
 
                 if (! isset($sectionByKey[$key])) {
                     $section = OpportunitySection::query()

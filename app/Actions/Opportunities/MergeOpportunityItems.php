@@ -24,7 +24,8 @@ use Illuminate\Validation\ValidationException;
  *
  * Two lines are mergeable only when they are genuinely the same charge: same
  * product (item_id + item_type), same transaction type + charge period, same hire
- * window, same section, and same optional flag. A mismatch is rejected rather than
+ * window, same parent path (same tree group), and same optional flag. A mismatch
+ * is rejected rather than
  * collapsing distinct lines and losing their pricing/dates.
  */
 class MergeOpportunityItems
@@ -52,7 +53,7 @@ class MergeOpportunityItems
         foreach ($duplicates as $duplicate) {
             if (! $this->isMergeable($survivor, $duplicate)) {
                 throw ValidationException::withMessages([
-                    'duplicate_item_ids' => 'Only identical lines (same product, dates, charge type and section) can be merged.',
+                    'duplicate_item_ids' => 'Only identical lines (same product, dates, charge type and tree group) can be merged.',
                 ]);
             }
         }
@@ -79,7 +80,7 @@ class MergeOpportunityItems
 
     /**
      * Two lines are the same charge when their product, transaction type, charge
-     * period, hire window, section and optional flag all match.
+     * period, hire window, parent path and optional flag all match.
      */
     private function isMergeable(OpportunityItem $survivor, OpportunityItem $duplicate): bool
     {
@@ -87,7 +88,7 @@ class MergeOpportunityItems
             && $survivor->itemable_type === $duplicate->itemable_type
             && $survivor->getRawOriginal('transaction_type') === $duplicate->getRawOriginal('transaction_type')
             && $survivor->getRawOriginal('charge_period') === $duplicate->getRawOriginal('charge_period')
-            && $survivor->section_id === $duplicate->section_id
+            && $survivor->parentPath() === $duplicate->parentPath()
             && $survivor->is_optional === $duplicate->is_optional
             && $this->sameInstant($survivor->starts_at, $duplicate->starts_at)
             && $this->sameInstant($survivor->ends_at, $duplicate->ends_at);

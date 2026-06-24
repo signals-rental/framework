@@ -46,7 +46,7 @@ class CloneOpportunity
 
             $clone = Opportunity::query()->findOrFail($created->id);
 
-            foreach ($source->items as $item) {
+            foreach ($source->items->sortBy('path') as $item) {
                 (new AddOpportunityItem)($clone, $this->itemDataFrom($item));
             }
 

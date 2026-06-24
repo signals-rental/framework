@@ -6,8 +6,13 @@ use App\Actions\Opportunities\Concerns\FormatsOpportunityDates;
 use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\OpportunityData;
+use App\Enums\OpportunityItemType;
+use App\Models\Accessory;
 use App\Models\Opportunity;
+use App\Models\OpportunityItem;
+use App\Models\Product;
 use App\Services\Opportunities\ItemTreeService;
+use App\Services\Opportunities\OpportunityAutoGroupResolver;
 use App\Services\SequenceAllocator;
 use App\Services\Shortages\ItemShortageProbe;
 use App\Verbs\Events\Opportunities\ItemAdded;
@@ -68,6 +73,8 @@ class AddOpportunityItem
                 ? $tree->nextChildPath($opportunity->id, $versionId, $data->parent_path)
                 : $tree->nextTopLevelPath($opportunity->id, $versionId);
 
+            $revenueGroupId = $data->revenue_group_id ?? $this->resolveRevenueGroupId($data);
+
             ItemAdded::fire(
                 opportunity_item_id: $itemId,
                 opportunity_id: $opportunity->id,
@@ -76,7 +83,7 @@ class AddOpportunityItem
                 itemable_type: $data->itemable_type,
                 item_type: $data->item_type,
                 path: $path,
-                revenue_group_id: $data->revenue_group_id,
+                revenue_group_id: $revenueGroupId,
                 name: $data->name,
                 description: $data->description,
                 quantity: $data->quantity,
@@ -90,6 +97,21 @@ class AddOpportunityItem
                 custom_fields: $data->custom_fields,
                 notes: $data->notes,
             );
+
+            if ($this->shouldMaterializeIncludedAccessories($data)) {
+                $this->materializeIncludedAccessories(
+                    opportunity: $opportunity,
+                    versionId: $versionId,
+                    principalPath: $path,
+                    productId: (int) $data->itemable_id,
+                    productQuantity: $data->quantity,
+                    transactionType: $data->transaction_type,
+                    chargePeriod: $data->charge_period,
+                    startsAt: $startsAt,
+                    endsAt: $endsAt,
+                    isOptional: $data->is_optional,
+                );
+            }
         });
 
         $fresh = $opportunity->fresh(['items']);
@@ -105,5 +127,88 @@ class AddOpportunityItem
         }
 
         return OpportunityData::fromModel($fresh ?? $opportunity);
+    }
+
+    private function shouldMaterializeIncludedAccessories(AddOpportunityItemData $data): bool
+    {
+        if (! $data->materialize_included_accessories) {
+            return false;
+        }
+
+        return $data->item_type === OpportunityItemType::Product->value
+            && $data->itemable_id !== null
+            && $data->itemable_type === Product::class;
+    }
+
+    private function resolveRevenueGroupId(AddOpportunityItemData $data): ?int
+    {
+        if ($data->itemable_id === null || $data->itemable_type !== Product::class) {
+            return null;
+        }
+
+        $stub = new OpportunityItem([
+            'itemable_id' => $data->itemable_id,
+            'itemable_type' => $data->itemable_type,
+            'transaction_type' => $data->transaction_type,
+        ]);
+
+        [$revenueGroupId] = app(OpportunityAutoGroupResolver::class)->resolve($stub);
+
+        return $revenueGroupId;
+    }
+
+    private function materializeIncludedAccessories(
+        Opportunity $opportunity,
+        ?int $versionId,
+        string $principalPath,
+        int $productId,
+        string $productQuantity,
+        int $transactionType,
+        int $chargePeriod,
+        string $startsAt,
+        string $endsAt,
+        bool $isOptional,
+    ): void {
+        $accessories = Accessory::query()
+            ->where('product_id', $productId)
+            ->where('included', true)
+            ->with('accessoryProduct')
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($accessories->isEmpty()) {
+            return;
+        }
+
+        $tree = app(ItemTreeService::class);
+
+        foreach ($accessories as $accessory) {
+            $accessoryProduct = $accessory->accessoryProduct;
+
+            if ($accessoryProduct === null) {
+                continue;
+            }
+
+            $accessoryId = app(SequenceAllocator::class)->next('opportunity_items');
+            $path = $tree->nextChildPath($opportunity->id, $versionId, $principalPath);
+            $quantity = bcmul((string) $accessory->quantity, $productQuantity, 2);
+
+            ItemAdded::fire(
+                opportunity_item_id: $accessoryId,
+                opportunity_id: $opportunity->id,
+                version_id: $versionId,
+                itemable_id: $accessoryProduct->id,
+                itemable_type: Product::class,
+                item_type: OpportunityItemType::Accessory->value,
+                path: $path,
+                name: $accessoryProduct->name,
+                quantity: $quantity,
+                transaction_type: $transactionType,
+                charge_period: $chargePeriod,
+                starts_at: $startsAt,
+                ends_at: $endsAt,
+                is_optional: $isOptional,
+            );
+        }
     }
 }
