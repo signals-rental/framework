@@ -1,19 +1,21 @@
 <?php
 
-use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\CreateOpportunity;
-use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Enums\ChargePeriod;
+use App\Enums\LineItemTransactionType;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\OpportunitySection;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\User;
+use App\Services\SequenceAllocator;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -34,11 +36,44 @@ beforeEach(function () {
     $this->seed(RoleSeeder::class);
     $this->owner = User::factory()->owner()->create();
     Auth::login($this->owner);
+
+    // The unified cutover drops opportunity_sections; this suite exercises the
+    // historical backfill migration against the pre-cutover schema only.
+    cutoverMigration()->down();
 });
+
+function cutoverMigration(): object
+{
+    return require database_path('migrations/2026_06_22_230001_cutover_unified_opportunity_line_items.php');
+}
 
 function backfillMigration(): object
 {
     return require database_path('migrations/2026_06_22_154417_backfill_opportunity_section_auto_groups.php');
+}
+
+function insertLegacyNullSectionLine(Opportunity $opportunity, string $name, ?Product $product, int $sortOrder = 0): void
+{
+    $id = app(SequenceAllocator::class)->next('opportunity_items');
+
+    OpportunityItem::query()->insert([
+        'id' => $id,
+        'state_id' => snowflake_id(),
+        'opportunity_id' => $opportunity->id,
+        'item_id' => $product?->id,
+        'item_type' => $product !== null ? Product::class : null,
+        'name' => $name,
+        'quantity' => 1,
+        'unit_price' => 1000,
+        'charge_period' => ChargePeriod::Day->value,
+        'total' => 1000,
+        'transaction_type' => LineItemTransactionType::Rental->value,
+        'sort_order' => $sortOrder,
+        'section_id' => null,
+        'is_optional' => false,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
 }
 
 /**
@@ -52,20 +87,9 @@ function opportunityWithNullSectionLines(array $lines): Opportunity
     $created = (new CreateOpportunity)(CreateOpportunityData::from(['subject' => 'Backfill fixture']));
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
 
-    foreach ($lines as $line) {
-        $product = $line['product'];
-
-        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from(array_filter([
-            'name' => $line['name'],
-            'itemable_id' => $product?->id,
-            'itemable_type' => $product !== null ? Product::class : null,
-            'quantity' => '1',
-            'unit_price' => 1000,
-        ], fn ($v) => $v !== null)));
+    foreach ($lines as $index => $line) {
+        insertLegacyNullSectionLine($opportunity, $line['name'], $line['product'], $index);
     }
-
-    // Force every line back to the null-section render path.
-    OpportunityItem::query()->where('opportunity_id', $opportunity->id)->update(['section_id' => null]);
 
     return $opportunity;
 }
@@ -150,14 +174,14 @@ it('is idempotent — re-running creates no duplicate sections and re-assigns th
 
     $sectionCount = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->count();
     $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
-    $sectionId = $item->fresh()->section_id;
+    $sectionId = (int) DB::table('opportunity_items')->where('id', $item->id)->value('section_id');
 
     // Re-run.
     backfillMigration()->up();
 
     expect(OpportunitySection::query()->where('opportunity_id', $opportunity->id)->count())->toBe($sectionCount)
-        ->and($item->fresh()->section_id)->toBe($sectionId)
-        ->and(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->whereNull('section_id')->count())->toBe(0);
+        ->and((int) DB::table('opportunity_items')->where('id', $item->id)->value('section_id'))->toBe($sectionId)
+        ->and(DB::table('opportunity_items')->where('opportunity_id', $opportunity->id)->whereNull('section_id')->count())->toBe(0);
 });
 
 it('does not disturb lines already assigned to a user section', function () {
@@ -168,16 +192,17 @@ it('does not disturb lines already assigned to a user section', function () {
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
     $userSection = OpportunitySection::factory()->for($opportunity)->create(['name' => 'Keep me']);
 
-    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
-        'name' => 'Deck', 'itemable_id' => $product->id, 'itemable_type' => Product::class, 'quantity' => '1', 'unit_price' => 1000,
-    ]));
+    insertLegacyNullSectionLine($opportunity, 'Deck', $product);
     $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
-    $item->update(['section_id' => $userSection->id]);
+    DB::table('opportunity_items')
+        ->where('id', $item->id)
+        ->update(['section_id' => $userSection->id]);
 
     backfillMigration()->up();
 
     // The already-sectioned line is untouched; no auto-group section is created.
-    expect($item->fresh()->section_id)->toBe($userSection->id)
+    expect((int) DB::table('opportunity_items')->where('id', $item->id)->value('section_id'))
+        ->toBe($userSection->id)
         ->and(OpportunitySection::query()->where('opportunity_id', $opportunity->id)->whereNotNull('auto_group_key')->count())->toBe(0);
 });
 

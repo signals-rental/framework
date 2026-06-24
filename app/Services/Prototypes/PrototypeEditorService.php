@@ -2,10 +2,10 @@
 
 namespace App\Services\Prototypes;
 
+use App\Enums\OpportunityItemType;
 use App\Enums\PrototypeItemType;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
-use App\Models\OpportunitySection;
 use App\Models\PrototypeOpportunityItem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -494,39 +494,23 @@ class PrototypeEditorService
      */
     private function buildRowsFromRealOpportunity(Opportunity $opportunity): array
     {
-        $sections = OpportunitySection::query()
-            ->where('opportunity_id', $opportunity->id)
-            ->orderBy('parent_id')
-            ->orderBy('sort_order')
-            ->get();
-
         $items = OpportunityItem::query()
             ->where('opportunity_id', $opportunity->id)
-            ->when($opportunity->active_version_id !== null, fn ($q) => $q->where('version_id', $opportunity->active_version_id))
-            ->orderBy('sort_order')
+            ->when($opportunity->active_version_id > 0, fn ($q) => $q->where('version_id', $opportunity->active_version_id))
+            ->orderBy('path')
             ->get();
 
-        // Group items by section.
-        $itemsBySection = $items->groupBy('section_id');
-
         $rows = [];
-        $topCounter = 0;
 
-        // Only handle top-level sections (parent_id null) plus their children
-        // for the sample — enough to give a multi-level tree.
-        $topSections = $sections->whereNull('parent_id');
+        foreach ($items as $item) {
+            if ($item->item_type === OpportunityItemType::Group) {
+                $rows[] = $this->groupRow($item->path, $item->name);
 
-        foreach ($topSections as $section) {
-            $topCounter++;
-            $groupPath = $this->segment($topCounter);
+                continue;
+            }
 
-            $rows[] = $this->groupRow($groupPath, $section->name);
-
-            $childCounter = 0;
-            foreach ($itemsBySection->get($section->id, collect()) as $item) {
-                $childCounter++;
-                $productPath = $groupPath.$this->segment($childCounter);
-                $rows[] = $this->productRow($productPath, $item);
+            if ($item->item_type === OpportunityItemType::Product) {
+                $rows[] = $this->productRow($item->path, $item);
             }
         }
 

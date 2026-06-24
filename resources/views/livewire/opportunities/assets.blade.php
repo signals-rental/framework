@@ -788,8 +788,8 @@ new #[Layout('components.layouts.app')] class extends Component
      */
     protected function matchLineForStockLevel(StockLevel $level): OpportunityItem
     {
-        $candidate = $this->lineWithCapacity(fn (OpportunityItem $item): bool => $item->item_type === Product::class
-            && $item->item_id === $level->product_id);
+        $candidate = $this->lineWithCapacity(fn (OpportunityItem $item): bool => $item->isProductBacked()
+            && $item->itemable_id === $level->product_id);
 
         if ($candidate === null && $this->freeScan) {
             $candidate = $this->lineWithCapacity(fn (OpportunityItem $item): bool => $this->itemIsSerialised($item));
@@ -813,7 +813,7 @@ new #[Layout('components.layouts.app')] class extends Component
     protected function lineWithCapacity(\Closure $predicate): ?OpportunityItem
     {
         return $this->opportunity->items
-            ->sortBy('sort_order')
+            ->sortBy('path')
             ->first(fn (OpportunityItem $item): bool => $predicate($item)
                 && $item->assets->count() < (int) ceil((float) $item->quantity));
     }
@@ -868,11 +868,11 @@ new #[Layout('components.layouts.app')] class extends Component
      */
     protected function itemIsSerialised(OpportunityItem $item): bool
     {
-        if ($item->item_type !== Product::class || $item->item_id === null) {
+        if (! $item->isProductBacked() || $item->itemable_id === null) {
             return $item->assets->isNotEmpty();
         }
 
-        return ($this->productCache()[$item->item_id]?->stock_method ?? null) === StockMethod::Serialised;
+        return ($this->productCache()[$item->itemable_id]?->stock_method ?? null) === StockMethod::Serialised;
     }
 
     /**
@@ -884,8 +884,8 @@ new #[Layout('components.layouts.app')] class extends Component
     {
         return once(function (): array {
             $ids = $this->opportunity->items
-                ->where('item_type', Product::class)
-                ->pluck('item_id')
+                ->filter(fn (OpportunityItem $item): bool => $item->isProductBacked())
+                ->pluck('itemable_id')
                 ->filter()
                 ->unique()
                 ->all();
@@ -911,12 +911,12 @@ new #[Layout('components.layouts.app')] class extends Component
 
         $item = $this->opportunity->items->firstWhere('id', $itemId);
 
-        if ($item === null || $item->item_type !== Product::class || $item->item_id === null) {
+        if ($item === null || ! $item->isProductBacked() || $item->itemable_id === null) {
             return collect();
         }
 
         return StockLevel::query()
-            ->where('product_id', $item->item_id)
+            ->where('product_id', $item->itemable_id)
             ->serialized()
             ->available()
             ->orderBy('asset_number')
@@ -953,7 +953,7 @@ new #[Layout('components.layouts.app')] class extends Component
     public function with(): array
     {
         $this->opportunity->load([
-            'items' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
+            'items' => fn ($q) => $q->orderBy('path')->orderBy('id'),
             'items.assets' => fn ($q) => $q->with(['stockLevel', 'container'])->orderBy('id'),
         ]);
 

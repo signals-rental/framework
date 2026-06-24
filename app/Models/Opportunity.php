@@ -429,17 +429,6 @@ class Opportunity extends Model implements HasSchema
     }
 
     /**
-     * Custom line-item groupings (sections) belonging to this opportunity, in
-     * display order. Plain, NON-event-sourced rows (M8-3 grouping decision).
-     *
-     * @return HasMany<OpportunitySection, $this>
-     */
-    public function sections(): HasMany
-    {
-        return $this->hasMany(OpportunitySection::class, 'opportunity_id')->orderBy('sort_order');
-    }
-
-    /**
      * Ad-hoc costs (delivery, labour, surcharges, etc.) belonging to this
      * opportunity, in display order.
      *

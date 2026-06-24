@@ -16,7 +16,7 @@ use Spatie\LaravelData\Optional;
  * Only the fields present on the DTO are merged over the participant's current
  * values; omitted fields are left untouched. Participants are plain,
  * non-event-sourced rows, so this is a normal Eloquent update; an AuditableEvent
- * is fired for audit parity (audit-only, like CreateOpportunitySection — not a
+ * is fired for audit parity (audit-only, like AddOpportunityGroup — not a
  * registered webhook event). The member association is immutable here.
  */
 class UpdateOpportunityParticipant

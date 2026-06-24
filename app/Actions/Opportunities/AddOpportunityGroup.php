@@ -8,6 +8,7 @@ use App\Data\Opportunities\OpportunityData;
 use App\Enums\OpportunityItemType;
 use App\Models\Opportunity;
 use App\Services\Opportunities\ItemTreeService;
+use App\Services\Opportunities\OpportunityEditorTreeService;
 use App\Services\SequenceAllocator;
 use App\Verbs\Events\Opportunities\ItemAdded;
 use Illuminate\Support\Facades\Gate;
@@ -28,6 +29,8 @@ class AddOpportunityGroup
     public function __invoke(Opportunity $opportunity, AddOpportunityGroupData $data): OpportunityData
     {
         Gate::authorize('opportunities.edit');
+
+        app(OpportunityEditorTreeService::class)->assertCanNestUnder($data->parent_path);
 
         // When the opportunity carries an active quote version the new group lands
         // in that version's scope; a non-versioned opportunity keeps a NULL
@@ -52,6 +55,7 @@ class AddOpportunityGroup
                 item_type: OpportunityItemType::Group->value,
                 path: $path,
                 name: $data->name,
+                custom_fields: $data->custom_fields,
             );
         });
 

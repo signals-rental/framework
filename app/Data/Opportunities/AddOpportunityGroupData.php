@@ -27,6 +27,8 @@ class AddOpportunityGroupData extends Data
          * action resolves it from the opportunity's active version.
          */
         public ?int $version_id = null,
+        /** @var array<string, mixed>|null */
+        public ?array $custom_fields = null,
     ) {}
 
     /**
@@ -37,6 +39,7 @@ class AddOpportunityGroupData extends Data
         return [
             'name' => ['required', 'string', 'max:255'],
             'parent_path' => ['sometimes', 'nullable', 'string'],
+            'custom_fields' => ['sometimes', 'nullable', 'array'],
         ];
     }
 }

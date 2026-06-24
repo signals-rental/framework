@@ -1,40 +1,32 @@
 <?php
 
+use App\Actions\Opportunities\AddOpportunityGroup;
 use App\Actions\Opportunities\AddOpportunityItem;
-use App\Actions\Opportunities\AssignItemToSection;
-use App\Actions\Opportunities\AssignSectionParent;
 use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
-use App\Actions\Opportunities\CreateOpportunitySection;
-use App\Actions\Opportunities\DeleteOpportunitySection;
 use App\Actions\Opportunities\MergeOpportunityItems;
 use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\RemoveOpportunityItem;
-use App\Actions\Opportunities\RenameOpportunitySection;
-use App\Actions\Opportunities\ReorderOpportunityItems;
-use App\Actions\Opportunities\ReorderOpportunitySections;
+use App\Actions\Opportunities\RenameOpportunityItem;
 use App\Actions\Opportunities\SetItemDiscount;
 use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
+use App\Data\Opportunities\AddOpportunityGroupData;
 use App\Data\Opportunities\AddOpportunityItemData;
-use App\Data\Opportunities\AssignItemToSectionData;
-use App\Data\Opportunities\AssignSectionParentData;
 use App\Data\Opportunities\ChangeItemDatesData;
 use App\Data\Opportunities\ChangeItemQuantityData;
-use App\Data\Opportunities\CreateOpportunitySectionData;
 use App\Data\Opportunities\MergeOpportunityItemsData;
 use App\Data\Opportunities\OverrideItemPriceData;
-use App\Data\Opportunities\RenameOpportunitySectionData;
-use App\Data\Opportunities\ReorderOpportunityItemsData;
-use App\Data\Opportunities\ReorderOpportunitySectionsData;
+use App\Data\Opportunities\RenameOpportunityItemData;
 use App\Data\Opportunities\SetItemDiscountData;
 use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
+use App\Enums\OpportunityItemType;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
-use App\Models\OpportunitySection;
 use App\Models\Product;
 use App\Services\AvailabilityService;
+use App\Services\Opportunities\OpportunityEditorTreeService;
 use App\Services\Opportunities\ProductSearchService;
 use App\Support\Formatter;
 use Illuminate\Support\Facades\Gate;
@@ -55,9 +47,10 @@ use Livewire\Volt\Component;
  * authorise `opportunities.edit` internally. After each mutation the opportunity is
  * re-read so live totals (ex-tax model) and per-line availability refresh.
  *
- * Lines are grouped for display: a line with `section_id` sits under its custom
- * {@see OpportunitySection}; otherwise it is auto-grouped by the product's
- * parent-group -> product-group tree. Accessories render as display-only sub-rows
+ * Lines are grouped for display by materialised `path` tree rows: structural
+ * {@see OpportunityItemType::Group} headers contain nested product/service lines;
+ * auto-groups are real group rows keyed by `custom_fields.auto_group_key`.
+ * Accessories render as display-only sub-rows
  * (ratio x line qty, zero priced) and are NEVER persisted as opportunity_items.
  *
  * The product picker is a two-tier search: a client-side MiniSearch index built
@@ -78,7 +71,7 @@ new class extends Component
      */
     public array $catalogue = [];
 
-    /** The quick-add bar's destination: 'section:{id}', 'group:{key}', or '' (ungrouped). */
+    /** The quick-add bar's destination: 'group:{id}', 'auto:{key}', or '' (auto group). */
     public string $quickAddDestination = '';
 
     public bool $editable = false;
@@ -131,21 +124,24 @@ new class extends Component
                 ]);
             }
 
+            $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+            $parentPath = $this->resolveParentPathForAdd(
+                $opportunity,
+                $opportunity->items,
+                $product,
+                $destination ?? $this->quickAddDestination,
+            );
+
             $data = AddOpportunityItemData::from([
                 'name' => $product->name,
-                'item_id' => $product->id,
-                'item_type' => Product::class,
+                'itemable_id' => $product->id,
+                'itemable_type' => Product::class,
                 'quantity' => (string) max(0.01, $quantity),
                 'currency' => $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP'),
+                'parent_path' => $parentPath,
             ]);
 
-            $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
             (new AddOpportunityItem)($opportunity, $data);
-
-            // Land the brand-new line in a real section: the explicit destination if
-            // the operator chose one, otherwise find-or-create the auto-group section
-            // for the line's product category so every line always has a section_id.
-            $this->assignNewestToDestination($destination ?? $this->quickAddDestination);
 
             $this->refreshOpportunity();
             $this->dispatch('item-added');
@@ -286,21 +282,17 @@ new class extends Component
             return;
         }
 
-        $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
+        $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
         $parentId = $this->newSectionParent === '' ? null : (int) $this->newSectionParent;
-        $nextOrder = (int) $opportunity->sections()
-            ->where('parent_id', $parentId)
-            ->max('sort_order') + 1;
 
         try {
-            (new CreateOpportunitySection)($opportunity, CreateOpportunitySectionData::from([
+            $parentPath = $this->treeService()->parentPathForGroupId($opportunity->items, $parentId);
+
+            (new AddOpportunityGroup)($opportunity, AddOpportunityGroupData::from([
                 'name' => $name,
-                'sort_order' => $nextOrder,
-                'parent_id' => $parentId,
+                'parent_path' => $parentPath,
             ]));
         } catch (ValidationException $e) {
-            // Surface the max-depth (#9) / foreign-parent rejection on the component so
-            // the modal stays open with the reason, rather than closing on a failure.
             foreach ($e->errors() as $field => $messages) {
                 foreach ((array) $messages as $message) {
                     $this->addError($field, $message);
@@ -315,155 +307,137 @@ new class extends Component
         $this->newSectionName = '';
         $this->newSectionParent = '';
         $this->refreshOpportunity();
-        // Positional payload: the x-signals.modal listener matches on
-        // `$event.detail === name`, so a named-arg dispatch (detail = { name: … })
-        // would never match and the modal would stay open. Mirror the Cancel
-        // button's `$dispatch('close-modal', 'create-section')`.
         $this->dispatch('close-modal', 'create-section');
         $this->dispatch('toast', type: 'success', message: 'Section created');
     }
 
     /**
-     * Persist a new ordering of sibling sections after a drag. `sectionIds` is the
-     * desired order of the dragged section among its siblings; the action writes
-     * each section's sort_order to its index. Sections are plain (non-event-sourced)
-     * rows, so this never touches the Verbs stream.
+     * Persist a new ordering of sibling group rows after a drag.
      *
-     * @param  array<int, int|string>  $sectionIds
+     * @param  array<int, int|string>  $groupIds
      */
-    public function reorderSections(array $sectionIds): void
+    public function reorderSections(array $groupIds): void
     {
         $this->guardEditable();
 
-        $ids = array_values(array_map('intval', $sectionIds));
+        $groupIds = array_values(array_map('intval', $groupIds));
 
-        if ($ids === []) {
+        if ($groupIds === []) {
             return;
         }
 
-        $opportunity = $this->opportunity->fresh() ?? $this->opportunity;
+        $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+        $items = $opportunity->items;
+        $tree = $this->treeService();
+        $first = $items->firstWhere('id', $groupIds[0]);
 
-        (new ReorderOpportunitySections)($opportunity, ReorderOpportunitySectionsData::from([
-            'section_ids' => $ids,
-        ]));
+        if ($first === null || $first->item_type !== OpportunityItemType::Group) {
+            return;
+        }
+
+        $parentGroupKey = $this->parentGroupKeyForPath($items, $first->parentPath());
+
+        foreach ($groupIds as $position => $groupId) {
+            $nodes = $tree->nodesAfterMovingGroup($items, $groupId, $position, $parentGroupKey);
+            $tree->restructure($opportunity, $nodes);
+            $opportunity = $opportunity->fresh(['items']) ?? $opportunity;
+            $items = $opportunity->items;
+        }
 
         $this->refreshOpportunity();
     }
 
     /**
-     * Drag-and-drop handler for the section header `wire:sort`. Mirrors the line
-     * drag: `parentGroupKey` identifies the destination parent the dragged section
-     * landed under ('section-parent:{id}' to nest under another section, or
-     * 'section-parent:root' for the top level). The section is (re)parented if its
-     * parent changed — respecting the 4-level depth guard, which surfaces a refusal
-     * as an error toast and leaves the tree untouched — then its new sibling order
-     * is persisted.
-     *
-     * Sections are plain (non-event-sourced) rows, so this never touches the Verbs
-     * stream.
+     * Drag-and-drop handler for group header `wire:sort`.
      */
-    public function handleSectionSort(int $sectionId, int $position, ?string $parentGroupKey = null): void
+    public function handleSectionSort(int $groupId, int $position, ?string $parentGroupKey = null): void
     {
         $this->guardEditable();
 
-        $this->runMutation(function () use ($sectionId, $position, $parentGroupKey): void {
-            $section = $this->findSection($sectionId);
-            $targetParentId = $this->parentIdFromGroupKey($parentGroupKey);
-
-            // Re-parent (and place) the section. AssignSectionParent enforces the
-            // depth + cycle guards; on refusal it throws a ValidationException which
-            // runMutation turns into an error toast and the tree is left as-is.
-            if ($section->parent_id !== $targetParentId) {
-                (new AssignSectionParent)($section, AssignSectionParentData::from([
-                    'parent_id' => $targetParentId,
-                    'sort_order' => $position,
-                ]));
-            }
-
-            // Re-read so the moved section's parent reflects the assignment, then
-            // persist the order of the whole destination sibling set.
-            $opportunity = $this->opportunity->fresh(['sections']) ?? $this->opportunity;
-            $orderedIds = $this->computeSiblingOrder($opportunity, $sectionId, $position, $targetParentId);
-
-            if (count($orderedIds) > 0) {
-                (new ReorderOpportunitySections)($opportunity, ReorderOpportunitySectionsData::from([
-                    'section_ids' => $orderedIds,
-                ]));
-            }
+        $this->runMutation(function () use ($groupId, $position, $parentGroupKey): void {
+            $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+            $tree = $this->treeService();
+            $nodes = $tree->nodesAfterMovingGroup(
+                $opportunity->items,
+                $groupId,
+                $position,
+                $this->normalizeParentGroupKey($parentGroupKey),
+            );
+            $tree->restructure($opportunity, $nodes);
 
             $this->refreshOpportunity();
         });
     }
 
-    public function renameSection(int $sectionId, string $name): void
+    public function renameSection(int $groupId, string $name): void
     {
         $this->guardEditable();
 
-        $this->runMutation(function () use ($sectionId, $name): void {
-            $section = $this->findSection($sectionId);
-            (new RenameOpportunitySection)($section, RenameOpportunitySectionData::from(['name' => $name]));
+        $this->runMutation(function () use ($groupId, $name): void {
+            $group = $this->findGroup($groupId);
+            (new RenameOpportunityItem)($group, RenameOpportunityItemData::from(['name' => $name]));
 
             $this->refreshOpportunity();
         }, 'Group renamed');
     }
 
-    public function deleteSection(int $sectionId): void
+    public function deleteSection(int $groupId): void
     {
         $this->guardEditable();
 
-        $this->runMutation(function () use ($sectionId): void {
-            $section = $this->findSection($sectionId);
-            (new DeleteOpportunitySection)($section);
+        $this->runMutation(function () use ($groupId): void {
+            $group = $this->findGroup($groupId);
+            $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+            $tree = $this->treeService();
+            $nodes = $tree->nodesAfterDissolvingGroup($opportunity->items, $groupId);
+            $tree->restructure($opportunity, $nodes);
+            (new RemoveOpportunityItem)($group->fresh());
 
             $this->refreshOpportunity();
         }, 'Section deleted');
     }
 
     /**
-     * Drag-and-drop handler for `wire:sort`. `groupId` identifies the destination
-     * group/section the line landed in. We first (re)assign the line's section (set
-     * when dropped into a custom section, clear when dropped into an auto product
-     * group) then persist the new order of that destination's lines.
+     * Drag-and-drop handler for line `wire:sort`.
      */
     public function handleSort(int $itemId, int $position, ?string $groupId = null): void
     {
         $this->guardEditable();
 
-        $item = $this->findItem($itemId);
-        $targetSectionId = $this->sectionIdFromGroupKey($groupId);
+        $this->runMutation(function () use ($itemId, $position, $groupId): void {
+            $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+            $tree = $this->treeService();
+            $nodes = $tree->nodesAfterMovingLine(
+                $opportunity->items,
+                $itemId,
+                $position,
+                $this->normalizeGroupKey($groupId),
+            );
+            $tree->restructure($opportunity, $nodes);
 
-        if ($item->section_id !== $targetSectionId) {
-            (new AssignItemToSection)($item, AssignItemToSectionData::from(['section_id' => $targetSectionId]));
-        }
-
-        // Re-read so the moved line's group membership reflects the assignment,
-        // then persist the order of the whole opportunity (sort_order is global).
-        $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
-        $orderedIds = $this->computeGlobalOrder($opportunity, $itemId, $position, $targetSectionId);
-
-        if (count($orderedIds) > 0) {
-            (new ReorderOpportunityItems)($opportunity, ReorderOpportunityItemsData::from(['item_ids' => $orderedIds]));
-        }
-
-        $this->refreshOpportunity();
+            $this->refreshOpportunity();
+        });
     }
 
     /**
-     * Assign / clear a line's custom section directly (the per-line menu path).
+     * Assign / clear a line's parent group directly (the per-line menu path).
      */
-    public function assignToSection(int $itemId, ?int $sectionId): void
+    public function assignToSection(int $itemId, ?int $groupId): void
     {
         $this->guardEditable();
 
-        $this->runMutation(function () use ($itemId, $sectionId): void {
-            $item = $this->findItem($itemId);
-            (new AssignItemToSection)($item, AssignItemToSectionData::from(['section_id' => $sectionId]));
+        $this->runMutation(function () use ($itemId, $groupId): void {
+            $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+            $tree = $this->treeService();
+            $destination = $groupId === null ? null : 'group:'.$groupId;
+            $nodes = $tree->nodesAfterMovingLine($opportunity->items, $itemId, 0, $destination);
+            $tree->restructure($opportunity, $nodes);
 
             $this->refreshOpportunity();
 
-            $label = $sectionId === null
+            $label = $groupId === null
                 ? 'auto group'
-                : ($this->findSection($sectionId)->name);
+                : $this->findGroup($groupId)->name;
 
             $this->dispatch('toast', type: 'success', message: 'Moved to '.$label);
         });
@@ -507,16 +481,20 @@ new class extends Component
         return OpportunityItem::query()
             ->where('opportunity_id', $this->opportunity->id)
             ->whereKeyNot($survivor->id)
-            ->where('item_id', $survivor->item_id)
-            ->where('item_type', $survivor->item_type)
+            ->where('itemable_id', $survivor->itemable_id)
+            ->where('itemable_type', $survivor->itemable_type)
             ->where('transaction_type', $survivor->getRawOriginal('transaction_type'))
             ->where('charge_period', $survivor->getRawOriginal('charge_period'))
             ->where('is_optional', $survivor->is_optional)
-            ->where(fn ($q) => $q->where('section_id', $survivor->section_id)
-                ->when($survivor->section_id === null, fn ($q) => $q->orWhereNull('section_id')))
+            ->when(
+                $survivor->parentPath() === null,
+                fn ($q) => $q->whereRaw('length(path) = 4'),
+                fn ($q) => $q->where('path', 'like', $survivor->parentPath().'%')
+                    ->whereRaw('length(path) = ?', [strlen((string) $survivor->parentPath()) + 4]),
+            )
             ->where('starts_at', $survivor->starts_at)
             ->where('ends_at', $survivor->ends_at)
-            ->whereNotNull('item_id')
+            ->whereNotNull('itemable_id')
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
             ->all();
@@ -536,17 +514,17 @@ new class extends Component
         $byKey = [];
 
         foreach ($items as $item) {
-            if ($item->item_id === null) {
+            if ($item->itemable_id === null) {
                 continue;
             }
 
             $key = implode('|', [
-                $item->item_id,
-                $item->item_type,
+                $item->itemable_id,
+                $item->itemable_type,
                 $item->getRawOriginal('transaction_type'),
                 $item->getRawOriginal('charge_period'),
                 $item->is_optional ? 1 : 0,
-                $item->section_id ?? 'null',
+                $item->parentPath() ?? 'null',
                 optional($item->starts_at)->toIso8601String() ?? 'null',
                 optional($item->ends_at)->toIso8601String() ?? 'null',
             ]);
@@ -587,81 +565,27 @@ new class extends Component
         $formatter = app(Formatter::class);
 
         $opportunity->load([
-            'items' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
-            'sections',
+            'items' => fn ($q) => $q->orderBy('path')->orderBy('id'),
         ]);
 
         $availability = $this->availabilityMap();
-        $items = $opportunity->items;
+        $groupsByPath = $opportunity->items
+            ->filter(fn (OpportunityItem $item): bool => $item->item_type === OpportunityItemType::Group)
+            ->keyBy('path');
 
-        // Build a section_id -> section lookup (only sections that still exist).
-        $sections = $opportunity->sections->keyBy('id');
+        $ordered = $this->treeService()->buildDisplayGroups(
+            $opportunity->items,
+            fn (OpportunityItem $item): array => $this->buildLineRow($item, $availability, $formatter),
+        );
 
-        $groups = [];
-
-        // 1. Every section (auto + user), in a parent -> child pre-order so nested
-        //    sub-groups render directly beneath their parent (indented by `depth`).
-        //    Always shown even when empty so operators can drag lines into them.
-        foreach ($this->orderedSections($opportunity->sections) as $entry) {
-            $section = $entry['section'];
-
-            $groups['section:'.$section->id] = [
-                'key' => 'section:'.$section->id,
-                'kind' => 'section',
-                'section_id' => $section->id,
-                'parent_id' => $section->parent_id,
-                'depth' => $entry['depth'],
-                'label' => $section->name,
-                'lines' => [],
-                'subtotal' => 0,
-            ];
-        }
-
-        // 2. Bucket lines under their section. Stray null-section lines (or lines
-        //    pointing at a since-deleted section) fall into a synthesised top-level
-        //    "Ungrouped" safety group rather than vanishing — the normal post-backfill
-        //    path never reaches it, but a just-deleted section can transiently leave
-        //    a line section-less until its next add re-finds an auto group.
-        $fallback = null;
-
-        foreach ($items as $item) {
-            $lineRow = $this->buildLineRow($item, $availability, $formatter);
-
-            if ($item->section_id !== null && $sections->has($item->section_id)) {
-                $groups['section:'.$item->section_id]['lines'][] = $lineRow;
-                $groups['section:'.$item->section_id]['subtotal'] += $item->total;
-
-                continue;
-            }
-
-            if ($fallback === null) {
-                $fallback = [
-                    'key' => 'auto:ungrouped',
-                    'kind' => 'auto',
-                    'section_id' => null,
-                    'parent_id' => null,
-                    'depth' => 0,
-                    'label' => __('Ungrouped'),
-                    'lines' => [],
-                    'subtotal' => 0,
-                ];
-            }
-
-            $fallback['lines'][] = $lineRow;
-            $fallback['subtotal'] += $item->total;
-        }
-
-        $ordered = [];
-
-        foreach (array_values($groups) as $group) {
+        foreach ($ordered as &$group) {
+            $parentPath = $group['parent_path'] ?? null;
+            $group['parent_group_id'] = $parentPath !== null
+                ? $groupsByPath->get($parentPath)?->id
+                : null;
             $group['subtotal_formatted'] = $formatter->money((int) $group['subtotal']);
-            $ordered[] = $group;
         }
-
-        if ($fallback !== null) {
-            $fallback['subtotal_formatted'] = $formatter->money((int) $fallback['subtotal']);
-            $ordered[] = $fallback;
-        }
+        unset($group);
 
         return $ordered;
     }
@@ -678,9 +602,15 @@ new class extends Component
         $options = [['value' => '', 'label' => '— Auto group —']];
 
         foreach ($this->groups as $group) {
+            $prefix = match ($group['kind']) {
+                'group' => 'Section · ',
+                'auto' => 'Group · ',
+                default => '',
+            };
+
             $options[] = [
                 'value' => $group['key'],
-                'label' => ($group['kind'] === 'section' ? 'Section · ' : 'Group · ').$group['label'],
+                'label' => $prefix.$group['label'],
             ];
         }
 
@@ -697,67 +627,91 @@ new class extends Component
     #[Computed]
     public function sectionOptions(): array
     {
-        $this->opportunity->load('sections');
+        $this->opportunity->load([
+            'items' => fn ($q) => $q->orderBy('path')->orderBy('id'),
+        ]);
 
-        $options = [['value' => '', 'label' => '— Top level —']];
-
-        foreach ($this->orderedSections($this->opportunity->sections) as $entry) {
-            $section = $entry['section'];
-            $options[] = [
-                'value' => (string) $section->id,
-                'label' => str_repeat('— ', $entry['depth']).$section->name,
-            ];
-        }
-
-        return $options;
+        return $this->treeService()->parentGroupOptions($this->opportunity->items);
     }
 
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Flatten the opportunity's sections into a parent -> child pre-order list,
-     * each carrying its nesting depth. Sibling order follows sort_order then id;
-     * orphaned children (a missing/foreign parent) are treated as top-level so they
-     * never vanish from the editor.
-     *
-     * @param  \Illuminate\Support\Collection<int, OpportunitySection>  $sections
-     * @return array<int, array{section: OpportunitySection, depth: int}>
-     */
-    private function orderedSections(\Illuminate\Support\Collection $sections): array
+    private function treeService(): OpportunityEditorTreeService
     {
-        $byParent = $sections
-            ->sortBy([['sort_order', 'asc'], ['id', 'asc']])
-            ->groupBy(fn (OpportunitySection $s) => $s->parent_id ?? 0);
+        return app(OpportunityEditorTreeService::class);
+    }
 
-        $ids = $sections->pluck('id')->all();
-        $ordered = [];
+    /**
+     * @param  \Illuminate\Support\Collection<int, OpportunityItem>  $items
+     */
+    private function resolveParentPathForAdd(
+        Opportunity $opportunity,
+        \Illuminate\Support\Collection $items,
+        Product $product,
+        ?string $destination,
+    ): ?string {
+        $tree = $this->treeService();
+        $normalized = $this->normalizeGroupKey($destination);
 
-        $walk = function (int $parentKey, int $depth) use (&$walk, $byParent, $ids, &$ordered): void {
-            foreach ($byParent->get($parentKey, collect()) as $section) {
-                $ordered[] = ['section' => $section, 'depth' => $depth];
-                $walk($section->id, $depth + 1);
-            }
-        };
-
-        // Real top-level sections first (parent_id null).
-        $walk(0, 0);
-
-        // Then any orphans whose parent_id points at a row that no longer exists —
-        // surface them at the top level rather than dropping them.
-        foreach ($byParent as $parentKey => $children) {
-            if ($parentKey === 0 || in_array($parentKey, $ids, true)) {
-                continue;
-            }
-
-            foreach ($children as $section) {
-                $ordered[] = ['section' => $section, 'depth' => 0];
-                $walk($section->id, 1);
-            }
+        if ($normalized !== null && $normalized !== '' && $normalized !== 'auto:ungrouped') {
+            return $tree->parentPathForGroupKey($items, $normalized);
         }
 
-        return $ordered;
+        if ($normalized === 'auto:ungrouped') {
+            return null;
+        }
+
+        $stub = new OpportunityItem([
+            'itemable_id' => $product->id,
+            'itemable_type' => Product::class,
+        ]);
+
+        return $tree->findOrCreateAutoGroup($opportunity, $stub, $this->productCache())->path;
+    }
+
+    private function normalizeGroupKey(?string $key): ?string
+    {
+        if ($key === null || $key === '') {
+            return null;
+        }
+
+        if (str_starts_with($key, 'section:')) {
+            return 'group:'.substr($key, strlen('section:'));
+        }
+
+        return $key;
+    }
+
+    private function normalizeParentGroupKey(?string $key): ?string
+    {
+        if ($key === null) {
+            return null;
+        }
+
+        if (str_starts_with($key, 'section-parent:')) {
+            return 'group-parent:'.substr($key, strlen('section-parent:'));
+        }
+
+        return $key;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, OpportunityItem>  $items
+     */
+    private function parentGroupKeyForPath(\Illuminate\Support\Collection $items, ?string $parentPath): string
+    {
+        if ($parentPath === null || $parentPath === '') {
+            return 'group-parent:root';
+        }
+
+        $parent = $items->first(
+            fn (OpportunityItem $item): bool => $item->item_type === OpportunityItemType::Group
+                && $item->path === $parentPath,
+        );
+
+        return $parent !== null ? 'group-parent:'.$parent->id : 'group-parent:root';
     }
 
     /**
@@ -768,7 +722,15 @@ new class extends Component
     {
         $avail = $availability[$item->id] ?? null;
 
-        $productId = ($item->item_type === Product::class) ? $item->item_id : null;
+        $productId = $item->isProductBacked() ? $item->itemable_id : null;
+        $parentPath = $item->parentPath();
+        $parentGroupId = null;
+
+        if ($parentPath !== null) {
+            $parentGroupId = $this->opportunity->items
+                ->first(fn (OpportunityItem $candidate): bool => $candidate->item_type === OpportunityItemType::Group
+                    && $candidate->path === $parentPath)?->id;
+        }
 
         return [
             'id' => $item->id,
@@ -783,7 +745,8 @@ new class extends Component
             'discount_percent' => $item->discount_percent !== null ? (string) $item->discount_percent : null,
             'total' => $formatter->money($item->total ?? 0),
             'is_optional' => $item->is_optional,
-            'section_id' => $item->section_id,
+            'parent_path' => $parentPath,
+            'parent_group_id' => $parentGroupId,
             'starts_at' => optional($item->starts_at)?->toDateString(),
             'ends_at' => optional($item->ends_at)?->toDateString(),
             'charge_period_label' => $item->charge_period->label(),
@@ -823,11 +786,11 @@ new class extends Component
      */
     private function accessoriesFor(OpportunityItem $item): array
     {
-        if ($item->item_id === null || $item->item_type !== Product::class) {
+        if (! $item->isProductBacked() || $item->itemable_id === null) {
             return [];
         }
 
-        $product = $this->productCache()[$item->item_id] ?? null;
+        $product = $this->productCache()[$item->itemable_id] ?? null;
 
         if ($product === null) {
             return [];
@@ -883,8 +846,8 @@ new class extends Component
     {
         return once(function (): array {
             $productIds = $this->opportunity->items
-                ->where('item_type', Product::class)
-                ->pluck('item_id')
+                ->filter(fn (OpportunityItem $item): bool => $item->isProductBacked())
+                ->pluck('itemable_id')
                 ->filter()
                 ->unique()
                 ->all();
@@ -905,175 +868,6 @@ new class extends Component
         });
     }
 
-    private function sectionIdFromGroupKey(?string $groupKey): ?int
-    {
-        if ($groupKey !== null && str_starts_with($groupKey, 'section:')) {
-            return (int) substr($groupKey, strlen('section:'));
-        }
-
-        return null;
-    }
-
-    /**
-     * Resolve the destination parent section id from a section-drag group key:
-     * 'section-parent:{id}' nests under that section; 'section-parent:root' (or any
-     * other value) promotes to the top level (null parent).
-     */
-    private function parentIdFromGroupKey(?string $groupKey): ?int
-    {
-        if ($groupKey !== null && str_starts_with($groupKey, 'section-parent:')) {
-            $value = substr($groupKey, strlen('section-parent:'));
-
-            return $value === 'root' ? null : (int) $value;
-        }
-
-        return null;
-    }
-
-    /**
-     * Compute the new sort order of the destination parent's child sections after a
-     * section drag, placing the moved section at the requested position among its new
-     * siblings while preserving the relative order of the rest.
-     *
-     * @return array<int, int>
-     */
-    private function computeSiblingOrder(Opportunity $opportunity, int $movedId, int $position, ?int $targetParentId): array
-    {
-        $siblings = $opportunity->sections
-            ->where('parent_id', $targetParentId)
-            ->sortBy([['sort_order', 'asc'], ['id', 'asc']])
-            ->reject(fn (OpportunitySection $s) => $s->id === $movedId)
-            ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
-            ->values()
-            ->all();
-
-        $position = max(0, min($position, count($siblings)));
-        array_splice($siblings, $position, 0, [$movedId]);
-
-        return $siblings;
-    }
-
-    /**
-     * Compute the new global sort order after a drag, placing the moved line at the
-     * requested position within its destination group while preserving the relative
-     * order of every other line.
-     *
-     * @return array<int, int>
-     */
-    private function computeGlobalOrder(Opportunity $opportunity, int $movedId, int $position, ?int $targetSectionId): array
-    {
-        $items = $opportunity->items->sortBy('sort_order')->values();
-
-        // Lines currently in the destination group (excluding the moved one), in order.
-        $destination = $items
-            ->filter(fn (OpportunityItem $i) => $i->id !== $movedId && $i->section_id === $targetSectionId)
-            ->values();
-
-        $position = max(0, min($position, $destination->count()));
-
-        $reorderedDestination = $destination->all();
-        array_splice($reorderedDestination, $position, 0, [$movedId]);
-        $reorderedDestinationIds = array_map(
-            fn ($entry) => $entry instanceof OpportunityItem ? $entry->id : $entry,
-            $reorderedDestination,
-        );
-
-        // Stitch: walk the original order, emit destination ids at the slot of the
-        // first destination member, drop the moved id from its old slot, keep the rest.
-        $ordered = [];
-        $emittedDestination = false;
-        $destinationIdSet = array_flip($reorderedDestinationIds);
-
-        foreach ($items as $item) {
-            if ($item->id === $movedId) {
-                continue;
-            }
-
-            if (isset($destinationIdSet[$item->id])) {
-                if (! $emittedDestination) {
-                    foreach ($reorderedDestinationIds as $id) {
-                        $ordered[] = $id;
-                    }
-                    $emittedDestination = true;
-                }
-
-                continue;
-            }
-
-            $ordered[] = $item->id;
-        }
-
-        if (! $emittedDestination) {
-            foreach ($reorderedDestinationIds as $id) {
-                $ordered[] = $id;
-            }
-        }
-
-        return $ordered;
-    }
-
-    private function assignNewestToDestination(?string $destination): void
-    {
-        $newest = OpportunityItem::query()
-            ->where('opportunity_id', $this->opportunity->id)
-            ->orderByDesc('id')
-            ->first();
-
-        if ($newest === null) {
-            return;
-        }
-
-        // An explicit "into …" destination wins. Otherwise (no destination, or an
-        // 'auto:…'/'group:…' key) find-or-create the real auto-group section for the
-        // line's product category so the line always lands in a persisted section
-        // rather than the legacy null-section render path.
-        $sectionId = $this->sectionIdFromGroupKey($destination)
-            ?? $this->findOrCreateAutoGroupSection($newest)->id;
-
-        (new AssignItemToSection)($newest, AssignItemToSectionData::from(['section_id' => $sectionId]));
-    }
-
-    /**
-     * Find (or create) the real, persisted auto-group section for a line's product
-     * category. Matches on `(opportunity_id, auto_group_key)`; a freshly created
-     * auto-group section is appended after every existing section (top level).
-     *
-     * Plain (non-event-sourced) row, like every other section.
-     */
-    private function findOrCreateAutoGroupSection(OpportunityItem $item): OpportunitySection
-    {
-        [$key, $label] = app(\App\Services\Opportunities\OpportunityAutoGroupResolver::class)
-            ->resolveLegacySectionKey($item, $this->productCache());
-
-        $existing = OpportunitySection::query()
-            ->where('opportunity_id', $this->opportunity->id)
-            ->where('auto_group_key', $key)
-            ->first();
-
-        if ($existing !== null) {
-            return $existing;
-        }
-
-        $nextOrder = (int) OpportunitySection::query()
-            ->where('opportunity_id', $this->opportunity->id)
-            ->whereNull('parent_id')
-            ->max('sort_order');
-
-        $nextOrder = OpportunitySection::query()
-            ->where('opportunity_id', $this->opportunity->id)
-            ->whereNull('parent_id')
-            ->exists() ? $nextOrder + 1 : 0;
-
-        return OpportunitySection::create([
-            'opportunity_id' => $this->opportunity->id,
-            'parent_id' => null,
-            'auto_group_key' => $key,
-            'name' => $label,
-            'sort_order' => $nextOrder,
-        ]);
-    }
-
     private function findItem(int $itemId): OpportunityItem
     {
         $item = OpportunityItem::query()
@@ -1090,20 +884,20 @@ new class extends Component
         return $item;
     }
 
-    private function findSection(int $sectionId): OpportunitySection
+    private function findGroup(int $groupId): OpportunityItem
     {
-        $section = OpportunitySection::query()
+        $group = OpportunityItem::query()
             ->where('opportunity_id', $this->opportunity->id)
-            ->whereKey($sectionId)
+            ->whereKey($groupId)
             ->first();
 
-        if ($section === null) {
+        if ($group === null || $group->item_type !== OpportunityItemType::Group) {
             throw ValidationException::withMessages([
-                'section' => 'The section could not be found.',
+                'group' => 'The group could not be found.',
             ]);
         }
 
-        return $section;
+        return $group;
     }
 
     /**
@@ -1276,34 +1070,26 @@ new class extends Component
                         @php
                             $collapsedKey = $group['key'];
                             $depth = $group['depth'] ?? 0;
-                            // The parent key this section header belongs to, for the
-                            // section-drag sort group ('root' for a top-level section).
-                            $sectionParentKey = $group['kind'] === 'section'
-                                ? ('section-parent:'.($group['parent_id'] ?? 'root'))
+                            $isPersistedGroup = ($group['group_id'] ?? null) !== null;
+                            $groupParentKey = $isPersistedGroup
+                                ? ('group-parent:'.($group['parent_group_id'] ?? 'root'))
                                 : null;
                         @endphp
-                        {{-- Group / section header (its own tbody — valid as a direct table child).
-                             For a custom section, the header row is a wire:sort item in the
-                             'opportunity-sections' group keyed by its PARENT, so dragging it
-                             among its siblings reorders, and dragging it into another section's
-                             group (a different parent key) re-parents (nests) it. --}}
+                        {{-- Group header (its own tbody — valid as a direct table child). --}}
                         <tbody wire:key="grp-{{ $group['key'] }}"
-                            @if($editable && $group['kind'] === 'section')
+                            @if($editable && $isPersistedGroup)
                                 wire:sort="handleSectionSort"
                                 wire:sort:group="opportunity-sections"
-                                wire:sort:group-id="{{ $sectionParentKey }}"
+                                wire:sort:group-id="{{ $groupParentKey }}"
                             @endif
                         >
                             <tr class="s-table-group-row"
-                                @if($editable && $group['kind'] === 'section')
-                                    wire:sort:item="{{ $group['section_id'] }}"
+                                @if($editable && $isPersistedGroup)
+                                    wire:sort:item="{{ $group['group_id'] }}"
                                 @endif
                             >
-                                {{-- Drag handle in the leading column, left-aligned in the
-                                     SAME leading position as the line-item rows' ⠿ handle.
-                                     Auto + user sections are identical here. --}}
                                 <td class="text-center">
-                                    @if($editable && $group['kind'] === 'section')
+                                    @if($editable && $isPersistedGroup)
                                         <span wire:sort:handle class="cursor-grab text-[var(--text-faint)] select-none" title="Drag to reorder or nest this group">⠿</span>
                                     @endif
                                 </td>
@@ -1316,7 +1102,7 @@ new class extends Component
                                             x-on:click="toggleGroup('{{ $collapsedKey }}')"
                                         >
                                             <span class="text-xs text-[var(--text-faint)]" x-text="isCollapsed('{{ $collapsedKey }}') ? '▸' : '▾'"></span>
-                                            @if($group['kind'] === 'section')
+                                            @if(in_array($group['kind'], ['group', 'auto'], true))
                                                 <span class="s-badge s-badge-blue">{{ $depth > 0 ? 'Sub-section' : 'Section' }}</span>
                                             @endif
                                             <span>{{ $group['label'] }}</span>
@@ -1325,17 +1111,15 @@ new class extends Component
                                     </div>
                                 </td>
                                 <td class="text-left font-mono font-semibold">{{ $group['subtotal_formatted'] }}</td>
-                                <td class="text-center" @if($editable && $group['kind'] === 'section') wire:sort:ignore @endif>
-                                    @if($editable && $group['kind'] === 'section')
+                                <td class="text-center" @if($editable && $isPersistedGroup) wire:sort:ignore @endif>
+                                    @if($editable && $isPersistedGroup)
                                         <div class="relative inline-block" x-data="rowActionsMenu()">
                                             <button type="button" class="s-btn-icon" x-ref="trigger" x-on:click="toggle()"
                                                 wire:loading.attr="disabled"
-                                                wire:target="deleteSection({{ $group['section_id'] }}),renameSection({{ $group['section_id'] }})">⋯</button>
+                                                wire:target="deleteSection({{ $group['group_id'] }}),renameSection({{ $group['group_id'] }})">⋯</button>
                                             <x-signals.spinner size="xs"
                                                 wire:loading
-                                                wire:target="deleteSection({{ $group['section_id'] }}),renameSection({{ $group['section_id'] }})" />
-                                            {{-- Teleported to <body> so the table-wrap overflow can't clip it; positioned
-                                                 fixed against the trigger's rect, right-aligned and above content. --}}
+                                                wire:target="deleteSection({{ $group['group_id'] }}),renameSection({{ $group['group_id'] }})" />
                                             <template x-teleport="body">
                                                 <div class="s-dropdown" x-show="open" x-cloak
                                                     x-on:click.outside="open = false"
@@ -1343,12 +1127,12 @@ new class extends Component
                                                     :style="menuStyle"
                                                     style="position: fixed; z-index: 1000; min-width: 180px; max-width: 240px;">
                                                     <button type="button" class="s-dropdown-item w-full text-left"
-                                                        x-on:click="open = false; $dispatch('open-modal', { id: 'rename-section', sectionId: {{ $group['section_id'] }}, name: @js($group['label']) })">
+                                                        x-on:click="open = false; $dispatch('open-modal', { id: 'rename-section', sectionId: {{ $group['group_id'] }}, name: @js($group['label']) })">
                                                         Rename
                                                     </button>
                                                     <button type="button" class="s-dropdown-item w-full text-left" style="color: var(--red);"
                                                         x-on:click="open = false"
-                                                        wire:click="deleteSection({{ $group['section_id'] }})"
+                                                        wire:click="deleteSection({{ $group['group_id'] }})"
                                                         wire:confirm="Delete this group? Its line items move to Ungrouped until re-grouped.">
                                                         Delete
                                                     </button>
@@ -1538,17 +1322,17 @@ new class extends Component
                                                                     {{ $line['is_optional'] ? 'Mark required' : 'Mark optional' }}
                                                                 </button>
                                                                 <hr class="s-dropdown-sep">
-                                                                @if($line['section_id'] !== null)
+                                                                @if($line['parent_group_id'] !== null)
                                                                     <button type="button" class="s-dropdown-item w-full text-left" x-on:click="open = false" wire:click="assignToSection({{ $line['id'] }}, null)">
                                                                         Move to auto group
                                                                     </button>
                                                                 @endif
                                                                 @foreach($this->groups as $g)
-                                                                    @if($g['kind'] === 'section' && $g['section_id'] !== $line['section_id'])
+                                                                    @if($g['kind'] === 'group' && ($g['group_id'] ?? null) !== $line['parent_group_id'])
                                                                         <button type="button" class="s-dropdown-item w-full text-left"
-                                                                            wire:key="assign-{{ $line['id'] }}-{{ $g['section_id'] }}"
+                                                                            wire:key="assign-{{ $line['id'] }}-{{ $g['group_id'] }}"
                                                                             x-on:click="open = false"
-                                                                            wire:click="assignToSection({{ $line['id'] }}, {{ $g['section_id'] }})">
+                                                                            wire:click="assignToSection({{ $line['id'] }}, {{ $g['group_id'] }})">
                                                                             Move to &ldquo;{{ $g['label'] }}&rdquo;
                                                                         </button>
                                                                     @endif

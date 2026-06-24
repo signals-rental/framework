@@ -5,6 +5,7 @@ use App\Models\OpportunitySection;
 use App\Models\Product;
 use App\Services\Opportunities\OpportunityAutoGroupResolver;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Eager group-unification backfill: turn every render-time auto group into a real,
@@ -34,7 +35,7 @@ return new class extends Migration
         $resolver = app(OpportunityAutoGroupResolver::class);
 
         // Opportunity ids that still carry at least one null-section line.
-        $opportunityIds = OpportunityItem::query()
+        $opportunityIds = DB::table('opportunity_items')
             ->whereNull('section_id')
             ->distinct()
             ->pluck('opportunity_id');
@@ -43,14 +44,16 @@ return new class extends Migration
             $opportunityId = (int) $opportunityId;
 
             // Pre-load the products referenced by this opportunity's null-section
-            // lines (with their group tree) so resolving is N+1-free.
-            $items = OpportunityItem::query()
+            // lines (with their group tree) so resolving is N+1-free. Use the query
+            // builder so this migration stays runnable against the pre-cutover schema
+            // (polymorphic item_id/item_type columns) without the unified model casts.
+            $rows = DB::table('opportunity_items')
                 ->where('opportunity_id', $opportunityId)
                 ->whereNull('section_id')
                 ->get();
 
             $products = Product::query()
-                ->whereIn('id', $items
+                ->whereIn('id', $rows
                     ->where('item_type', Product::class)
                     ->pluck('item_id')
                     ->filter()
@@ -74,7 +77,15 @@ return new class extends Migration
             // Find-or-create one section per distinct bucket key, caching by key.
             $sectionByKey = [];
 
-            foreach ($items as $item) {
+            foreach ($rows as $row) {
+                $item = new OpportunityItem;
+                $item->forceFill([
+                    'id' => $row->id,
+                    'itemable_id' => $row->item_id,
+                    'itemable_type' => $row->item_type,
+                ]);
+                $item->exists = true;
+
                 [$key, $label] = $resolver->resolveLegacySectionKey($item, $products);
 
                 if (! isset($sectionByKey[$key])) {
@@ -96,8 +107,12 @@ return new class extends Migration
                     $sectionByKey[$key] = $section;
                 }
 
-                $item->section_id = $sectionByKey[$key]->id;
-                $item->saveQuietly();
+                DB::table('opportunity_items')
+                    ->where('id', $row->id)
+                    ->update([
+                        'section_id' => $sectionByKey[$key]->id,
+                        'updated_at' => now(),
+                    ]);
             }
         }
     }

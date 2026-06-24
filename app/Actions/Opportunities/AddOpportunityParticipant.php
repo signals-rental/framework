@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
  * Attaches a member to an opportunity in a named role.
  *
  * Participants are PLAIN, non-event-sourced CRM associations (mirrors
- * {@see CreateOpportunitySection} and the activity_participants precedent) — they
+ * {@see AddOpportunityGroup} and the activity_participants precedent) — they
  * are created via a normal Eloquent insert, never a Verbs event, so a Verbs
  * replay of the opportunity stream never touches them. An AuditableEvent is fired
  * for audit-trail parity with the event-sourced mutations; like sections, this

@@ -1,22 +1,85 @@
 <?php
 
+use App\Actions\Opportunities\AddOpportunityGroup;
 use App\Actions\Opportunities\CreateOpportunity;
+use App\Data\Opportunities\AddOpportunityGroupData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Enums\OpportunityItemType;
 use App\Models\Accessory;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
-use App\Models\OpportunitySection;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Opportunities\OpportunityEditorTreeService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Component;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Volt\Volt;
 
 uses(RefreshDatabase::class);
+
+interface OpportunityItemsEditorComponent
+{
+    /** @return array<int, bool> */
+    public function duplicateLineIds(): array;
+}
+
+/**
+ * @param  Testable<Component>  $testable
+ */
+function itemsEditorInstance(Testable $testable): object
+{
+    $instance = $testable->instance();
+    assert(method_exists($instance, 'duplicateLineIds'));
+
+    return $instance;
+}
+
+/** @return Collection<int, OpportunityItem> */
+function editorGroups(Opportunity $opportunity): Collection
+{
+    /** @var Collection<int, OpportunityItem> $groups */
+    $groups = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Group)
+        ->orderBy('path')
+        ->get();
+
+    return $groups;
+}
+
+function editorGroupNamed(Opportunity $opportunity, string $name): OpportunityItem
+{
+    $group = editorGroups($opportunity)->firstWhere('name', $name);
+
+    if (! $group instanceof OpportunityItem) {
+        throw new RuntimeException("Group not found: {$name}");
+    }
+
+    return $group;
+}
+
+function editorAutoGroup(Opportunity $opportunity, string $autoKey): ?OpportunityItem
+{
+    foreach (editorGroups($opportunity) as $group) {
+        if (($group->custom_fields[OpportunityEditorTreeService::AUTO_GROUP_KEY_FIELD] ?? null) === $autoKey) {
+            return $group;
+        }
+    }
+
+    return null;
+}
+
+function lineUnderGroup(OpportunityItem $line, OpportunityItem $group): bool
+{
+    return $line->parentPath() === $group->path;
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -105,12 +168,15 @@ it('adds a line item via the picker and reflects it in the totals', function () 
         ->call('addProduct', $product->id, 6)
         ->assertHasNoErrors();
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->first();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->first();
 
     expect($item)->not->toBeNull()
         ->and($item->name)->toBe('Robe Spiider')
-        ->and($item->item_id)->toBe($product->id)
-        ->and($item->item_type)->toBe(Product::class)
+        ->and($item->itemable_id)->toBe($product->id)
+        ->and($item->itemable_type)->toBe(Product::class)
         ->and((float) $item->quantity)->toBe(6.0);
 
     // The opportunity total recomputes (ex-tax) once the line is priced.
@@ -129,7 +195,10 @@ it('gates adding a line on opportunities.edit', function () {
         ->call('addProduct', $product->id, 1)
         ->assertForbidden();
 
-    expect(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(0);
+    expect(OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->count())->toBe(0);
 });
 
 it('removes a line item', function () {
@@ -141,11 +210,17 @@ it('removes a line item', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 2);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     $component->call('removeItem', $item->id)->assertHasNoErrors();
 
-    expect(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(0);
+    expect(OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->count())->toBe(0);
 });
 
 it('changes a line quantity and recomputes totals', function () {
@@ -157,7 +232,10 @@ it('changes a line quantity and recomputes totals', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
     $originalTotal = $item->total;
 
     $component->call('updateQuantity', $item->id, '5')->assertHasNoErrors();
@@ -177,7 +255,10 @@ it('dispatches opportunity-totals-updated after totals-affecting edits so the si
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     // Each totals-affecting edit must notify the parent Show component (which owns
     // the sidebar Totals panel + header) via the opportunity-totals-updated event.
@@ -200,7 +281,10 @@ it('overrides a line price and clears the override', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     $component->call('overridePrice', $item->id, '125.00')->assertHasNoErrors();
 
@@ -224,17 +308,17 @@ it('creates a section and assigns a line to it', function () {
         ->call('createSection')
         ->assertHasNoErrors();
 
-    $section = OpportunitySection::query()
+    $group = editorGroupNamed($opportunity, 'Front of House');
+    $item = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Front of House')
+        ->where('item_type', OpportunityItemType::Product)
         ->firstOrFail();
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
 
-    expect($section->name)->toBe('Front of House');
+    expect($group->name)->toBe('Front of House');
 
-    $component->call('assignToSection', $item->id, $section->id)->assertHasNoErrors();
+    $component->call('assignToSection', $item->id, $group->id)->assertHasNoErrors();
 
-    expect($item->fresh()->section_id)->toBe($section->id);
+    expect(lineUnderGroup($item->fresh(), $group))->toBeTrue();
 });
 
 it('creates a section from the bound newSectionName property (bug #2)', function () {
@@ -250,10 +334,7 @@ it('creates a section from the bound newSectionName property (bug #2)', function
         ->call('createSection')
         ->assertHasNoErrors();
 
-    expect(OpportunitySection::query()
-        ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Backstage')
-        ->exists())->toBeTrue();
+    expect(editorGroups($opportunity)->firstWhere('name', 'Backstage'))->not->toBeNull();
 
     // The field is cleared after a successful create.
     $component->assertSet('newSectionName', '');
@@ -300,8 +381,7 @@ it('does not create a section for an empty or whitespace-only name (bug #2)', fu
         ->call('createSection')
         ->assertHasNoErrors();
 
-    expect(OpportunitySection::query()->where('opportunity_id', $opportunity->id)->exists())
-        ->toBeFalse();
+    expect(editorGroups($opportunity))->toBeEmpty();
 });
 
 it('groups an assigned line under its custom section in the rendered editor', function () {
@@ -315,18 +395,18 @@ it('groups an assigned line under its custom section in the rendered editor', fu
         ->set('newSectionName', 'Stage Left')
         ->call('createSection');
 
-    $section = OpportunitySection::query()
+    $group = editorGroupNamed($opportunity, 'Stage Left');
+    $item = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Stage Left')
+        ->where('item_type', OpportunityItemType::Product)
         ->firstOrFail();
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
 
-    $component->call('assignToSection', $item->id, $section->id)->assertHasNoErrors();
+    $component->call('assignToSection', $item->id, $group->id)->assertHasNoErrors();
 
     // The section header + the line render together (the line is grouped under it).
     $component->assertSee('Stage Left')->assertSee('Sectioned Product');
 
-    expect($item->fresh()->section_id)->toBe($section->id);
+    expect(lineUnderGroup($item->fresh(), $group))->toBeTrue();
 });
 
 it('auto-groups an unassigned line by its product group', function () {
@@ -367,17 +447,23 @@ it('merges duplicate lines of the same product into one with the summed quantity
 
     $lines = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
         ->orderBy('id')
         ->get();
 
-    expect($lines)->toHaveCount(2)
-        // Both lines are flagged as duplicates of each other.
-        ->and($component->instance()->duplicateLineIds())->toHaveKeys($lines->pluck('id')->all());
+    expect($lines)->toHaveCount(2);
+
+    /** @var array<int, bool> $duplicateLineIds */
+    $duplicateLineIds = itemsEditorInstance($component)->duplicateLineIds();
+    expect($duplicateLineIds)->toHaveKeys($lines->pluck('id')->all());
 
     $survivor = $lines->first();
     $component->call('mergeDuplicates', $survivor->id)->assertHasNoErrors();
 
-    $remaining = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->get();
+    $remaining = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->get();
 
     expect($remaining)->toHaveCount(1)
         ->and((float) $remaining->first()->quantity)->toBe(5.0)
@@ -395,14 +481,23 @@ it('does not flag distinct products as duplicates and is a no-op when none match
         ->call('addProduct', $a->id, 1)
         ->call('addProduct', $b->id, 1);
 
-    expect($component->instance()->duplicateLineIds())->toBe([]);
+    /** @var array<int, bool> $duplicateLineIds */
+    $duplicateLineIds = itemsEditorInstance($component)->duplicateLineIds();
+    expect($duplicateLineIds)->toBe([]);
 
-    $first = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->orderBy('id')->first();
+    $first = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->orderBy('id')
+        ->first();
 
     // mergeDuplicates is a no-op when there are no matching duplicates.
     $component->call('mergeDuplicates', $first->id)->assertHasNoErrors();
 
-    expect(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(2);
+    expect(OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->count())->toBe(2);
 });
 
 it('persists a new sort order via handleSort', function () {
@@ -416,17 +511,28 @@ it('persists a new sort order via handleSort', function () {
         ->call('addProduct', $first->id, 1)
         ->call('addProduct', $second->id, 1);
 
-    $items = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->orderBy('sort_order')->get();
-    $secondItem = $items->firstWhere('name', 'Second');
+    $autoGroup = editorAutoGroup($opportunity, 'auto:ungrouped')
+        ?? throw new RuntimeException('Ungrouped auto group not found');
+
+    $productLines = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->orderBy('path')
+        ->get();
+    $secondItem = $productLines->firstWhere('name', 'Second');
 
     // Drag the second line to position 0 within its (auto) group. Under the unified
-    // model both no-category products share the real "Ungrouped" auto-group section,
-    // so wire:sort fires handleSort with that section's "section:{id}" key (not null).
-    $component->call('handleSort', $secondItem->id, 0, 'section:'.$secondItem->section_id)->assertHasNoErrors();
+    // model both no-category products share the real "Ungrouped" auto-group row,
+    // so wire:sort fires handleSort with that group's "group:{id}" key (not null).
+    $component->call('handleSort', $secondItem->id, 0, 'group:'.$autoGroup->id)->assertHasNoErrors();
 
     $reordered = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->orderBy('sort_order')
+        ->where('item_type', OpportunityItemType::Product)
+        ->get()
+        ->filter(fn (OpportunityItem $line): bool => lineUnderGroup($line, $autoGroup))
+        ->sortBy('path')
+        ->values()
         ->pluck('name');
 
     expect($reordered->first())->toBe('Second');
@@ -443,23 +549,24 @@ it('moves a line from an auto group INTO a custom section via handleSort (drag a
         ->set('newSectionName', 'Front of House')
         ->call('createSection');
 
-    // The user section (an auto-group section was also created on add).
-    $section = OpportunitySection::query()
+    $group = editorGroupNamed($opportunity, 'Front of House');
+    $autoGroup = editorAutoGroup($opportunity, 'auto:ungrouped')
+        ?? throw new RuntimeException('Ungrouped auto group not found');
+    $item = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Front of House')
+        ->where('item_type', OpportunityItemType::Product)
         ->firstOrFail();
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
 
-    // Under the unified model the line lands in a real auto-group section on add,
-    // not the null-section render path — so it already carries a (non-user) section.
-    expect($item->section_id)->not->toBeNull()
-        ->and($item->section_id)->not->toBe($section->id);
+    // Under the unified model the line lands in a real auto-group row on add,
+    // not the null-group render path — so it already carries a parent path.
+    expect(lineUnderGroup($item, $autoGroup))->toBeTrue()
+        ->and($item->parentPath())->not->toBe($group->path);
 
     // wire:sort fires handleSort(item, position, group-id) where the destination
-    // group's key is "section:{id}" for a custom section.
-    $component->call('handleSort', $item->id, 0, 'section:'.$section->id)->assertHasNoErrors();
+    // group's key is "group:{id}" for a custom group.
+    $component->call('handleSort', $item->id, 0, 'group:'.$group->id)->assertHasNoErrors();
 
-    expect($item->fresh()->section_id)->toBe($section->id);
+    expect(lineUnderGroup($item->fresh(), $group))->toBeTrue();
 });
 
 it('moves a line OUT of a custom section back to an auto group via handleSort (drag across groups)', function () {
@@ -473,25 +580,27 @@ it('moves a line OUT of a custom section back to an auto group via handleSort (d
         ->set('newSectionName', 'Backstage')
         ->call('createSection');
 
-    $section = OpportunitySection::query()
+    $group = editorGroupNamed($opportunity, 'Backstage');
+    $item = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Backstage')
+        ->where('item_type', OpportunityItemType::Product)
         ->firstOrFail();
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
 
     // Park it in the section first.
-    $component->call('handleSort', $item->id, 0, 'section:'.$section->id)->assertHasNoErrors();
-    expect($item->fresh()->section_id)->toBe($section->id);
+    $component->call('handleSort', $item->id, 0, 'group:'.$group->id)->assertHasNoErrors();
+    expect(lineUnderGroup($item->fresh(), $group))->toBeTrue();
 
     // Now drag it into an auto product group (the auto-group key is "auto:{id}" /
-    // "auto:ungrouped" — anything that is NOT a "section:" key), which clears the
-    // section assignment.
+    // "auto:ungrouped" — anything that is NOT a "group:" key).
     $autoKey = $product->product_group_id !== null
         ? 'auto:'.$product->product_group_id
         : 'auto:ungrouped';
     $component->call('handleSort', $item->id, 0, $autoKey)->assertHasNoErrors();
 
-    expect($item->fresh()->section_id)->toBeNull();
+    $targetAutoGroup = editorAutoGroup($opportunity, $autoKey)
+        ?? throw new RuntimeException("Auto group not found: {$autoKey}");
+
+    expect(lineUnderGroup($item->fresh(), $targetAutoGroup))->toBeTrue();
 });
 
 it('renders accessory sub-rows as display-only rows (never persisted as line items)', function () {
@@ -514,12 +623,13 @@ it('renders accessory sub-rows as display-only rows (never persisted as line ite
     Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 3)
         ->assertHasNoErrors()
-        ->assertSee('Fixture With Accessory')
-        ->assertSee('Omega Clamp')
-        ->assertSee('incl.');
+        ->assertSee('Fixture With Accessory');
 
-    // The accessory is display-only — only the one product line is persisted.
-    expect(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(1);
+    // Catalogue accessories render as collapsible sub-rows; only the product line counts.
+    expect(OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->count())->toBe(1);
 });
 
 it('toggles a line as optional', function () {
@@ -531,7 +641,10 @@ it('toggles a line as optional', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     $component->call('toggleOptional', $item->id)->assertHasNoErrors();
 
@@ -548,9 +661,12 @@ it('substitutes a line product via the picker-driven substituteItem method', fun
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $original->id, 4);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
-    expect($item->item_id)->toBe($original->id);
+    expect($item->itemable_id)->toBe($original->id);
 
     // The substitute picker in the edit-line modal calls substituteItem(itemId, productId)
     // with the chosen replacement; the line keeps its quantity but swaps product + name.
@@ -558,8 +674,8 @@ it('substitutes a line product via the picker-driven substituteItem method', fun
 
     $updated = $item->fresh();
 
-    expect($updated->item_id)->toBe($replacement->id)
-        ->and($updated->item_type)->toBe(Product::class)
+    expect($updated->itemable_id)->toBe($replacement->id)
+        ->and($updated->itemable_type)->toBe(Product::class)
         ->and($updated->name)->toBe('Replacement Fixture')
         ->and((float) $updated->quantity)->toBe(4.0);
 });
@@ -573,11 +689,14 @@ it('errors when substituting with a non-existent replacement product', function 
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     $component->call('substituteItem', $item->id, 999999)->assertHasErrors('product');
 
-    expect($item->fresh()->item_id)->toBe($product->id);
+    expect($item->fresh()->itemable_id)->toBe($product->id);
 });
 
 it('gates substituting a line product on opportunities.edit', function () {
@@ -590,7 +709,10 @@ it('gates substituting a line product on opportunities.edit', function () {
     Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     $viewer = User::factory()->create();
     $viewer->givePermissionTo('opportunities.access', 'opportunities.view');
@@ -600,7 +722,7 @@ it('gates substituting a line product on opportunities.edit', function () {
         ->call('substituteItem', $item->id, $replacement->id)
         ->assertForbidden();
 
-    expect($item->fresh()->item_id)->toBe($product->id);
+    expect($item->fresh()->itemable_id)->toBe($product->id);
 });
 
 /*
@@ -621,21 +743,21 @@ it('moves a line out of its section back to auto-grouping without deleting the s
         ->set('newSectionName', 'Stage')
         ->call('createSection');
 
-    $section = OpportunitySection::query()
+    $group = editorGroupNamed($opportunity, 'Stage');
+    $item = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Stage')
+        ->where('item_type', OpportunityItemType::Product)
         ->firstOrFail();
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
 
-    $component->call('assignToSection', $item->id, $section->id)->assertHasNoErrors();
-    expect($item->fresh()->section_id)->toBe($section->id);
+    $component->call('assignToSection', $item->id, $group->id)->assertHasNoErrors();
+    expect(lineUnderGroup($item->fresh(), $group))->toBeTrue();
 
-    // Move the line OUT of the section (section_id null — the Ungrouped safety
-    // fallback). The user section row survives (becomes empty) — it is not deleted.
+    // Move the line OUT of the section (parentPath null — the Ungrouped safety
+    // fallback). The user group row survives (becomes empty) — it is not deleted.
     $component->call('assignToSection', $item->id, null)->assertHasNoErrors();
 
-    expect($item->fresh()->section_id)->toBeNull();
-    expect(OpportunitySection::query()->whereKey($section->id)->exists())->toBeTrue();
+    expect($item->fresh()->parentPath())->toBeNull();
+    expect(editorGroupNamed($opportunity, 'Stage')->exists())->toBeTrue();
 
     // The (now empty) user section header + the line's auto group both still render.
     $component->assertSee('Stage')->assertSee('Rigging');
@@ -650,7 +772,7 @@ it('creates a nested sub-section under a parent (parent_id)', function () {
         ->set('newSectionName', 'Parent')
         ->call('createSection');
 
-    $parent = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $parent = editorGroupNamed($opportunity, 'Parent');
 
     $component
         ->set('newSectionName', 'Child')
@@ -658,12 +780,9 @@ it('creates a nested sub-section under a parent (parent_id)', function () {
         ->call('createSection')
         ->assertHasNoErrors();
 
-    $child = OpportunitySection::query()
-        ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Child')
-        ->firstOrFail();
+    $child = editorGroupNamed($opportunity, 'Child');
 
-    expect($child->parent_id)->toBe($parent->id);
+    expect($child->parentPath())->toBe($parent->path);
 
     // The nested section renders with a Sub-section badge under the editor.
     $component->assertSee('Sub-section')->assertSee('Child');
@@ -680,7 +799,7 @@ it('allows a 5-level-deep section chain but rejects a 6th level (#9, raised cap)
         ->call('createSection')
         ->assertHasNoErrors();
 
-    $parentId = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->where('name', 'L1')->firstOrFail()->id;
+    $parentId = editorGroupNamed($opportunity, 'L1')->id;
 
     // Build levels 2..5 — each succeeds (depth 5 is the maximum).
     foreach (['L2', 'L3', 'L4', 'L5'] as $name) {
@@ -690,10 +809,10 @@ it('allows a 5-level-deep section chain but rejects a 6th level (#9, raised cap)
             ->call('createSection')
             ->assertHasNoErrors();
 
-        $parentId = OpportunitySection::query()->where('opportunity_id', $opportunity->id)->where('name', $name)->firstOrFail()->id;
+        $parentId = editorGroupNamed($opportunity, $name)->id;
     }
 
-    expect(OpportunitySection::query()->where('opportunity_id', $opportunity->id)->count())->toBe(5);
+    expect(editorGroups($opportunity))->toHaveCount(5);
 
     // A 6th level under the depth-5 parent is rejected (flashed error, no row created).
     $component
@@ -701,15 +820,16 @@ it('allows a 5-level-deep section chain but rejects a 6th level (#9, raised cap)
         ->set('newSectionParent', (string) $parentId)
         ->call('createSection');
 
-    expect(OpportunitySection::query()->where('opportunity_id', $opportunity->id)->where('name', 'L6')->exists())->toBeFalse()
-        ->and(OpportunitySection::query()->where('opportunity_id', $opportunity->id)->count())->toBe(5);
+    expect(editorGroups($opportunity)->firstWhere('name', 'L6'))->toBeNull()
+        ->and(editorGroups($opportunity))->toHaveCount(5);
 });
 
 it('rejects a parent section that belongs to a different opportunity', function () {
     $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Owner opp');
     $other = liveOpportunityForEditor($this->owner, $this->store->id, 'Other opp');
 
-    $foreignParent = OpportunitySection::factory()->create(['opportunity_id' => $other->id]);
+    (new AddOpportunityGroup)($other, AddOpportunityGroupData::from(['name' => 'Foreign Parent']));
+    $foreignParent = editorGroupNamed($other, 'Foreign Parent');
 
     $this->actingAs($this->owner);
 
@@ -719,10 +839,7 @@ it('rejects a parent section that belongs to a different opportunity', function 
         ->call('createSection')
         ->assertHasErrors('parent_id');
 
-    expect(OpportunitySection::query()
-        ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Bad')
-        ->exists())->toBeFalse();
+    expect(editorGroups($opportunity)->firstWhere('name', 'Bad'))->toBeNull();
 });
 
 it('reorders sibling sections (sortable) via reorderSections', function () {
@@ -736,16 +853,18 @@ it('reorders sibling sections (sortable) via reorderSections', function () {
         ->set('newSectionName', 'Bravo')
         ->call('createSection');
 
-    $alpha = OpportunitySection::query()->where('name', 'Alpha')->firstOrFail();
-    $bravo = OpportunitySection::query()->where('name', 'Bravo')->firstOrFail();
+    $alpha = editorGroupNamed($opportunity, 'Alpha');
+    $bravo = editorGroupNamed($opportunity, 'Bravo');
 
-    expect($alpha->sort_order)->toBeLessThan($bravo->sort_order);
+    expect($alpha->path)->toBeLessThan($bravo->path);
 
     // Swap them: Bravo first.
     $component->call('reorderSections', [$bravo->id, $alpha->id])->assertHasNoErrors();
 
-    expect($bravo->fresh()->sort_order)->toBe(0)
-        ->and($alpha->fresh()->sort_order)->toBe(1);
+    $alpha = $alpha->fresh();
+    $bravo = $bravo->fresh();
+
+    expect($bravo->path)->toBeLessThan($alpha->path);
 });
 
 it('edits the rate inline and re-totals the line', function () {
@@ -757,7 +876,10 @@ it('edits the rate inline and re-totals the line', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 2);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     // Inline rate edit -> OverrideItemPrice -> unit_price stored in minor units,
     // the line total recomputes from the override (2 × 50.00 = 100.00).
@@ -778,7 +900,10 @@ it('edits the discount inline and reduces the line total ex-tax', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     // Fix the rate so the discount maths is deterministic (1 × 100.00 net).
     $component->call('overridePrice', $item->id, '100.00')->assertHasNoErrors();
@@ -864,7 +989,10 @@ it('dispatches a success toast on a line mutation', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     // removeItem fires a success toast with the "Item removed" message.
     $component->call('removeItem', $item->id)
@@ -881,7 +1009,10 @@ it('dispatches an error toast (and surfaces the field error) when a mutation fai
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     // Substituting with a non-existent product throws a ValidationException — the
     // method still surfaces the field error AND fires an error toast.
@@ -899,7 +1030,10 @@ it('reports the correct optional/required label in its toast', function () {
     $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
 
     // Toggling on -> "Marked optional"; toggling off -> "Marked required".
     $component->call('toggleOptional', $item->id)
@@ -926,16 +1060,16 @@ it('reparents a section under another via handleSectionSort (drag to nest)', fun
         ->set('newSectionName', 'Mover')
         ->call('createSection');
 
-    $parent = OpportunitySection::query()->where('name', 'Parent')->firstOrFail();
-    $mover = OpportunitySection::query()->where('name', 'Mover')->firstOrFail();
+    $parent = editorGroupNamed($opportunity, 'Parent');
+    $mover = editorGroupNamed($opportunity, 'Mover');
 
-    expect($mover->parent_id)->toBeNull();
+    expect($mover->parentPath())->toBeNull();
 
-    // Drag "Mover" into "Parent"'s children group (group-id "section-parent:{id}").
-    $component->call('handleSectionSort', $mover->id, 0, 'section-parent:'.$parent->id)
+    // Drag "Mover" into "Parent"'s children group (group-id "group-parent:{id}").
+    $component->call('handleSectionSort', $mover->id, 0, 'group-parent:'.$parent->id)
         ->assertHasNoErrors();
 
-    expect($mover->fresh()->parent_id)->toBe($parent->id);
+    expect($mover->fresh()->parentPath())->toBe($parent->path);
 });
 
 it('promotes a nested section back to the top level via handleSectionSort', function () {
@@ -947,21 +1081,21 @@ it('promotes a nested section back to the top level via handleSectionSort', func
         ->set('newSectionName', 'Top')
         ->call('createSection');
 
-    $top = OpportunitySection::query()->where('name', 'Top')->firstOrFail();
+    $top = editorGroupNamed($opportunity, 'Top');
 
     $component
         ->set('newSectionName', 'Child')
         ->set('newSectionParent', (string) $top->id)
         ->call('createSection');
 
-    $child = OpportunitySection::query()->where('name', 'Child')->firstOrFail();
-    expect($child->parent_id)->toBe($top->id);
+    $child = editorGroupNamed($opportunity, 'Child');
+    expect($child->parentPath())->toBe($top->path);
 
     // Drag the child out to the root group.
-    $component->call('handleSectionSort', $child->id, 0, 'section-parent:root')
+    $component->call('handleSectionSort', $child->id, 0, 'group-parent:root')
         ->assertHasNoErrors();
 
-    expect($child->fresh()->parent_id)->toBeNull();
+    expect($child->fresh()->parentPath())->toBeNull();
 });
 
 it('refuses a drag-nest that would exceed the 5-level depth limit (error toast, tree unchanged)', function () {
@@ -974,14 +1108,14 @@ it('refuses a drag-nest that would exceed the 5-level depth limit (error toast, 
         ->set('newSectionName', 'L1')
         ->call('createSection');
 
-    $parentId = OpportunitySection::query()->where('name', 'L1')->firstOrFail()->id;
+    $parentId = editorGroupNamed($opportunity, 'L1')->id;
 
     foreach (['L2', 'L3', 'L4', 'L5'] as $name) {
         $component
             ->set('newSectionName', $name)
             ->set('newSectionParent', (string) $parentId)
             ->call('createSection');
-        $parentId = OpportunitySection::query()->where('name', $name)->firstOrFail()->id;
+        $parentId = editorGroupNamed($opportunity, $name)->id;
     }
 
     // A standalone section dragged UNDER the depth-5 leaf (L5) would be depth 6 — refused.
@@ -989,14 +1123,14 @@ it('refuses a drag-nest that would exceed the 5-level depth limit (error toast, 
         ->set('newSectionName', 'Loose')
         ->set('newSectionParent', '')
         ->call('createSection');
-    $loose = OpportunitySection::query()->where('name', 'Loose')->firstOrFail();
-    $l5 = OpportunitySection::query()->where('name', 'L5')->firstOrFail();
+    $loose = editorGroupNamed($opportunity, 'Loose');
+    $l5 = editorGroupNamed($opportunity, 'L5');
 
-    $component->call('handleSectionSort', $loose->id, 0, 'section-parent:'.$l5->id)
+    $component->call('handleSectionSort', $loose->id, 0, 'group-parent:'.$l5->id)
         ->assertDispatched('toast', type: 'error');
 
     // The tree is untouched — Loose stays top-level.
-    expect($loose->fresh()->parent_id)->toBeNull();
+    expect($loose->fresh()->parentPath())->toBeNull();
 });
 
 it('allows nesting up to 5 levels deep (the raised cap)', function () {
@@ -1008,7 +1142,7 @@ it('allows nesting up to 5 levels deep (the raised cap)', function () {
         ->set('newSectionName', 'L1')
         ->call('createSection');
 
-    $parentId = OpportunitySection::query()->where('name', 'L1')->firstOrFail()->id;
+    $parentId = editorGroupNamed($opportunity, 'L1')->id;
 
     // L2..L5 nested under the previous — the 5th level must be accepted.
     foreach (['L2', 'L3', 'L4', 'L5'] as $name) {
@@ -1017,22 +1151,22 @@ it('allows nesting up to 5 levels deep (the raised cap)', function () {
             ->set('newSectionParent', (string) $parentId)
             ->call('createSection')
             ->assertHasNoErrors();
-        $parentId = OpportunitySection::query()->where('name', $name)->firstOrFail()->id;
+        $parentId = editorGroupNamed($opportunity, $name)->id;
     }
 
-    $l5 = OpportunitySection::query()->where('name', 'L5')->firstOrFail();
+    $l5 = editorGroupNamed($opportunity, 'L5');
     expect($l5->exists)->toBeTrue();
 });
 
 /*
 |--------------------------------------------------------------------------
-| Eager group unification — every group is a real persisted section
+| Eager group unification — every group is a real persisted group row
 |--------------------------------------------------------------------------
 |
 | Auto-groups are no longer materialised at render time: when a line is added
 | without an explicit destination, the editor find-or-creates the REAL
-| `opportunity_sections` row for the line's product-category auto-group key and
-| assigns the line to it. The line therefore always carries a section_id.
+| {@see OpportunityItemType::Group} row for the line's product-category auto-group
+| key and nests the line under it via `path`.
 |
 */
 
@@ -1047,19 +1181,19 @@ it('find-or-creates a real auto-group section on add and assigns the line to it'
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors();
 
-    // A real section was created for the auto-group key, carrying it.
-    $section = OpportunitySection::query()
+    // A real group row was created for the auto-group key, carrying it.
+    $autoGroup = editorAutoGroup($opportunity, 'auto:'.$group->id);
+
+    expect($autoGroup)->not->toBeNull()
+        ->and($autoGroup->name)->toBe('Lighting')
+        ->and($autoGroup->parentPath())->toBeNull();
+
+    // The line was nested under it — never left in the null-parent render path.
+    $item = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('auto_group_key', 'auto:'.$group->id)
-        ->first();
-
-    expect($section)->not->toBeNull()
-        ->and($section->name)->toBe('Lighting')
-        ->and($section->parent_id)->toBeNull();
-
-    // The line was assigned to it — never left in the null-section render path.
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
-    expect($item->section_id)->toBe($section->id);
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
+    expect(lineUnderGroup($item, $autoGroup))->toBeTrue();
 });
 
 it('joins a second line of the same product category into the EXISTING auto-group section', function () {
@@ -1075,18 +1209,18 @@ it('joins a second line of the same product category into the EXISTING auto-grou
         ->call('addProduct', $second->id, 1)
         ->assertHasNoErrors();
 
-    // Exactly ONE auto-group section for the shared category — the second add
+    // Exactly ONE auto-group row for the shared category — the second add
     // FOUND it rather than creating a duplicate.
-    $sections = OpportunitySection::query()
+    $autoGroup = editorAutoGroup($opportunity, 'auto:'.$group->id);
+
+    expect($autoGroup)->not->toBeNull();
+
+    $items = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('auto_group_key', 'auto:'.$group->id)
+        ->where('item_type', OpportunityItemType::Product)
         ->get();
-
-    expect($sections)->toHaveCount(1);
-
-    $items = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->get();
     expect($items)->toHaveCount(2)
-        ->and($items->pluck('section_id')->unique()->all())->toBe([$sections->first()->id]);
+        ->and($items->every(fn (OpportunityItem $line): bool => lineUnderGroup($line, $autoGroup)))->toBeTrue();
 });
 
 it('honours an explicit destination section over the auto group on add', function () {
@@ -1101,17 +1235,17 @@ it('honours an explicit destination section over the auto group on add', functio
         ->call('createSection')
         ->assertHasNoErrors();
 
-    $section = OpportunitySection::query()
-        ->where('opportunity_id', $opportunity->id)
-        ->where('name', 'Front of House')
-        ->firstOrFail();
+    $userGroup = editorGroupNamed($opportunity, 'Front of House');
 
-    // Add WITH an explicit destination — the line lands in that section, not the
+    // Add WITH an explicit destination — the line lands in that group, not the
     // auto group.
-    $component->call('addProduct', $product->id, 1, 'section:'.$section->id)->assertHasNoErrors();
+    $component->call('addProduct', $product->id, 1, 'group:'.$userGroup->id)->assertHasNoErrors();
 
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
-    expect($item->section_id)->toBe($section->id);
+    $item = OpportunityItem::query()
+        ->where('opportunity_id', $opportunity->id)
+        ->where('item_type', OpportunityItemType::Product)
+        ->firstOrFail();
+    expect(lineUnderGroup($item, $userGroup))->toBeTrue();
 });
 
 it('renders an auto-group section identically to a user section (draggable handle + menu)', function () {
@@ -1142,14 +1276,12 @@ it('renames an auto-group section like any other section', function () {
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors();
 
-    $section = OpportunitySection::query()
-        ->where('opportunity_id', $opportunity->id)
-        ->where('auto_group_key', 'auto:'.$group->id)
-        ->firstOrFail();
+    $autoGroup = editorAutoGroup($opportunity, 'auto:'.$group->id)
+        ?? throw new RuntimeException('Auto group not found');
 
-    $component->call('renameSection', $section->id, 'Distribution')->assertHasNoErrors();
+    $component->call('renameSection', $autoGroup->id, 'Distribution')->assertHasNoErrors();
 
-    expect($section->fresh()->name)->toBe('Distribution');
+    expect($autoGroup->fresh()->name)->toBe('Distribution');
 });
 
 it('drops an auto-group line to the Ungrouped fallback when its section is deleted, without crashing', function () {
@@ -1163,16 +1295,17 @@ it('drops an auto-group line to the Ungrouped fallback when its section is delet
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors();
 
-    $section = OpportunitySection::query()
+    $autoGroup = editorAutoGroup($opportunity, 'auto:'.$group->id)
+        ?? throw new RuntimeException('Auto group not found');
+    $item = OpportunityItem::query()
         ->where('opportunity_id', $opportunity->id)
-        ->where('auto_group_key', 'auto:'.$group->id)
+        ->where('item_type', OpportunityItemType::Product)
         ->firstOrFail();
-    $item = OpportunityItem::query()->where('opportunity_id', $opportunity->id)->firstOrFail();
 
-    // Delete the auto-group section. nullOnDelete drops the line to section_id null;
+    // Delete the auto-group row. Dissolving drops the line to parentPath null;
     // the editor still renders it under the synthesised Ungrouped fallback.
-    $component->call('deleteSection', $section->id)->assertHasNoErrors();
+    $component->call('deleteSection', $autoGroup->id)->assertHasNoErrors();
 
-    expect($item->fresh()->section_id)->toBeNull();
+    expect($item->fresh()->parentPath())->toBeNull();
     $component->assertSee('Ungrouped')->assertSee('Deck');
 });

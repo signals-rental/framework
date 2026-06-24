@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Gate;
  *
  * Participants are plain, non-event-sourced rows, so this is a normal Eloquent
  * delete; an AuditableEvent is fired for audit parity (audit-only, like
- * DeleteOpportunitySection — not a registered webhook event).
+ * RemoveOpportunityItem — not a registered webhook event).
  */
 class RemoveOpportunityParticipant
 {
