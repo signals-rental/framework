@@ -1,16 +1,14 @@
 {{--
-    Shared opportunity Actions modals (change-status picker + confirm-action).
+    Shared opportunity Actions modal (change-status picker).
 
     Included by the Show (overview) page AND every opportunity tab page so the
     Actions split-button in the shared header (showActions => true) works
-    identically everywhere. The wire-methods + computed data behind these modals
+    identically everywhere. The wire-methods + computed data behind this modal
     live in App\Livewire\Concerns\HasOpportunityActions, which each page `use`s.
 
     Expects the following from the using component's with():
       - $canChangeStatus  bool
       - $statusOptions    list<array{value:int,label:string}>
-      - $pendingLabel     string  (public property on the trait)
-      - $pendingMessage   string  (public property on the trait)
 --}}
 
 {{-- ============================================================ --}}
@@ -52,29 +50,24 @@
 @endif
 
 {{-- ============================================================ --}}
-{{--  SHARED ACTION-CONFIRM MODAL (B1)                             --}}
-{{--                                                               --}}
-{{--  A single styled modal confirms EVERY Actions split-button    --}}
-{{--  item (clone, archive, convert×2, reinstate, revert, unlock)  --}}
-{{--  in place of per-item native `wire:confirm` dialogs. Each     --}}
-{{--  header item stages the pending action (prepareAction) + opens --}}
-{{--  this modal; Confirm calls confirmPendingAction(), which       --}}
-{{--  dispatches to the staged, whitelisted wire method and closes  --}}
-{{--  the modal. Mirrors the index-page archive-confirm styling.    --}}
+{{--  CONVERT MODAL (draft→quotation, quotation→order)               --}}
 {{-- ============================================================ --}}
-<x-signals.modal name="confirm-action" title="{{ $pendingLabel ?: __('Confirm action') }}" size="sm">
-    <p class="text-sm text-[var(--text-muted)]">{{ $pendingMessage ?: __('Are you sure?') }}</p>
+@php
+    $activeConvert = ($pendingConvertKey ?? null) ? (($convertModalCopy ?? [])[$pendingConvertKey] ?? null) : null;
+@endphp
+<x-signals.modal name="convert-opportunity" title="{{ $activeConvert['title'] ?? __('Convert opportunity') }}" size="sm">
+    <p class="text-sm text-[var(--text-muted)]">{{ $activeConvert['message'] ?? __('Are you sure?') }}</p>
 
     <x-slot:footer>
-        <button type="button" x-on:click="$dispatch('close-modal', 'confirm-action')"
-                wire:loading.attr="disabled" wire:target="confirmPendingAction"
+        <button type="button" x-on:click="$dispatch('close-modal', 'convert-opportunity')"
+                wire:loading.attr="disabled" wire:target="confirmConvert"
                 class="s-btn s-btn-sm">{{ __('Cancel') }}</button>
         <button type="button"
-                wire:click="confirmPendingAction"
-                wire:loading.attr="disabled" wire:target="confirmPendingAction"
+                wire:click="confirmConvert"
+                wire:loading.attr="disabled" wire:target="confirmConvert"
                 class="s-btn s-btn-sm s-btn-primary">
-            <span wire:loading.remove wire:target="confirmPendingAction">{{ $pendingLabel ?: __('Confirm') }}</span>
-            <span wire:loading wire:target="confirmPendingAction" class="inline-flex items-center gap-1.5">
+            <span wire:loading.remove wire:target="confirmConvert">{{ $activeConvert['confirm'] ?? __('Confirm') }}</span>
+            <span wire:loading wire:target="confirmConvert" class="inline-flex items-center gap-1.5">
                 <x-signals.spinner size="xs" /> {{ __('Working…') }}
             </span>
         </button>

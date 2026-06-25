@@ -490,7 +490,7 @@ class OpportunityController extends Controller
                 statePrecondition: fn (): ?array => $isQuotation && $status->isRevertibleToDraft() ? null : ['Only an open, provisional quotation can be reverted to a draft.', 'invalid_state']),
 
             // Release FX/tax locks.
-            $this->describeAction($opportunity, 'unlock_locks', 'Unlock Rates', 'opportunities.unlock_rates', null,
+            $this->describeAction($opportunity, 'unlock_locks', $hasLocks ? 'Unlock rates' : 'Lock rates', 'opportunities.unlock_rates', null,
                 statePrecondition: fn (): ?array => $hasLocks ? null : ['The opportunity has no active FX/tax locks to release.', 'nothing_to_unlock']),
 
             // Clone — always available to a creator.

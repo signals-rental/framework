@@ -64,6 +64,7 @@ class AddOpportunityAccessory
                 path: $path,
                 name: $data->name,
                 quantity: $data->quantity,
+                manual_unit_price: $opportunity->deal_total !== null ? 0 : null,
             );
         });
 

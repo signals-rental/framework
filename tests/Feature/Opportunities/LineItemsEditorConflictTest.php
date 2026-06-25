@@ -2,8 +2,10 @@
 
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\CreateOpportunity;
+use App\Actions\Opportunities\RenameOpportunityItem;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Data\Opportunities\RenameOpportunityItemData;
 use App\Models\Opportunity;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
@@ -31,7 +33,7 @@ function conflictTestOpportunity(): Opportunity
     return Opportunity::query()->whereKey($created->id)->firstOrFail();
 }
 
-it('returns stale when persistTree base revision is behind the server', function () {
+it('applies persistTree despite revision drift when the node set is complete', function () {
     $opportunity = conflictTestOpportunity();
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
@@ -40,22 +42,34 @@ it('returns stale when persistTree base revision is behind the server', function
         'unit_price' => 1000,
     ]));
 
-    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity->fresh()]);
-    $revision = lineItemsEditorInstance($component)->treeRevision();
-
     (new AddOpportunityItem)($opportunity->fresh(), AddOpportunityItemData::from([
         'name' => 'Line B',
         'quantity' => '1',
         'unit_price' => 500,
     ]));
 
-    $items = $opportunity->fresh(['items'])->items;
-    $nodes = $items->map(fn ($item): array => ['id' => $item->id, 'depth' => $item->depth()])->all();
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity->fresh()]);
+    $revision = lineItemsEditorInstance($component)->treeRevision();
+
+    $first = $opportunity->fresh(['items'])->items->sortBy('path')->first();
+
+    (new RenameOpportunityItem)(
+        $first,
+        RenameOpportunityItemData::from(['name' => 'Line A renamed']),
+    );
+
+    $items = $opportunity->fresh(['items'])->items->sortBy('path')->values();
+    $nodes = $items->map(fn ($item): array => ['id' => $item->id, 'depth' => $item->depth()])->reverse()->values()->all();
 
     $result = lineItemsEditorInstance($component)->persistTree($nodes, $revision);
 
-    expect($result['stale'])->toBeTrue()
+    expect($result['stale'])->toBeFalse()
+        ->and($result['revision_drift'])->toBeTrue()
         ->and($result['revision'])->toBeGreaterThan($revision);
+
+    $serverIds = collect(lineItemsEditorInstance($component)->serverTree()['tree'])->pluck('id')->all();
+
+    expect($serverIds)->toBe(array_column($nodes, 'id'));
 });
 
 it('pullTree reconciles local pending rows against fresh server truth', function () {

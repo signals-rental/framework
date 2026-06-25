@@ -348,7 +348,6 @@ class OpportunityEditorTreeService
         }
 
         $linesByParent = [];
-        $linesByParent[''] = $promoted;
 
         foreach ($remaining as $line) {
             $parentKey = $this->parentKey($line->parentPath());
@@ -361,6 +360,10 @@ class OpportunityEditorTreeService
                 $remaining,
                 fn (OpportunityItem $candidate): bool => $candidate->parentPath() === $line->parentPath(),
             ));
+        }
+
+        if ($promoted !== []) {
+            $linesByParent[''] = array_merge($linesByParent[''] ?? [], $promoted);
         }
 
         $groupsByParent = [];
@@ -492,6 +495,7 @@ class OpportunityEditorTreeService
         return in_array($item->item_type, [
             OpportunityItemType::Product,
             OpportunityItemType::Service,
+            OpportunityItemType::Text,
         ], true);
     }
 

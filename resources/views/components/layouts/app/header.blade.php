@@ -909,6 +909,15 @@
                     push({ type = 'success', message = '' } = {}) {
                         if (!message) { return; }
 
+                        const now = Date.now();
+                        const last = window.__signalsToastLast || {};
+
+                        if (last.message === message && last.type === type && (now - (last.at || 0)) < 800) {
+                            return;
+                        }
+
+                        window.__signalsToastLast = { message, type, at: now };
+
                         const id = ++this._seq;
                         this.toasts.push({ id, type, message, visible: false });
 

@@ -36,7 +36,9 @@ use Illuminate\Support\Carbon;
  *   2. derive the subtotal — for a rate-backed line the {@see RateCalculator}
  *      produces the duration-aware subtotal (via the rate definition's strategy,
  *      base period and modifiers); for a manual/no-rate line the subtotal is
- *      `unit_price * round(quantity)`.
+ *      `unit_price * round(quantity) * chargeable_days` for hire-based transaction
+ *      types (the same day count the editor shows), or `unit_price * round(quantity)`
+ *      for sale lines.
  *   3. apply the line discount (HALF_UP at the minor-unit boundary, BEFORE tax).
  *   4. NET EXTRACTION when `prices_include_tax`: an input entered tax-inclusive has
  *      its embedded tax stripped at this point ({@see TaxCalculator::calculateInclusive})
@@ -84,6 +86,7 @@ class OpportunityTotalsCalculator
         private readonly RateResolver $rateResolver,
         private readonly RateCalculator $rateCalculator,
         private readonly TaxCalculator $taxCalculator,
+        private readonly OpportunityItemChargeableDays $chargeableDays,
     ) {}
 
     /**
@@ -141,6 +144,7 @@ class OpportunityTotalsCalculator
             $end,
             $opportunity->store_id,
             $manualUnitPrice,
+            $opportunity,
         );
 
         $discounted = $this->applyDiscount($netSubtotal, $item->discount_percent);
@@ -427,10 +431,14 @@ class OpportunityTotalsCalculator
         Carbon $end,
         ?int $storeId,
         ?int $manualUnitPrice,
+        Opportunity $opportunity,
     ): array {
         // A manual override always wins over the rate engine.
         if ($manualUnitPrice !== null) {
-            return [$manualUnitPrice, $manualUnitPrice * $quantityUnits];
+            return [
+                $manualUnitPrice,
+                $this->manualLineSubtotal($manualUnitPrice, $quantityUnits, $item, $opportunity),
+            ];
         }
 
         $rate = $product !== null
@@ -439,10 +447,13 @@ class OpportunityTotalsCalculator
 
         if ($rate === null || $rate->rateDefinition === null) {
             // No rate matched: fall back to whatever unit price is on the line
-            // (0 for a fresh ad-hoc line) times the quantity.
+            // (0 for a fresh ad-hoc line) times quantity and chargeable days.
             $unitPrice = $item->unit_price;
 
-            return [$unitPrice, $unitPrice * $quantityUnits];
+            return [
+                $unitPrice,
+                $this->manualLineSubtotal($unitPrice, $quantityUnits, $item, $opportunity),
+            ];
         }
 
         $definition = $rate->rateDefinition;
@@ -467,6 +478,27 @@ class OpportunityTotalsCalculator
         );
 
         return [$rate->price, $breakdown->totalMinor()];
+    }
+
+    /**
+     * Subtotal for manual/no-rate lines. Sale lines ignore chargeable days; hire-
+     * based transaction types multiply by the same day count the editor displays.
+     */
+    private function manualLineSubtotal(
+        int $unitPriceMinor,
+        int $quantityUnits,
+        OpportunityItem $item,
+        Opportunity $opportunity,
+    ): int {
+        $base = $unitPriceMinor * $quantityUnits;
+
+        if ($item->transaction_type === LineItemTransactionType::Sale) {
+            return $base;
+        }
+
+        $days = $this->chargeableDays->forItem($item, $opportunity);
+
+        return $base * max(1, $days);
     }
 
     /**

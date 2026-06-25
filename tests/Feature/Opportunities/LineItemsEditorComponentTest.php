@@ -38,7 +38,7 @@ it('exposes tree and revision for the frozen seed island', function () {
         ->assertSeeHtml('data-lf-seed')
         ->assertSeeHtml('window.__lfSeed')
         ->assertSeeHtml('wire:ignore')
-        ->assertSee('+ Section');
+        ->assertSee('Quick add');
 
     $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity]);
     $instance = lineItemsEditorInstance($component);
@@ -67,5 +67,5 @@ it('renders read-only for view-only users', function () {
     Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->assertOk()
         ->assertSee('This opportunity has no line items yet.')
-        ->assertDontSee('+ Section');
+        ->assertDontSee('Quick add');
 });

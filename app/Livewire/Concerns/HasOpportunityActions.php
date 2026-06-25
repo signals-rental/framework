@@ -31,9 +31,8 @@ use Illuminate\Validation\ValidationException;
  * The opportunity Show (overview) page and every opportunity tab page (Assets,
  * Shortages, Versions, Costs, Participants, Custom Fields, Files) render the SAME
  * Actions split-button (state-transition menu) in the shared page header plus the
- * two shared modals (change-status picker + confirm-action). This trait holds the
- * properties, computed verdicts (availableActions / statusOptions), the
- * confirm-modal plumbing and the transition wire-methods so they are identical
+ * change-status picker modal). This trait holds the computed verdicts
+ * (availableActions / statusOptions) and the transition wire-methods so they are identical
  * everywhere instead of living only on the Show component.
  *
  * The using Volt component must declare a `public Opportunity $opportunity` property
@@ -49,87 +48,64 @@ use Illuminate\Validation\ValidationException;
  */
 trait HasOpportunityActions
 {
-    /**
-     * The Actions split-button items confirm through a single shared styled modal
-     * (B1) rather than per-item native JS dialogs: an item sets the pending wire
-     * method + its label/message and opens `confirm-action`; the modal's Confirm
-     * button calls confirmPendingAction(), which dispatches to the stored method.
-     * Only the methods whitelisted in confirmableActions() may be invoked this way.
-     */
-    public ?string $pendingAction = null;
-
-    public string $pendingLabel = '';
-
-    public string $pendingMessage = '';
+    /** @var 'convert_to_quotation'|'convert_to_order'|null */
+    public ?string $pendingConvertKey = null;
 
     /**
-     * The Actions wire-methods that may be invoked through the shared confirm modal,
-     * keyed by the verdict key the header renders. Whitelisting the dispatch target
-     * keeps confirmPendingAction() from calling arbitrary component methods.
-     *
-     * @return array<string, string>
+     * @return array<string, array{title: string, message: string, confirm: string, success: string}>
      */
-    protected function confirmableActions(): array
+    protected function convertModalCopy(): array
     {
         return [
-            'convert_to_quotation' => 'convertToQuotation',
-            'convert_to_order' => 'convertToOrder',
-            'reinstate' => 'reinstate',
-            'reopen' => 'reopen',
-            'revert_to_quotation' => 'revertToQuotation',
-            'revert_to_draft' => 'revertToDraft',
-            'unlock_locks' => 'unlockRates',
-            'clone' => 'cloneOpportunity',
-            'delete' => 'archive',
+            'convert_to_quotation' => [
+                'title' => __('Convert to quotation'),
+                'message' => __('Convert this opportunity to a quotation?'),
+                'confirm' => __('Convert to quotation'),
+                'success' => __('Converted to quotation'),
+            ],
+            'convert_to_order' => [
+                'title' => __('Convert to order'),
+                'message' => __('Convert this quotation to an order? Reserved demand becomes confirmed.'),
+                'confirm' => __('Convert to order'),
+                'success' => __('Converted to order'),
+            ],
         ];
     }
 
-    /**
-     * Stage an Actions item for confirmation: record the pending verdict key (mapped
-     * to a whitelisted wire method) plus the label/message the shared modal shows.
-     * The header opens the `confirm-action` modal once this has been set.
-     */
-    public function prepareAction(string $key, string $label, string $message): void
+    public function openConvertModal(string $key): void
     {
-        if (! array_key_exists($key, $this->confirmableActions())) {
+        if (! array_key_exists($key, $this->convertModalCopy())) {
             return;
         }
 
-        $this->pendingAction = $key;
-        $this->pendingLabel = $label;
-        $this->pendingMessage = $message;
+        $this->pendingConvertKey = $key;
+        $this->dispatch('open-modal', 'convert-opportunity');
     }
 
-    /**
-     * Run the staged Actions item. Dispatches to the whitelisted wire method, then
-     * closes the confirm modal and clears the pending state. A no-op when nothing is
-     * staged or the staged key is not confirmable (defensive — the UI never stages
-     * otherwise).
-     *
-     * The close-modal event is dispatched AFTER the wired method runs — this is the
-     * fix for the "modal stays open once the action completes" report: the on-page
-     * transitions (convert / revert / reinstate / reopen / unlock) are slow,
-     * event-sourced commits that re-render this component, and emitting close-modal
-     * as the FINAL step of the same round-trip guarantees the close event reaches
-     * Alpine on the very response that finishes the commit, so the modal can never
-     * be left visible over a finished action. The redirecting actions (clone,
-     * archive) tear the page down via navigation, so the trailing dispatch is a
-     * harmless no-op for them. The pending label/message are also reset so a stale
-     * title can't flash if the modal is reopened for a different action.
-     */
-    public function confirmPendingAction(): mixed
+    public function confirmConvert(): void
     {
-        $method = $this->confirmableActions()[$this->pendingAction] ?? null;
+        $key = $this->pendingConvertKey;
+        $copy = $key !== null ? ($this->convertModalCopy()[$key] ?? null) : null;
 
-        $this->pendingAction = null;
-        $this->pendingLabel = '';
-        $this->pendingMessage = '';
+        if ($copy === null) {
+            return;
+        }
 
-        $result = $method !== null ? $this->{$method}() : null;
+        $errorBefore = session()->has('error');
 
-        $this->dispatch('close-modal', 'confirm-action');
+        match ($key) {
+            'convert_to_quotation' => $this->convertToQuotation(),
+            'convert_to_order' => $this->convertToOrder(),
+            default => null,
+        };
 
-        return $result;
+        if (! $errorBefore && ! session()->has('error')) {
+            $this->dispatch('toast', type: 'success', message: $copy['success']);
+            $this->dispatch('close-modal', 'convert-opportunity');
+            $this->js("\$dispatch('close-modal', 'convert-opportunity')");
+        }
+
+        $this->pendingConvertKey = null;
     }
 
     public function convertToQuotation(): void
@@ -187,12 +163,9 @@ trait HasOpportunityActions
 
         $this->runTransition(fn () => (new ChangeOpportunityStatus)($this->opportunity, $target));
 
-        // B2: only close the change-status modal once the move actually succeeded.
-        // runTransition() flashes an `error` on an authorisation/guard failure and
-        // leaves the status unchanged — keep the modal open in that case so the
-        // flashed reason is visible and the user can pick a different target.
         if (! session()->has('error')) {
             $this->dispatch('close-modal', 'change-status');
+            $this->js("\$dispatch('close-modal', 'change-status')");
         }
     }
 
@@ -285,11 +258,37 @@ trait HasOpportunityActions
         try {
             $action();
             $this->opportunity->refresh();
+            $this->dispatchOpportunityLifecycleChanged();
         } catch (AuthorizationException) {
             session()->flash('error', 'You do not have permission to perform this action.');
         } catch (ValidationException $e) {
             session()->flash('error', collect($e->errors())->flatten()->first() ?? 'This action could not be completed.');
         }
+    }
+
+    protected function dispatchOpportunityLifecycleChanged(): void
+    {
+        $opportunity = $this->opportunity->fresh();
+
+        if ($opportunity === null) {
+            return;
+        }
+
+        $editable = Gate::allows('opportunities.edit') && ! $opportunity->statusEnum()->isClosed();
+        $dealTotalRaw = $opportunity->deal_total !== null
+            ? $opportunity->formatMoneyCost('deal_total')
+            : '';
+
+        $this->dispatch(
+            'opportunity-lifecycle-changed',
+            editable: $editable,
+            fieldsEditable: $editable && $opportunity->deal_total === null,
+            hasDealPrice: $opportunity->deal_total !== null,
+            dealTotalRaw: $dealTotalRaw,
+            chargeTotalMinor: (int) ($opportunity->charge_total ?? 0),
+            dealTotalMinor: $opportunity->deal_total !== null ? (int) $opportunity->deal_total : null,
+            cacheToken: $opportunity->state->value.':'.$opportunity->status,
+        );
     }
 
     /**
@@ -312,6 +311,7 @@ trait HasOpportunityActions
             'availableActions' => $isArchived ? [] : $this->buildAvailableActions(),
             'statusOptions' => $isArchived ? [] : $this->statusOptions(),
             'canChangeStatus' => ! $isArchived && Gate::allows('opportunities.edit') && ! $this->opportunity->statusEnum()->isClosed(),
+            'convertModalCopy' => $this->convertModalCopy(),
         ];
     }
 
@@ -351,7 +351,7 @@ trait HasOpportunityActions
             $this->describeAction($opportunity, 'revert_to_draft', 'Revert to Draft', 'opportunities.edit', RevertToDraft::TRANSITION,
                 statePrecondition: fn (): ?array => $isQuotation && $status->isRevertibleToDraft() ? null : ['Only an open, provisional quotation can be reverted to a draft.', 'invalid_state']),
 
-            $this->describeAction($opportunity, 'unlock_locks', 'Unlock Rates', 'opportunities.unlock_rates', null,
+            $this->describeAction($opportunity, 'unlock_locks', $hasLocks ? 'Unlock rates' : 'Lock rates', 'opportunities.unlock_rates', null,
                 statePrecondition: fn (): ?array => $hasLocks ? null : ['The opportunity has no active FX/tax locks to release.', 'nothing_to_unlock']),
 
             $this->describeAction($opportunity, 'clone', 'Clone', 'opportunities.create', null),

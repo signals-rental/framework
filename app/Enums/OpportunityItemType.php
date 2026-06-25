@@ -13,11 +13,13 @@ enum OpportunityItemType: string
     case Product = 'product';
     case Accessory = 'accessory';
     case Service = 'service';
+    /** RMS-style comment / free-text line — name only, no charge or demand. */
+    case Text = 'text';
 
-    /** Group rows are containers — never priced. */
+    /** Group and text rows are never priced. */
     public function isPriceable(): bool
     {
-        return $this !== self::Group;
+        return $this !== self::Group && $this !== self::Text;
     }
 
     /** Only physical lines (product/accessory) claim availability. */

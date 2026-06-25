@@ -126,12 +126,10 @@ it('renders the editable items tab for an editor', function () {
 
     $this->actingAs($this->owner);
 
-    // The "+ Section" toolbar button is only rendered when the component is editable.
-    // (The editor is now embedded in the Overview, so it no longer renders the
-    // standalone page header — "+ Section" uniquely identifies the editable render.)
+    // Quick-add toolbar is only rendered when the component is editable.
     Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->assertOk()
-        ->assertSee('+ Section');
+        ->assertSee('Quick add');
 });
 
 it('forbids the items tab for a user without opportunities.view', function () {
@@ -155,7 +153,7 @@ it('renders read-only (non-editable) for a view-only user', function () {
     Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->assertOk()
         ->assertSee('This opportunity has no line items yet.')
-        ->assertDontSee('+ Section');
+        ->assertDontSee('Quick add');
 });
 
 it('adds a line item via the picker and reflects it in the totals', function () {
@@ -341,10 +339,8 @@ it('creates a section from the bound newSectionName property (bug #2)', function
 });
 
 it('closes the create-section modal with the positional close-modal payload on success (defect 3)', function () {
-    // The x-signals.modal listener matches close-modal on `$event.detail === name`,
-    // so the dispatch MUST be positional ('create-section'), not the named-arg form
-    // (which would deliver detail = { name: 'create-section' } and never match,
-    // leaving the modal open after a successful create).
+    // Alpine closes x-signals.modal via onMutationDone → $dispatch('close-modal', name).
+    // The server dispatches line-items-mutation-done with modal: create-section.
     $opportunity = liveOpportunityForEditor($this->owner, $this->store->id);
 
     $this->actingAs($this->owner);
@@ -353,7 +349,7 @@ it('closes the create-section modal with the positional close-modal payload on s
         ->set('newSectionName', 'Closes Cleanly')
         ->call('createSection')
         ->assertHasNoErrors()
-        ->assertDispatched('close-modal', 'create-section')
+        ->assertDispatched('line-items-mutation-done', modal: 'create-section')
         ->assertDispatched('toast', type: 'success', message: 'Section created');
 });
 
@@ -368,7 +364,7 @@ it('does not close the modal when section creation fails validation (defect 3)',
     Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', '   ')
         ->call('createSection')
-        ->assertNotDispatched('close-modal');
+        ->assertNotDispatched('line-items-mutation-done');
 });
 
 it('does not create a section for an empty or whitespace-only name (bug #2)', function () {

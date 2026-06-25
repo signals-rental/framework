@@ -4,11 +4,12 @@ namespace App\Services\Opportunities;
 
 use App\Data\Availability\OpportunityItemAvailabilityData;
 use App\Enums\OpportunityItemType;
+use App\Enums\OpportunityState;
+use App\Enums\OpportunityStatus;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Services\AvailabilityService;
 use App\Support\Formatter;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -40,6 +41,7 @@ class OpportunityLineItemsTreeBuilder
         $availability = $this->availabilityMap($opportunity->id);
         $duplicateIds = $this->duplicateLineIds($items);
         $currencyCode = $opportunity->currency_code ?? settings('company.base_currency', 'GBP');
+        $showShortageIndicators = $this->shortageIndicatorsVisible($opportunity);
 
         return $items
             ->map(fn (OpportunityItem $item): array => $this->rowToArray(
@@ -50,6 +52,7 @@ class OpportunityLineItemsTreeBuilder
                 $duplicateIds,
                 $opportunity,
                 $currencyCode,
+                $showShortageIndicators,
             ))
             ->values()
             ->all();
@@ -113,6 +116,7 @@ class OpportunityLineItemsTreeBuilder
         array $duplicateIds,
         Opportunity $opportunity,
         string $currencyCode,
+        bool $showShortageIndicators,
     ): array {
         $depth = $item->depth();
         $parentPath = $item->parentPath();
@@ -122,9 +126,11 @@ class OpportunityLineItemsTreeBuilder
             $parentGroupId = $groupsByPath->get($parentPath)?->id;
         }
 
-        $productId = $item->isProductBacked() ? $item->itemable_id : null;
+        $productId = $this->catalogueProductId($item);
         $avail = $availability[$item->id] ?? null;
-        $statusLabel = $this->availabilityLabel($avail);
+        $statusLabel = $this->availabilityLabel($avail, $showShortageIndicators);
+        $days = $this->hireDays($item, $opportunity);
+        $chargeBreakdown = $this->chargeBreakdownFor($item, $currencyCode, $days);
 
         return [
             'id' => (int) $item->id,
@@ -138,23 +144,25 @@ class OpportunityLineItemsTreeBuilder
             'description' => $item->description,
             'quantity' => $this->formatQuantity($item->quantity),
             'quantity_raw' => (string) $item->quantity,
-            'days' => $this->hireDays($item),
+            'days' => $days,
             'unit_price' => (int) ($item->unit_price ?? 0),
             'unit_price_display' => $this->formatter->money((int) ($item->unit_price ?? 0), $currencyCode),
             'unit_price_raw' => $item->formatMoneyCost('unit_price'),
             'discount_percent' => $item->discount_percent !== null ? (string) $item->discount_percent : null,
             'charge_total' => (int) ($item->total ?? 0),
             'charge_total_display' => $this->formatter->money((int) ($item->total ?? 0), $currencyCode),
-            'type_label' => $item->item_type === OpportunityItemType::Group
+            'type_label' => in_array($item->item_type, [OpportunityItemType::Group, OpportunityItemType::Text], true)
                 ? null
                 : $item->transaction_type->label(),
             'status_label' => $statusLabel,
-            'availability_status' => $this->availabilityStatus($avail),
-            'has_shortage' => $avail !== null ? $avail->has_shortage : false,
+            'availability_status' => $this->availabilityStatus($avail, $showShortageIndicators),
+            'has_shortage' => $showShortageIndicators && ($avail !== null && $avail->has_shortage),
             'is_optional' => $item->is_optional,
             'is_collapsed' => false,
             'has_children' => $this->hasChildren($item->path, $paths),
             'product_id' => $productId,
+            'product_url' => $productId !== null ? route('products.show', $productId) : null,
+            'charge_breakdown' => $chargeBreakdown,
             'availability_url' => $productId !== null ? $this->availabilityUrlFor($opportunity, $productId) : null,
             'starts_at' => optional($item->starts_at)?->toDateString(),
             'ends_at' => optional($item->ends_at)?->toDateString(),
@@ -172,7 +180,7 @@ class OpportunityLineItemsTreeBuilder
         $byKey = [];
 
         foreach ($items as $item) {
-            if ($item->itemable_id === null || $item->item_type === OpportunityItemType::Group) {
+            if ($item->itemable_id === null || in_array($item->item_type, [OpportunityItemType::Group, OpportunityItemType::Text], true)) {
                 continue;
             }
 
@@ -214,27 +222,53 @@ class OpportunityLineItemsTreeBuilder
             ->all();
     }
 
-    private function availabilityLabel(?OpportunityItemAvailabilityData $avail): ?string
+    private function shortageIndicatorsVisible(Opportunity $opportunity): bool
+    {
+        return $opportunity->state === OpportunityState::Order
+            || ($opportunity->state === OpportunityState::Quotation
+                && $opportunity->statusEnum() === OpportunityStatus::QuotationReserved);
+    }
+
+    private function catalogueProductId(OpportunityItem $item): ?int
+    {
+        if ($item->itemable_id === null || in_array($item->item_type, [OpportunityItemType::Group, OpportunityItemType::Text], true)) {
+            return null;
+        }
+
+        if ($item->isProductBacked()) {
+            return (int) $item->itemable_id;
+        }
+
+        $normalizedType = strtolower((string) $item->itemable_type);
+
+        if ($normalizedType === 'product' || str_ends_with($normalizedType, '\\product')) {
+            return (int) $item->itemable_id;
+        }
+
+        return null;
+    }
+
+    private function availabilityLabel(?OpportunityItemAvailabilityData $avail, bool $showShortageIndicators): ?string
     {
         if ($avail === null) {
             return null;
         }
 
         if ($avail->has_shortage) {
-            return 'Shortage';
+            return $showShortageIndicators ? 'Shortage' : 'Reserved';
         }
 
         return $avail->available_for_item > 0 ? 'Available' : 'Reserved';
     }
 
-    private function availabilityStatus(?OpportunityItemAvailabilityData $avail): ?string
+    private function availabilityStatus(?OpportunityItemAvailabilityData $avail, bool $showShortageIndicators): ?string
     {
         if ($avail === null) {
             return null;
         }
 
         if ($avail->has_shortage) {
-            return 'out';
+            return $showShortageIndicators ? 'out' : 'reserved';
         }
 
         return $avail->available_for_item > 0 ? 'available' : 'reserved';
@@ -253,16 +287,40 @@ class OpportunityLineItemsTreeBuilder
         return route('availability.index', $params);
     }
 
-    private function hireDays(OpportunityItem $item): int
+    private function hireDays(OpportunityItem $item, Opportunity $opportunity): int
     {
-        if ($item->starts_at === null || $item->ends_at === null) {
-            return 1;
+        return app(OpportunityItemChargeableDays::class)->forItem($item, $opportunity);
+    }
+
+    /**
+     * Per-line charge hover breakdown (CRMS-style). Rental amount is the pre-discount
+     * gross for the chargeable window; surcharge is reserved for future line surcharges.
+     *
+     * @return array<string, string>|null
+     */
+    private function chargeBreakdownFor(
+        OpportunityItem $item,
+        string $currencyCode,
+        int $days,
+    ): ?array {
+        if (in_array($item->item_type, [OpportunityItemType::Group, OpportunityItemType::Text], true)) {
+            return null;
         }
 
-        $start = Carbon::parse($item->starts_at);
-        $end = Carbon::parse($item->ends_at);
+        $unitPriceMinor = (int) ($item->unit_price ?? 0);
+        $quantity = (float) $item->quantity;
+        $rentalMinor = (int) round($quantity * $unitPriceMinor * max(1, $days));
+        $surchargeMinor = 0;
 
-        return max(1, (int) $start->diffInDays($end));
+        return [
+            'days_line' => sprintf(
+                'Days: %s × %d',
+                $this->formatter->money($unitPriceMinor, $currencyCode),
+                max(1, $days),
+            ),
+            'rental_charge_display' => $this->formatter->money($rentalMinor, $currencyCode),
+            'surcharge_display' => $this->formatter->money($surchargeMinor, $currencyCode),
+        ];
     }
 
     /**

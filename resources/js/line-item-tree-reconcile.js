@@ -7,6 +7,12 @@ export function isStaleRevision(clientRevision, serverRevision) {
     return clientRevision > 0 && serverRevision > clientRevision;
 }
 
+const STRUCTURAL_MUTATION_KINDS = new Set(['persistTree', 'addGroup', 'addProduct', 'delete', 'deleteSection']);
+
+export function hasStructuralPending(queue) {
+    return queue.some((mutation) => STRUCTURAL_MUTATION_KINDS.has(mutation.kind));
+}
+
 export function pendingLocalIdsFromQueue(queue) {
     const ids = new Set();
 
@@ -84,6 +90,7 @@ function sortPreOrder(rows) {
 
 export default {
     isStaleRevision,
+    hasStructuralPending,
     pendingLocalIdsFromQueue,
     reconcileLocalTree,
 };

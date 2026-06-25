@@ -22,6 +22,7 @@ use App\Models\Store;
 use App\Models\TaxRate;
 use App\Models\TaxRule;
 use App\Models\User;
+use App\Services\Opportunities\OpportunityItemChargeableDays;
 use App\Services\Opportunities\OpportunityTotalsCalculator;
 use App\Services\RateEngine\RateCalculator;
 use App\ValueObjects\CalculationContext;
@@ -138,6 +139,60 @@ it('prices a rate-backed line via the engine and stores the net total + tax rate
         ->and($opportunity->charge_including_tax_total)->toBe($expectedNet + $expectedTax)
         ->and($opportunity->charge_total)->toBe($expectedNet)
         ->and($opportunity->rental_charge_total)->toBe($expectedNet);
+});
+
+it('multiplies chargeable days into manual-priced rental lines', function () {
+    $store = Store::factory()->create();
+    $member = Member::factory()->organisation()->create();
+
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Manual hire days',
+        'member_id' => $member->id,
+        'store_id' => $store->id,
+        'starts_at' => '2026-07-01T09:00:00Z',
+        'ends_at' => '2026-07-04T09:00:00Z',
+    ]));
+    $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => 'On-Site Tech',
+        'quantity' => '5',
+        'unit_price' => 45000,
+        'transaction_type' => LineItemTransactionType::Rental->value,
+    ]));
+
+    $item = $opportunity->items()->firstOrFail();
+    $days = app(OpportunityItemChargeableDays::class)->forItem($item, $opportunity);
+
+    expect($days)->toBe(3)
+        ->and((int) $item->unit_price)->toBe(45000)
+        ->and((int) $item->total)->toBe(5 * 3 * 45000);
+});
+
+it('does not multiply chargeable days into manual-priced sale lines', function () {
+    $opportunity = Opportunity::factory()->create([
+        'starts_at' => '2026-07-01T09:00:00Z',
+        'ends_at' => '2026-07-04T09:00:00Z',
+    ]);
+
+    $item = OpportunityItem::factory()->create([
+        'opportunity_id' => $opportunity->id,
+        'version_id' => null,
+        'itemable_id' => null,
+        'itemable_type' => null,
+        'quantity' => '2',
+        'unit_price' => 1000,
+        'discount_percent' => null,
+        'currency_code' => null,
+        'is_optional' => false,
+        'starts_at' => $opportunity->starts_at,
+        'ends_at' => $opportunity->ends_at,
+        'transaction_type' => LineItemTransactionType::Sale->value,
+    ]);
+
+    app(OpportunityTotalsCalculator::class)->recalculateItem($item->refresh(), manualUnitPrice: 1000);
+
+    expect((int) $item->refresh()->total)->toBe(2000);
 });
 
 it('computes totals against the company base currency (not a hardcoded GBP) for a currency-less opportunity', function () {

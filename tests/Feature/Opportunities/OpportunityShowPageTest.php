@@ -74,6 +74,21 @@ it('renders the show page for an opportunity', function () {
         ->assertSee('Demo Opportunity');
 });
 
+it('shows tag_list chips in the page header next to state and status badges', function () {
+    $opportunity = Opportunity::factory()->create([
+        'subject' => 'Tagged Opportunity',
+        'tag_list' => ['vip', 'rush'],
+    ]);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->assertOk()
+        ->assertSee('vip')
+        ->assertSee('rush')
+        ->assertSeeHtml('class="s-chip"');
+});
+
 it('forbids the show page for a user without opportunities.view', function () {
     $opportunity = Opportunity::factory()->create();
 
@@ -108,6 +123,25 @@ it('surfaces convert_to_order as allowed for an open quotation', function () {
         ->and($actions['convert_to_quotation']['allowed'])->toBeFalse();
 });
 
+it('labels the rates action Lock rates when unlocked and Unlock rates when locked', function () {
+    $opportunity = Opportunity::factory()->quotation()->create();
+
+    $this->actingAs($this->owner);
+
+    $unlocked = collect(Volt::test('opportunities.show', ['opportunity' => $opportunity])->viewData('availableActions'))
+        ->keyBy('key');
+
+    expect($unlocked['unlock_locks']['label'])->toBe('Lock rates');
+
+    $opportunity->update(['exchange_rate_locked' => true]);
+
+    $locked = collect(Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])->viewData('availableActions'))
+        ->keyBy('key');
+
+    expect($locked['unlock_locks']['label'])->toBe('Unlock rates')
+        ->and($locked['unlock_locks']['allowed'])->toBeTrue();
+});
+
 it('renders the convert-to-quotation action button on a draft for an owner', function () {
     $opportunity = Opportunity::factory()->create();
 
@@ -117,118 +151,78 @@ it('renders the convert-to-quotation action button on a draft for an owner', fun
         ->assertSee('Convert to Quotation');
 });
 
-it('gates every allowed Actions split-button item behind the shared confirm modal', function () {
-    // B1: each allowed Actions item stages a styled confirmation rather than firing a
-    // native wire:confirm dialog — it calls prepareAction(...) and opens the shared
-    // `confirm-action` modal. A draft has convert_to_quotation, clone and archive
-    // allowed for an owner, each rendered as a prepareAction call (NOT wire:confirm).
+it('opens a convert modal for convert actions and direct-fires the rest', function () {
     $opportunity = Opportunity::factory()->create();
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
         ->assertOk()
-        // The native JS confirm has been removed entirely.
-        ->assertDontSeeHtml('wire:confirm')
-        // Each allowed item stages its key through prepareAction and opens the modal.
-        ->assertSeeHtml("prepareAction('convert_to_quotation'")
-        ->assertSeeHtml("prepareAction('clone'")
-        ->assertSeeHtml("prepareAction('delete'")
-        ->assertSeeHtml("open-modal', 'confirm-action'")
-        // The single shared confirm modal + its confirm trigger are present.
-        ->assertSeeHtml('wire:click="confirmPendingAction"');
+        ->assertDontSeeHtml('confirm-action')
+        ->assertSeeHtml("openConvertModal('convert_to_quotation'")
+        ->assertSeeHtml('convert-opportunity')
+        ->assertSeeHtml('wire:click="confirmConvert"')
+        ->assertSeeHtml('wire:click="cloneOpportunity"')
+        ->assertDontSeeHtml('wire:click="convertToQuotation"');
 });
 
-it('runs the staged Actions item through confirmPendingAction (clone)', function () {
-    // Staging `clone` then confirming must dispatch to cloneOpportunity, which
-    // clones the opportunity and redirects to the new record's show page.
-    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Clone Via Modal');
+it('converts via the convert modal and shows a success toast', function () {
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Convert Modal');
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
-        ->call('prepareAction', 'clone', 'Clone', 'Clone this opportunity into a new draft?')
-        ->assertSet('pendingAction', 'clone')
-        ->call('confirmPendingAction')
-        ->assertSet('pendingAction', null)
+        ->call('openConvertModal', 'convert_to_quotation')
+        ->assertSet('pendingConvertKey', 'convert_to_quotation')
+        ->assertDispatched('open-modal', 'convert-opportunity')
+        ->call('confirmConvert')
+        ->assertSet('pendingConvertKey', null)
+        ->assertDispatched('toast', type: 'success', message: 'Converted to quotation')
+        ->assertDispatched('close-modal', 'convert-opportunity')
+        ->assertDispatched('opportunity-lifecycle-changed');
+
+    expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
+});
+
+it('transitions the opportunity when convertToQuotation is called directly', function () {
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Convert Direct');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('convertToQuotation')
+        ->assertDispatched('opportunity-lifecycle-changed');
+
+    expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
+});
+
+it('clones the opportunity when cloneOpportunity is called directly', function () {
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Clone Direct');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('cloneOpportunity')
         ->assertRedirect();
 
-    // A second opportunity now exists (the clone).
     expect(Opportunity::query()->count())->toBe(2);
 });
 
-it('runs the staged Actions item through confirmPendingAction (convert_to_quotation)', function () {
-    // Staging `convert_to_quotation` then confirming must dispatch to the
-    // convertToQuotation transition, moving the draft to a quotation.
-    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Convert Via Modal');
-
-    $this->actingAs($this->owner);
-
-    Volt::test('opportunities.show', ['opportunity' => $opportunity])
-        ->call('prepareAction', 'convert_to_quotation', 'Convert to Quotation', 'Convert this opportunity to a quotation?')
-        ->call('confirmPendingAction')
-        ->assertSet('pendingAction', null);
-
-    expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
-});
-
-it('closes the confirm modal and clears the pending state after an on-page transition', function () {
-    // UX fix: the slow event-sourced transitions left the shared confirm modal open
-    // because close-modal was dispatched before the action ran. confirmPendingAction
-    // must now dispatch close-modal for `confirm-action` as the FINAL step and reset
-    // the pending label/message so the modal reliably closes once the action lands.
-    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Close Modal After Action');
-
-    $this->actingAs($this->owner);
-
-    Volt::test('opportunities.show', ['opportunity' => $opportunity])
-        ->call('prepareAction', 'convert_to_quotation', 'Convert to Quotation', 'Convert this opportunity to a quotation?')
-        ->assertSet('pendingAction', 'convert_to_quotation')
-        ->assertSet('pendingLabel', 'Convert to Quotation')
-        ->assertSet('pendingMessage', 'Convert this opportunity to a quotation?')
-        ->call('confirmPendingAction')
-        ->assertSet('pendingAction', null)
-        ->assertSet('pendingLabel', '')
-        ->assertSet('pendingMessage', '')
-        ->assertDispatched('close-modal', 'confirm-action');
-
-    expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
-});
-
-it('still closes the confirm modal when nothing is staged', function () {
-    // A defensive confirm with no staged action also closes the modal so a stray
-    // confirm click can never strand the modal open.
-    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Close Modal No Action');
-
-    $this->actingAs($this->owner);
-
-    Volt::test('opportunities.show', ['opportunity' => $opportunity])
-        ->call('confirmPendingAction')
-        ->assertSet('pendingAction', null)
-        ->assertDispatched('close-modal', 'confirm-action');
-});
-
-it('runs the staged Actions item through confirmPendingAction (revert_to_draft)', function () {
-    // Staging `revert_to_draft` then confirming must dispatch to the revertToDraft
-    // transition, moving the open quotation back to a draft.
-    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Revert To Draft Via Modal');
+it('reverts to draft when revertToDraft is called directly', function () {
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Revert To Draft Direct');
     (new ConvertToQuotation)($opportunity);
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
-        ->call('prepareAction', 'revert_to_draft', 'Revert to Draft', 'Revert this quotation back to a draft?')
-        ->call('confirmPendingAction')
-        ->assertSet('pendingAction', null);
+        ->call('revertToDraft');
 
     expect($opportunity->fresh()->state)->toBe(OpportunityState::Draft)
         ->and($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::DraftOpen);
 });
 
-it('runs the staged Actions item through confirmPendingAction (reopen)', function () {
-    // Staging `reopen` then confirming must dispatch to the reopen transition,
-    // moving the completed order back to an active order.
-    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Reopen Via Modal');
+it('reopens a completed order when reopen is called directly', function () {
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Reopen Direct');
     (new ConvertToQuotation)($opportunity);
     (new AddOpportunityItem)($opportunity->fresh(), AddOpportunityItemData::from([
         'name' => 'PA Stack',
@@ -243,36 +237,9 @@ it('runs the staged Actions item through confirmPendingAction (reopen)', functio
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
-        ->call('prepareAction', 'reopen', 'Re-open', 'Re-open this completed order back to an active order?')
-        ->call('confirmPendingAction')
-        ->assertSet('pendingAction', null);
+        ->call('reopen');
 
     expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::OrderActive);
-});
-
-it('ignores a confirmPendingAction call with no staged action', function () {
-    // Defensive: confirming with nothing staged is a harmless no-op (the draft is
-    // unchanged) and clears any pending state.
-    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'No Staged Action');
-
-    $this->actingAs($this->owner);
-
-    Volt::test('opportunities.show', ['opportunity' => $opportunity])
-        ->call('confirmPendingAction')
-        ->assertSet('pendingAction', null);
-
-    expect($opportunity->fresh()->state)->toBe(OpportunityState::Draft);
-});
-
-it('does not stage an unconfirmable key via prepareAction', function () {
-    // prepareAction whitelists the confirmable keys; an unknown key is not staged.
-    $opportunity = Opportunity::factory()->create();
-
-    $this->actingAs($this->owner);
-
-    Volt::test('opportunities.show', ['opportunity' => $opportunity])
-        ->call('prepareAction', 'not_a_real_action', 'Bogus', 'Nope')
-        ->assertSet('pendingAction', null);
 });
 
 it('gates edit-requiring actions as permission_denied for a view-only user', function () {

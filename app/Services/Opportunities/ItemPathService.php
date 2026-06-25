@@ -89,7 +89,7 @@ class ItemPathService
      * validated against the parent it would actually land under. Rules:
      *
      *  - accessory : parent MUST be a product.
-     *  - group | product | service : parent must be root (depth 1) OR a group.
+     *  - group | product | service | text : parent must be root (depth 1) OR a group.
      *
      * @param  array<int, array{id: int, depth: int, item_type: string}>  $nodes
      */

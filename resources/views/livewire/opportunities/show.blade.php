@@ -81,24 +81,6 @@ new #[Layout('components.layouts.app')] class extends Component
 
     @include('livewire.opportunities.partials.opportunity-tabs', ['opportunity' => $opportunity, 'activeTab' => 'overview'])
 
-    {{-- Editor Lab launcher (THROWAWAY) — a small, additive dropdown linking the
-         four prototype line-item editors for this opportunity. Purely for
-         comparing DnD approaches; the live Overview editor below is untouched. --}}
-    <div class="px-6 pt-4 max-md:px-5 max-sm:px-3">
-        <div x-data="{ open: false }" class="relative inline-block">
-            <button type="button" x-on:click="open = !open" class="s-btn s-btn-sm s-btn-outline">
-                <span class="s-badge s-badge-amber"><span class="s-badge-dot"></span> Lab</span>
-                Editor Lab
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div x-show="open" x-on:click.outside="open = false" x-cloak
-                 class="s-dropdown absolute z-20 mt-1 min-w-56" style="display:none;">
-                {{-- Full page load (NO wire:navigate): the prototype loads Dexie + its grid CSS via @push('scripts'), which Livewire's SPA navigation does not reliably re-run. Kept as the reference for the production editor rebuild. --}}
-                <a href="{{ route('opportunities.editor-lab.local-first', $opportunity) }}" class="s-dropdown-item">Local-First (Dexie) — reference</a>
-            </div>
-        </div>
-    </div>
-
     {{-- Archived (soft-deleted) opportunities are viewable but read-only. Surface a
          clear banner + a Restore action; the transition actions/status picker are
          suppressed in with() while archived. --}}

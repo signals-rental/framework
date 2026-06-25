@@ -43,6 +43,11 @@
         @if($opportunity->trashed())
             <span class="s-badge s-badge-red"><span class="s-badge-dot"></span> Archived</span>
         @endif
+        @if(! empty($opportunity->tag_list))
+            @foreach($opportunity->tag_list as $tag)
+                <span class="s-chip">{{ $tag }}</span>
+            @endforeach
+        @endif
     </x-slot:meta>
     <x-slot:actions>
         <a href="{{ route('opportunities.edit', $opportunity) }}" wire:navigate class="s-btn s-btn-sm s-btn-accent">
@@ -50,27 +55,24 @@
             Edit
         </a>
         @if($showActions ?? false)
-            {{-- $availableActions is provided by the overview component's with(); each
-                 verdict is {key, label, allowed, reason, code}. Allowed actions stage a
-                 styled confirmation (B1): the item calls prepareAction(key, label,
-                 message) and opens the shared `confirm-action` modal rather than firing
-                 a native wire:confirm dialog. Confirm there runs confirmPendingAction(),
-                 which dispatches to the whitelisted wire method on the Show component.
-                 Denials render greyed-out with the reason as a tooltip. --}}
+            {{-- $availableActions is provided by the component's with(); each verdict is
+                 {key, label, allowed, reason, code}. Allowed items fire their wire method
+                 directly (no confirm step), except convert_to_quotation / convert_to_order
+                 which open the shared convert-opportunity modal. Denials render greyed-out
+                 with the reason as a tooltip. change_status opens the change-status picker. --}}
             @php
-                // The confirmation copy shown in the shared modal, per verdict key. The
-                // key→wire-method mapping lives on the component (confirmableActions()).
-                $actionMessages = [
-                    'convert_to_quotation' => __('Convert this opportunity to a quotation?'),
-                    'convert_to_order' => __('Convert this quotation to an order? Reserved demand becomes confirmed.'),
-                    'reinstate' => __('Reinstate this opportunity?'),
-                    'reopen' => __('Re-open this completed order back to an active order?'),
-                    'revert_to_quotation' => __('Revert this order back to a quotation?'),
-                    'revert_to_draft' => __('Revert this quotation back to a draft?'),
-                    'unlock_locks' => __('Release the FX/tax locks on this opportunity? Rates will be recalculated.'),
-                    'clone' => __('Clone this opportunity into a new draft?'),
-                    'delete' => __('Archive this opportunity? It can be restored later.'),
+                $actionWireMethods = [
+                    'convert_to_quotation' => 'convertToQuotation',
+                    'convert_to_order' => 'convertToOrder',
+                    'reinstate' => 'reinstate',
+                    'reopen' => 'reopen',
+                    'revert_to_quotation' => 'revertToQuotation',
+                    'revert_to_draft' => 'revertToDraft',
+                    'unlock_locks' => 'unlockRates',
+                    'clone' => 'cloneOpportunity',
+                    'delete' => 'archive',
                 ];
+                $convertModalKeys = ['convert_to_quotation', 'convert_to_order'];
             @endphp
             <x-signals.split-button label="Actions" size="sm">
                 @if($canChangeStatus ?? false)
@@ -85,20 +87,41 @@
                     <div class="s-dropdown-divider"></div>
                 @endif
                 @foreach(($availableActions ?? []) as $action)
-                    @php $message = $actionMessages[$action['key']] ?? __('Are you sure?'); @endphp
                     @if($action['key'] === 'clone')
                         <div class="s-dropdown-divider"></div>
                     @endif
-                    @if($action['allowed'] && isset($actionMessages[$action['key']]))
-                        <button
-                            type="button"
-                            wire:click="prepareAction('{{ $action['key'] }}', @js($action['label']), @js($message))"
-                            x-on:click="open = false; $dispatch('open-modal', 'confirm-action')"
-                            class="s-dropdown-item w-full text-left"
-                            wire:key="action-{{ $action['key'] }}"
-                        >
-                            {{ $action['label'] }}
-                        </button>
+                    @if($action['allowed'] && isset($actionWireMethods[$action['key']]))
+                        @if(in_array($action['key'], $convertModalKeys, true))
+                            <button
+                                type="button"
+                                wire:click="openConvertModal('{{ $action['key'] }}')"
+                                x-on:click="open = false"
+                                wire:loading.attr="disabled"
+                                wire:target="openConvertModal"
+                                class="s-dropdown-item w-full text-left"
+                                wire:key="action-{{ $action['key'] }}"
+                            >
+                                <span wire:loading.remove wire:target="openConvertModal">{{ $action['label'] }}</span>
+                                <span wire:loading wire:target="openConvertModal" class="inline-flex items-center gap-1.5">
+                                    <x-signals.spinner size="xs" /> {{ __('Working…') }}
+                                </span>
+                            </button>
+                        @else
+                            <button
+                                type="button"
+                                wire:click="{{ $actionWireMethods[$action['key']] }}"
+                                x-on:click="open = false"
+                                wire:loading.attr="disabled"
+                                wire:target="{{ $actionWireMethods[$action['key']] }}"
+                                class="s-dropdown-item w-full text-left"
+                                wire:key="action-{{ $action['key'] }}"
+                            >
+                                <span wire:loading.remove wire:target="{{ $actionWireMethods[$action['key']] }}">{{ $action['label'] }}</span>
+                                <span wire:loading wire:target="{{ $actionWireMethods[$action['key']] }}" class="inline-flex items-center gap-1.5">
+                                    <x-signals.spinner size="xs" /> {{ __('Working…') }}
+                                </span>
+                            </button>
+                        @endif
                     @else
                         <div
                             class="s-dropdown-item w-full"

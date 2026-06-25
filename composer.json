@@ -82,7 +82,8 @@
         },
         "files": [
             "tests/Support/MagicLinkHelpers.php",
-            "tests/Support/LineItemsEditorTestHelpers.php"
+            "tests/Support/LineItemsEditorTestHelpers.php",
+            "tests/Support/LineItemsEditorDeepNestFixtures.php"
         ]
     },
     "scripts": {

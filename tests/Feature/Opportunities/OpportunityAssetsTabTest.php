@@ -309,11 +309,10 @@ it('does not offer book out on a quotation (assets allocated but not an order)',
     $this->actingAs($this->owner);
 
     // On a quotation the allocated asset's chevron offers Prepare but withholds the
-    // Book out action; the rendered tab therefore contains the prepare wire:click but
-    // not the dispatch (book out) one.
+    // Book out action; the teleported row menu calls $wire.prepare but not dispatchAsset.
     Volt::test('opportunities.assets', ['opportunity' => $opportunity->fresh()])
-        ->assertSee('wire:click="prepare', escape: false)
-        ->assertDontSee('wire:click="dispatchAsset', escape: false);
+        ->assertSee('$wire.prepare', escape: false)
+        ->assertDontSee('$wire.dispatchAsset', escape: false);
 
     // And invoking dispatch directly is rejected — the asset stays Allocated.
     Volt::test('opportunities.assets', ['opportunity' => $opportunity->fresh()])
@@ -413,12 +412,9 @@ it('runs a shared Actions transition (clone) from the assets tab (#1)', function
 
     $this->actingAs($this->owner);
 
-    // The trait's prepareAction + confirmPendingAction plumbing must work on the tab
-    // component: clone stages then runs CloneOpportunity and redirects.
+    // The shared trait's cloneOpportunity wire method must work on the tab component.
     Volt::test('opportunities.assets', ['opportunity' => $opportunity])
-        ->call('prepareAction', 'clone', 'Clone', 'Clone this opportunity into a new draft?')
-        ->assertSet('pendingAction', 'clone')
-        ->call('confirmPendingAction')
+        ->call('cloneOpportunity')
         ->assertRedirect();
 
     expect(Opportunity::query()->count())->toBe(2);

@@ -1,0 +1,335 @@
+/* Local-first opportunity line-items editor (Alpine table under wire:ignore) */
+
+.opportunity-line-items-editor [x-cloak] {
+    display: none !important;
+}
+
+.lf-row-shortage {
+    background: color-mix(in srgb, var(--danger, #dc2626) 8%, transparent);
+}
+
+.lf-toolbar-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    background: var(--surface, #fff);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    padding: 6px 12px 6px 0;
+    margin-bottom: 12px;
+}
+
+.lf-toolbar-actions {
+    padding-right: 4px;
+}
+
+.lf-quick-add-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 320px;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    box-sizing: border-box;
+}
+
+.lf-quick-add-input-group {
+    display: flex;
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 6px);
+    overflow: hidden;
+    background: var(--surface);
+}
+
+.lf-quick-add-prefix {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0 10px;
+    font-weight: 600;
+    color: var(--brand-primary);
+    border-right: 1px solid var(--border);
+}
+
+.lf-quick-add-input-group .s-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 32px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.lf-quick-add-bar .s-input:not(.lf-quick-add-input-group .s-input) {
+    min-height: 32px;
+}
+
+.lf-table thead th {
+    padding: 9px 12px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    line-height: normal;
+    color: var(--text-muted);
+    vertical-align: middle;
+}
+
+.lf-table tbody td {
+    padding: 5px 8px;
+    font-size: 12px;
+    line-height: 1.25;
+    vertical-align: middle;
+}
+
+.lf-table .lf-col-actions {
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    padding: 5px 10px;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+.lf-table thead th.lf-col-actions {
+    padding: 9px 10px;
+}
+
+.lf-col-qty {
+    width: 44px;
+    max-width: 44px;
+}
+
+.lf-col-days {
+    width: 40px;
+    max-width: 40px;
+}
+
+.lf-col-price {
+    width: 72px;
+    max-width: 72px;
+}
+
+.lf-col-disc {
+    width: 48px;
+    max-width: 48px;
+}
+
+.opportunity-line-items-editor .s-btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.opportunity-line-items-editor .s-btn-icon > span,
+.opportunity-line-items-editor .s-btn-icon svg {
+    display: block;
+}
+
+.lf-row-dragging {
+    opacity: 0.35;
+}
+
+.lf-row-nest-target {
+    background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+    box-shadow: inset 3px 0 0 var(--brand-primary);
+}
+
+.lf-row-nest-target .lf-name {
+    color: var(--brand-primary);
+}
+
+.lf-handle {
+    cursor: grab;
+    color: var(--text-muted);
+    padding: 0 4px;
+    font-size: 13px;
+    touch-action: none;
+    user-select: none;
+}
+
+.lf-handle:active {
+    cursor: grabbing;
+}
+
+.lf-caret {
+    width: 16px;
+    height: 16px;
+    font-size: 14px;
+    line-height: 16px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-align: center;
+}
+
+.lf-caret-spacer {
+    display: inline-block;
+    width: 16px;
+}
+
+.lf-product-link {
+    color: var(--brand-primary);
+    text-decoration: none;
+}
+
+.lf-product-link:hover {
+    text-decoration: underline;
+}
+
+.lf-charge-cell {
+    position: relative;
+}
+
+.lf-charge-popover {
+    min-width: 220px;
+    padding: 8px 10px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: left;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.lf-charge-popover--teleport {
+    pointer-events: auto;
+}
+
+.lf-footer-charge-total {
+    border-top: 2px solid var(--card-border);
+}
+
+.lf-ghost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    pointer-events: none;
+    padding: 4px 12px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--brand-primary, #1e3a5f);
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    font-size: 13px;
+    max-width: 360px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.95;
+}
+
+.lf-ghost:not([style*='translate']) {
+    display: none;
+}
+
+.lf-placeholder td {
+    height: 0;
+    padding: 0;
+    border: 0;
+}
+
+.lf-placeholder .lf-placeholder-bar {
+    height: 3px;
+    background: var(--brand-primary, #1e3a5f);
+    border-radius: 2px;
+    margin: 1px 0;
+}
+
+.lf-placeholder-invalid .lf-placeholder-bar {
+    background: repeating-linear-gradient(
+        90deg,
+        var(--danger, #dc2626) 0,
+        var(--danger, #dc2626) 6px,
+        transparent 6px,
+        transparent 12px
+    );
+    opacity: 0.8;
+}
+
+.lf-name {
+    cursor: text;
+}
+
+.lf-cell {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    display: inline-block;
+    box-sizing: border-box;
+    width: auto;
+    min-width: 28px;
+    max-width: 100%;
+    text-align: right;
+}
+
+.lf-cell:hover {
+    border-color: var(--border);
+    background: var(--surface-2, rgba(127, 127, 127, 0.08));
+}
+
+.lf-cell-left {
+    text-align: left;
+}
+
+.lf-cell-price {
+    min-width: 56px;
+    max-width: 72px;
+}
+
+.lf-edit-input {
+    width: auto;
+    min-width: 28px;
+    max-width: 72px;
+    padding: 2px 4px;
+    box-sizing: border-box;
+    border: 1px solid var(--link, #2563eb);
+    border-radius: 4px;
+    background: var(--surface, #fff);
+    color: var(--text);
+    text-align: right;
+    font: inherit;
+}
+
+.lf-edit-input.lf-edit-text {
+    width: 220px;
+    max-width: 220px;
+    text-align: left;
+}
+
+.lf-edit-input.lf-edit-price {
+    min-width: 56px;
+    max-width: 72px;
+    text-align: left;
+}
+
+.lf-edit-input.lf-edit-qty {
+    max-width: 44px;
+}
+
+.lf-edit-input.lf-edit-days {
+    max-width: 40px;
+}
+
+.lf-edit-input.lf-edit-disc {
+    max-width: 48px;
+}
