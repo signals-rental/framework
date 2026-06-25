@@ -129,7 +129,7 @@ it('renders the editable items tab for an editor', function () {
     // The "+ Section" toolbar button is only rendered when the component is editable.
     // (The editor is now embedded in the Overview, so it no longer renders the
     // standalone page header — "+ Section" uniquely identifies the editable render.)
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->assertOk()
         ->assertSee('+ Section');
 });
@@ -140,7 +140,7 @@ it('forbids the items tab for a user without opportunities.view', function () {
     $viewer = User::factory()->create();
     $this->actingAs($viewer);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])->assertForbidden();
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])->assertForbidden();
 });
 
 it('renders read-only (non-editable) for a view-only user', function () {
@@ -152,9 +152,9 @@ it('renders read-only (non-editable) for a view-only user', function () {
 
     // A view-only user gets the read-only render: no editor toolbar. The embedded
     // editor renders the empty-state body (no page header) for an item-less opp.
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->assertOk()
-        ->assertSee('No line items')
+        ->assertSee('This opportunity has no line items yet.')
         ->assertDontSee('+ Section');
 });
 
@@ -164,7 +164,7 @@ it('adds a line item via the picker and reflects it in the totals', function () 
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 6)
         ->assertHasNoErrors();
 
@@ -191,7 +191,7 @@ it('gates adding a line on opportunities.edit', function () {
     $viewer->givePermissionTo('opportunities.access', 'opportunities.view');
     $this->actingAs($viewer);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->assertForbidden();
 
@@ -207,7 +207,7 @@ it('removes a line item', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 2);
 
     $item = OpportunityItem::query()
@@ -229,7 +229,7 @@ it('changes a line quantity and recomputes totals', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -252,7 +252,7 @@ it('dispatches opportunity-totals-updated after totals-affecting edits so the si
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -278,7 +278,7 @@ it('overrides a line price and clears the override', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -300,7 +300,7 @@ it('creates a section and assigns a line to it', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         // createSection() reads the bound $newSectionName property (bug #2 fix —
         // it no longer takes the name as a call argument).
@@ -329,7 +329,7 @@ it('creates a section from the bound newSectionName property (bug #2)', function
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Backstage')
         ->call('createSection')
         ->assertHasNoErrors();
@@ -349,7 +349,7 @@ it('closes the create-section modal with the positional close-modal payload on s
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Closes Cleanly')
         ->call('createSection')
         ->assertHasNoErrors()
@@ -365,7 +365,7 @@ it('does not close the modal when section creation fails validation (defect 3)',
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', '   ')
         ->call('createSection')
         ->assertNotDispatched('close-modal');
@@ -376,7 +376,7 @@ it('does not create a section for an empty or whitespace-only name (bug #2)', fu
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', '   ')
         ->call('createSection')
         ->assertHasNoErrors();
@@ -390,7 +390,7 @@ it('groups an assigned line under its custom section in the rendered editor', fu
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->set('newSectionName', 'Stage Left')
         ->call('createSection');
@@ -417,7 +417,7 @@ it('auto-groups an unassigned line by its product group', function () {
     $this->actingAs($this->owner);
 
     // An unassigned line auto-groups under its product group's label.
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors()
         ->assertSee('Lighting')
@@ -441,7 +441,7 @@ it('merges duplicate lines of the same product into one with the summed quantity
     $this->actingAs($this->owner);
 
     // Two separate lines of the SAME product (qty 2 and 3) — duplicates.
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 2)
         ->call('addProduct', $product->id, 3);
 
@@ -477,7 +477,7 @@ it('does not flag distinct products as duplicates and is a no-op when none match
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $a->id, 1)
         ->call('addProduct', $b->id, 1);
 
@@ -507,7 +507,7 @@ it('persists a new sort order via handleSort', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $first->id, 1)
         ->call('addProduct', $second->id, 1);
 
@@ -544,7 +544,7 @@ it('moves a line from an auto group INTO a custom section via handleSort (drag a
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->set('newSectionName', 'Front of House')
         ->call('createSection');
@@ -575,7 +575,7 @@ it('moves a line OUT of a custom section back to an auto group via handleSort (d
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->set('newSectionName', 'Backstage')
         ->call('createSection');
@@ -620,7 +620,7 @@ it('renders accessory sub-rows as display-only rows (never persisted as line ite
 
     // The accessory renders as a display-only sub-row (its name + SKU appear),
     // with quantity = ratio (2) × line qty (3) = 6.
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 3)
         ->assertHasNoErrors()
         ->assertSee('Fixture With Accessory');
@@ -638,7 +638,7 @@ it('toggles a line as optional', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -658,7 +658,7 @@ it('substitutes a line product via the picker-driven substituteItem method', fun
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $original->id, 4);
 
     $item = OpportunityItem::query()
@@ -686,7 +686,7 @@ it('errors when substituting with a non-existent replacement product', function 
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -706,7 +706,7 @@ it('gates substituting a line product on opportunities.edit', function () {
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -718,7 +718,7 @@ it('gates substituting a line product on opportunities.edit', function () {
     $viewer->givePermissionTo('opportunities.access', 'opportunities.view');
     $this->actingAs($viewer);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('substituteItem', $item->id, $replacement->id)
         ->assertForbidden();
 
@@ -738,7 +738,7 @@ it('moves a line out of its section back to auto-grouping without deleting the s
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->set('newSectionName', 'Stage')
         ->call('createSection');
@@ -768,7 +768,7 @@ it('creates a nested sub-section under a parent (parent_id)', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Parent')
         ->call('createSection');
 
@@ -784,8 +784,11 @@ it('creates a nested sub-section under a parent (parent_id)', function () {
 
     expect($child->parentPath())->toBe($parent->path);
 
-    // The nested section renders with a Sub-section badge under the editor.
-    $component->assertSee('Sub-section')->assertSee('Child');
+    $tree = lineItemsEditorInstance($component)->serverTree()['tree'];
+    $childRow = collect($tree)->firstWhere('id', $child->id);
+
+    expect($childRow)->not->toBeNull()
+        ->and($childRow['depth'])->toBeGreaterThan(1);
 });
 
 it('allows a 5-level-deep section chain but rejects a 6th level (#9, raised cap)', function () {
@@ -793,7 +796,7 @@ it('allows a 5-level-deep section chain but rejects a 6th level (#9, raised cap)
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'L1')
         ->set('newSectionParent', '')
         ->call('createSection')
@@ -833,7 +836,7 @@ it('rejects a parent section that belongs to a different opportunity', function 
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Bad')
         ->set('newSectionParent', (string) $foreignParent->id)
         ->call('createSection')
@@ -847,7 +850,7 @@ it('reorders sibling sections (sortable) via reorderSections', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Alpha')
         ->call('createSection')
         ->set('newSectionName', 'Bravo')
@@ -873,7 +876,7 @@ it('edits the rate inline and re-totals the line', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 2);
 
     $item = OpportunityItem::query()
@@ -897,7 +900,7 @@ it('edits the discount inline and reduces the line total ex-tax', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -940,7 +943,7 @@ it('shows the accessories toggle and the charge-total footer row', function () {
     $this->actingAs($this->owner);
 
     // The accessory toggle (collapsed by default) + the charge-total footer render.
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors()
         ->assertSee('Hook Clamp')
@@ -953,13 +956,15 @@ it('renders a per-product View availability link over the opportunity period', f
 
     $this->actingAs($this->owner);
 
-    // The row-actions menu carries a View availability deep link to the gantt view
-    // filtered to this product + store.
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
-        ->assertHasNoErrors()
-        ->assertSee('View availability')
-        ->assertSee('product='.$product->id);
+        ->assertHasNoErrors();
+
+    $tree = lineItemsEditorInstance($component)->serverTree()['tree'];
+    $row = collect($tree)->firstWhere('product_id', $product->id);
+
+    expect($row)->not->toBeNull()
+        ->and($row['availability_url'])->toContain('product='.$product->id);
 });
 
 it('opens View availability in a new tab (target=_blank)', function () {
@@ -968,8 +973,7 @@ it('opens View availability in a new tab (target=_blank)', function () {
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
-        ->call('addProduct', $product->id, 1)
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->assertSeeHtml('target="_blank"')
         ->assertSeeHtml('rel="noopener"');
 });
@@ -986,7 +990,7 @@ it('dispatches a success toast on a line mutation', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -1006,7 +1010,7 @@ it('dispatches an error toast (and surfaces the field error) when a mutation fai
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -1027,7 +1031,7 @@ it('reports the correct optional/required label in its toast', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1);
 
     $item = OpportunityItem::query()
@@ -1054,7 +1058,7 @@ it('reparents a section under another via handleSectionSort (drag to nest)', fun
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Parent')
         ->call('createSection')
         ->set('newSectionName', 'Mover')
@@ -1077,7 +1081,7 @@ it('promotes a nested section back to the top level via handleSectionSort', func
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Top')
         ->call('createSection');
 
@@ -1104,7 +1108,7 @@ it('refuses a drag-nest that would exceed the 5-level depth limit (error toast, 
     $this->actingAs($this->owner);
 
     // Build a 5-deep chain L1 > L2 > L3 > L4 > L5 (MAX_DEPTH=5).
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'L1')
         ->call('createSection');
 
@@ -1138,7 +1142,7 @@ it('allows nesting up to 5 levels deep (the raised cap)', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'L1')
         ->call('createSection');
 
@@ -1177,7 +1181,7 @@ it('find-or-creates a real auto-group section on add and assigns the line to it'
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors();
 
@@ -1204,7 +1208,7 @@ it('joins a second line of the same product category into the EXISTING auto-grou
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $first->id, 1)
         ->call('addProduct', $second->id, 1)
         ->assertHasNoErrors();
@@ -1230,7 +1234,7 @@ it('honours an explicit destination section over the auto group on add', functio
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->set('newSectionName', 'Front of House')
         ->call('createSection')
         ->assertHasNoErrors();
@@ -1255,14 +1259,14 @@ it('renders an auto-group section identically to a user section (draggable handl
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors()
         // The auto group renders as a real section: the Section badge + its drag
         // handle + reorder/nest affordance are present, same as a user section.
         ->assertSee('Cabling')
         ->assertSee('Section')
-        ->assertSeeHtml('wire:sort:handle');
+        ->assertSeeHtml('lf-handle');
 });
 
 it('renames an auto-group section like any other section', function () {
@@ -1272,7 +1276,7 @@ it('renames an auto-group section like any other section', function () {
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors();
 
@@ -1291,7 +1295,7 @@ it('drops an auto-group line to the Ungrouped fallback when its section is delet
 
     $this->actingAs($this->owner);
 
-    $component = Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->call('addProduct', $product->id, 1)
         ->assertHasNoErrors();
 

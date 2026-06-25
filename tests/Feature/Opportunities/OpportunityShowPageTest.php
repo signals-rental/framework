@@ -297,18 +297,18 @@ it('gates edit-requiring actions as permission_denied for a view-only user', fun
 
 it('embeds the line-item editor in the Overview main area', function () {
     // The show-page restructure merged the standalone Line Items tab into the
-    // Overview main column: the Show page now nests <livewire:opportunities.items>
+    // Overview main column: the Show page now nests <livewire:opportunities.line-items>
     // as a child component. Asserting the nested component is present (its
     // wire:id marker) proves the editor is embedded, not a separate page.
     $opportunity = Opportunity::factory()->create(['subject' => 'Embedded Editor']);
 
     $this->actingAs($this->owner);
 
-    // The nested editor renders with wire:name="opportunities.items"; asserting that
+    // The nested editor renders with wire:name="opportunities.line-items"; asserting that
     // marker in the Show page's HTML proves the editor is embedded, not a separate page.
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
         ->assertOk()
-        ->assertSeeHtml('wire:name="opportunities.items"');
+        ->assertSeeHtml('wire:name="opportunities.line-items"');
 });
 
 it('shows the compact totals block in the Overview sidebar', function () {
@@ -479,7 +479,7 @@ it('renders the embedded line-items editor component', function () {
 
     $this->actingAs($this->owner);
 
-    Volt::test('opportunities.items', ['opportunity' => $opportunity])
+    Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
         ->assertOk()
         ->assertSee('No line items');
 });

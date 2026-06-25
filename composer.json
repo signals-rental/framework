@@ -81,7 +81,8 @@
             "Signals\\PHPStan\\": "phpstan/Extensions/"
         },
         "files": [
-            "tests/Support/MagicLinkHelpers.php"
+            "tests/Support/MagicLinkHelpers.php",
+            "tests/Support/LineItemsEditorTestHelpers.php"
         ]
     },
     "scripts": {

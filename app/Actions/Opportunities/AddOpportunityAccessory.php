@@ -10,6 +10,7 @@ use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Services\Opportunities\ItemTreeService;
 use App\Services\SequenceAllocator;
+use App\Services\Shortages\ItemShortageProbe;
 use App\Verbs\Events\Opportunities\ItemAdded;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -46,8 +47,9 @@ class AddOpportunityAccessory
         // The accessory inherits the principal's version scope so it always lands in
         // the same quote version as the product it hangs under.
         $versionId = $principal->version_id;
+        $accessoryId = null;
 
-        $this->commitVerbs(function () use ($opportunity, $data, $principal, $versionId): void {
+        $this->commitVerbs(function () use ($opportunity, $data, $principal, $versionId, &$accessoryId): void {
             $accessoryId = app(SequenceAllocator::class)->next('opportunity_items');
 
             $path = app(ItemTreeService::class)->nextChildPath($opportunity->id, $versionId, $principal->path);
@@ -65,6 +67,16 @@ class AddOpportunityAccessory
             );
         });
 
-        return OpportunityData::fromModel($opportunity->fresh(['items']) ?? $opportunity);
+        $fresh = $opportunity->fresh(['items']);
+
+        if ($accessoryId !== null && $fresh !== null) {
+            $item = $fresh->items->firstWhere('id', $accessoryId);
+
+            if ($item instanceof OpportunityItem) {
+                app(ItemShortageProbe::class)->probe($item);
+            }
+        }
+
+        return OpportunityData::fromModel($fresh ?? $opportunity);
     }
 }

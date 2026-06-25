@@ -11,6 +11,8 @@ import createProductSearch, {
     merge,
     parseQuickAdd,
 } from './opportunity-product-search';
+import createOpportunityLineItemsEditor from './opportunity-line-items-editor';
 
 window.signals = window.signals || {};
 window.signals.productSearch = { createProductSearch, buildIndex, merge, parseQuickAdd };
+window.signals.lineItemsEditor = createOpportunityLineItemsEditor;

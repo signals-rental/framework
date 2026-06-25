@@ -204,7 +204,7 @@ new #[Layout('components.layouts.app')] class extends Component
         {{-- MAIN — the live line-item editor (nested Volt component) --}}
         {{-- ============================================================ --}}
         <div class="min-w-0 lg:col-span-3">
-            <livewire:opportunities.items :opportunity="$opportunity" :key="'opp-items-'.$opportunity->id" />
+            <livewire:opportunities.line-items :opportunity="$opportunity" :key="'opp-line-items-'.$opportunity->id" />
         </div>
     </div>
 
