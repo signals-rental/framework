@@ -151,6 +151,24 @@ it('overrides a Block policy with the shortages.ignore permission, recording the
         ->and($ack->permission_used)->toBeTrue();
 });
 
+it('allows an owner to convert a Block-policy short quotation to order and records the implicit override', function () {
+    $owner = User::factory()->owner()->create();
+    $this->actingAs($owner);
+
+    [$opportunity] = shortQuotationForGate($this->store, ShortagePolicy::Block);
+
+    (new ConvertToOrder)($opportunity);
+
+    expect($opportunity->fresh()->statusEnum())->toBe(OpportunityStatus::OrderActive);
+
+    $ack = ShortageAcknowledgement::query()->sole();
+    expect($ack->user_id)->toBe($owner->id)
+        ->and($ack->opportunity_id)->toBe($opportunity->id)
+        ->and($ack->policy_at_time)->toBe(ShortagePolicy::Block)
+        ->and($ack->permission_used)->toBeTrue()
+        ->and($ack->shortages_snapshot)->not->toBeEmpty();
+});
+
 describe('R1 lifecycle invariants', function () {
     beforeEach(function () {
         $this->actor = User::factory()->owner()->create();

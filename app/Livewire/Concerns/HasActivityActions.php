@@ -19,15 +19,15 @@ trait HasActivityActions
             (new CompleteActivity)($activity);
             $this->dispatch('activity-completed');
         } catch (ModelNotFoundException) {
-            session()->flash('info', 'Activity was already removed.');
+            $this->dispatch('toast', type: 'success', message: 'Activity was already removed.');
         } catch (AuthorizationException) {
-            session()->flash('error', 'You do not have permission to complete this activity.');
+            $this->dispatch('toast', type: 'error', message: 'You do not have permission to complete this activity.');
         } catch (\Throwable $e) {
             Log::error('Failed to complete activity', [
                 'activity_id' => $activityId,
                 'error' => $e->getMessage(),
             ]);
-            session()->flash('error', 'Something went wrong. Please try again.');
+            $this->dispatch('toast', type: 'error', message: 'Something went wrong. Please try again.');
         }
     }
 
@@ -38,15 +38,15 @@ trait HasActivityActions
             (new DeleteActivity)($activity);
             $this->dispatch('activity-deleted');
         } catch (ModelNotFoundException) {
-            session()->flash('info', 'Activity was already removed.');
+            $this->dispatch('toast', type: 'success', message: 'Activity was already removed.');
         } catch (AuthorizationException) {
-            session()->flash('error', 'You do not have permission to delete this activity.');
+            $this->dispatch('toast', type: 'error', message: 'You do not have permission to delete this activity.');
         } catch (\Throwable $e) {
             Log::error('Failed to delete activity', [
                 'activity_id' => $activityId,
                 'error' => $e->getMessage(),
             ]);
-            session()->flash('error', 'Something went wrong. Please try again.');
+            $this->dispatch('toast', type: 'error', message: 'Something went wrong. Please try again.');
         }
     }
 

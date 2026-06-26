@@ -49,15 +49,15 @@ trait HasFileActions
             Gate::authorize('delete', $attachment);
             app(FileService::class)->delete($attachment);
         } catch (ModelNotFoundException) {
-            session()->flash('info', 'File was already deleted.');
+            $this->dispatch('toast', type: 'success', message: 'File was already deleted.');
         } catch (AuthorizationException) {
-            session()->flash('error', 'You do not have permission to delete this file.');
+            $this->dispatch('toast', type: 'error', message: 'You do not have permission to delete this file.');
         } catch (\Throwable $e) {
             Log::error('File deletion failed', [
                 'attachment_id' => $this->deleteAttachmentId,
                 'error' => $e->getMessage(),
             ]);
-            session()->flash('error', 'The file could not be deleted. Please try again.');
+            $this->dispatch('toast', type: 'error', message: 'The file could not be deleted. Please try again.');
         }
 
         $this->deleteAttachmentId = null;

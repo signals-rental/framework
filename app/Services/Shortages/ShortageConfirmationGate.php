@@ -89,9 +89,24 @@ class ShortageConfirmationGate
     }
 
     /**
-     * Resolve the effective policy: the store policy relaxed one level when the
-     * actor holds the ignore permission (§7.2). Owners bypass via Gate::before, so
-     * they always get the relaxed policy.
+     * Resolve the effective policy for the current actor.
+     *
+     * When the actor holds {@see self::IGNORE_PERMISSION} (`shortages.ignore`), the
+     * store policy is relaxed one level (Block→Warn, Warn→Allow) via
+     * {@see ShortagePolicy::relaxedByPermission()}.
+     *
+     * **Owner implicit override (intentional).** Application owners receive every
+     * permission through the {@see Gate::before()} all-access hook in
+     * {@see AppServiceProvider}, so `Gate::allows(self::IGNORE_PERMISSION)` is
+     * always true for owners even when they were never explicitly granted
+     * `shortages.ignore`. Owners therefore always receive the relaxed policy on a
+     * Block store — conversion proceeds with an acknowledgement recorded, not a
+     * hard block. This is deliberate: owners are the ultimate operational override.
+     *
+     * Making Block absolute for all actors (including owners) would require a
+     * separate setting (e.g. `shortage_block_is_absolute`) that is **not**
+     * currently implemented; do not assume Block is non-overridable without that
+     * flag.
      */
     public function resolvePolicy(ShortagePolicy $storePolicy): ShortagePolicy
     {

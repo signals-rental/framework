@@ -35,6 +35,8 @@ The Shortages tab shows the gate's current decision ahead of time, so you know b
 
 A user with the `shortages.ignore` permission relaxes the gate **one level** for themselves — **Block** becomes **Warn**, and **Warn** becomes **Allow** — so a senior operator can knowingly push a short order through. The shortages stay visible either way; only the hard block is lifted.
 
+**Owners** receive the same relaxation implicitly: the owner all-access hook grants every permission (including `shortages.ignore`), so a Block policy never hard-blocks an owner — conversion proceeds with an acknowledgement recorded, same as an explicit override. This is intentional. Making Block absolute for all actors, owners included, would require a dedicated setting (e.g. `shortage_block_is_absolute`); that setting is **not** currently enabled.
+
 > **Note:** Proceeding past a warning records a **shortage acknowledgement** with a frozen snapshot of what the shortage looked like and who confirmed it — the audit trail for a short order. You can also acknowledge shortages explicitly from the tab ahead of conversion using the **Acknowledge** action, which captures an optional note.
 
 ## The Dispatch Policy

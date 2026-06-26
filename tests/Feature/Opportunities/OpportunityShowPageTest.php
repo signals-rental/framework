@@ -245,6 +245,19 @@ it('transitions the opportunity when convertToQuotation is called directly', fun
     expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
 });
 
+it('surfaces EventNotValid guard messages when a transition is invalid for the current state', function () {
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Already quoted');
+    (new ConvertToQuotation)($opportunity);
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
+        ->call('convertToQuotation')
+        ->assertSee('Only a draft opportunity can be converted to a quotation.');
+
+    expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation);
+});
+
 it('clones the opportunity when cloneOpportunity is called directly', function () {
     $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Clone Direct');
 

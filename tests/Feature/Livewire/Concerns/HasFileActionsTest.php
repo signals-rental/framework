@@ -52,14 +52,12 @@ it('rejects deletion when user lacks authorization', function () {
         'uploaded_by' => $this->user->id, // uploaded by a different user
     ]);
 
-    $flashed = captureFlashedMessages(function () use ($product, $attachment): void {
-        Volt::test('products.files', ['product' => $product])
-            ->call('confirmDelete', $attachment->id)
-            ->call('deleteAttachment');
-    });
+    Volt::test('products.files', ['product' => $product])
+        ->call('confirmDelete', $attachment->id)
+        ->call('deleteAttachment')
+        ->assertDispatched('toast', type: 'error', message: 'You do not have permission to delete this file.');
 
-    expect($flashed['error'] ?? null)->toBe('You do not have permission to delete this file.')
-        ->and(Attachment::find($attachment->id))->not->toBeNull();
+    expect(Attachment::find($attachment->id))->not->toBeNull();
 });
 
 it('cancels delete and resets deleteAttachmentId', function () {
@@ -93,7 +91,7 @@ it('returns early from deleteAttachment when no attachment id is set', function 
     expect(Attachment::find($attachment->id))->not->toBeNull();
 });
 
-it('flashes info when deleting an attachment that was already removed', function () {
+it('toasts success when deleting an attachment that was already removed', function () {
     $member = Member::factory()->create();
     $attachment = Attachment::factory()->create([
         'attachable_type' => Member::class,
@@ -105,15 +103,12 @@ it('flashes info when deleting an attachment that was already removed', function
 
     $attachment->delete();
 
-    $flashed = captureFlashedMessages(function () use ($component): void {
-        $component->call('deleteAttachment');
-    });
-
-    expect($flashed['info'] ?? null)->toBe('File was already deleted.')
-        ->and($component->get('deleteAttachmentId'))->toBeNull();
+    $component->call('deleteAttachment')
+        ->assertDispatched('toast', type: 'success', message: 'File was already deleted.')
+        ->assertSet('deleteAttachmentId', null);
 });
 
-it('flashes error when file deletion fails unexpectedly', function () {
+it('toasts error when file deletion fails unexpectedly', function () {
     $this->mock(FileService::class, function ($mock): void {
         $mock->shouldReceive('delete')->andThrow(new RuntimeException('Storage unavailable'));
     });
@@ -125,14 +120,12 @@ it('flashes error when file deletion fails unexpectedly', function () {
         'uploaded_by' => $this->user->id,
     ]);
 
-    $flashed = captureFlashedMessages(function () use ($member, $attachment): void {
-        Volt::test('members.files', ['member' => $member])
-            ->call('confirmDelete', $attachment->id)
-            ->call('deleteAttachment');
-    });
+    Volt::test('members.files', ['member' => $member])
+        ->call('confirmDelete', $attachment->id)
+        ->call('deleteAttachment')
+        ->assertDispatched('toast', type: 'error', message: 'The file could not be deleted. Please try again.');
 
-    expect($flashed['error'] ?? null)->toBe('The file could not be deleted. Please try again.')
-        ->and(Attachment::find($attachment->id))->not->toBeNull();
+    expect(Attachment::find($attachment->id))->not->toBeNull();
 });
 
 it('refreshes attachment counts after a file upload event', function () {

@@ -25,6 +25,7 @@ use App\Models\OpportunityItemAsset;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Thunk\Verbs\Exceptions\EventNotValid;
 
 /**
  * Shared opportunity Actions split-button behaviour.
@@ -394,6 +395,8 @@ trait HasOpportunityActions
             $this->dispatchOpportunityLifecycleChanged();
         } catch (AuthorizationException) {
             session()->flash('error', 'You do not have permission to perform this action.');
+        } catch (EventNotValid $e) {
+            session()->flash('error', $e->getMessage() ?: 'This action could not be completed.');
         } catch (ValidationException $e) {
             session()->flash('error', collect($e->errors())->flatten()->first() ?? 'This action could not be completed.');
         }
