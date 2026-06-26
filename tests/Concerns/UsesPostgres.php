@@ -4,6 +4,7 @@ namespace Tests\Concerns;
 
 use Illuminate\Support\Facades\DB;
 use PDO;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -53,10 +54,14 @@ trait UsesPostgres
         DB::setDefaultConnection('pgsql_testing');
 
         if (! static::$pgsqlMigrated) {
-            $this->artisan('migrate:fresh', [
-                '--database' => 'pgsql_testing',
-                '--force' => true,
-            ])->run();
+            if ($this->isCodeCoverageRequested()) {
+                $this->runPgsqlMigrateFreshOutsideCoverageProcess();
+            } else {
+                $this->artisan('migrate:fresh', [
+                    '--database' => 'pgsql_testing',
+                    '--force' => true,
+                ])->run();
+            }
 
             static::$pgsqlMigrated = true;
         }
@@ -123,5 +128,53 @@ trait UsesPostgres
             // Identifier cannot be bound; it is sourced from config, not user input.
             $pdo->exec(sprintf('CREATE DATABASE "%s"', str_replace('"', '', $database)));
         }
+    }
+
+    /**
+     * Whether PHPUnit/Pest was invoked with a coverage collection flag.
+     */
+    protected function isCodeCoverageRequested(): bool
+    {
+        if (filter_var(getenv('COVERAGE_COLLECTING'), FILTER_VALIDATE_BOOL)) {
+            return true;
+        }
+
+        foreach ($_SERVER['argv'] ?? [] as $argument) {
+            if ($argument === '--coverage' || str_starts_with($argument, '--coverage-')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Run `migrate:fresh` in a child process with coverage drivers disabled.
+     *
+     * PHPUnit starts collecting coverage before setUp(), so an in-process
+     * migrate would instrument every migration file into the first test's
+     * coverage payload. On the Pgsql lane that payload is large enough to
+     * destabilise coverage finalisation (often surfacing as a missing
+     * php-code-coverage class during CodeCoverage::stop()).
+     */
+    protected function runPgsqlMigrateFreshOutsideCoverageProcess(): void
+    {
+        $process = new Process(
+            [
+                PHP_BINARY,
+                '-d', 'xdebug.mode=off',
+                '-d', 'pcov.enabled=0',
+                'artisan',
+                'migrate:fresh',
+                '--database=pgsql_testing',
+                '--force',
+                '--no-ansi',
+            ],
+            base_path(),
+            array_merge($_ENV, ['XDEBUG_MODE' => 'off']),
+        );
+
+        $process->setTimeout(600);
+        $process->mustRun();
     }
 }
