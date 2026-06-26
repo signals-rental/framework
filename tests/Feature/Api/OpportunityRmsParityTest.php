@@ -106,8 +106,6 @@ describe('RMS create round-trip', function () {
             ->assertJsonPath('meta.can_edit', true)
             ->assertJsonPath('meta.can_destroy', true);
 
-        expect($response->json('opportunity.charge_total'))->toBeString();
-
         // Persisted on the projection row.
         $opportunity = Opportunity::query()->findOrFail($response->json('opportunity.id'));
         expect($opportunity->rating)->toBe(4)

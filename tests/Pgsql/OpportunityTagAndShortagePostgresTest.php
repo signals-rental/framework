@@ -16,7 +16,9 @@ use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\Api\RansackFilter;
+use App\Services\Api\WebhookService;
 use App\Services\Availability\RecalculationPipeline;
+use App\Services\Shortages\ShortageDetector;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Facades\Queue;
@@ -121,6 +123,8 @@ it('maintains opportunities.has_shortage through the recalc job', function () {
     // The recalc job is what maintains the denormalised flag.
     (new RecalculateAvailabilityJob($product->id, $store->id))->handle(
         app(RecalculationPipeline::class),
+        app(WebhookService::class),
+        app(ShortageDetector::class),
     );
 
     expect($opportunity->fresh()->has_shortage)->toBeTrue();
@@ -130,6 +134,8 @@ it('maintains opportunities.has_shortage through the recalc job', function () {
 
     (new RecalculateAvailabilityJob($product->id, $store->id))->handle(
         app(RecalculationPipeline::class),
+        app(WebhookService::class),
+        app(ShortageDetector::class),
     );
 
     expect($opportunity->fresh()->has_shortage)->toBeFalse();

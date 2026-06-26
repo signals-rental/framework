@@ -1,6 +1,6 @@
 <div>
     @if ($canAccess)
-        <h2 class="section-heading">Opportunity Pipeline</h2>
+        <h2 class="s-panel-title mb-3">Opportunity Pipeline</h2>
         <x-signals.stat-grid class="mb-8">
             <a href="{{ route('opportunities.index', ['state' => \App\Enums\OpportunityState::Quotation->value]) }}"
                wire:navigate

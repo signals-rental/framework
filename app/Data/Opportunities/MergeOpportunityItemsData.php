@@ -26,7 +26,7 @@ class MergeOpportunityItemsData extends Data
     {
         return [
             'duplicate_item_ids' => ['required', 'array', 'min:1'],
-            'duplicate_item_ids.*' => ['integer'],
+            'duplicate_item_ids.*' => ['integer', 'exists:opportunity_items,id'],
         ];
     }
 }

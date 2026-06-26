@@ -7,7 +7,13 @@ export function normalizeRevision(value) {
         return '0';
     }
 
-    return String(value).trim() || '0';
+    // Only a non-negative integer string is a valid BigInt revision token. A
+    // corrupted cache value (e.g. 'NaN', 'undefined') degrades gracefully to '0'
+    // — a cache miss where the server revision wins — rather than throwing a
+    // RangeError out of BigInt() and crashing boot().
+    const s = String(value).trim();
+
+    return /^\d+$/.test(s) ? s : '0';
 }
 
 /**

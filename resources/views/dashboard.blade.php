@@ -90,7 +90,7 @@
         @endcan
 
         {{-- Quick Actions --}}
-        <h2 class="section-heading">Quick Actions</h2>
+        <h2 class="s-panel-title mb-3">Quick Actions</h2>
         <div class="quick-actions">
             @can('opportunities.create')
             <a class="quick-action" href="{{ route('opportunities.create') }}" wire:navigate>

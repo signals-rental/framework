@@ -54,7 +54,8 @@ describe('GET /api/v1/availability (point)', function () {
 
         expect($response->json('availability.total_stock'))->toBe(10)
             ->and($response->json('availability.total_demanded'))->toBe(4)
-            ->and($response->json('availability.available'))->toBe(6);
+            ->and($response->json('availability.available'))->toBe(6)
+            ->and($response->json('availability.date'))->toBe('2026-07-02');
     });
 
     it('requires authentication', function () {

@@ -3,6 +3,7 @@
 namespace App\Services\Opportunities;
 
 use App\Data\Availability\OpportunityItemAvailabilityData;
+use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityItemType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
@@ -312,14 +313,20 @@ class OpportunityLineItemsTreeBuilder
 
         $unitPriceMinor = (int) ($item->unit_price ?? 0);
         $quantity = (float) $item->quantity;
-        $rentalMinor = (int) round($quantity * $unitPriceMinor * max(1, $days));
+
+        // Sale lines are a one-off charge — they do NOT multiply by the chargeable
+        // days, mirroring OpportunityTotalsCalculator::manualLineSubtotal(). Only
+        // Rental/Service lines accrue per day.
+        $isSale = $item->transaction_type === LineItemTransactionType::Sale;
+        $chargeDays = $isSale ? 1 : max(1, $days);
+        $rentalMinor = (int) round($quantity * $unitPriceMinor * $chargeDays);
         $surchargeMinor = 0;
 
         return [
             'days_line' => sprintf(
                 'Days: %s × %d',
                 $this->formatter->money($unitPriceMinor, $currencyCode),
-                max(1, $days),
+                $chargeDays,
             ),
             'rental_charge_display' => $this->formatter->money($rentalMinor, $currencyCode),
             'surcharge_display' => $this->formatter->money($surchargeMinor, $currencyCode),

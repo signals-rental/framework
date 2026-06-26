@@ -335,8 +335,8 @@ describe('PATCH /api/v1/opportunities/{id}/items/{item} extended fields', functi
             ->assertOk();
 
         $item->refresh();
-        expect((float) $item->unit_price)->toBe(6000.0)
-            ->and((float) $item->discount_percent)->toBe(10.0)
+        expect($item->unit_price)->toBe(6000) // integer minor-units cast
+            ->and($item->discount_percent)->toBe('10.00') // decimal:2 cast returns a string
             ->and($item->is_optional)->toBeTrue()
             ->and($item->starts_at)->not->toBeNull();
     });

@@ -143,6 +143,13 @@ class ProductSearchService
         // Set the session trigram threshold that the `%` operator compares against.
         // `set_limit()` returns `real`, so it must run as its own statement — it
         // cannot live in a WHERE/AND boolean context.
+        //
+        // This mutates connection-level session state that persists for the life of
+        // a pooled/long-lived connection (Octane, pgbouncer session pooling). That is
+        // safe ONLY because TRGM_THRESHOLD is a fixed constant — every caller sets the
+        // same value, so cross-request reuse is idempotent. If the threshold ever
+        // needs to vary per query, switch to `WHERE similarity(name, ?) > ?` instead
+        // of the session variable.
         $builder->getModel()->getConnection()->statement('SELECT set_limit(?)', [self::TRGM_THRESHOLD]);
 
         return $builder
@@ -279,8 +286,14 @@ class ProductSearchService
     private function accessories(Product $product): array
     {
         return $product->accessories
-            ->map(function (Accessory $accessory): ProductSearchAccessoryData {
+            ->map(function (Accessory $accessory): ?ProductSearchAccessoryData {
                 $linked = $accessory->accessoryProduct;
+
+                // The linked product can be absent (deleted / unresolved FK); skip
+                // the accessory rather than dereferencing null.
+                if ($linked === null) {
+                    return null;
+                }
 
                 return new ProductSearchAccessoryData(
                     id: $accessory->accessory_product_id,
@@ -291,6 +304,7 @@ class ProductSearchService
                     zero_priced: (bool) $accessory->zero_priced,
                 );
             })
+            ->filter()
             ->values()
             ->all();
     }

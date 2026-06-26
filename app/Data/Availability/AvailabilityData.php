@@ -2,7 +2,6 @@
 
 namespace App\Data\Availability;
 
-use App\Data\Concerns\FormatsTimestamps;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Data;
 
@@ -15,8 +14,6 @@ use Spatie\LaravelData\Data;
  */
 class AvailabilityData extends Data
 {
-    use FormatsTimestamps;
-
     /**
      * @param  array<string, int>  $demand_breakdown
      */
@@ -44,7 +41,7 @@ class AvailabilityData extends Data
         return new self(
             product_id: $productId,
             store_id: $storeId,
-            date: self::formatTimestamp($date),
+            date: $date->toDateString(),
             total_stock: $totalStock,
             total_demanded: $totalDemanded,
             available: $totalStock - $totalDemanded,

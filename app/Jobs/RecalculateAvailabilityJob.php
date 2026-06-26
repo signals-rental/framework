@@ -112,7 +112,7 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
      * broadcast the change. No-ops (untracked product, empty horizon) skip the
      * broadcast.
      */
-    public function handle(RecalculationPipeline $pipeline): void
+    public function handle(RecalculationPipeline $pipeline, WebhookService $webhooks, ShortageDetector $detector): void
     {
         [$from, $to] = $pipeline->fullHorizon();
 
@@ -136,13 +136,13 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
         // live per-line availability without subscribing to every product/store
         // channel. One broadcast per distinct opportunity holding an active demand
         // for this product/store over the refreshed window.
-        $this->broadcastToOpportunities($result->from, $result->to, $result->hasShortage);
+        $this->broadcastToOpportunities($result->from, $result->to, $result->hasShortage, $detector);
 
         // Mirror the Reverb broadcast onto the outbound webhook bus so external
         // integrators can react to availability changes too. This runs in a
         // queued job that the (replay-skipped) observers enqueue, so it is never
         // reached during a Verbs replay — no extra guard is required here.
-        app(WebhookService::class)->dispatch('availability.changed', [
+        $webhooks->dispatch('availability.changed', [
             'product_id' => $this->productId,
             'store_id' => $this->storeId,
             'from' => $result->from?->toIso8601String(),
@@ -163,7 +163,7 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
      * window is unknown (a skipped clamp) the broadcast is omitted — the
      * product/store broadcast above still fires.
      */
-    private function broadcastToOpportunities(?Carbon $from, ?Carbon $to, bool $hasShortage): void
+    private function broadcastToOpportunities(?Carbon $from, ?Carbon $to, bool $hasShortage, ShortageDetector $detector): void
     {
         if ($from === null || $to === null) {
             return;
@@ -199,8 +199,6 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
                     'store_id' => $this->storeId,
                 ]);
             });
-
-        $detector = app(ShortageDetector::class);
 
         foreach (array_keys($opportunityIds) as $opportunityId) {
             // Maintain the denormalised `opportunities.has_shortage` flag for the

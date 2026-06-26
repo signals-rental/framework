@@ -13,6 +13,8 @@ use App\Verbs\Events\Opportunities\Concerns\AdjustsStockAllocation;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\Events\Opportunities\Concerns\SyncsAssetDemands;
 use App\Verbs\States\AssetAssignmentState;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Carbon\CarbonImmutable;
 use Thunk\Verbs\Attributes\Autodiscovery\StateId;
 use Thunk\Verbs\Event;
@@ -98,8 +100,12 @@ class AssetAllocated extends Event
                 ->where('opportunity_item_id', $this->opportunity_item_id)
                 ->count();
 
+            $maxAssets = BigDecimal::of((string) $item->quantity)
+                ->toScale(0, RoundingMode::CEILING)
+                ->toInt();
+
             $this->assert(
-                $existing + 1 <= (int) ceil((float) $item->quantity),
+                $existing + 1 <= $maxAssets,
                 'Allocating this asset would exceed the line item\'s quantity.',
             );
         }

@@ -222,6 +222,27 @@ describe('PATCH /api/v1/opportunities/{id}/items/{item}', function () {
             ->assertForbidden();
     });
 
+    it('rolls back an earlier mutation when a later field in the same PATCH fails', function () {
+        $opportunity = makeApiOpportunity($this->owner);
+        $item = addApiItem($this->owner, $opportunity);
+        $token = itemWriteToken($this->owner);
+
+        $originalQuantity = $item->fresh()->quantity;
+
+        // quantity (valid) is applied first, then discount_percent (>100) fails
+        // validation. The whole PATCH must roll back atomically.
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/opportunities/{$opportunity->id}/items/{$item->id}", [
+                'quantity' => '9',
+                'discount_percent' => '200',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('discount_percent');
+
+        // The quantity change must NOT have persisted.
+        expect($item->fresh()->quantity)->toBe($originalQuantity);
+    });
+
     it('renames a line item when only name is supplied', function () {
         $opportunity = makeApiOpportunity($this->owner);
         $item = addApiItem($this->owner, $opportunity);

@@ -283,7 +283,6 @@ function createMockEditor(serverTree, wireCalls, deleteId) {
                 idx,
                 end,
                 target,
-                isSection: target.item_type === 'group',
             };
         },
         spliceLocalDeleteBlock(block) {
@@ -291,15 +290,13 @@ function createMockEditor(serverTree, wireCalls, deleteId) {
             state.rows.splice(idx, end - idx);
             this.syncOptimisticTotalsFromRows();
         },
-        deleteItemUrl(serverId, isSection) {
-            const base = `/opportunities/${state.oppId}/items/${serverId}`;
-
-            return isSection ? `${base}?scope=section` : base;
+        deleteItemUrl(serverId) {
+            return `/opportunities/${state.oppId}/items/${serverId}`;
         },
-        sendKeepaliveDelete(serverId, isSection) {
+        sendKeepaliveDelete(serverId) {
             const token = state.csrfToken || '';
 
-            fetch(this.deleteItemUrl(serverId, isSection), {
+            fetch(this.deleteItemUrl(serverId), {
                 method: 'DELETE',
                 keepalive: true,
                 credentials: 'same-origin',
@@ -325,7 +322,6 @@ function createMockEditor(serverTree, wireCalls, deleteId) {
                 return;
             }
 
-            const { isSection } = block;
             const serverId = this.resolveServerItemId(id);
 
             for (let i = block.idx; i < block.end; i++) {
@@ -333,7 +329,7 @@ function createMockEditor(serverTree, wireCalls, deleteId) {
             }
 
             if (serverId !== null) {
-                this.sendKeepaliveDelete(serverId, isSection);
+                this.sendKeepaliveDelete(serverId);
             }
 
             setTimeout(() => {

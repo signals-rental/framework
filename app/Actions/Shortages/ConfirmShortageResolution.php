@@ -7,6 +7,7 @@ use App\Data\Shortages\ShortageResolutionData;
 use App\Enums\ShortageResolutionStatus;
 use App\Models\ShortageResolution;
 use App\Services\Shortages\ShortageEventRecorder;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -34,7 +35,7 @@ class ConfirmShortageResolution
         $resolution->forceFill([
             'status' => ShortageResolutionStatus::Confirmed,
             'confirmed_by' => auth()->id(),
-            'confirmed_at' => now(),
+            'confirmed_at' => Carbon::now('UTC'),
         ])->save();
 
         $this->events->resolutionConfirmed($resolution);

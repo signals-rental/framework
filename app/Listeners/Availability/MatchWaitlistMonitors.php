@@ -57,11 +57,14 @@ class MatchWaitlistMonitors implements ShouldQueue
                 $from = $monitor->starts_at ?? Carbon::now();
                 $to = $monitor->ends_at ?? $from->copy()->addDay();
 
+                // checkAvailability() requires a mutable Illuminate\Support\Carbon;
+                // the cast date attributes are CarbonImmutable, so normalise via
+                // Carbon::instance() (no string round-trip).
                 $satisfied = $this->availability->checkAvailability(
                     $monitor->product_id,
                     $monitor->store_id,
-                    Carbon::parse($from),
-                    Carbon::parse($to),
+                    Carbon::instance($from),
+                    Carbon::instance($to),
                     $monitor->quantity_needed,
                 );
 
@@ -74,7 +77,8 @@ class MatchWaitlistMonitors implements ShouldQueue
                     'matched_at' => Carbon::now(),
                 ]);
 
-                $this->events->waitlistMatched($monitor->fresh() ?? $monitor, [
+                // update() already synced the in-memory attributes; no fresh() reload.
+                $this->events->waitlistMatched($monitor, [
                     'quantity_needed' => $monitor->quantity_needed,
                 ]);
 

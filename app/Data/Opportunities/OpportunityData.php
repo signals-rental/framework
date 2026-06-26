@@ -41,6 +41,9 @@ class OpportunityData extends Data
         public ?string $external_description,
         public int $state,
         public string $state_label,
+        // `state_name`/`status_name` are intentional RMS-compatibility aliases of
+        // `state_label`/`status_label` — third-party RMS integrations expect the
+        // `_name` keys. They are deliberately identical; do not diverge them.
         public string $state_name,
         public int $status,
         public string $status_label,
@@ -276,11 +279,6 @@ class OpportunityData extends Data
         }
 
         return EntityReferenceData::from(['id' => $model->id, 'name' => $model->name]);
-    }
-
-    private static function formatNullableTimestamp(?\DateTimeInterface $timestamp): ?string
-    {
-        return $timestamp !== null ? self::formatTimestamp($timestamp) : null;
     }
 
     /**

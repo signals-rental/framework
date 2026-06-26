@@ -101,7 +101,10 @@ class AppServiceProvider extends ServiceProvider
         // resolution live through its provider, so a singleton is safe.
         $this->app->singleton(SlotCalculator::class);
         $this->app->singleton(PipelineShortageEmitter::class);
-        $this->app->singleton(RecalculationPipeline::class);
+        // Scoped (not singleton): the pipeline memoises store timezones on the
+        // instance, so under Octane it must be reset each request/job rather than
+        // persisting a stale timezone for the worker's lifetime.
+        $this->app->scoped(RecalculationPipeline::class);
         $this->app->singleton(AvailabilityService::class);
 
         // The kit calculator reads component availability back through the
@@ -164,6 +167,11 @@ class AppServiceProvider extends ServiceProvider
 
             return $registry;
         });
+
+        // The substitution resolver memoises its `product_substitutions` schema
+        // check on the instance; bind it as a singleton so one detection pass
+        // (resolved transiently from the registry) shares a single lookup.
+        $this->app->singleton(SubstitutionResolver::class);
 
         // Shortage resolvers — core registers the built-in non-PO resolvers;
         // plugins register their own (and the sub-hire/external-sourcing

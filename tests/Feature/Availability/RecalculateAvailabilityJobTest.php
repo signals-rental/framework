@@ -10,7 +10,9 @@ use App\Models\Demand;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
+use App\Services\Api\WebhookService;
 use App\Services\Availability\RecalculationPipeline;
+use App\Services\Shortages\ShortageDetector;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
@@ -168,7 +170,9 @@ describe('handle', function () {
         expect(AvailabilitySnapshot::query()->where('product_id', $product->id)->count())->toBe(0);
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         $demandedSlot = AvailabilitySnapshot::query()
@@ -210,7 +214,9 @@ describe('handle', function () {
             ]);
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         // The far slot lies beyond the settings-driven horizon, so no snapshot is
@@ -243,7 +249,9 @@ describe('handle', function () {
         ]);
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         Event::assertDispatched(AvailabilityChanged::class, function (AvailabilityChanged $event) use ($product) {
@@ -281,7 +289,9 @@ describe('handle', function () {
             ]);
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         Event::assertDispatched(AvailabilityChanged::class, function (AvailabilityChanged $event): bool {
@@ -297,7 +307,9 @@ describe('handle', function () {
         $product = Product::factory()->bulk()->notTracked()->create();
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         Event::assertNotDispatched(AvailabilityChanged::class);

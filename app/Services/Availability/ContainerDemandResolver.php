@@ -92,9 +92,9 @@ class ContainerDemandResolver implements DemandResolverContract
         $this->purge($item);
 
         $phase = $this->resolvePhase($item);
-        // `packed_at` is cast to an immutable Carbon; the demand window helpers
-        // expect the mutable Illuminate Carbon, so normalise it here.
-        $startsAt = Carbon::parse($item->packed_at->toIso8601String());
+        // The demand window helpers expect a fresh mutable Illuminate Carbon;
+        // Carbon::instance() converts the cast attribute without a string round-trip.
+        $startsAt = Carbon::instance($item->packed_at);
         $endsAt = Demand::sentinel();
 
         // An indefinite reservation: no turnaround/prep buffer — the unit is held

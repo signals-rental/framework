@@ -6,16 +6,20 @@ use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Enums\AvailabilityResolution;
 use App\Enums\StockMethod;
+use App\Events\AuditableEvent;
 use App\Jobs\DeliverWebhook;
 use App\Jobs\RecalculateAvailabilityJob;
 use App\Models\ActionLog;
+use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\Webhook;
+use App\Services\Api\WebhookService;
 use App\Services\Availability\RecalculationPipeline;
+use App\Services\Shortages\ShortageDetector;
 use App\Services\Shortages\ShortageEventRecorder;
 use App\ValueObjects\Shortage;
 use Database\Seeders\PermissionSeeder;
@@ -74,6 +78,20 @@ it('dispatches a webhook once for an opportunity lifecycle transition', function
             && array_key_exists('opportunity', $job->payload)
             && ($job->payload['opportunity']['id'] ?? null) === $created->id,
     );
+});
+
+it('does NOT double-dispatch a webhook for a non-owned model that emits its own', function () {
+    subscribeAllEvents($this->actor);
+
+    Queue::fake();
+
+    // Member is NOT in DispatchWebhookForAuditableEvent::OWNED_MODELS — member
+    // actions emit member.* webhooks directly. The audit bridge must therefore
+    // ignore this AuditableEvent, even though member.updated is a registered event.
+    $member = Member::factory()->organisation()->create();
+    event(new AuditableEvent($member, 'member.updated'));
+
+    Queue::assertNothingPushed();
 });
 
 it('does NOT dispatch opportunity webhooks during a Verbs replay', function () {
@@ -196,6 +214,8 @@ it('dispatches an availability.changed webhook after a recompute', function () {
 
     (new RecalculateAvailabilityJob($product->id, $store->id))->handle(
         app(RecalculationPipeline::class),
+        app(WebhookService::class),
+        app(ShortageDetector::class),
     );
 
     Queue::assertPushed(

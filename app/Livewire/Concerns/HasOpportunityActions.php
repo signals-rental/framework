@@ -401,9 +401,11 @@ trait HasOpportunityActions
 
     protected function dispatchOpportunityLifecycleChanged(): void
     {
-        $opportunity = $this->opportunity->fresh();
+        // The sole caller (runTransition) already refreshed $this->opportunity in
+        // place, so reuse it rather than firing another SELECT via fresh().
+        $opportunity = $this->opportunity;
 
-        if ($opportunity === null) {
+        if (! $opportunity->exists) {
             return;
         }
 

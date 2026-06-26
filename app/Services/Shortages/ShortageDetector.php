@@ -45,7 +45,10 @@ class ShortageDetector
      */
     public function forOpportunity(Opportunity $opportunity): ShortageCollection
     {
-        $opportunity->loadMissing('items');
+        // Eager-load the polymorphic product on every line so the per-item
+        // resolveProduct() reads the loaded relation instead of issuing one
+        // Product::find() query per product-backed line (N+1).
+        $opportunity->loadMissing('items.item');
 
         $shortages = new ShortageCollection;
 
@@ -178,6 +181,13 @@ class ShortageDetector
     {
         if (! $item->isProductBacked()) {
             return null;
+        }
+
+        // Prefer the eager-loaded polymorphic relation (populated by forOpportunity)
+        // to avoid a query per item; fall back to a direct lookup on the single-item
+        // path where the relation was not pre-loaded.
+        if ($item->relationLoaded('item') && $item->item instanceof Product) {
+            return $item->item;
         }
 
         return Product::query()->find($item->itemable_id);

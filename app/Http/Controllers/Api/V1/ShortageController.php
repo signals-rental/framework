@@ -29,7 +29,6 @@ use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -83,7 +82,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Opportunity shortage resolutions', type: 'array{shortage_resolutions: list<array{id: int, resolver_key: string, resolution_type: string, status: string, status_label: string, quantity_resolved: int, cost: string|null, metadata: array<string, mixed>|null, resolved_by: int|null, confirmed_at: string|null, cancelled_at: string|null, cancellation_reason: string|null, notes: string|null, created_at: string, updated_at: string, items: list<array{id: int, opportunity_item_id: int, quantity_allocated: int}>}>, meta: array{total: int, per_page: int, page: int}}')]
     public function resolutions(Request $request, Opportunity $opportunity): JsonResponse
     {
-        $this->authorizeShortage('shortages.view', 'shortages:read');
+        $this->authorizeApi('shortages.view', 'shortages:read');
 
         $query = ShortageResolution::query()
             ->forOpportunity($opportunity->id)
@@ -114,7 +113,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Opportunity shortages', type: 'array{shortages: list<array{opportunity_item_id: int, opportunity_id: int, product_id: int, product_name: string, store_id: int, requested_quantity: int, available_quantity: int, shortfall: int, remaining_shortfall: int, tracking_type: string, starts_at: string, ends_at: string, is_critical: bool}>, meta: array{total: int}}')]
     public function index(Opportunity $opportunity): JsonResponse
     {
-        $this->authorizeShortage('shortages.view', 'shortages:read');
+        $this->authorizeApi('shortages.view', 'shortages:read');
 
         $shortages = (new DetectOpportunityShortages(app(ShortageDetector::class)))($opportunity);
 
@@ -136,7 +135,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Shortage gate decision', type: 'array{decision: string, store_policy: string, permission_used: bool, would_block: bool, acknowledgement_required: bool, shortages: list<array{opportunity_item_id: int, opportunity_id: int, product_id: int, product_name: string, store_id: int, requested_quantity: int, available_quantity: int, shortfall: int, remaining_shortfall: int, tracking_type: string, starts_at: string, ends_at: string, is_critical: bool}>}')]
     public function gate(Opportunity $opportunity): JsonResponse
     {
-        $this->authorizeShortage('shortages.view', 'shortages:read');
+        $this->authorizeApi('shortages.view', 'shortages:read');
 
         $result = app(ShortageConfirmationGate::class)->evaluate($opportunity);
 
@@ -161,7 +160,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Applicable resolver options', type: 'array{resolvers: list<array{resolver_key: string, name: string, priority: int, auto_executable: bool, options: list<array{resolver_key: string, type: string, label: string, description: string, quantity_resolved: int, is_partial: bool, auto_executable: bool, estimated_cost: int|null, estimated_lead_time: int|null, requires_confirmation: bool, metadata: array<string, mixed>}>}>}')]
     public function resolvers(Opportunity $opportunity, OpportunityItem $item): JsonResponse
     {
-        $this->authorizeShortage('shortages.view', 'shortages:read');
+        $this->authorizeApi('shortages.view', 'shortages:read');
 
         $this->assertItemBelongsToOpportunity($item, $opportunity);
 
@@ -196,7 +195,7 @@ class ShortageController extends Controller
     #[ApiResponse(201, 'Resolution applied', type: 'array{resolution: array{id: int, resolver_key: string, resolution_type: string, status: string, status_label: string, quantity_resolved: int, cost: string|null}, status: string, message: string, requires_followup: bool}')]
     public function resolve(Request $request): JsonResponse
     {
-        $this->authorizeShortage('shortages.resolve', 'shortages:write');
+        $this->authorizeApi('shortages.resolve', 'shortages:write');
 
         $data = ApplyResolutionData::from($request->validate(ApplyResolutionData::rules()));
 
@@ -241,7 +240,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Resolution confirmed', type: 'array{resolution: array{id: int, status: string, status_label: string}}')]
     public function confirmResolution(ShortageResolution $resolution): JsonResponse
     {
-        $this->authorizeShortage('shortages.resolve', 'shortages:write');
+        $this->authorizeApi('shortages.resolve', 'shortages:write');
 
         $data = (new ConfirmShortageResolution(app(ShortageEventRecorder::class)))($resolution);
 
@@ -254,7 +253,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Resolution in progress', type: 'array{resolution: array{id: int, status: string, status_label: string}}')]
     public function startResolution(ShortageResolution $resolution): JsonResponse
     {
-        $this->authorizeShortage('shortages.resolve', 'shortages:write');
+        $this->authorizeApi('shortages.resolve', 'shortages:write');
 
         $data = (new StartShortageResolution(app(ShortageEventRecorder::class)))($resolution);
 
@@ -267,7 +266,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Resolution fulfilled', type: 'array{resolution: array{id: int, status: string, status_label: string}}')]
     public function fulfillResolution(ShortageResolution $resolution): JsonResponse
     {
-        $this->authorizeShortage('shortages.resolve', 'shortages:write');
+        $this->authorizeApi('shortages.resolve', 'shortages:write');
 
         $data = (new FulfillShortageResolution(app(ShortageEventRecorder::class)))($resolution);
 
@@ -280,7 +279,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Resolution cancelled', type: 'array{resolution: array{id: int, status: string, status_label: string}}')]
     public function cancelResolution(Request $request, ShortageResolution $resolution): JsonResponse
     {
-        $this->authorizeShortage('shortages.resolve', 'shortages:write');
+        $this->authorizeApi('shortages.resolve', 'shortages:write');
 
         $payload = TransitionShortageResolutionData::from($request->validate(TransitionShortageResolutionData::rules()));
 
@@ -295,7 +294,7 @@ class ShortageController extends Controller
     #[ApiResponse(200, 'Resolution failed', type: 'array{resolution: array{id: int, status: string, status_label: string}}')]
     public function failResolution(Request $request, ShortageResolution $resolution): JsonResponse
     {
-        $this->authorizeShortage('shortages.resolve', 'shortages:write');
+        $this->authorizeApi('shortages.resolve', 'shortages:write');
 
         $payload = TransitionShortageResolutionData::from($request->validate(TransitionShortageResolutionData::rules()));
 
@@ -311,7 +310,7 @@ class ShortageController extends Controller
     #[ApiResponse(201, 'Shortages acknowledged', type: 'array{acknowledgement: array{id: int, opportunity_id: int, policy_at_time: string, permission_used: bool, acknowledged_at: string}}')]
     public function acknowledge(Request $request, Opportunity $opportunity): JsonResponse
     {
-        $this->authorizeShortage('shortages.resolve', 'shortages:write');
+        $this->authorizeApi('shortages.resolve', 'shortages:write');
 
         $data = AcknowledgeShortageData::from($request->validate(AcknowledgeShortageData::rules()));
 
@@ -336,20 +335,5 @@ class ShortageController extends Controller
     private function assertItemBelongsToOpportunity(OpportunityItem $item, Opportunity $opportunity): void
     {
         abort_unless($item->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
-    }
-
-    /**
-     * Authorise a shortage read/write: the Gate permission plus the token ability.
-     */
-    private function authorizeShortage(string $permission, string $ability): void
-    {
-        Gate::authorize($permission);
-
-        /** @var PersonalAccessToken|null $token */
-        $token = request()->user()?->currentAccessToken();
-
-        if ($token instanceof PersonalAccessToken && ! $token->can($ability)) {
-            abort(Response::HTTP_FORBIDDEN, "Token does not have the required ability: {$ability}");
-        }
     }
 }

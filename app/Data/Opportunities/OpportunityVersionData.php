@@ -91,9 +91,4 @@ class OpportunityVersionData extends Data
             ),
         );
     }
-
-    private static function formatNullableTimestamp(?\DateTimeInterface $timestamp): ?string
-    {
-        return $timestamp !== null ? self::formatTimestamp($timestamp) : null;
-    }
 }

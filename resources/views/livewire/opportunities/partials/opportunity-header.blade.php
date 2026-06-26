@@ -1,13 +1,12 @@
 {{--
     Shared opportunity Show-page header (mirrors products/partials/product-header).
 
-    Every tab page @include's this, passing `subpage` for the breadcrumb. The full
-    Actions split-button (state-transition menu) is only rendered on the OVERVIEW
-    page — that page owns the transition wire-methods (convertToQuotation,
-    convertToOrder, reinstate, revertToQuotation, cloneOpportunity, archive,
-    unlockRates) and computes the permitted-action verdicts in its with(). Tab pages
-    omit `showActions`, so they show only the Edit button — avoiding duplicating the
-    transition methods across every tab component.
+    Every tab page @include's this, passing `subpage` for the breadcrumb. All tab
+    pages now pass `showActions => true`: they share the transition wire-methods
+    (convertToQuotation, convertToOrder, reinstate, revertToQuotation,
+    cloneOpportunity, archive, unlockRates) through the HasOpportunityActions trait,
+    so the full Actions split-button (state-transition menu) renders consistently on
+    the Overview and every tab.
 --}}
 @php
     $stateBadgeClass = match($opportunity->state) {

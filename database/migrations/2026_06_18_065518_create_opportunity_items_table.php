@@ -40,6 +40,9 @@ return new class extends Migration
             // Quotation version scope (Signals-only; null for orders/legacy data).
             // The opportunity_versions table lands in M4 — kept as an unconstrained
             // nullable int here so M3 items can be added before versioning exists.
+            // The FK constraint is added in
+            // 2026_06_20_095000_add_version_id_foreign_key_to_opportunity_items_table.php
+            // once opportunity_versions exists.
             $table->unsignedBigInteger('version_id')->nullable();
 
             // Catalogued item reference — polymorphic (products today, services and

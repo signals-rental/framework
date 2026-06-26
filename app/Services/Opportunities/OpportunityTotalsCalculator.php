@@ -190,12 +190,13 @@ class OpportunityTotalsCalculator
         }
 
         $currency = $this->currencyFor($opportunity);
+        $defaultProductTaxClassId = $this->defaultProductTaxClassId();
 
         $taxRate = $this->taxCalculator->calculate(
-            $this->costNet($cost, $opportunity),
+            $this->costNet($cost, $opportunity, $defaultProductTaxClassId),
             $currency,
             $opportunity->member?->sale_tax_class_id,
-            $this->defaultProductTaxClassId(),
+            $defaultProductTaxClassId,
         )->ratePercentage;
 
         $cost->forceFill([
@@ -289,7 +290,7 @@ class OpportunityTotalsCalculator
                 continue;
             }
 
-            $costNet = $this->costNet($cost, $opportunity);
+            $costNet = $this->costNet($cost, $opportunity, $defaultProductTaxClassId);
 
             $excludingTax += $costNet;
             $netByProductTaxClass[$defaultProductTaxClassId ?? 0]
@@ -408,7 +409,7 @@ class OpportunityTotalsCalculator
      * embedded tax stripped when prices are entered tax-inclusive so the bucket
      * stays net.
      */
-    private function costNet(OpportunityCost $cost, Opportunity $opportunity): int
+    private function costNet(OpportunityCost $cost, Opportunity $opportunity, ?int $defaultProductTaxClassId): int
     {
         $quantityUnits = max(0, (int) round((float) $cost->quantity));
         $lineTotal = $cost->amount * $quantityUnits;
@@ -421,7 +422,7 @@ class OpportunityTotalsCalculator
             $lineTotal,
             $this->currencyFor($opportunity),
             $opportunity->member?->sale_tax_class_id,
-            $this->defaultProductTaxClassId(),
+            $defaultProductTaxClassId,
         )->netAmount;
     }
 

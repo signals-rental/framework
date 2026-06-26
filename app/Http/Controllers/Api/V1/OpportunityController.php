@@ -115,6 +115,7 @@ use Closure;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
@@ -870,31 +871,37 @@ class OpportunityController extends Controller
 
         $this->assertItemBelongsToOpportunity($item, $opportunity);
 
-        if ($request->has('quantity')) {
-            (new ChangeItemQuantity)($item, ChangeItemQuantityData::from($request->validate(ChangeItemQuantityData::rules())));
-        }
+        // A partial PATCH may dispatch several lifecycle actions in sequence (each
+        // wraps its own commitVerbs transaction). Wrap the whole sequence in one
+        // outer transaction so a mid-sequence failure rolls back the already-applied
+        // mutations rather than leaving the line partially updated.
+        DB::transaction(function () use ($request, $item): void {
+            if ($request->has('quantity')) {
+                (new ChangeItemQuantity)($item, ChangeItemQuantityData::from($request->validate(ChangeItemQuantityData::rules())));
+            }
 
-        if ($request->has('unit_price')) {
-            (new OverrideItemPrice)($item, OverrideItemPriceData::from($request->validate(OverrideItemPriceData::rules())));
-        }
+            if ($request->has('unit_price')) {
+                (new OverrideItemPrice)($item, OverrideItemPriceData::from($request->validate(OverrideItemPriceData::rules())));
+            }
 
-        if ($request->has('discount_percent')) {
-            (new SetItemDiscount)($item, SetItemDiscountData::from($request->validate(SetItemDiscountData::rules())));
-        }
+            if ($request->has('discount_percent')) {
+                (new SetItemDiscount)($item, SetItemDiscountData::from($request->validate(SetItemDiscountData::rules())));
+            }
 
-        if ($request->has('starts_at') || $request->has('ends_at')) {
-            (new ChangeItemDates)($item, ChangeItemDatesData::from($request->validate(ChangeItemDatesData::rules())));
-        }
+            if ($request->has('starts_at') || $request->has('ends_at')) {
+                (new ChangeItemDates)($item, ChangeItemDatesData::from($request->validate(ChangeItemDatesData::rules())));
+            }
 
-        if ($request->has('is_optional')) {
-            (new ToggleItemOptional)($item, ToggleItemOptionalData::from($request->validate(ToggleItemOptionalData::rules())));
-        }
+            if ($request->has('is_optional')) {
+                (new ToggleItemOptional)($item, ToggleItemOptionalData::from($request->validate(ToggleItemOptionalData::rules())));
+            }
 
-        if ($request->has('item_id') || $request->has('itemable_type')) {
-            (new SubstituteItem)($item, SubstituteItemData::from($request->validate(SubstituteItemData::rules())));
-        } elseif ($request->has('name')) {
-            (new RenameOpportunityItem)($item, RenameOpportunityItemData::from($request->validate(RenameOpportunityItemData::rules())));
-        }
+            if ($request->has('item_id') || $request->has('itemable_type')) {
+                (new SubstituteItem)($item, SubstituteItemData::from($request->validate(SubstituteItemData::rules())));
+            } elseif ($request->has('name')) {
+                (new RenameOpportunityItem)($item, RenameOpportunityItemData::from($request->validate(RenameOpportunityItemData::rules())));
+            }
+        });
 
         return $this->respondWithFreshOpportunity($opportunity->id);
     }

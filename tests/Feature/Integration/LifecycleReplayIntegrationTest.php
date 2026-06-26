@@ -137,9 +137,12 @@ it('reconstructs every projection and status identically after a full lifecycle 
         ->and(OpportunityVersion::query()->orderBy('id')->get(['id', 'version_number', 'status', 'is_active'])->toArray())->toBe($versionsBefore)
         ->and(OpportunityCost::query()->orderBy('id')->get(['id', 'opportunity_id'])->toArray())->toBe($costsBefore);
 
-    // Allocation re-derived from zero by replay.
-    expect((float) $assetA->refresh()->quantity_allocated)->toBe(0.0)
-        ->and((float) $assetB->refresh()->quantity_allocated)->toBe(0.0);
+    // Both assets completed the full Allocate→Dispatch→Return→Check cycle, so
+    // their net allocation is 0. Replay re-derives this from the event stream
+    // (the +1 on AssetAllocated is cancelled by the return path). quantity_allocated
+    // is a `decimal:2` column, so the cast returns the string '0.00'.
+    expect($assetA->refresh()->quantity_allocated)->toBe('0.00')
+        ->and($assetB->refresh()->quantity_allocated)->toBe('0.00');
 
     // --- Audit dedups via verb_event_id: no duplicate action_logs ---------
     expect(ActionLog::query()->count())->toBe($auditCountBefore);

@@ -67,8 +67,11 @@ class MergeOpportunityItems
             }
         }
 
-        $mergedQuantity = (float) $survivor->quantity
-            + $duplicates->sum(fn (OpportunityItem $item): float => (float) $item->quantity);
+        $mergedQuantity = array_reduce(
+            $duplicates->all(),
+            fn (string $carry, OpportunityItem $item): string => bcadd($carry, (string) $item->quantity, 2),
+            (string) $survivor->quantity,
+        );
 
         $richest = collect([$survivor])->concat($duplicates)
             ->sortByDesc(fn (OpportunityItem $item): array => [

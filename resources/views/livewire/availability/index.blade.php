@@ -646,8 +646,9 @@ new #[Layout('components.layouts.app')] #[Title('Equipment Availability')] class
                 <label class="flex items-center gap-1.5 text-[12px]">
                     <input type="checkbox" wire:model.live="warningsOnly" class="s-checkbox" /> {{ __('Warnings only') }}
                 </label>
-                <label class="flex items-center gap-1.5 text-[12px]">
-                    <input type="checkbox" wire:model.live="includeQuotes" class="s-checkbox" /> {{ __('Include quotes') }}
+                <label class="flex items-center gap-1.5 text-[12px] opacity-50 cursor-not-allowed"
+                       title="{{ __('Coming in a future update — the read model does not yet support a quote-phase filter.') }}">
+                    <input type="checkbox" wire:model.live="includeQuotes" class="s-checkbox" disabled /> {{ __('Include quotes') }}
                 </label>
             </div>
 

@@ -3,10 +3,6 @@
  * Mirrors {@see App\Services\Opportunities\LineItemTreeReconciler} for browser tests.
  */
 
-export function isStaleRevision(clientRevision, serverRevision) {
-    return clientRevision > 0 && serverRevision > clientRevision;
-}
-
 const STRUCTURAL_MUTATION_KINDS = new Set(['persistTree', 'addGroup', 'addProduct', 'delete', 'deleteSection']);
 
 export function hasStructuralPending(queue) {
@@ -89,7 +85,6 @@ function sortPreOrder(rows) {
 }
 
 export default {
-    isStaleRevision,
     hasStructuralPending,
     pendingLocalIdsFromQueue,
     reconcileLocalTree,

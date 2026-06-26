@@ -177,6 +177,28 @@ class OpportunityVersion extends Model implements HasSchema
     }
 
     /**
+     * The member this version was sent to (mirrors the `recipient` schema
+     * relation in {@see self::defineSchema()}).
+     *
+     * @return BelongsTo<Member, $this>
+     */
+    public function recipient(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'sent_to');
+    }
+
+    /**
+     * The member who accepted this version (mirrors the `acceptor` schema
+     * relation in {@see self::defineSchema()}).
+     *
+     * @return BelongsTo<Member, $this>
+     */
+    public function acceptor(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'accepted_by');
+    }
+
+    /**
      * Line items scoped to this version.
      *
      * @return HasMany<OpportunityItem, $this>

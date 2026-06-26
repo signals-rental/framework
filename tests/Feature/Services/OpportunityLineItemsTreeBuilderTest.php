@@ -6,6 +6,7 @@ use App\Actions\Opportunities\CreateOpportunity;
 use App\Data\Opportunities\AddOpportunityGroupData;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
+use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityItemType;
 use App\Models\Opportunity;
 use App\Models\Store;
@@ -70,6 +71,34 @@ it('builds a pre-order tree with nested groups, text items, and child flags', fu
         ->and(collect($tree)->firstWhere('name', 'Mixer')['parent_group_id'])->toBe($audio->id)
         ->and(collect($tree)->firstWhere('name', 'Notes line')['type_label'])->toBe('Free text item')
         ->and(collect($tree)->firstWhere('name', 'Notes line')['charge_total'])->toBe(4500);
+});
+
+it('omits the days multiplier from the charge breakdown for Sale lines', function () {
+    $opportunity = treeBuilderOpportunity(); // 3-day window
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'name' => 'Rental kit',
+        'quantity' => '2',
+        'unit_price' => 5000,
+        'transaction_type' => LineItemTransactionType::Rental->value,
+    ]));
+    (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+        'name' => 'Cable for sale',
+        'quantity' => '2',
+        'unit_price' => 5000,
+        'transaction_type' => LineItemTransactionType::Sale->value,
+    ]));
+
+    $tree = app(OpportunityLineItemsTreeBuilder::class)->tree($opportunity->fresh(['items']));
+
+    $rental = collect($tree)->firstWhere('name', 'Rental kit');
+    $sale = collect($tree)->firstWhere('name', 'Cable for sale');
+
+    // Rental: 2 × 50.00 × 3 days = 300.00. Sale: 2 × 50.00 × 1 = 100.00.
+    expect($rental['charge_breakdown']['rental_charge_display'])->toContain('300.00')
+        ->and($rental['charge_breakdown']['days_line'])->toContain('× 3')
+        ->and($sale['charge_breakdown']['rental_charge_display'])->toContain('100.00')
+        ->and($sale['charge_breakdown']['days_line'])->toContain('× 1');
 });
 
 it('lists quick-add destinations and parent group options from the display tree', function () {

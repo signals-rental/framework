@@ -60,7 +60,11 @@ return new class extends Migration
 
         if (DB::connection()->getDriverName() !== 'pgsql') {
             // SQLite degraded path: provide scalar indexes that approximate the
-            // range query paths so the resolver/model can be exercised.
+            // range query paths so the resolver/model can be exercised. The
+            // (product_id, store_id) / (asset_id) leading columns still serve the
+            // planner for the filtered overlap scans even though scopeOverlapping()
+            // matches the window via COALESCE(buffered_*, *) on the trailing
+            // starts_at/ends_at columns rather than a raw range predicate.
             Schema::table('demands', function (Blueprint $table): void {
                 $table->index(['product_id', 'store_id', 'starts_at', 'ends_at'], 'idx_demands_product_store_window');
                 $table->index(['asset_id', 'starts_at', 'ends_at'], 'idx_demands_asset_window');

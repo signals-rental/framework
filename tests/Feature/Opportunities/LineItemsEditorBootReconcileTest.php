@@ -81,6 +81,28 @@ it('boot reconcile compares snowflake revision tokens without js number precisio
         ->and($decision['reason'])->toBe('cache-stale');
 });
 
+it('boot reconcile degrades to server (no crash) when the cache revision is a corrupt non-numeric string', function () {
+    $tree = [['id' => 1, 'depth' => 1, 'parent_group_id' => null]];
+
+    // A corrupted IndexedDB meta.revision ('NaN') must NOT throw a RangeError out of
+    // BigInt(); normalizeRevision() degrades it to '0' so the server wins.
+    $decision = runBootReconcileJs([
+        'cached' => $tree,
+        'meta' => [
+            'revision' => 'NaN',
+            'cacheToken' => 'quotation:draft',
+        ],
+        'seedPayload' => [
+            'tree' => $tree,
+            'revision' => '5',
+            'cacheToken' => 'quotation:draft',
+        ],
+    ]);
+
+    expect($decision['source'])->toBe('server')
+        ->and($decision['reason'])->toBe('cache-stale');
+});
+
 it('boot reconcile uses server seed when cache revision is older than the server seed revision', function () {
     $opportunity = deepNestSyncOpportunity();
     $serverTree = app(OpportunityLineItemsTreeBuilder::class)->tree($opportunity);

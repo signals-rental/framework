@@ -50,7 +50,8 @@ class ExpireWaitlistMonitors implements ShouldQueue
                     'status' => WaitlistMonitorStatus::Expired->value,
                 ]);
 
-                $events->waitlistExpired($monitor->fresh() ?? $monitor);
+                // update() already synced the in-memory attributes; no fresh() reload.
+                $events->waitlistExpired($monitor);
             });
     }
 }

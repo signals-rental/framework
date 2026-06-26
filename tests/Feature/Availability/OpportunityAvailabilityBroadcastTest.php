@@ -9,7 +9,9 @@ use App\Models\Demand;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\Store;
+use App\Services\Api\WebhookService;
 use App\Services\Availability\RecalculationPipeline;
+use App\Services\Shortages\ShortageDetector;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -60,7 +62,9 @@ describe('opportunity-scoped availability broadcast', function () {
         }
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         Event::assertDispatchedTimes(OpportunityAvailabilityChanged::class, 1);
@@ -101,7 +105,9 @@ describe('opportunity-scoped availability broadcast', function () {
             ]);
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         Event::assertNotDispatched(OpportunityAvailabilityChanged::class);
@@ -134,7 +140,9 @@ describe('opportunity-scoped availability broadcast', function () {
             ]);
 
         (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
-            app(RecalculationPipeline::class)
+            app(RecalculationPipeline::class),
+            app(WebhookService::class),
+            app(ShortageDetector::class),
         );
 
         Event::assertNotDispatched(OpportunityAvailabilityChanged::class);

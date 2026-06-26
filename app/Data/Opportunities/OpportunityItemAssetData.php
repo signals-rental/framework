@@ -74,9 +74,4 @@ class OpportunityItemAssetData extends Data
             'name' => $stockLevel->item_name ?? $stockLevel->asset_number ?? (string) $stockLevel->id,
         ]);
     }
-
-    private static function formatNullableTimestamp(?\DateTimeInterface $timestamp): ?string
-    {
-        return $timestamp !== null ? self::formatTimestamp($timestamp) : null;
-    }
 }

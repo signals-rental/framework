@@ -48,12 +48,19 @@ class CreateOpportunitySection
 
                 // Walk the parent chain to determine the parent's depth (1-based). The
                 // new section sits one level below it; reject if that would exceed the
-                // maximum nesting depth.
+                // maximum nesting depth. Load all sections for the opportunity once and
+                // walk the chain in memory (mirrors AssignSectionParent), avoiding one
+                // query per ancestor.
+                $sections = OpportunitySection::query()
+                    ->where('opportunity_id', $opportunity->id)
+                    ->get()
+                    ->keyBy('id');
+
                 $parentDepth = 1;
-                $cursor = $parent;
+                $cursor = $sections[$parent->id] ?? $parent;
 
                 while ($cursor->parent_id !== null) {
-                    $cursor = OpportunitySection::query()->whereKey($cursor->parent_id)->first();
+                    $cursor = $sections[$cursor->parent_id] ?? null;
 
                     if ($cursor === null) {
                         break;

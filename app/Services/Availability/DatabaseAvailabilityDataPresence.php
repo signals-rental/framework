@@ -3,6 +3,7 @@
 namespace App\Services\Availability;
 
 use App\Contracts\Availability\AvailabilityDataPresence;
+use App\Models\Demand;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -22,6 +23,6 @@ class DatabaseAvailabilityDataPresence implements AvailabilityDataPresence
             return false;
         }
 
-        return Schema::getConnection()->table('demands')->exists();
+        return Demand::query()->exists();
     }
 }

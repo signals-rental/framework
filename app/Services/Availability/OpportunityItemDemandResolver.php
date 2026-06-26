@@ -355,14 +355,11 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             ->get()
             ->all();
 
+        // Fixed components are container-held (their availability is removed via
+        // standing container demands), so they are never exploded per booking — only
+        // pool components draw from general stock here. The query above already
+        // filters to `binding = Pool`, so every component in this loop is a pool one.
         foreach ($components as $component) {
-            // Fixed components are container-held (their availability is removed via
-            // standing container demands), so they are never exploded per booking —
-            // only pool components draw from general stock here.
-            if ($component->binding !== KitComponentBinding::Pool) {
-                continue;
-            }
-
             // Whole units required of this component: line qty × per-kit qty, never
             // below 1 for a present component.
             $componentQuantity = max(1, (int) ceil($kitQuantity * (float) $component->quantity));

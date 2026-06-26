@@ -8,6 +8,7 @@ use App\Data\Shortages\TransitionShortageResolutionData;
 use App\Enums\ShortageResolutionStatus;
 use App\Models\ShortageResolution;
 use App\Services\Shortages\ShortageEventRecorder;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -33,7 +34,7 @@ class CancelShortageResolution
 
         $resolution->forceFill([
             'status' => ShortageResolutionStatus::Cancelled,
-            'cancelled_at' => now(),
+            'cancelled_at' => Carbon::now('UTC'),
             'cancellation_reason' => $data->reason,
         ])->save();
 

@@ -343,6 +343,16 @@ describe('PUT /api/v1/opportunities/{id}', function () {
         $this->assertDatabaseHas('opportunities', ['id' => $opportunity->id, 'subject' => 'After']);
     });
 
+    it('rejects an explicit null subject (NOT NULL column, cannot be cleared)', function () {
+        $opportunity = createOpportunityViaEvent($this->owner, ['subject' => 'Keep']);
+        $token = writeToken($this->owner);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/opportunities/{$opportunity->id}", ['subject' => null])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('subject');
+    });
+
     it('requires the opportunities:write ability', function () {
         $opportunity = Opportunity::factory()->create();
         $token = readToken($this->owner);

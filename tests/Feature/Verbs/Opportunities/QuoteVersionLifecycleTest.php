@@ -27,6 +27,7 @@ use App\Enums\OpportunityStatus;
 use App\Enums\VersionStatus;
 use App\Enums\VersionType;
 use App\Models\Demand;
+use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityVersion;
@@ -611,4 +612,23 @@ it('preserves sent_at, accepted_at, and declined_at milestone timestamps across 
     expect($acceptedAfter->sent_at?->toIso8601String())->toBe($sentAtBefore)
         ->and($acceptedAfter->accepted_at?->toIso8601String())->toBe($acceptedAtBefore)
         ->and($declinedAfter->declined_at?->toIso8601String())->toBe($declinedAtBefore);
+});
+
+it('exposes recipient and acceptor BelongsTo relations matching the sent_to/accepted_by columns', function () {
+    [$opportunity] = versionedQuotationWithItem();
+    $version = (new CreateVersion)($opportunity->refresh(), CreateVersionData::from([]));
+
+    $recipient = Member::factory()->contact()->create();
+    $acceptor = Member::factory()->contact()->create();
+
+    (new SendVersion)(OpportunityVersion::query()->whereKey($version->id)->firstOrFail(), $recipient->id);
+    (new AcceptVersion)(OpportunityVersion::query()->whereKey($version->id)->firstOrFail(), $acceptor->id);
+
+    $fresh = OpportunityVersion::query()->whereKey($version->id)
+        ->with(['recipient', 'acceptor'])->firstOrFail();
+
+    expect($fresh->recipient)->not->toBeNull()
+        ->and($fresh->recipient->id)->toBe($recipient->id)
+        ->and($fresh->acceptor)->not->toBeNull()
+        ->and($fresh->acceptor->id)->toBe($acceptor->id);
 });

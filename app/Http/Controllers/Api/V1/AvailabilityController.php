@@ -10,9 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Gate;
-use Laravel\Sanctum\PersonalAccessToken;
-use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Read-only availability queries.
@@ -35,7 +32,7 @@ class AvailabilityController extends Controller
     #[ApiResponse(200, 'Range availability', type: 'array{availability: array{product_id: int, store_id: int, from: string, to: string, min_available: int|null, max_available: int|null, calculated_at: string|null, slots: list<array{slot_start: string, total_stock: int, total_demanded: int, available: int, demand_breakdown: array<string, int>}>}}')]
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeAvailability($request);
+        $this->authorizeApi('availability.view', 'availability:read');
 
         $validated = $this->validateQuery($request, requireProduct: true);
 
@@ -55,7 +52,7 @@ class AvailabilityController extends Controller
     #[ApiResponse(200, 'Range availability', type: 'array{availability: array{product_id: int, store_id: int, from: string, to: string, min_available: int|null, max_available: int|null, calculated_at: string|null, slots: list<array{slot_start: string, total_stock: int, total_demanded: int, available: int, demand_breakdown: array<string, int>}>}}')]
     public function showForProduct(Request $request, Product $product): JsonResponse
     {
-        $this->authorizeAvailability($request);
+        $this->authorizeApi('availability.view', 'availability:read');
 
         $validated = $this->validateQuery($request, requireProduct: false);
 
@@ -78,7 +75,7 @@ class AvailabilityController extends Controller
     #[ApiResponse(200, 'Available serialised assets', type: 'array{available_assets: list<array{id: int, item_name: string|null, asset_number: string|null, serial_number: string|null, barcode: string|null, location: string|null}>, meta: array{total: int, per_page: int, page: int}}')]
     public function availableAssets(Request $request, Product $product): JsonResponse
     {
-        $this->authorizeAvailability($request);
+        $this->authorizeApi('availability.view', 'availability:read');
 
         $validated = $request->validate([
             'store_id' => ['required', 'integer', 'exists:stores,id'],
@@ -117,7 +114,7 @@ class AvailabilityController extends Controller
     #[ApiResponse(200, 'Calendar grid', type: 'array{calendar: array{store_id: int, from: string, to: string, products: list<array{product_id: int, product_name: string|null, days: list<array{date: string, available: int, has_shortage: bool, pending_checkin: int}>}>}}')]
     public function calendar(Request $request): JsonResponse
     {
-        $this->authorizeAvailability($request);
+        $this->authorizeApi('availability.view', 'availability:read');
 
         $validated = $request->validate([
             'store_id' => ['required', 'integer', 'exists:stores,id'],
@@ -156,7 +153,7 @@ class AvailabilityController extends Controller
     #[ApiResponse(200, 'Gantt model', type: 'array{gantt: array{product_id: int, store_id: int, from: string, to: string, total_stock: int, demands: list<array{demand_id: int, asset_id: int|null, asset_serial: string|null, quantity: int, source_type: string, source_id: int, source_name: string|null, colour: string|null, phase: string, period_start: string, buffer_before_end: string, buffer_after_start: string, period_end: string, starts_at: string, ends_at: string}>, shortages: list<array{from: string, to: string, severity: int, in_buffer_zone: bool}>}}')]
     public function gantt(Request $request, Product $product): JsonResponse
     {
-        $this->authorizeAvailability($request);
+        $this->authorizeApi('availability.view', 'availability:read');
 
         $validated = $request->validate([
             'store_id' => ['required', 'integer', 'exists:stores,id'],
@@ -188,7 +185,7 @@ class AvailabilityController extends Controller
     #[ApiResponse(200, 'Shortages', type: 'array{shortages: list<array{product_id: int, product_name: string|null, store_id: int, date: string, available: int, severity: int, calculated_at: string|null}>, meta: array{total: int, per_page: int, page: int}}')]
     public function shortages(Request $request): JsonResponse
     {
-        $this->authorizeAvailability($request);
+        $this->authorizeApi('availability.view', 'availability:read');
 
         $validated = $request->validate([
             'store_id' => ['nullable', 'integer', 'exists:stores,id'],
@@ -295,17 +292,5 @@ class AvailabilityController extends Controller
                 }
             },
         ];
-    }
-
-    private function authorizeAvailability(Request $request): void
-    {
-        Gate::authorize('availability.view');
-
-        /** @var PersonalAccessToken|null $token */
-        $token = $request->user()?->currentAccessToken();
-
-        if ($token instanceof PersonalAccessToken && ! $token->can('availability:read')) {
-            abort(Response::HTTP_FORBIDDEN, 'Token does not have the required ability: availability:read');
-        }
     }
 }

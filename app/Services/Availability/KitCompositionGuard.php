@@ -27,6 +27,15 @@ use Illuminate\Validation\ValidationException;
 class KitCompositionGuard
 {
     /**
+     * Hard recursion backstop for the tree-walks below. This is an INFRASTRUCTURE
+     * bound that guards against a corrupt/cyclic composition causing unbounded
+     * recursion — it is deliberately independent of (and far larger than) the
+     * user-facing `availability.kit_nesting_max_depth` setting (default 3), which
+     * is enforced separately by {@see assertCanAdd()}.
+     */
+    private const int RECURSION_BACKSTOP = 50;
+
+    /**
      * Validate that adding `$componentProductId` as a component of
      * `$parentProductId` keeps the composition acyclic and within the configured
      * nesting depth.
@@ -74,7 +83,7 @@ class KitCompositionGuard
      */
     private function reaches(int $start, int $target, int $guard = 0): bool
     {
-        if ($guard > 50) {
+        if ($guard > self::RECURSION_BACKSTOP) {
             return false;
         }
 
@@ -100,7 +109,7 @@ class KitCompositionGuard
      */
     private function ancestorDepth(int $productId, int $guard = 0): int
     {
-        if ($guard > 50) {
+        if ($guard > self::RECURSION_BACKSTOP) {
             return $guard;
         }
 
@@ -128,7 +137,7 @@ class KitCompositionGuard
      */
     private function subtreeDepth(int $productId, int $guard = 0): int
     {
-        if ($guard > 50) {
+        if ($guard > self::RECURSION_BACKSTOP) {
             return $guard;
         }
 

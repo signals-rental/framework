@@ -303,6 +303,11 @@ class Demand extends Model
      *
      * Returns a raw query expression. Only meaningful on PostgreSQL — callers
      * guard on the driver before persisting the `period` column.
+     *
+     * The interpolated values come from `Carbon::toIso8601String()`, which can only
+     * emit digits, `-`, `:`, `+`, `T` and `Z` — no quote or statement-terminator
+     * characters — so the literal cannot carry SQL injection. (`DB::raw` cannot take
+     * bindings; callers consume the returned Expression in column-assignment arrays.)
      */
     public static function periodExpression(Carbon $start, Carbon $end): Expression
     {

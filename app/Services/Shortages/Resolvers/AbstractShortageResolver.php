@@ -54,11 +54,13 @@ abstract class AbstractShortageResolver implements ShortageResolverContract
                 'cost' => $cost,
                 // Stamp product/store so resolution-scoped availability events can
                 // be logged without re-deriving them from the (transient) shortage.
-                'metadata' => $metadata + [
+                // System-stamped keys are authoritative: they go on the LEFT of `+`
+                // so caller metadata cannot shadow them.
+                'metadata' => [
                     'product_id' => $shortage->productId,
                     'store_id' => $shortage->storeId,
                     'opportunity_id' => $shortage->opportunityId,
-                ],
+                ] + $metadata,
                 'resolved_by' => auth()->id(),
                 'confirmed_by' => $status === ShortageResolutionStatus::Confirmed ? auth()->id() : null,
                 'confirmed_at' => $status === ShortageResolutionStatus::Confirmed ? now() : null,

@@ -89,8 +89,8 @@ it('maps OpportunityCostData with enum labels and decimal-string amount', functi
     $output = OpportunityCostData::fromModel($cost->fresh())->toArray();
 
     expect($output['description'])->toBe('Delivery')
-        ->and($output['cost_type_label'])->toBeString()
-        ->and($output['transaction_type_label'])->toBeString()
+        ->and($output['cost_type_label'])->toBe('Delivery')
+        ->and($output['transaction_type_label'])->toBe('Service')
         ->and($output['amount'])->toBe('99.99')
         ->and($output['quantity'])->toBe('2.00');
 });

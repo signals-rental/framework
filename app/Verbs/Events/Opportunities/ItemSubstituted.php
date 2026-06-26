@@ -7,6 +7,8 @@ use App\Models\OpportunityItemAsset;
 use App\Verbs\Events\Opportunities\Concerns\PricesOpportunityItems;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\States\OpportunityItemState;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Carbon\CarbonImmutable;
 use Thunk\Verbs\Attributes\Autodiscovery\StateId;
 use Thunk\Verbs\Event;
@@ -51,13 +53,13 @@ class ItemSubstituted extends Event
             ),
         );
 
-        $dispatched = (int) round((float) $state->dispatched_quantity);
+        $dispatched = BigDecimal::of((string) $state->dispatched_quantity);
 
         $this->assert(
-            $dispatched === 0,
+            $dispatched->isZero(),
             sprintf(
-                'Cannot substitute a line with %d already-dispatched unit(s); return them first.',
-                $dispatched,
+                'Cannot substitute a line with %s already-dispatched unit(s); return them first.',
+                (string) $dispatched->toScale(0, RoundingMode::DOWN),
             ),
         );
     }

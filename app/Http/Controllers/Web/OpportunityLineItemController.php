@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Actions\Opportunities\RemoveOpportunityItem;
+use App\Http\Controllers\Controller;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use Illuminate\Http\JsonResponse;
@@ -10,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
-class OpportunityLineItemController
+class OpportunityLineItemController extends Controller
 {
     public function destroy(
         Request $request,

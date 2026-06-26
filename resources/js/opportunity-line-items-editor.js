@@ -154,6 +154,9 @@ export default function createOpportunityLineItemsEditor(cfg) {
         _searchController: null,
         _broadcast: null,
         _echoChannel: null,
+        _lifecycleListener: null,
+        _onScroll: null,
+        _onResize: null,
 
         _tempSeq: 0,
         _quickAddFocused: false,
@@ -392,14 +395,52 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 limit: 12,
             });
 
-            window.addEventListener('scroll', () => {
+            // Store named refs so destroy() can remove these (capture-phase scroll +
+            // resize) listeners — otherwise they accumulate on every wire:navigate.
+            this._onScroll = () => {
                 this.positionPicker();
                 this.positionRowMenu();
-            }, true);
-            window.addEventListener('resize', () => {
+            };
+            this._onResize = () => {
                 this.positionPicker();
                 this.positionRowMenu();
-            });
+            };
+
+            window.addEventListener('scroll', this._onScroll, true);
+            window.addEventListener('resize', this._onResize);
+        },
+
+        /**
+         * Alpine calls destroy() when the component's root element is removed from
+         * the DOM (e.g. a wire:navigate transition). Tear down every window/Echo/
+         * BroadcastChannel/Livewire listener registered in boot() so they do not
+         * leak across SPA navigations.
+         */
+        destroy() {
+            if (this._onScroll) {
+                window.removeEventListener('scroll', this._onScroll, true);
+                this._onScroll = null;
+            }
+
+            if (this._onResize) {
+                window.removeEventListener('resize', this._onResize);
+                this._onResize = null;
+            }
+
+            if (this._broadcast) {
+                this._broadcast.close();
+                this._broadcast = null;
+            }
+
+            if (this._echoChannel && typeof this._echoChannel.stopListening === 'function') {
+                this._echoChannel.stopListening('.availability.changed');
+                this._echoChannel = null;
+            }
+
+            if (this._lifecycleListener && typeof this._lifecycleListener === 'function') {
+                this._lifecycleListener();
+                this._lifecycleListener = null;
+            }
         },
 
         initBroadcast() {
@@ -1378,7 +1419,6 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 idx,
                 end,
                 target,
-                isSection: target.item_type === 'group',
             };
         },
 
@@ -1389,18 +1429,19 @@ export default function createOpportunityLineItemsEditor(cfg) {
             this.syncOptimisticTotalsFromRows();
         },
 
-        deleteItemUrl(serverId, isSection) {
-            const base = `/opportunities/${this.oppId}/items/${serverId}`;
-
-            return isSection ? `${base}?scope=section` : base;
+        deleteItemUrl(serverId) {
+            // Group/section deletes always cascade their subtree server-side via
+            // RemoveOpportunityItem (deepest-first), so there is no scope parameter —
+            // the controller does not read one.
+            return `/opportunities/${this.oppId}/items/${serverId}`;
         },
 
-        sendKeepaliveDelete(serverId, isSection) {
+        sendKeepaliveDelete(serverId) {
             const token = this.csrfToken
                 || document.querySelector('meta[name="csrf-token"]')?.content
                 || '';
 
-            fetch(this.deleteItemUrl(serverId, isSection), {
+            fetch(this.deleteItemUrl(serverId), {
                 method: 'DELETE',
                 keepalive: true,
                 credentials: 'same-origin',
@@ -1435,7 +1476,6 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 return;
             }
 
-            const { isSection } = block;
             const serverId = this.resolveServerItemId(id);
 
             for (let i = block.idx; i < block.end; i++) {
@@ -1443,7 +1483,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
             }
 
             if (serverId !== null) {
-                this.sendKeepaliveDelete(serverId, isSection);
+                this.sendKeepaliveDelete(serverId);
             } else {
                 // A not-yet-persisted (temp-ID) row: purge any queued add mutation
                 // for it so the next flush does not re-create the row we just

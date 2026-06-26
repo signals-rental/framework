@@ -22,8 +22,8 @@ class PackContainerItemData extends Data
     {
         return [
             'serialised_item_id' => ['required', 'integer', 'exists:stock_levels,id'],
-            'position' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string'],
+            'position' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'notes' => ['sometimes', 'nullable', 'string'],
         ];
     }
 }

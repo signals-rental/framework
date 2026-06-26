@@ -17,6 +17,9 @@ class UpdateOpportunityData extends Data
      * (clear the column). Required-by-presence scalars stay plain-nullable.
      */
     public function __construct(
+        // null means "leave unchanged" (subject is NOT NULL in the DB and cannot be
+        // cleared). The validation rule omits `nullable` so an explicit
+        // `{"subject": null}` is rejected with 422 rather than silently ignored.
         public ?string $subject = null,
         public ?int $member_id = null,
         public int|null|Optional $venue_id = new Optional,
@@ -97,7 +100,7 @@ class UpdateOpportunityData extends Data
         }
 
         return [
-            'subject' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'subject' => ['sometimes', 'string', 'max:255'],
             // When the customer is changed it must be an Organisation member. The
             // action re-asserts authoritatively (::rules() runs context-free on the
             // manual validate() path).

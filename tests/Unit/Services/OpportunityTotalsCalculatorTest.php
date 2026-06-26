@@ -109,6 +109,63 @@ it('preserves locked tax totals during rollUp even when line nets change', funct
         ->and($item->refresh()->total)->toBe(9000);
 });
 
+it('keeps the locked tax frozen even when a deal_total override is set on a locked order', function () {
+    $opportunity = Opportunity::factory()->order()->create([
+        'tax_total' => 321,
+        'charge_including_tax_total' => 5321,
+        'charge_total' => 5000,
+        'charge_excluding_tax_total' => 5000,
+        'tax_locked' => true,
+        'deal_total' => 7500,
+    ]);
+
+    OpportunityItem::factory()->create([
+        'opportunity_id' => $opportunity->id,
+        'quantity' => '1',
+        'unit_price' => 9000,
+        'total' => 9000,
+        'is_optional' => false,
+    ]);
+
+    totalsCalculator()->rollUp($opportunity->refresh());
+
+    $opportunity->refresh();
+
+    // tax_locked wins over the deal_total blended-tax pass: tax stays exactly as
+    // locked, and the net headline follows the deal_total override (not the lines).
+    expect($opportunity->tax_total)->toBe(321)
+        ->and($opportunity->charge_total)->toBe(7500)
+        ->and($opportunity->charge_excluding_tax_total)->toBe(7500)
+        ->and($opportunity->charge_including_tax_total)->toBe(7821);
+});
+
+it('reverts charge_total to the line sum when deal_total is cleared on a locked order, tax still frozen', function () {
+    $opportunity = Opportunity::factory()->order()->create([
+        'tax_total' => 321,
+        'charge_including_tax_total' => 5321,
+        'charge_total' => 5000,
+        'charge_excluding_tax_total' => 5000,
+        'tax_locked' => true,
+        'deal_total' => null,
+    ]);
+
+    OpportunityItem::factory()->create([
+        'opportunity_id' => $opportunity->id,
+        'quantity' => '1',
+        'unit_price' => 9000,
+        'total' => 9000,
+        'is_optional' => false,
+    ]);
+
+    totalsCalculator()->rollUp($opportunity->refresh());
+
+    $opportunity->refresh();
+
+    expect($opportunity->tax_total)->toBe(321)
+        ->and($opportunity->charge_total)->toBe(9000)
+        ->and($opportunity->charge_including_tax_total)->toBe(9321);
+});
+
 it('excludes optional lines from rollUp totals', function () {
     $opportunity = Opportunity::factory()->create([
         'tax_total' => 0,

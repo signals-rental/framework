@@ -7,6 +7,7 @@ use App\Data\Shortages\ShortageResolutionData;
 use App\Enums\ShortageResolutionStatus;
 use App\Models\ShortageResolution;
 use App\Services\Shortages\ShortageEventRecorder;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -33,7 +34,7 @@ class FulfillShortageResolution
 
         $resolution->forceFill([
             'status' => ShortageResolutionStatus::Fulfilled,
-            'fulfilled_at' => now(),
+            'fulfilled_at' => Carbon::now('UTC'),
         ])->save();
 
         $this->events->resolutionFulfilled($resolution);
