@@ -106,6 +106,7 @@
             "pint --parallel --test"
         ],
         "test": [
+            "@putenv XDEBUG_MODE=off",
             "@php artisan config:clear --ansi",
             "@test:lint",
             "@php artisan test"
