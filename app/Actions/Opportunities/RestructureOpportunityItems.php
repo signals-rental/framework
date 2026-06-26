@@ -20,10 +20,14 @@ use InvalidArgumentException;
  * pre-order, top-to-bottom) list of `{id, depth}` nodes.
  *
  * The supplied node set must cover the opportunity's whole ACTIVE-version item set
- * exactly once. Each node's role-based placement is validated against the
- * resolved parent (accessory→product; group/product/service→root or group), then
- * every item's materialised `path` is rebuilt from order + depth and written by
- * firing one event-sourced {@see ItemsRestructured} per item.
+ * exactly once, unless {@see RestructureOpportunityItemsData::$prune_orphans} is
+ * enabled (local-first editor sync): then any active item omitted from `nodes` is
+ * removed via {@see RemoveOpportunityItem} before paths are rebuilt.
+ *
+ * Each node's role-based placement is validated against the resolved parent
+ * (accessory→product; group/product/service→root or group), then every item's
+ * materialised `path` is rebuilt from order + depth and written by firing one
+ * event-sourced {@see ItemsRestructured} per item.
  *
  * WHY EVENT-SOURCED: `path` lives on the item event state — {@see ItemAdded::apply()}
  * re-applies the ORIGINAL path on replay, so a plain `update()` would be silently
@@ -53,6 +57,11 @@ class RestructureOpportunityItems
         $items = $opportunity->items()->get()->keyBy('id');
 
         $nodeIds = array_map(static fn (array $node): int => (int) $node['id'], $data->nodes);
+
+        if ($data->prune_orphans) {
+            $this->removeOrphanItems($opportunity, $nodeIds, $items);
+            $items = $opportunity->items()->get()->keyBy('id');
+        }
 
         $this->assertCompleteSet($nodeIds, $items);
 
@@ -114,6 +123,35 @@ class RestructureOpportunityItems
         return $opportunity->fresh(['items'])->items
             ->map(fn (OpportunityItem $item): OpportunityItemData => OpportunityItemData::fromModel($item))
             ->all();
+    }
+
+    /**
+     * Remove active-version items omitted from the authoritative local node list.
+     *
+     * @param  list<int>  $nodeIds
+     * @param  Collection<int, OpportunityItem>  $items
+     */
+    private function removeOrphanItems(Opportunity $opportunity, array $nodeIds, Collection $items): void
+    {
+        $nodeIdSet = collect($nodeIds);
+        $orphanIds = $items->keys()->diff($nodeIdSet)->values()->all();
+
+        if ($orphanIds === []) {
+            return;
+        }
+
+        foreach ($orphanIds as $orphanId) {
+            /** @var OpportunityItem|null $item */
+            $item = $items->get($orphanId);
+
+            if ($item === null) {
+                continue;
+            }
+
+            (new RemoveOpportunityItem)($item);
+        }
+
+        $opportunity->refresh();
     }
 
     /**

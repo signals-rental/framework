@@ -15,11 +15,32 @@ import {
 } from './line-item-drop-target';
 import { serializeRowsForCache } from './line-item-cache';
 import { resolveBootSource } from './line-item-boot-reconcile';
+import {
+    orderFlushBatch,
+    resolveServerItemId,
+    rowsEligibleForPersistTree,
+    shouldScheduleFlushRetry,
+} from './line-item-mutation-flush';
 import { normalizeRevision } from './line-item-revision';
 
 const DB_NAME = 'signals_opportunity_line_items';
 
 let lfDexie = null;
+
+export function sameRowId(a, b) {
+    if (a == null || b == null) {
+        return false;
+    }
+
+    if (a === b) {
+        return true;
+    }
+
+    const left = Number(a);
+    const right = Number(b);
+
+    return Number.isFinite(left) && Number.isFinite(right) && left === right;
+}
 
 function dexieDb() {
     if (lfDexie) {
@@ -39,21 +60,40 @@ function dexieDb() {
     return lfDexie;
 }
 
+function resolveEditorConfig(cfg) {
+    const oppId = cfg?.oppId;
+    const frozen =
+        typeof window !== 'undefined' && oppId != null
+            ? (window.__lfEditorConfig || {})[oppId] || {}
+            : {};
+
+    return { ...frozen, ...cfg };
+}
+
 export default function createOpportunityLineItemsEditor(cfg) {
+    const resolved = resolveEditorConfig(cfg);
+
     return {
-        oppId: cfg.oppId,
-        editable: !!cfg.editable,
-        fieldsEditable: cfg.fieldsEditable !== undefined ? !!cfg.fieldsEditable : !!cfg.editable,
-        catalogue: cfg.catalogue || [],
-        currencySymbol: cfg.currencySymbol || '£',
-        echoChannel: cfg.echoChannel || '',
-        destinations: cfg.destinations || [],
-        sectionOptions: cfg.sectionOptions || [],
-        serverChargeTotalMinor: Number(cfg.serverChargeTotalMinor) || 0,
-        serverDealTotalMinor: cfg.serverDealTotalMinor != null ? Number(cfg.serverDealTotalMinor) : null,
-        dealPriceInput: cfg.dealTotalRaw || '',
-        hasDealPrice: !!cfg.hasDealPrice,
+        oppId: resolved.oppId,
+        csrfToken: resolved.csrfToken || '',
+        editable: !!resolved.editable,
+        fieldsEditable:
+            resolved.fieldsEditable !== undefined ? !!resolved.fieldsEditable : !!resolved.editable,
+        pricingFrozen: !!resolved.pricingFrozen,
+        priceLocked: !!resolved.priceLocked,
+        canManagePriceLock: !!resolved.canManagePriceLock,
+        catalogue: resolved.catalogue || [],
+        currencySymbol: resolved.currencySymbol || '£',
+        echoChannel: resolved.echoChannel || '',
+        destinations: resolved.destinations || [],
+        sectionOptions: resolved.sectionOptions || [],
+        serverChargeTotalMinor: Number(resolved.serverChargeTotalMinor) || 0,
+        serverDealTotalMinor:
+            resolved.serverDealTotalMinor != null ? Number(resolved.serverDealTotalMinor) : null,
+        dealPriceInput: resolved.dealTotalRaw || '',
+        hasDealPrice: !!resolved.hasDealPrice,
         quickAddSelection: null,
+        quickAddQuery: '',
 
         get seedPayload() {
             return (window.__lfSeed || {})[this.oppId] || { tree: [], revision: 0, cacheToken: '' };
@@ -67,15 +107,18 @@ export default function createOpportunityLineItemsEditor(cfg) {
         baseRevision: '0',
         conflicts: {},
         openMenu: null,
+        menuRow: null,
         confirmDeleteId: null,
         menuPos: { top: 0, right: 0 },
         _menuAnchor: null,
+        _menuOutsideSuppressedUntil: null,
 
         queue: [],
         syncState: 'idle',
         _flushTimer: null,
         _idleHandle: null,
         _flushing: false,
+        _pendingFlush: false,
         _deferredPull: null,
         _cacheToken: '',
         _booted: false,
@@ -104,7 +147,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
             mode: 'add',
             substituteItemId: null,
         },
-        quickAddQty: 1,
+        quickAddQty: '',
         quickAddQtyHint: '',
         _serverTimer: null,
         _searchController: null,
@@ -112,6 +155,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
         _echoChannel: null,
 
         _tempSeq: 0,
+        _quickAddFocused: false,
 
         cancelDragState() {
             this.dragId = null;
@@ -136,9 +180,11 @@ export default function createOpportunityLineItemsEditor(cfg) {
             }
 
             this.cancelDragState();
+            this.initLifecycleListener();
 
             if (this.rows.length) {
                 this._booted = true;
+                this.focusQuickAddOnce();
 
                 return;
             }
@@ -161,7 +207,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             if (bootDecision.source === 'cache') {
                 console.log(`boot: using cache rev=${bootDecision.cacheRevision}`);
-                this.rows = this.normalize(this.enrichRowsWithServerMetadata(cached, this.seedRows));
+                this.replaceRows(this.enrichRowsWithServerMetadata(cached, this.seedRows));
                 this.applyDefaultCollapse(this.rows);
                 this.syncFlash('cached', 'loaded from cache');
             } else if (bootDecision.reason === 'cache-stale' && bootDecision.cacheRevision != null) {
@@ -169,7 +215,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
                     `boot: cache stale (rev ${bootDecision.cacheRevision} < server ${bootDecision.serverRevision}) → using server seed`,
                 );
                 await this.invalidateLocalCache();
-                this.rows = this.normalize(this.seedRows);
+                this.replaceRows(this.seedRows);
                 this.applyDefaultCollapse(this.rows);
                 await this.saveCache();
                 this.setSync('synced');
@@ -178,10 +224,57 @@ export default function createOpportunityLineItemsEditor(cfg) {
                     `boot: cache stale (${bootDecision.reason}; cache rev ${bootDecision.cacheRevision ?? 'none'} vs server ${bootDecision.serverRevision}) → using server seed`,
                 );
                 await this.invalidateLocalCache();
-                this.rows = this.normalize(this.seedRows);
+                this.replaceRows(this.seedRows);
                 this.applyDefaultCollapse(this.rows);
                 await this.saveCache();
                 this.setSync('synced');
+            }
+
+            this.focusQuickAddOnce();
+        },
+
+        focusQuickAddOnce() {
+            if (this._quickAddFocused || !this.editable) {
+                return;
+            }
+
+            this._quickAddFocused = true;
+
+            this.$nextTick(() => {
+                this.$refs.quickAddInput?.focus();
+            });
+        },
+
+        idsMatch(a, b) {
+            return sameRowId(a, b);
+        },
+
+        findRow(id) {
+            return this.rows.find((row) => sameRowId(row.id, id)) ?? null;
+        },
+
+        findRowIndex(id) {
+            return this.rows.findIndex((row) => sameRowId(row.id, id));
+        },
+
+        markRowJustAdded(id) {
+            const row = this.findRow(id);
+
+            if (!row) {
+                return;
+            }
+
+            row._justAdded = true;
+            setTimeout(() => {
+                row._justAdded = false;
+            }, 2000);
+        },
+
+        markRowsAddedSince(beforeIds) {
+            for (const row of this.rows) {
+                if (!beforeIds.has(Number(row.id))) {
+                    this.markRowJustAdded(row.id);
+                }
             }
         },
 
@@ -330,6 +423,59 @@ export default function createOpportunityLineItemsEditor(cfg) {
             this._echoChannel.listen('.availability.changed', () => this.pullFromServer());
         },
 
+        initLifecycleListener() {
+            if (this._lifecycleListener || typeof Livewire === 'undefined' || typeof Livewire.on !== 'function') {
+                return;
+            }
+
+            this._lifecycleListener = Livewire.on('opportunity-lifecycle-changed', (detail) => {
+                this.onLifecycleChanged({ detail });
+            });
+        },
+
+        normalizeLifecycleDetail(event) {
+            const raw = event?.detail ?? {};
+
+            if (Array.isArray(raw) && raw.length === 1 && raw[0] && typeof raw[0] === 'object') {
+                return raw[0];
+            }
+
+            return raw;
+        },
+
+        applyLifecycleFlags(detail) {
+            if (detail.editable !== undefined) {
+                this.editable = !!detail.editable;
+            }
+
+            if (detail.pricingFrozen !== undefined) {
+                this.pricingFrozen = !!detail.pricingFrozen;
+            }
+
+            if (detail.priceLocked !== undefined) {
+                this.priceLocked = !!detail.priceLocked;
+            }
+
+            if (detail.fieldsEditable !== undefined) {
+                this.fieldsEditable = !!detail.fieldsEditable;
+            } else {
+                this.fieldsEditable = this.editable && !this.pricingFrozen;
+            }
+
+            if (detail.hasDealPrice !== undefined) {
+                this.hasDealPrice = !!detail.hasDealPrice;
+
+                if (detail.pricingFrozen === undefined && this.hasDealPrice) {
+                    this.pricingFrozen = true;
+                    this.fieldsEditable = false;
+                }
+            }
+
+            if (detail.dealTotalRaw !== undefined) {
+                this.dealPriceInput = detail.dealTotalRaw ?? '';
+            }
+        },
+
         notifyTabsInvalidate() {
             this._broadcast?.postMessage('invalidate');
         },
@@ -396,8 +542,33 @@ export default function createOpportunityLineItemsEditor(cfg) {
             return this._cacheChain;
         },
 
+        replaceRows(nextRows) {
+            const normalized = this.normalize(nextRows);
+
+            if (this.rows.length === 0) {
+                this.rows.push(...normalized);
+            } else {
+                this.rows.splice(0, this.rows.length, ...normalized);
+            }
+        },
+
         normalize(rows) {
-            const clone = rows.map((r) => ({ ...r, depth: Number(r.depth) }));
+            const clone = rows.map((r) => ({
+                ...r,
+                id: Number(r.id),
+                depth: Number(r.depth),
+                parent_group_id: r.parent_group_id != null ? Number(r.parent_group_id) : r.parent_group_id,
+            }));
+
+            for (const row of clone) {
+                if (row.unit_price != null) {
+                    row.unit_price_display = this.money(row.unit_price);
+                }
+
+                if (row.item_type !== 'group' && row.charge_total != null) {
+                    row.charge_total_display = this.money(row.charge_total);
+                }
+            }
 
             return this.recomputeFlags(clone);
         },
@@ -448,16 +619,20 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
         get grandTotal() {
             return this.rows
-                .filter((r) => r.item_type !== 'group' && r.item_type !== 'text')
+                .filter((r) => r.item_type !== 'group')
                 .reduce((s, r) => s + (Number(r.charge_total) || 0), 0);
         },
 
         get displayGrandTotal() {
-            const minor = this.hasDealPrice && this.serverDealTotalMinor != null
-                ? this.serverDealTotalMinor
-                : this.serverChargeTotalMinor;
+            return this.money(this.grandTotal);
+        },
 
-            return this.money(minor);
+        get displayDealPriceSubline() {
+            if (!this.hasDealPrice || this.serverDealTotalMinor == null) {
+                return null;
+            }
+
+            return `Deal price applied — ${this.money(this.serverDealTotalMinor)}`;
         },
 
         applyServerTotals(payload = {}) {
@@ -471,6 +646,17 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             if (payload.has_deal_price !== undefined) {
                 this.hasDealPrice = !!payload.has_deal_price;
+            }
+        },
+
+        syncOptimisticTotalsFromRows() {
+            const chargeTotalMinor = this.grandTotal;
+            this.serverChargeTotalMinor = chargeTotalMinor;
+
+            if (typeof Livewire !== 'undefined') {
+                Livewire.dispatch('opportunity-totals-updated', {
+                    chargeTotalMinor,
+                });
             }
         },
 
@@ -488,7 +674,9 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
                 if (snap) {
                     this.applyServerTotals(snap);
-                    Livewire.dispatch('opportunity-totals-updated');
+                    Livewire.dispatch('opportunity-totals-updated', {
+                        chargeTotalMinor: Number(snap.charge_total) || 0,
+                    });
                 }
             } catch (e) {
                 console.warn('line-items totals sync failed', e);
@@ -496,9 +684,13 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         async onMutationDone(event) {
+            const beforeIds = new Set(this.rows.map((r) => Number(r.id)));
+
             await this.pullFromServer(false, { mutation: true });
             await this.syncTotalsFromServer();
             this.notifyTabsInvalidate();
+
+            this.markRowsAddedSince(beforeIds);
 
             const detail = event?.detail ?? {};
 
@@ -508,23 +700,9 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         async onLifecycleChanged(event) {
-            const detail = event?.detail ?? {};
+            const detail = this.normalizeLifecycleDetail(event);
 
-            if (detail.editable !== undefined) {
-                this.editable = !!detail.editable;
-            }
-
-            if (detail.fieldsEditable !== undefined) {
-                this.fieldsEditable = !!detail.fieldsEditable;
-            }
-
-            if (detail.hasDealPrice !== undefined) {
-                this.hasDealPrice = !!detail.hasDealPrice;
-            }
-
-            if (detail.dealTotalRaw !== undefined) {
-                this.dealPriceInput = detail.dealTotalRaw ?? '';
-            }
+            this.applyLifecycleFlags(detail);
 
             this.applyServerTotals({
                 charge_total: detail.chargeTotalMinor,
@@ -541,9 +719,16 @@ export default function createOpportunityLineItemsEditor(cfg) {
             await this.pullFromServer(false, { lifecycle: true });
             await this.syncTotalsFromServer();
             this.notifyTabsInvalidate();
+
+            // Pull does not re-read Alpine flags from the server; re-apply so lock/unlock is live.
+            this.applyLifecycleFlags(detail);
         },
 
         _shouldDeferPull(opts = {}) {
+            if (opts.force) {
+                return false;
+            }
+
             if (opts.afterFlush) {
                 return hasStructuralPending(this.queue);
             }
@@ -568,11 +753,25 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         get openMenuRow() {
-            if (this.openMenu === null) {
+            return this.menuRow ?? this.resolveMenuRow();
+        },
+
+        resolveMenuRow() {
+            if (this.openMenu == null) {
                 return null;
             }
 
-            return this.rows.find((r) => r.id === this.openMenu) ?? null;
+            return this.rows.find((row) => sameRowId(row.id, this.openMenu)) ?? null;
+        },
+
+        refreshMenuRow() {
+            if (this.openMenu == null) {
+                this.menuRow = null;
+
+                return;
+            }
+
+            this.menuRow = this.resolveMenuRow();
         },
 
         get conflictCount() {
@@ -580,7 +779,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         groupSubtotal(row) {
-            const idx = this.rows.findIndex((r) => r.id === row.id);
+            const idx = this.findRowIndex(row.id);
             let sum = 0;
 
             for (let i = idx + 1; i < this.rows.length; i++) {
@@ -601,9 +800,34 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         money(minor) {
-            const amount = (Number(minor) / 100).toFixed(2);
+            const amount = (Number(minor) / 100).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
 
             return this.currencySymbol + amount;
+        },
+
+        recomputeChargeBreakdown(row) {
+            if (! row || row.item_type === 'group') {
+                if (row) {
+                    row.charge_breakdown = null;
+                }
+
+                return;
+            }
+
+            const unitPriceMinor = Number(row.unit_price) || 0;
+            const quantity = parseFloat(row.quantity) || 0;
+            const days = Math.max(1, Number(row.days) || 0);
+            const rentalMinor = Math.round(quantity * unitPriceMinor * days);
+            const surchargeMinor = 0;
+
+            row.charge_breakdown = {
+                days_line: `Days: ${this.money(unitPriceMinor)} × ${days}`,
+                rental_charge_display: this.money(rentalMinor),
+                surcharge_display: this.money(surchargeMinor),
+            };
         },
 
         formatMajor(amount) {
@@ -645,7 +869,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         toggleCollapse(id) {
-            const row = this.rows.find((r) => r.id === id);
+            const row = this.findRow(id);
 
             if (!row) {
                 return;
@@ -687,27 +911,81 @@ export default function createOpportunityLineItemsEditor(cfg) {
             await this.$wire.assignToGroup(row.id, groupId);
         },
 
-        openRowMenu(event, rowId) {
-            if (this.openMenu === rowId) {
-                this.closeRowMenu();
+        openRowMenu(event, rowOrId) {
+            event?.stopPropagation?.();
+
+            const row = typeof rowOrId === 'object' && rowOrId !== null
+                ? rowOrId
+                : this.rows.find((candidate) => sameRowId(candidate.id, rowOrId));
+
+            if (! row) {
+                return;
+            }
+
+            if (sameRowId(this.openMenu, row.id)) {
+                this.closeRowMenu(true);
 
                 return;
             }
 
+            this._menuOutsideSuppressedUntil = Date.now() + 300;
             this._menuAnchor = event.currentTarget;
-            this.openMenu = rowId;
+            this.openMenu = row.id;
+            this.menuRow = row;
             this.confirmDeleteId = null;
-            this.positionRowMenu();
+
+            this.$nextTick(() => {
+                this.positionRowMenu();
+                requestAnimationFrame(() => this.positionRowMenu());
+            });
         },
 
-        closeRowMenu() {
+        onRowMenuOutsideClick(event) {
+            if (this._menuOutsideSuppressedUntil && Date.now() < this._menuOutsideSuppressedUntil) {
+                return;
+            }
+
+            if (this._menuAnchor && (event.target === this._menuAnchor || this._menuAnchor.contains(event.target))) {
+                return;
+            }
+
+            this.closeRowMenu(true);
+        },
+
+        closeRowMenu(force = false) {
+            if (! force && this._menuOutsideSuppressedUntil && Date.now() < this._menuOutsideSuppressedUntil) {
+                return;
+            }
+
             this.openMenu = null;
+            this.menuRow = null;
             this.confirmDeleteId = null;
             this._menuAnchor = null;
+            this._menuOutsideSuppressedUntil = null;
+        },
+
+        async handleRemoveMenuClick() {
+            const row = this.openMenuRow;
+
+            if (! row) {
+                return;
+            }
+
+            const id = row.id;
+
+            if (! sameRowId(this.confirmDeleteId, id)) {
+                this.confirmDeleteId = id;
+                this._menuOutsideSuppressedUntil = Date.now() + 1500;
+
+                return;
+            }
+
+            this.closeRowMenu(true);
+            this.deleteNode(id);
         },
 
         positionRowMenu() {
-            if (this.openMenu === null || !this._menuAnchor) {
+            if (this.openMenu === null || ! this._menuAnchor) {
                 return;
             }
 
@@ -756,22 +1034,31 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             await this.$wire.setDealPrice(val);
             this.hasDealPrice = true;
+            this.pricingFrozen = true;
             this.fieldsEditable = false;
+            this.serverDealTotalMinor = Math.round(parseMoney(val) * 100);
+            await this.syncTotalsFromServer();
         },
 
         async clearDealPrice() {
             await this.$wire.clearDealPrice();
             this.dealPriceInput = '';
             this.hasDealPrice = false;
-            this.fieldsEditable = this.editable;
+
+            if (! this.priceLocked) {
+                this.pricingFrozen = false;
+                this.fieldsEditable = this.editable;
+            }
+
+            await this.syncTotalsFromServer();
         },
 
         editChain: ['quantity', 'days', 'unit_price', 'discount_percent'],
 
         tabTarget(id, field, backwards) {
-            const row = this.rows.find((r) => r.id === id);
+            const row = this.findRow(id);
 
-            if (!row || row.item_type === 'group' || row.item_type === 'text' || !this.fieldsEditable) {
+            if (!row || row.item_type === 'group' || !this.fieldsEditable) {
                 return null;
             }
 
@@ -790,12 +1077,12 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             if (!backwards && field === 'discount_percent') {
                 const visibleIds = new Set(this.visibleRows.map((r) => r.id));
-                const idx = this.rows.findIndex((r) => r.id === id);
+                const idx = this.findRowIndex(id);
 
                 for (let j = idx + 1; j < this.rows.length; j++) {
                     const next = this.rows[j];
 
-                    if (next.item_type !== 'group' && next.item_type !== 'text' && visibleIds.has(next.id)) {
+                    if (next.item_type !== 'group' && visibleIds.has(next.id)) {
                         return { id: next.id, field: 'quantity' };
                     }
                 }
@@ -804,20 +1091,89 @@ export default function createOpportunityLineItemsEditor(cfg) {
             return null;
         },
 
-        focusField(id, field) {
+        resolveEditHost(tr, field) {
+            if (!tr) {
+                return null;
+            }
+
+            if (field === 'name') {
+                return tr.querySelector('.lf-name:not(.lf-product-link)') || tr.querySelector('.lf-name');
+            }
+
+            return tr.querySelector(`.lf-cell[data-field="${field}"]`);
+        },
+
+        tryFocusField(id, field) {
             const tr = this.$refs.tbody?.querySelector(`tr[data-id="${id}"]`);
 
             if (!tr) {
-                return;
+                return false;
             }
 
-            const host = tr.querySelector(`.lf-cell[data-field="${field}"]`);
+            const host = this.resolveEditHost(tr, field);
 
             if (!host) {
+                return false;
+            }
+
+            this.beginEdit(id, field, { currentTarget: host, target: host });
+
+            return true;
+        },
+
+        async focusFieldWhenReady(id, field, attempt = 0) {
+            if (this.tryFocusField(id, field)) {
+                return true;
+            }
+
+            if (attempt >= 15) {
+                return false;
+            }
+
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+
+            return this.focusFieldWhenReady(id, field, attempt + 1);
+        },
+
+        focusField(id, field) {
+            this.focusFieldWhenReady(id, field);
+        },
+
+        openLockPriceModal() {
+            if (typeof Livewire !== 'undefined') {
+                Livewire.dispatch('open-opportunity-lock-price-modal');
+            }
+        },
+
+        toastError(message) {
+            if (!message) {
                 return;
             }
 
-            this.$nextTick(() => this.beginEdit(id, field, { currentTarget: host, target: host }));
+            if (typeof Livewire !== 'undefined') {
+                Livewire.dispatch('toast', { type: 'error', message });
+            }
+        },
+
+        flushErrorMessage(error) {
+            const payload = error?.response?.data ?? error?.body ?? error ?? {};
+            const errors = payload?.errors ?? {};
+            const firstFieldError = Object.values(errors).flat()?.[0];
+
+            return String(
+                firstFieldError
+                ?? payload?.message
+                ?? error?.message
+                ?? 'Could not save line-item changes.',
+            );
+        },
+
+        isPricingGuardError(error) {
+            const message = this.flushErrorMessage(error).toLowerCase();
+
+            return message.includes('pricing is frozen')
+                || message.includes('cannot be removed')
+                || message.includes('cannot be edited while pricing is frozen');
         },
 
         beginEdit(id, field, ev) {
@@ -825,13 +1181,13 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 return;
             }
 
-            const row = this.rows.find((r) => r.id === id);
+            const row = this.findRow(id);
 
             if (!row) {
                 return;
             }
 
-            if ((row.item_type === 'group' || row.item_type === 'text') && field !== 'name') {
+            if (row.item_type === 'group' && field !== 'name') {
                 return;
             }
 
@@ -886,7 +1242,13 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 host.style.display = prevHTML;
 
                 if (save) {
-                    this.applyField(id, field, val);
+                    if (field === 'name' && (row.item_type === 'text' || row.item_type === 'group') && val === '') {
+                        this.discardBlankInlineRow(id);
+
+                        return;
+                    }
+
+                    this.applyField(id, field, field === 'name' ? val : input.value.trim());
                 }
             };
 
@@ -910,10 +1272,39 @@ export default function createOpportunityLineItemsEditor(cfg) {
             });
         },
 
-        applyField(id, field, value) {
-            const row = this.rows.find((r) => r.id === id);
+        discardBlankInlineRow(id) {
+            const row = this.findRow(id);
 
             if (!row) {
+                return;
+            }
+
+            if (Number(row.id) > 0) {
+                void this.deleteNode(id);
+
+                return;
+            }
+
+            const idx = this.findRowIndex(id);
+
+            if (idx !== -1) {
+                this.rows.splice(idx, 1);
+            }
+
+            this.queue = this.queue.filter((m) => m.tmpId !== id && m.id !== id);
+            this.afterLocalMutation();
+        },
+
+        applyField(id, field, value) {
+            const row = this.findRow(id);
+
+            if (! row) {
+                return;
+            }
+
+            if (field === 'name' && (row.item_type === 'text' || row.item_type === 'group') && String(value).trim() === '') {
+                this.discardBlankInlineRow(id);
+
                 return;
             }
 
@@ -937,13 +1328,14 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 const gross = (parseFloat(row.quantity) || 0) * (row.days || 0) * (row.unit_price || 0);
                 row.charge_total = Math.round(gross * (1 - disc / 100));
                 row.charge_total_display = this.money(row.charge_total);
+                this.recomputeChargeBreakdown(row);
             }
 
             this.afterLocalMutation();
             this.enqueue({ kind: 'field', id, field, value });
         },
 
-        addGroup(parentGroupId = null, name = 'New section') {
+        addGroup(parentGroupId = null, name = '') {
             const tmpId = this.tempId();
             let depth = 1;
             let insertAt = this.rows.length;
@@ -962,46 +1354,108 @@ export default function createOpportunityLineItemsEditor(cfg) {
             }
 
             this.rows.splice(insertAt, 0, this.blankRow(tmpId, 'group', depth, name));
+            this.markRowJustAdded(tmpId);
             this.afterLocalMutation();
             this.enqueue({ kind: 'addGroup', tmpId, parentGroupId, name });
         },
 
-        deleteNode(id) {
-            const idx = this.rows.findIndex((r) => r.id === id);
+        findDeleteBlock(id) {
+            const idx = this.findRowIndex(id);
 
             if (idx === -1) {
-                return;
+                return null;
             }
 
             const target = this.rows[idx];
-
-            if (target.item_type === 'group') {
-                const groupDepth = target.depth;
-                this.rows.splice(idx, 1);
-
-                for (let i = idx; i < this.rows.length; i++) {
-                    if (this.rows[i].depth <= groupDepth) {
-                        break;
-                    }
-
-                    this.rows[i].depth = Math.max(1, this.rows[i].depth - 1);
-                }
-
-                this.afterLocalMutation();
-                this.enqueue({ kind: 'deleteSection', id });
-
-                return;
-            }
-
             let end = idx + 1;
 
             while (end < this.rows.length && this.rows[end].depth > target.depth) {
                 end++;
             }
 
+            return {
+                idx,
+                end,
+                target,
+                isSection: target.item_type === 'group',
+            };
+        },
+
+        spliceLocalDeleteBlock(block) {
+            const { idx, end } = block;
             this.rows.splice(idx, end - idx);
             this.afterLocalMutation();
-            this.enqueue({ kind: 'delete', id });
+            this.syncOptimisticTotalsFromRows();
+        },
+
+        deleteItemUrl(serverId, isSection) {
+            const base = `/opportunities/${this.oppId}/items/${serverId}`;
+
+            return isSection ? `${base}?scope=section` : base;
+        },
+
+        sendKeepaliveDelete(serverId, isSection) {
+            const token = this.csrfToken
+                || document.querySelector('meta[name="csrf-token"]')?.content
+                || '';
+
+            fetch(this.deleteItemUrl(serverId, isSection), {
+                method: 'DELETE',
+                keepalive: true,
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    Accept: 'application/json',
+                },
+            }).then(async (res) => {
+                if (! res.ok) {
+                    const body = await res.text();
+                    throw new Error(body || `HTTP ${res.status}`);
+                }
+
+                void this.syncTotalsFromServer();
+            }).catch((e) => {
+                console.error('keepalive delete failed', e);
+                this.toastError(this.flushErrorMessage(e));
+                void this.pullFromServer(false, { mutation: true });
+            });
+        },
+
+        deleteNode(id) {
+            if (this.pricingFrozen) {
+                this.toastError('Line items cannot be removed while pricing is frozen.');
+
+                return;
+            }
+
+            const block = this.findDeleteBlock(id);
+
+            if (! block) {
+                return;
+            }
+
+            const { isSection } = block;
+            const serverId = this.resolveServerItemId(id);
+
+            for (let i = block.idx; i < block.end; i++) {
+                this.rows[i]._removing = true;
+            }
+
+            if (serverId !== null) {
+                this.sendKeepaliveDelete(serverId, isSection);
+            }
+
+            this.notifyTabsInvalidate();
+
+            setTimeout(() => {
+                const current = this.findDeleteBlock(id);
+
+                if (! current) {
+                    return;
+                }
+
+                this.spliceLocalDeleteBlock(current);
+            }, 350);
         },
 
         tempId() {
@@ -1009,7 +1463,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         blankRow(id, type, depth, name) {
-            return {
+            const row = {
                 id,
                 item_type: type,
                 depth,
@@ -1029,6 +1483,10 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 is_optional: false,
                 has_duplicates: false,
             };
+
+            this.recomputeChargeBreakdown(row);
+
+            return row;
         },
 
         afterLocalMutation() {
@@ -1047,7 +1505,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             ev.preventDefault();
 
-            const idx = this.rows.findIndex((r) => r.id === id);
+            const idx = this.findRowIndex(id);
 
             if (idx === -1) {
                 return;
@@ -1306,10 +1764,12 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
         async flush() {
             if (this._flushing) {
+                this._pendingFlush = true;
+
                 return;
             }
 
-            if (!this.queue.length) {
+            if (! this.queue.length) {
                 this.setSync('synced');
 
                 return;
@@ -1318,24 +1778,37 @@ export default function createOpportunityLineItemsEditor(cfg) {
             this._flushing = true;
             this.setSync('syncing');
 
-            const batch = this.queue.splice(0, this.queue.length);
+            const batch = orderFlushBatch(this.queue.splice(0, this.queue.length));
+            const requeue = [];
 
             try {
-                await this.applyBatchToServer(batch);
-                this.setSync(this.queue.length ? 'syncing' : 'synced');
+                await this.applyBatchToServer(batch, requeue);
+                this.setSync(this.queue.length || requeue.length ? 'syncing' : 'synced');
                 await this.syncTotalsFromServer();
                 this.notifyTabsInvalidate();
             } catch (e) {
-                const message = e?.message || String(e);
-                const body = e?.response?.data?.message;
-                console.error('line-items flush failed, re-queueing', message, body ?? '', e);
-                this.queue.unshift(...batch);
+                const message = this.flushErrorMessage(e);
+                console.error('line-items flush failed, re-queueing', message, e);
+                this.toastError(message);
+                this.queue.unshift(...(requeue.length ? requeue : batch));
                 this.setSync('syncing');
                 setTimeout(() => this.scheduleFlush(), 1500);
             } finally {
+                if (requeue.length) {
+                    this.queue.unshift(...requeue);
+                }
+
                 this._flushing = false;
 
-                if (this.queue.length) {
+                const needsRetry = shouldScheduleFlushRetry({
+                    wasBlocked: false,
+                    queueLength: this.queue.length,
+                    pendingFlushFlag: this._pendingFlush,
+                });
+
+                this._pendingFlush = false;
+
+                if (needsRetry) {
                     this.scheduleFlush();
                 } else {
                     await this._drainDeferredPull();
@@ -1343,32 +1816,48 @@ export default function createOpportunityLineItemsEditor(cfg) {
             }
         },
 
-        async applyBatchToServer(batch) {
+        resolveServerItemId(id) {
+            return resolveServerItemId(id, this.rows);
+        },
+
+        requeueMutation(mutation, reason, requeue = null) {
+            this.toastError(reason);
+
+            if (Array.isArray(requeue)) {
+                requeue.push(mutation);
+
+                return;
+            }
+
+            this.queue.unshift(mutation);
+        },
+
+        async applyBatchToServer(batch, requeue = []) {
             let structural = false;
 
             for (const m of batch) {
-                if (m.kind === 'addGroup') {
-                    const realId = await this.$wire.addGroup(m.parentGroupId ?? null, m.name ?? 'New section');
-                    this.remapTempId(m.tmpId, realId);
-                    structural = true;
-                } else if (m.kind === 'addProduct') {
-                    await this.$wire.addProduct(m.productId, m.quantity, m.destination);
-                    structural = true;
-                } else if (m.kind === 'delete') {
-                    if (m.id > 0) {
-                        await this.$wire.removeItem(m.id);
-                    }
+                try {
+                    if (m.kind === 'addGroup') {
+                        const realId = await this.$wire.addGroup(m.parentGroupId ?? null, m.name ?? '');
+                        this.remapTempId(m.tmpId, realId);
+                        structural = true;
+                    } else if (m.kind === 'addProduct') {
+                        await this.$wire.addProduct(m.productId, m.quantity, m.destination);
+                        structural = true;
+                    } else if (m.kind === 'field') {
+                        const serverId = this.resolveServerItemId(m.id);
 
-                    structural = true;
-                } else if (m.kind === 'deleteSection') {
-                    if (m.id > 0) {
-                        await this.$wire.deleteSection(m.id);
-                    }
+                        if (serverId === null) {
+                            this.requeueMutation(
+                                m,
+                                'Still saving that line — your edit will retry automatically.',
+                                requeue,
+                            );
 
-                    structural = true;
-                } else if (m.kind === 'field') {
-                    if (m.id > 0) {
-                        const row = this.rows.find((r) => r.id === m.id);
+                            continue;
+                        }
+
+                        const row = this.rows.find((r) => Number(r.id) === serverId);
                         let value = m.value;
 
                         if (row) {
@@ -1381,15 +1870,17 @@ export default function createOpportunityLineItemsEditor(cfg) {
                             }
                         }
 
-                        await this.$wire.updateField(m.id, m.field, value);
+                        await this.$wire.updateField(serverId, m.field, value);
+                    } else if (m.kind === 'persistTree') {
+                        structural = true;
                     }
-                } else if (m.kind === 'persistTree') {
-                    structural = true;
+                } catch (e) {
+                    throw e;
                 }
             }
 
             if (structural) {
-                const realRows = this.rows.filter((r) => r.id > 0);
+                const realRows = rowsEligibleForPersistTree(this.rows);
                 let structuralPersistSucceeded = false;
 
                 if (realRows.length) {
@@ -1402,6 +1893,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
                         baseRevision: baseRevisionBeforePersist,
                         nodeCount: nodes.length,
                         order: nodes.map((n) => n.id).join(','),
+                        pruneOrphans: true,
                     });
 
                     const result = await this.$wire.persistTree(nodes, baseRevisionBeforePersist);
@@ -1428,6 +1920,11 @@ export default function createOpportunityLineItemsEditor(cfg) {
                             serverRevision: result?.revision ?? null,
                             nodeCount: nodes.length,
                         });
+
+                        if (! requeue.some((mutation) => mutation.kind === 'persistTree')) {
+                            requeue.push({ kind: 'persistTree' });
+                        }
+
                         await this.handleStalePull('persistTree-unexpected-stale');
 
                         return;
@@ -1453,27 +1950,44 @@ export default function createOpportunityLineItemsEditor(cfg) {
         },
 
         remapTempId(tmpId, realId) {
-            const row = this.rows.find((r) => r.id === tmpId);
+            const tmp = Number(tmpId);
+            const real = Number(realId);
+
+            const row = this.rows.find((r) => Number(r.id) === tmp);
 
             if (row) {
-                row.id = realId;
+                row.id = real;
             }
 
             for (const r of this.rows) {
-                if (r.parent_group_id === tmpId) {
-                    r.parent_group_id = realId;
+                if (Number(r.parent_group_id) === tmp) {
+                    r.parent_group_id = real;
                 }
             }
 
             for (const m of this.queue) {
-                if (m.id === tmpId) {
-                    m.id = realId;
+                if (Number(m.id) === tmp) {
+                    m.id = real;
                 }
 
-                if (m.parentGroupId === tmpId) {
-                    m.parentGroupId = realId;
+                if (Number(m.tmpId) === tmp) {
+                    m.tmpId = real;
+                }
+
+                if (Number(m.parentGroupId) === tmp) {
+                    m.parentGroupId = real;
                 }
             }
+
+            if (sameRowId(this.openMenu, tmp)) {
+                this.openMenu = real;
+            }
+
+            if (sameRowId(this.confirmDeleteId, tmp)) {
+                this.confirmDeleteId = real;
+            }
+
+            this.refreshMenuRow();
         },
 
         _pullReason(opts = {}) {
@@ -1555,10 +2069,10 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             if (payload.stale && markConflicts) {
                 const reconciled = reconcileLocalTree(this.rows, serverTree, pending);
-                this.rows = this.normalize(this.enrichRowsWithServerMetadata(reconciled.rows, serverTree));
+                this.replaceRows(this.enrichRowsWithServerMetadata(reconciled.rows, serverTree));
                 this.conflicts = reconciled.conflicts;
             } else {
-                this.rows = this.normalize(this.enrichRowsWithServerMetadata(serverTree, serverTree));
+                this.replaceRows(this.enrichRowsWithServerMetadata(serverTree, serverTree));
                 this.conflicts = payload.conflicts || {};
             }
 
@@ -1580,6 +2094,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             this.baseRevision = normalizeRevision(payload.revision) || this.baseRevision;
             this.applyDefaultCollapse(this.rows);
+            this.refreshMenuRow();
             await this.saveCache();
         },
 
@@ -1644,6 +2159,35 @@ export default function createOpportunityLineItemsEditor(cfg) {
             this.picker.serverCount = results.filter((r) => r.source === 'server').length;
         },
 
+        resetQuickAddInput() {
+            this.quickAddQuery = '';
+            this.quickAddSelection = null;
+            this.quickAddQtyHint = '';
+
+            if (this.picker.target) {
+                this.picker.target.value = '';
+            }
+
+            this.refocusQuickAddInput();
+        },
+
+        refocusQuickAddInput() {
+            this.$refs.quickAddQty?.blur();
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.quickAddInput?.focus({ preventScroll: true });
+                });
+            });
+        },
+
+        clearQuickAddAfterCommit() {
+            this.picker.open = false;
+            this.picker.results = [];
+            this.quickAddQty = '';
+            this.resetQuickAddInput();
+        },
+
         onQuickAddInputKeydown(event, target) {
             if (this.picker.open) {
                 this.onPickerKeydown(event, target, true);
@@ -1664,7 +2208,15 @@ export default function createOpportunityLineItemsEditor(cfg) {
             }
 
             event.preventDefault();
-            this.commitQuickAdd();
+            event.stopPropagation();
+
+            const committed = this.commitQuickAdd();
+
+            if (committed) {
+                return;
+            }
+
+            this.refocusQuickAddInput();
         },
 
         commitQuickAdd() {
@@ -1673,27 +2225,78 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 ?? this.picker.results[0];
 
             if (!hit) {
-                return;
+                return false;
             }
 
             const qty = Number(this.quickAddQty) > 0 ? Number(this.quickAddQty) : 1;
+            const beforeIds = new Set(this.rows.map((r) => Number(r.id)));
+
+            this.clearQuickAddAfterCommit();
 
             this.$wire.quickAdd(hit.id, qty).then(async () => {
                 await this.refreshBaseRevision();
-                await this.pullFromServer(false, { mutation: true });
+                await this.pullFromServer(false, { mutation: true, force: true });
                 await this.syncTotalsFromServer();
+                this.markRowsAddedSince(beforeIds);
+                this.refocusQuickAddInput();
             });
 
-            this.picker.open = false;
-            this.picker.results = [];
-            this.quickAddSelection = null;
+            return true;
+        },
 
-            if (this.picker.target) {
-                this.picker.target.value = '';
+        async createInlineTextLine() {
+            if (!this.editable) {
+                return;
             }
 
-            this.quickAddQty = 1;
-            this.quickAddQtyHint = '';
+            const beforeIds = new Set(this.rows.map((r) => Number(r.id)));
+            const itemId = Number(await this.$wire.addInlineTextLine()) || 0;
+
+            await this.refreshBaseRevision();
+            await this.pullFromServer(false, { mutation: true, force: true });
+            await this.syncTotalsFromServer();
+            this.markRowsAddedSince(beforeIds);
+
+            if (itemId > 0) {
+                await this.$nextTick();
+                await this.focusFieldWhenReady(itemId, 'name');
+            }
+        },
+
+        async createInlineSection() {
+            if (!this.editable) {
+                return;
+            }
+
+            const beforeIds = new Set(this.rows.map((r) => Number(r.id)));
+            const groupId = Number(await this.$wire.addInlineSection()) || 0;
+
+            await this.refreshBaseRevision();
+            await this.pullFromServer(false, { mutation: true, force: true });
+            await this.syncTotalsFromServer();
+            this.markRowsAddedSince(beforeIds);
+
+            if (groupId > 0) {
+                await this.$nextTick();
+                await this.focusFieldWhenReady(groupId, 'name');
+            }
+        },
+
+        stageQuickAddSelection(hit) {
+            if (!hit) {
+                return;
+            }
+
+            this.quickAddSelection = hit;
+            this.quickAddQuery = hit.name ?? '';
+            this.picker.open = false;
+
+            if (this.picker.target) {
+                this.picker.target.value = hit.name ?? '';
+                this.picker.target.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            this.$refs.quickAddQty?.focus();
         },
 
         onPickerKeydown(event, target, isQuickAdd) {
@@ -1711,14 +2314,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 event.preventDefault();
 
                 if (isQuickAdd) {
-                    const hit = this.picker.results[this.picker.highlight];
-
-                    if (hit) {
-                        this.quickAddSelection = hit;
-                    }
-
-                    this.picker.open = false;
-                    this.$refs.quickAddQty?.focus();
+                    this.stageQuickAddSelection(this.picker.results[this.picker.highlight]);
 
                     return;
                 }
@@ -1742,19 +2338,19 @@ export default function createOpportunityLineItemsEditor(cfg) {
             }
 
             if (this.picker.isQuickAdd) {
-                this.quickAddSelection = hit;
-                this.picker.open = false;
-                this.$refs.quickAddQty?.focus();
+                this.stageQuickAddSelection(hit);
 
                 return;
             }
 
             const qty = this.picker.quantity || 1;
+            const beforeIds = new Set(this.rows.map((r) => Number(r.id)));
 
             this.$wire.quickAdd(hit.id, qty).then(async () => {
                 await this.refreshBaseRevision();
-                await this.pullFromServer(false, { mutation: true });
+                await this.pullFromServer(false, { mutation: true, force: true });
                 await this.syncTotalsFromServer();
+                this.markRowsAddedSince(beforeIds);
             });
 
             this.picker.open = false;

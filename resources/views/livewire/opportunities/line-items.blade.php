@@ -7,15 +7,16 @@ use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\ChangeItemDates;
 use App\Actions\Opportunities\ChangeItemQuantity;
 use App\Actions\Opportunities\ClearDealPrice;
+use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\MergeOpportunityItems;
 use App\Actions\Opportunities\OverrideItemPrice;
-use App\Actions\Opportunities\RemoveOpportunityItem;
 use App\Actions\Opportunities\RenameOpportunityItem;
 use App\Actions\Opportunities\RestructureOpportunityItems;
 use App\Actions\Opportunities\SetDealPrice;
 use App\Actions\Opportunities\SetItemDiscount;
 use App\Actions\Opportunities\SubstituteItem;
 use App\Actions\Opportunities\ToggleItemOptional;
+use App\Actions\Opportunities\UpdateOpportunityItemDetails;
 use App\Data\Opportunities\AddOpportunityAccessoryData;
 use App\Data\Opportunities\AddOpportunityGroupData;
 use App\Data\Opportunities\AddOpportunityItemData;
@@ -29,6 +30,7 @@ use App\Data\Opportunities\SetDealPriceData;
 use App\Data\Opportunities\SetItemDiscountData;
 use App\Data\Opportunities\SubstituteItemData;
 use App\Data\Opportunities\ToggleItemOptionalData;
+use App\Data\Opportunities\UpdateOpportunityItemDetailsData;
 use App\Enums\OpportunityItemType;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
@@ -67,7 +69,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
 
     public string $newSectionParent = '';
 
-    public string $newTextLineName = 'Note';
+    public string $newTextLineName = '';
 
     public function mount(Opportunity $opportunity): void
     {
@@ -75,7 +77,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
 
         $this->opportunity = $opportunity;
         $this->editable = Gate::allows('opportunities.edit') && ! $opportunity->statusEnum()->isClosed();
-        $this->fieldsEditable = $this->editable && $opportunity->deal_total === null;
+        $this->fieldsEditable = $this->editable && ! $opportunity->pricingFrozen();
         $this->catalogue = app(ProductSearchService::class)->catalogueIndex($opportunity->store_id);
     }
 
@@ -95,6 +97,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         return app(OpportunityLineItemTreeRevision::class)->current($this->opportunity->id);
     }
 
+    #[Renderless]
     public function treeRevisionToken(): string
     {
         return (string) $this->treeRevision();
@@ -136,6 +139,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
             ->all();
     }
 
+    #[Renderless]
     public function addProduct(int $productId, float $quantity = 1, ?string $destination = null): void
     {
         $this->guardEditable();
@@ -166,7 +170,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
                 'parent_path' => $parentPath,
             ];
 
-            if ($this->opportunity->deal_total !== null) {
+            if ($this->opportunity->pricingFrozen()) {
                 $itemPayload['unit_price'] = 0;
             }
 
@@ -176,6 +180,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         }, 'Item added');
     }
 
+    #[Renderless]
     public function quickAdd(int $productId, float $quantity = 1): void
     {
         $this->addProduct($productId, $quantity, $this->quickAddDestination);
@@ -188,6 +193,8 @@ new class extends Component implements OpportunityLineItemsEditorContract
         $name = trim($this->newTextLineName);
 
         if ($name === '') {
+            $this->addError('newTextLineName', 'Enter a name for the free text item.');
+
             return;
         }
 
@@ -195,18 +202,27 @@ new class extends Component implements OpportunityLineItemsEditorContract
             $this->runMutation(function () use ($name): void {
                 $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
 
-                (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+                $payload = [
                     'name' => $name,
                     'item_type' => OpportunityItemType::Text->value,
-                    'quantity' => '0',
+                    'quantity' => '1',
                     'parent_path' => $this->resolveParentPathForText(
                         $opportunity->items,
                         $this->quickAddDestination,
                     ),
-                ]));
+                ];
+
+                if ($this->opportunity->pricingFrozen()) {
+                    $payload['unit_price'] = 0;
+                    $payload['currency'] = $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP');
+                }
+
+                (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from($payload));
 
                 $this->refreshOpportunity();
-            }, 'Text line added', syncTree: true, mutationMeta: ['modal' => 'add-text-line']);
+            }, 'Free text item added', syncTree: true, mutationMeta: ['modal' => 'add-text-line']);
+
+            $this->newTextLineName = '';
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {
                 foreach ((array) $messages as $message) {
@@ -216,7 +232,52 @@ new class extends Component implements OpportunityLineItemsEditorContract
         }
     }
 
-    public function addGroup(?int $parentGroupId = null, string $name = 'New section'): int
+    #[Renderless]
+    public function addInlineTextLine(): int
+    {
+        $this->guardEditable();
+
+        $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+        $beforeIds = $opportunity->items->pluck('id');
+
+        $payload = [
+            'name' => '',
+            'item_type' => OpportunityItemType::Text->value,
+            'quantity' => '1',
+            'parent_path' => $this->resolveParentPathForText(
+                $opportunity->items,
+                $this->quickAddDestination,
+            ),
+        ];
+
+        if ($this->opportunity->pricingFrozen()) {
+            $payload['unit_price'] = 0;
+            $payload['currency'] = $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP');
+        }
+
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from($payload));
+
+        $this->refreshOpportunity();
+
+        $fresh = $this->opportunity->fresh(['items']) ?? $this->opportunity;
+
+        $newItem = $fresh->items
+            ->filter(fn (OpportunityItem $item): bool => $item->item_type === OpportunityItemType::Text
+                && ! $beforeIds->contains($item->id))
+            ->sortByDesc('id')
+            ->first();
+
+        return (int) ($newItem?->id ?? 0);
+    }
+
+    #[Renderless]
+    public function addInlineSection(): int
+    {
+        return $this->addGroup(null, '');
+    }
+
+    #[Renderless]
+    public function addGroup(?int $parentGroupId = null, string $name = ''): int
     {
         $this->guardEditable();
 
@@ -287,31 +348,40 @@ new class extends Component implements OpportunityLineItemsEditorContract
         ?string $discount = null,
         ?string $startsAt = null,
         ?string $endsAt = null,
+        ?string $description = null,
+        ?string $notes = null,
     ): void {
         $this->guardEditable();
-        $this->guardFieldsEditable('unit_price');
 
-        $this->runMutation(function () use ($itemId, $unitPrice, $discount, $startsAt, $endsAt): void {
+        $this->runMutation(function () use ($itemId, $unitPrice, $discount, $startsAt, $endsAt, $description, $notes): void {
             $item = $this->findItem($itemId);
 
-            (new OverrideItemPrice)($item, OverrideItemPriceData::from([
-                'currency' => $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP'),
-                'unit_price' => $unitPrice === null || $unitPrice === '' ? null : $unitPrice,
-            ]));
+            if (! $this->opportunity->pricingFrozen()) {
+                (new OverrideItemPrice)($item, OverrideItemPriceData::from([
+                    'currency' => $this->opportunity->currency_code ?? settings('company.base_currency', 'GBP'),
+                    'unit_price' => $unitPrice === null || $unitPrice === '' ? null : $unitPrice,
+                ]));
 
-            (new SetItemDiscount)($item, SetItemDiscountData::from([
-                'discount_percent' => $discount === null || $discount === '' ? null : $discount,
-            ]));
+                (new SetItemDiscount)($item, SetItemDiscountData::from([
+                    'discount_percent' => $discount === null || $discount === '' ? null : $discount,
+                ]));
 
-            (new ChangeItemDates)($item, ChangeItemDatesData::from([
-                'starts_at' => $startsAt === '' ? null : $startsAt,
-                'ends_at' => $endsAt === '' ? null : $endsAt,
+                (new ChangeItemDates)($item, ChangeItemDatesData::from([
+                    'starts_at' => $startsAt === '' ? null : $startsAt,
+                    'ends_at' => $endsAt === '' ? null : $endsAt,
+                ]));
+            }
+
+            (new UpdateOpportunityItemDetails)($item->fresh(), UpdateOpportunityItemDetailsData::from([
+                'description' => $description === '' ? null : $description,
+                'notes' => $notes === '' ? null : $notes,
             ]));
 
             $this->refreshOpportunity();
         }, 'Line updated', syncTree: true, mutationMeta: ['modalId' => 'edit-line']);
     }
 
+    #[Renderless]
     public function updateField(int $id, string $field, mixed $value): void
     {
         $this->guardEditable();
@@ -331,9 +401,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
                 'discount_percent' => (new SetItemDiscount)($item, SetItemDiscountData::from([
                     'discount_percent' => $value === null || $value === '' ? null : (string) $value,
                 ])),
-                'name' => (new RenameOpportunityItem)($item, RenameOpportunityItemData::from([
-                    'name' => (string) $value,
-                ])),
+                'name' => $this->updateNameField($item, (string) $value),
                 'starts_at' => (new ChangeItemDates)($item, ChangeItemDatesData::from([
                     'starts_at' => $value === '' ? null : $value,
                     'ends_at' => optional($item->ends_at)?->toDateString(),
@@ -356,6 +424,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         });
     }
 
+    #[Renderless]
     public function toggleOptional(int $itemId): void
     {
         $this->guardEditable();
@@ -374,6 +443,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         }, syncTree: true);
     }
 
+    #[Renderless]
     public function substituteItem(int $itemId, int $productId): void
     {
         $this->guardEditable();
@@ -401,6 +471,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
     public function removeItem(int $itemId): void
     {
         $this->guardEditable();
+        $this->guardPricingFrozenForRemoval();
 
         $this->runMutation(function () use ($itemId): void {
             (new RemoveOpportunityItem)($this->findItem($itemId));
@@ -411,13 +482,14 @@ new class extends Component implements OpportunityLineItemsEditorContract
 
     /**
      * Apply a deliberate editor tree restructure. The node list is authoritative
-     * user intent — we always apply when validation passes. {@see $baseRevision}
-     * is advisory (revision drift detection / logging only); incomplete node sets
-     * still fail via {@see RestructureOpportunityItems}.
+     * user intent — we always apply when validation passes. Omitted node ids are
+     * removed server-side (`prune_orphans`) so local-first deletes persist through
+     * this path. {@see $baseRevision} is advisory (revision drift detection / logging only).
      *
      * @param  array<int, array{id: int, depth: int}>  $nodes
      * @return array{stale: bool, revision: string, revision_drift: bool, base_revision: string, server_revision_before: string}
      */
+    #[Renderless]
     public function persistTree(array $nodes, int $baseRevision = 0): array
     {
         $this->guardEditable();
@@ -427,7 +499,10 @@ new class extends Component implements OpportunityLineItemsEditorContract
 
         (new RestructureOpportunityItems)(
             $this->opportunity->fresh(['items']) ?? $this->opportunity,
-            RestructureOpportunityItemsData::from(['nodes' => $nodes]),
+            RestructureOpportunityItemsData::from([
+                'nodes' => $nodes,
+                'prune_orphans' => true,
+            ]),
         );
 
         $this->refreshOpportunity();
@@ -441,6 +516,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         ];
     }
 
+    #[Renderless]
     public function mergeDuplicates(int $survivorId): void
     {
         $this->guardEditable();
@@ -461,6 +537,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         }, 'Duplicates merged', syncTree: true);
     }
 
+    #[Renderless]
     public function assignToGroup(int $itemId, ?int $groupId): void
     {
         $this->guardEditable();
@@ -482,6 +559,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         }, syncTree: true);
     }
 
+    #[Renderless]
     public function setDealPrice(string $dealTotal): void
     {
         $this->guardEditable();
@@ -496,6 +574,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         }, 'Deal price set', syncTree: true);
     }
 
+    #[Renderless]
     public function clearDealPrice(): void
     {
         $this->guardEditable();
@@ -623,14 +702,10 @@ new class extends Component implements OpportunityLineItemsEditorContract
     public function deleteSection(int $groupId): void
     {
         $this->guardEditable();
+        $this->guardPricingFrozenForRemoval();
 
         $this->runMutation(function () use ($groupId): void {
-            $group = $this->findGroup($groupId);
-            $opportunity = $this->opportunity->fresh(['items']) ?? $this->opportunity;
-            $tree = $this->treeService();
-            $nodes = $tree->nodesAfterDissolvingGroup($opportunity->items, $groupId);
-            $tree->restructure($opportunity, $nodes);
-            (new RemoveOpportunityItem)($group->fresh());
+            (new RemoveOpportunityItem)($this->findGroup($groupId));
 
             $this->refreshOpportunity();
         }, 'Section deleted', syncTree: true);
@@ -710,6 +785,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
     /**
      * @return array{charge_total: int, deal_total: int|null, has_deal_price: bool}
      */
+    #[Renderless]
     public function totalsSnapshot(): array
     {
         $this->opportunity = $this->opportunity->fresh() ?? $this->opportunity;
@@ -717,6 +793,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         return $this->totalsPayload();
     }
 
+    #[Renderless]
     public function refreshEditorContext(): void
     {
         $this->opportunity = $this->opportunity->fresh() ?? $this->opportunity;
@@ -742,6 +819,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
      * @param  array<int, int>  $pendingLocalIds
      * @return array{stale: bool, revision: string, tree: array<int, array<string, mixed>>, conflicts: array<int, string>, cache_token: string}
      */
+    #[Renderless]
     public function pullTree(int $baseRevision, array $localRows = [], array $pendingLocalIds = []): array
     {
         $this->refreshEditorContext();
@@ -959,6 +1037,19 @@ new class extends Component implements OpportunityLineItemsEditorContract
         return $group;
     }
 
+    private function updateNameField(OpportunityItem $item, string $value): void
+    {
+        if (trim($value) === '' && in_array($item->item_type, [OpportunityItemType::Text, OpportunityItemType::Group], true)) {
+            (new RemoveOpportunityItem)($item);
+
+            return;
+        }
+
+        (new RenameOpportunityItem)($item, RenameOpportunityItemData::from([
+            'name' => trim($value),
+        ]));
+    }
+
     private function guardEditable(): void
     {
         Gate::authorize('opportunities.edit');
@@ -972,7 +1063,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
 
     private function guardFieldsEditable(string $field): void
     {
-        if ($this->opportunity->deal_total === null) {
+        if (! $this->opportunity->pricingFrozen()) {
             return;
         }
 
@@ -980,7 +1071,16 @@ new class extends Component implements OpportunityLineItemsEditorContract
 
         if (in_array($field, $lockedFields, true)) {
             throw ValidationException::withMessages([
-                'opportunity' => 'Line items cannot be edited while a deal price is set.',
+                'opportunity' => 'Line items cannot be edited while pricing is frozen.',
+            ]);
+        }
+    }
+
+    private function guardPricingFrozenForRemoval(): void
+    {
+        if ($this->opportunity->pricingFrozen()) {
+            throw ValidationException::withMessages([
+                'opportunity' => 'Line items cannot be removed while pricing is frozen.',
             ]);
         }
     }
@@ -988,11 +1088,14 @@ new class extends Component implements OpportunityLineItemsEditorContract
     private function refreshOpportunity(): void
     {
         $this->opportunity = $this->opportunity->fresh() ?? $this->opportunity;
-        $this->fieldsEditable = $this->editable && $this->opportunity->deal_total === null;
+        $this->fieldsEditable = $this->editable && ! $this->opportunity->pricingFrozen();
 
         unset($this->tree, $this->destinations, $this->sectionOptions, $this->parentGroupOptions, $this->duplicateLineIds);
 
-        $this->dispatch('opportunity-totals-updated');
+        $this->dispatch(
+            'opportunity-totals-updated',
+            chargeTotalMinor: (int) ($this->opportunity->charge_total ?? 0),
+        );
     }
 
     /**
@@ -1078,38 +1181,55 @@ new class extends Component implements OpportunityLineItemsEditorContract
     $dealTotalRaw = $opp->deal_total !== null ? $opp->formatMoneyCost('deal_total') : '';
     $echoChannel = 'availability.opportunity.'.$opp->id;
     $chargeTotalMinor = (int) ($opp->charge_total ?? 0);
+    $pricingFrozen = $opp->pricingFrozen();
+    $priceLocked = $opp->hasLocks();
+    $canManagePriceLock = Gate::allows('opportunities.unlock_rates');
 @endphp
 
 <div
     class="opportunity-line-items-editor w-full"
-    x-data="window.signals.lineItemsEditor({
-        oppId: {{ $opp->id }},
-        editable: @js($editable),
-        fieldsEditable: @js($fieldsEditable),
-        catalogue: @js($catalogue),
-        currencySymbol: @js($currencySymbol),
-        echoChannel: @js($echoChannel),
-        destinations: @js($this->destinations),
-        sectionOptions: @js($this->sectionOptions),
-        serverChargeTotalMinor: @js($chargeTotalMinor),
-        dealTotalRaw: @js($dealTotalRaw),
-        hasDealPrice: @js($opp->deal_total !== null),
-    })"
+    wire:ignore
+    x-data="window.signals.lineItemsEditor({ oppId: {{ $opp->id }} })"
     x-init="boot()"
     x-on:line-items-mutation-done.window="onMutationDone($event)"
     x-on:opportunity-lifecycle-changed.window="onLifecycleChanged($event)"
     data-server-charge-total-minor="{{ $chargeTotalMinor }}"
 >
-    {{-- Frozen seed island — first write wins; never re-emitted into x-data --}}
+    {{--
+        Frozen config island — first write wins; never re-emitted into x-data.
+        Keeping volatile Livewire values OUT of the x-data expression prevents
+        Livewire morph from re-initialising Alpine (which left wire:ignore tbody
+        rows with dead click bindings after in-session adds).
+    --}}
     <script wire:ignore data-lf-seed>
         (function () {
             window.__lfSeed = window.__lfSeed || {};
+            window.__lfEditorConfig = window.__lfEditorConfig || {};
             var key = {{ $opp->id }};
             if (!(key in window.__lfSeed)) {
                 window.__lfSeed[key] = {
                     tree: @js($this->tree),
                     revision: @js((string) $this->treeRevision()),
                     cacheToken: @js($opp->state->value.':'.$opp->status),
+                };
+            }
+            if (!(key in window.__lfEditorConfig)) {
+                window.__lfEditorConfig[key] = {
+                    csrfToken: @js(csrf_token()),
+                    editable: @js($editable),
+                    fieldsEditable: @js($fieldsEditable),
+                    pricingFrozen: @js($pricingFrozen),
+                    priceLocked: @js($priceLocked),
+                    canManagePriceLock: @js($canManagePriceLock),
+                    catalogue: @js($catalogue),
+                    currencySymbol: @js($currencySymbol),
+                    echoChannel: @js($echoChannel),
+                    destinations: @js($this->destinations),
+                    sectionOptions: @js($this->sectionOptions),
+                    serverChargeTotalMinor: @js($chargeTotalMinor),
+                    dealTotalRaw: @js($dealTotalRaw),
+                    hasDealPrice: @js($opp->deal_total !== null),
+                    serverDealTotalMinor: @js($opp->deal_total !== null ? (int) $opp->deal_total : null),
                 };
             }
         })();
@@ -1121,17 +1241,17 @@ new class extends Component implements OpportunityLineItemsEditorContract
             <div class="lf-quick-add-bar">
                 <div class="lf-quick-add-input-group">
                     <span class="lf-quick-add-prefix" aria-hidden="true">+</span>
-                    <div class="relative flex-1 min-w-0" x-data="{ q: '' }">
+                    <div class="relative flex-1 min-w-0">
                         <input
                             type="text"
                             class="s-input w-full"
                             placeholder="Quick add — &ldquo;6 spiider&rdquo;, or a SKU, then Enter"
                             autocomplete="off"
-                            x-model="q"
+                            x-model="quickAddQuery"
                             x-ref="quickAddInput"
-                            x-on:input="onPickerInput($refs.quickAddInput, q, true)"
+                            x-on:input="onPickerInput($refs.quickAddInput, quickAddQuery, true)"
                             x-on:keydown="onQuickAddInputKeydown($event, $refs.quickAddInput)"
-                            x-on:focus="onPickerInput($refs.quickAddInput, q, true)"
+                            x-on:focus="onPickerInput($refs.quickAddInput, quickAddQuery, true)"
                             x-on:blur="closePickerSoon()"
                         >
                         <span class="text-xs text-[var(--text-faint)] font-mono" x-show="quickAddQtyHint" x-text="quickAddQtyHint"></span>
@@ -1142,9 +1262,10 @@ new class extends Component implements OpportunityLineItemsEditorContract
                     type="number"
                     min="1"
                     step="1"
-                    class="s-input text-center font-mono lf-col-qty"
+                    placeholder="1"
+                    class="s-input text-center font-mono lf-quick-add-qty"
                     x-ref="quickAddQty"
-                    x-model.number="quickAddQty"
+                    x-model="quickAddQty"
                     x-on:keydown="onQuickAddQtyKeydown($event)"
                 >
                 <span class="text-xs text-[var(--text-faint)]">into</span>
@@ -1161,14 +1282,21 @@ new class extends Component implements OpportunityLineItemsEditorContract
             <button type="button" class="s-btn s-btn-ghost s-btn-icon" title="Collapse all" x-on:click="collapseAll()">
                 <flux:icon.arrows-pointing-in class="!size-4" />
             </button>
-            <button type="button" class="s-btn s-btn-ghost s-btn-icon" title="New section" x-on:click="$dispatch('open-modal', 'create-section')">
+            <button type="button" class="s-btn s-btn-ghost s-btn-icon" title="New section" x-on:click="createInlineSection()">
                 <flux:icon.folder-plus class="!size-4" />
             </button>
-            <button type="button" class="s-btn s-btn-ghost s-btn-icon" title="Add text line" x-on:click="$dispatch('open-modal', 'add-text-line')">
+            <button type="button" class="s-btn s-btn-ghost s-btn-icon" title="Add free text item" x-on:click="createInlineTextLine()">
                 <flux:icon.document-text class="!size-4" />
             </button>
-            <button type="button" class="s-btn s-btn-ghost s-btn-icon" title="Deal price" x-on:click="$dispatch('open-modal', 'deal-price')">
-                <flux:icon.currency-pound class="!size-4" />
+            <button
+                type="button"
+                class="s-btn s-btn-ghost s-btn-icon"
+                :class="priceLocked ? 'opacity-50 cursor-not-allowed' : ''"
+                :disabled="priceLocked"
+                :title="priceLocked ? 'Unlock price before setting a deal price' : 'Deal price'"
+                x-on:click="!priceLocked && $dispatch('open-modal', 'deal-price')"
+            >
+                <flux:icon.currency-pound class="!size-4" x-bind:class="hasDealPrice ? '!text-red-600' : ''" />
             </button>
         @endif
 
@@ -1199,9 +1327,13 @@ new class extends Component implements OpportunityLineItemsEditorContract
         </div>
     </div>
 
-    @if($opp->deal_total !== null && ! $editable)
+    @if($opp->pricingFrozen() && ! $editable)
         <p class="text-sm text-[var(--text-muted)] mb-3">
-            Deal price: <strong class="font-mono">{{ $formatter->money($opp->deal_total, $opp->currency_code ?? settings('company.base_currency', 'GBP')) }}</strong>
+            @if($opp->deal_total !== null)
+                Deal price: <strong class="font-mono">{{ $formatter->money($opp->deal_total, $opp->currency_code ?? settings('company.base_currency', 'GBP')) }}</strong>
+            @elseif($opp->hasLocks())
+                Pricing is frozen — rates and tax are locked on this opportunity.
+            @endif
         </p>
     @endif
 
@@ -1218,7 +1350,21 @@ new class extends Component implements OpportunityLineItemsEditorContract
                         <th class="text-left lf-col-days">Days</th>
                         <th class="text-left lf-col-price">Price</th>
                         <th class="text-right lf-col-disc" style="text-align: right;">Disc %</th>
-                        <th class="text-right" style="text-align: right; min-width: 150px; white-space: nowrap;">Charge Total</th>
+                        <th class="text-right lf-col-charge" style="text-align: right; white-space: nowrap;">
+                            <span class="inline-flex items-center justify-end gap-1 w-full">
+                                <span>Charge Total</span>
+                                <button
+                                    type="button"
+                                    x-show="priceLocked && canManagePriceLock"
+                                    x-cloak
+                                    class="inline-flex items-center text-[var(--text-muted)] hover:text-[var(--brand-primary)]"
+                                    title="Pricing is locked — click to unlock"
+                                    @click="openLockPriceModal()"
+                                >
+                                    <flux:icon.lock-closed class="!size-3.5" />
+                                </button>
+                            </span>
+                        </th>
                         <th class="text-right lf-col-actions"></th>
                     </tr>
                 </thead>
@@ -1229,6 +1375,8 @@ new class extends Component implements OpportunityLineItemsEditorContract
                             :class="{
                                 'lf-row-group': row.item_type === 'group',
                                 'lf-row-text': row.item_type === 'text',
+                                'lf-row-added': row._justAdded,
+                                'lf-row-removing': row._removing,
                                 'lf-row-nest-target': nestDropGroupId === row.id,
                                 'lf-row-dragging': dragId === row.id,
                                 'lf-row-shortage': row.has_shortage,
@@ -1282,42 +1430,54 @@ new class extends Component implements OpportunityLineItemsEditorContract
                                         <span class="s-badge s-badge-zinc ml-1">Optional</span>
                                     </template>
                                 </div>
+                                <div
+                                    x-show="row.item_type !== 'group' && (row.description || row.notes)"
+                                    x-cloak
+                                    class="mt-0.5 space-y-0.5 text-[11px] leading-snug text-[var(--text-muted)]"
+                                    :style="`padding-left:${(row.depth - 1) * 22}px`"
+                                >
+                                    <div x-show="row.description" x-text="row.description"></div>
+                                    <div x-show="row.notes" class="italic">
+                                        <span class="not-italic text-[var(--text-faint)]">Warehouse:</span>
+                                        <span x-text="row.notes"></span>
+                                    </div>
+                                </div>
                             </td>
                             <td>
-                                <span x-show="row.item_type !== 'group' && row.item_type !== 'text'" class="s-chip" x-text="row.type_label || row.charge_period_label || '—'"></span>
+                                <span x-show="row.item_type !== 'group'" class="s-chip" x-text="row.type_label || row.charge_period_label || '—'"></span>
                             </td>
                             <td>
-                                <template x-if="row.item_type !== 'group' && row.item_type !== 'text' && row.status_label">
+                                <template x-if="row.item_type !== 'group' && row.status_label">
                                     <span class="s-badge" :class="statusClass(row.status_label)" x-text="row.status_label"></span>
                                 </template>
                             </td>
                             <td class="text-left tabular-nums lf-col-qty">
-                                <span x-show="row.item_type !== 'group' && row.item_type !== 'text'" class="lf-cell lf-cell-left" data-field="quantity" @click="fieldsEditable && beginEdit(row.id, 'quantity', $event)" x-text="fmtQty(row.quantity)"></span>
+                                <span x-show="row.item_type !== 'group'" class="lf-cell lf-cell-left" data-field="quantity" @click="fieldsEditable && beginEdit(row.id, 'quantity', $event)" x-text="fmtQty(row.quantity)"></span>
                             </td>
                             <td class="text-left tabular-nums lf-col-days">
-                                <span x-show="row.item_type !== 'group' && row.item_type !== 'text'" class="lf-cell lf-cell-left" data-field="days" @click="fieldsEditable && beginEdit(row.id, 'days', $event)" x-text="row.days"></span>
+                                <span x-show="row.item_type !== 'group'" class="lf-cell lf-cell-left" data-field="days" @click="fieldsEditable && beginEdit(row.id, 'days', $event)" x-text="row.days"></span>
                             </td>
                             <td class="text-left tabular-nums lf-col-price">
-                                <span x-show="row.item_type !== 'group' && row.item_type !== 'text'" class="lf-cell lf-cell-left lf-cell-price" data-field="unit_price" @click="fieldsEditable && beginEdit(row.id, 'unit_price', $event)" x-text="row.unit_price_display"></span>
+                                <span x-show="row.item_type !== 'group'" class="lf-cell lf-cell-left lf-cell-price" data-field="unit_price" @click="fieldsEditable && beginEdit(row.id, 'unit_price', $event)" x-text="row.unit_price_display"></span>
                             </td>
                             <td class="text-right tabular-nums lf-col-disc">
-                                <span x-show="row.item_type !== 'group' && row.item_type !== 'text'" class="lf-cell" data-field="discount_percent" @click="fieldsEditable && beginEdit(row.id, 'discount_percent', $event)" x-text="(row.discount_percent ? row.discount_percent : 0) + '%'"></span>
+                                <span x-show="row.item_type !== 'group'" class="lf-cell" data-field="discount_percent" @click="fieldsEditable && beginEdit(row.id, 'discount_percent', $event)" x-text="(row.discount_percent ? row.discount_percent : 0) + '%'"></span>
                             </td>
                             <td
-                                class="text-right tabular-nums font-medium lf-charge-cell"
+                                class="text-right tabular-nums font-medium lf-charge-cell lf-col-charge"
                                 style="white-space: nowrap;"
                                 @mouseenter="showChargePopover($event, row)"
                                 @mouseleave="hideChargePopoverSoon()"
                             >
                                 <span x-show="row.item_type === 'group'" class="text-[var(--text-muted)]" x-text="groupSubtotalDisplay(row)"></span>
                                 <span
-                                    x-show="row.item_type !== 'group' && row.item_type !== 'text'"
+                                    x-show="row.item_type !== 'group'"
                                     class="lf-charge-total"
                                     x-text="row.charge_total_display"
                                 ></span>
                             </td>
                             <td class="text-right lf-col-actions">
-                                <button type="button" class="s-btn-ghost s-btn-xs s-btn-icon" title="Actions" @click.stop="openRowMenu($event, row.id)">
+                                <button type="button" class="s-btn-ghost s-btn-xs s-btn-icon" title="Actions" @click.stop="openRowMenu($event, row)">
                                     <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                                 </button>
                             </td>
@@ -1332,13 +1492,45 @@ new class extends Component implements OpportunityLineItemsEditorContract
                 <tfoot x-show="rows.length">
                     <tr class="s-table-total-row" style="border-top: 2px solid var(--card-border);">
                         <td colspan="6"></td>
-                        <td class="text-right font-semibold whitespace-nowrap">Charge total (ex-tax)</td>
-                        <td class="text-right font-mono font-semibold text-lg tabular-nums whitespace-nowrap lf-footer-charge-total" x-text="displayGrandTotal"></td>
+                        <td class="text-right font-semibold whitespace-nowrap">
+                            <div>Charge total (ex-tax)</div>
+                            <div
+                                x-show="displayDealPriceSubline"
+                                x-cloak
+                                class="text-sm font-normal italic text-[var(--text-muted)] mt-0.5"
+                                x-text="displayDealPriceSubline"
+                            ></div>
+                        </td>
+                        <td class="text-right font-mono font-semibold text-lg tabular-nums whitespace-nowrap lf-footer-charge-total">
+                            <span class="inline-flex items-center justify-end gap-1.5 w-full">
+                                <button
+                                    type="button"
+                                    x-show="priceLocked && canManagePriceLock"
+                                    x-cloak
+                                    class="inline-flex items-center text-[var(--text-muted)] hover:text-[var(--brand-primary)]"
+                                    title="Pricing is locked — click to unlock"
+                                    @click="openLockPriceModal()"
+                                >
+                                    <flux:icon.lock-closed class="!size-4" />
+                                </button>
+                                <span x-text="displayGrandTotal"></span>
+                            </span>
+                        </td>
                         <td class="lf-col-actions"></td>
                     </tr>
                 </tfoot>
             </table>
         </div>
+        @if($editable)
+            <div class="lf-add-text-row flex flex-wrap items-stretch gap-2">
+                <button type="button" class="s-btn s-btn-ghost lf-add-text-btn" x-on:click="createInlineTextLine()">
+                    + Text Item
+                </button>
+                <button type="button" class="s-btn s-btn-ghost lf-add-text-btn" x-on:click="createInlineSection()">
+                    + Section
+                </button>
+            </div>
+        @endif
     </x-signals.card>
 
     <div x-ref="ghost" class="lf-ghost" x-show="dragId" x-cloak></div>
@@ -1374,7 +1566,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
         <div
             x-show="openMenu !== null"
             x-cloak
-            x-on:click.outside="closeRowMenu()"
+            x-on:click.outside="onRowMenuOutsideClick($event)"
             x-transition:enter="transition ease-out duration-100"
             x-transition:enter-start="opacity-0 scale-95"
             x-transition:enter-end="opacity-100 scale-100"
@@ -1384,63 +1576,63 @@ new class extends Component implements OpportunityLineItemsEditorContract
             class="s-dropdown"
             :style="`position: fixed; z-index: 9999; top: ${menuPos.top}px; right: ${menuPos.right}px; left: auto;`"
         >
-            <template x-if="openMenuRow">
-                <div>
-                    <template x-if="editable && openMenuRow.item_type === 'group'">
-                        <button type="button" class="s-dropdown-item w-full text-left" @click="$dispatch('open-modal', { id: 'rename-section', itemId: openMenuRow.id, name: openMenuRow.name }); closeRowMenu()">
+            <template x-if="openMenu !== null">
+                <div x-show="menuRow" x-cloak>
+                    <template x-if="editable && menuRow.item_type === 'group'">
+                        <button type="button" class="s-dropdown-item w-full text-left" @click="$dispatch('open-modal', { id: 'rename-section', itemId: menuRow.id, name: menuRow.name }); closeRowMenu()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                             Rename section
                         </button>
                     </template>
-                    <template x-if="editable && openMenuRow.item_type === 'text'">
-                        <button type="button" class="s-dropdown-item w-full text-left" @click="beginEdit(openMenuRow.id, 'name', $event); closeRowMenu()">
+                    <template x-if="editable && menuRow.item_type === 'text'">
+                        <button type="button" class="s-dropdown-item w-full text-left" @click="beginEdit(menuRow.id, 'name', $event); closeRowMenu()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                            Rename text line
+                            Rename free text item
                         </button>
                     </template>
-                    <template x-if="editable && openMenuRow.item_type !== 'group' && openMenuRow.item_type !== 'text'">
-                        <button type="button" class="s-dropdown-item w-full text-left" @click="openEditLineModal(openMenuRow); closeRowMenu()">
+                    <template x-if="editable && menuRow.item_type !== 'group' && menuRow.item_type !== 'text'">
+                        <button type="button" class="s-dropdown-item w-full text-left" @click="openEditLineModal(menuRow); closeRowMenu()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                             Edit line…
                         </button>
                     </template>
-                    <template x-if="openMenuRow.availability_url">
-                        <a :href="openMenuRow.availability_url" target="_blank" rel="noopener" class="s-dropdown-item" style="text-decoration: none;" @click="closeRowMenu()">
+                    <template x-if="menuRow.availability_url">
+                        <a :href="menuRow.availability_url" target="_blank" rel="noopener" class="s-dropdown-item" style="text-decoration: none;" @click="closeRowMenu()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                             View availability
                         </a>
                     </template>
-                    <template x-if="editable && openMenuRow.item_type !== 'group' && openMenuRow.item_type !== 'text'">
-                        <button type="button" class="s-dropdown-item w-full text-left" @click="toggleOptionalRow(openMenuRow); closeRowMenu()">
-                            <svg x-show="openMenuRow.is_optional" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            <svg x-show="!openMenuRow.is_optional" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/></svg>
-                            <span x-text="openMenuRow.is_optional ? 'Mark required' : 'Mark optional'"></span>
+                    <template x-if="editable && menuRow.item_type !== 'group' && menuRow.item_type !== 'text'">
+                        <button type="button" class="s-dropdown-item w-full text-left" @click="toggleOptionalRow(menuRow); closeRowMenu()">
+                            <svg x-show="menuRow.is_optional" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg x-show="!menuRow.is_optional" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/></svg>
+                            <span x-text="menuRow.is_optional ? 'Mark required' : 'Mark optional'"></span>
                         </button>
                     </template>
-                    <template x-if="editable && openMenuRow.has_duplicates">
-                        <button type="button" class="s-dropdown-item w-full text-left" @click="mergeDupes(openMenuRow); closeRowMenu()">
+                    <template x-if="editable && menuRow.has_duplicates">
+                        <button type="button" class="s-dropdown-item w-full text-left" @click="mergeDupes(menuRow); closeRowMenu()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
                             Merge duplicates
                         </button>
                     </template>
-                    <template x-if="editable && groupMoveOptions(openMenuRow).length">
+                    <template x-if="editable && groupMoveOptions(menuRow).length">
                         <div style="height: 1px; background: var(--card-border); margin: 4px 0;"></div>
-                        <template x-for="g in groupMoveOptions(openMenuRow)" :key="g.id">
-                            <button type="button" class="s-dropdown-item w-full text-left" @click="assignRowToGroup(openMenuRow, g.id); closeRowMenu()">
+                        <template x-for="g in groupMoveOptions(menuRow)" :key="g.id">
+                            <button type="button" class="s-dropdown-item w-full text-left" @click="assignRowToGroup(menuRow, g.id); closeRowMenu()">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                                 <span x-text="'Move to ' + g.name"></span>
                             </button>
                         </template>
                     </template>
-                    <template x-if="editable">
+                    <template x-if="editable && !pricingFrozen">
                         <button
                             type="button"
                             class="s-dropdown-item w-full text-left"
-                            :style="confirmDeleteId === openMenuRow.id ? 'color: #fff; background: var(--red); width: 100%;' : 'color: var(--red); width: 100%;'"
-                            @click.stop="confirmDeleteId === openMenuRow.id ? (deleteNode(openMenuRow.id), closeRowMenu()) : (confirmDeleteId = openMenuRow.id)"
+                            :style="idsMatch(confirmDeleteId, menuRow.id) ? 'color: #fff; background: var(--red); width: 100%;' : 'color: var(--red); width: 100%;'"
+                            @click.stop="handleRemoveMenuClick()"
                         >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="m21 8-2 13H5L3 8"/><path d="M7 8V6a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2"/><path d="M1 8h22"/><path d="M10 12v6"/><path d="M14 12v6"/></svg>
-                            <span x-text="confirmDeleteId === openMenuRow.id ? 'Click again to confirm' : 'Remove'"></span>
+                            <span x-text="idsMatch(confirmDeleteId, menuRow.id) ? 'Click again to confirm' : 'Remove'"></span>
                         </button>
                     </template>
                 </div>
@@ -1454,12 +1646,17 @@ new class extends Component implements OpportunityLineItemsEditorContract
             style="position: absolute; z-index: 120; min-width: 300px; max-height: 340px; overflow-y: auto;"
             x-on:mousedown.prevent>
             <template x-for="(hit, i) in picker.results" :key="hit.id">
-                <button type="button" class="s-dropdown-item flex items-center gap-2 w-full text-left"
+                <button type="button" class="s-dropdown-item flex items-center gap-2.5 w-full text-left lf-picker-hit"
                     :style="i === picker.highlight ? 'background: var(--s-subtle);' : ''"
                     x-on:mousedown.prevent="choosePickerHit(hit)"
                     x-on:mouseenter="picker.highlight = i">
-                    <span class="flex-1 truncate" x-text="hit.name"></span>
-                    <span class="font-mono text-xs text-[var(--text-faint)]" x-text="hit.sku || ''"></span>
+                    <span class="lf-picker-product-thumb shrink-0 flex items-center justify-center overflow-hidden rounded border border-[var(--card-border)] bg-white"
+                        style="width: 32px; height: 32px;">
+                        <img x-show="hit.image_url" :src="hit.image_url" :alt="hit.name" class="size-full object-cover">
+                        <span x-show="!hit.image_url" x-cloak class="font-bold text-[var(--text-muted)]" style="font-family: var(--font-display); font-size: 11px;" x-text="hit.initials || '?'"></span>
+                    </span>
+                    <span class="flex-1 min-w-0 truncate" x-text="hit.name"></span>
+                    <span class="font-mono text-xs text-[var(--text-faint)] shrink-0" x-text="hit.sku || ''"></span>
                 </button>
             </template>
         </div>
@@ -1505,21 +1702,6 @@ new class extends Component implements OpportunityLineItemsEditorContract
         </div>
     </x-signals.modal>
 
-    {{-- Add text line modal --}}
-    <x-signals.modal name="add-text-line" title="Add text line" id="add-text-line-modal">
-        <div class="space-y-3">
-            <div>
-                <label class="block text-sm font-medium mb-1">Text</label>
-                <input type="text" class="s-input w-full" wire:model="newTextLineName" wire:keydown.enter.prevent="addTextLine" placeholder="e.g. Client to supply power">
-            </div>
-            <p class="text-xs text-[var(--text-muted)]">Comment lines are free text only — no quantity, price, or availability. Uses the quick-add &ldquo;into&rdquo; destination.</p>
-            <x-slot:footer>
-                <button type="button" class="s-btn s-btn-ghost" x-on:click="$dispatch('close-modal', 'add-text-line')">Cancel</button>
-                <button type="button" class="s-btn s-btn-primary" wire:click="addTextLine">Add</button>
-            </x-slot:footer>
-        </div>
-    </x-signals.modal>
-
     {{-- Rename section modal --}}
     <div x-data="{ open: false, itemId: null, name: '' }"
         x-on:open-modal.window="if ($event.detail?.id === 'rename-section') { open = true; itemId = $event.detail.itemId; name = $event.detail.name; }"
@@ -1545,13 +1727,15 @@ new class extends Component implements OpportunityLineItemsEditorContract
     </div>
 
     {{-- Edit line modal --}}
-    <div x-data="{ open: false, line: null, unitPrice: '', discount: '', startsAt: '', endsAt: '' }"
+    <div x-data="{ open: false, line: null, unitPrice: '', discount: '', startsAt: '', endsAt: '', description: '', notes: '' }"
         x-on:open-modal.window="if ($event.detail?.id === 'edit-line') {
             open = true; line = $event.detail.line;
             unitPrice = line.unit_price_raw ?? '';
             discount = line.discount_percent ?? '';
             startsAt = line.starts_at ?? '';
             endsAt = line.ends_at ?? '';
+            description = line.description ?? '';
+            notes = line.notes ?? '';
         }"
         x-on:line-items-mutation-done.window="if ($event.detail?.modalId === 'edit-line') open = false">
         <template x-teleport="body">
@@ -1589,6 +1773,14 @@ new class extends Component implements OpportunityLineItemsEditorContract
                                 <input type="date" class="s-input w-full" x-model="endsAt">
                             </div>
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Description</label>
+                            <textarea class="s-input w-full" rows="2" x-model="description" placeholder="Customer-facing line description"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Warehouse notes</label>
+                            <textarea class="s-input w-full" rows="2" x-model="notes" placeholder="Internal warehouse / prep notes"></textarea>
+                        </div>
                     </div>
                     <div class="s-modal-footer">
                         <button type="button" class="s-btn s-btn-ghost" x-on:click="open = false">Cancel</button>
@@ -1598,7 +1790,9 @@ new class extends Component implements OpportunityLineItemsEditorContract
                                 unitPrice === '' ? null : unitPrice,
                                 discount === '' ? null : discount,
                                 startsAt || null,
-                                endsAt || null
+                                endsAt || null,
+                                description || null,
+                                notes || null
                             )"
                         >Save</button>
                     </div>

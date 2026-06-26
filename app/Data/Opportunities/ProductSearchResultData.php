@@ -34,5 +34,7 @@ class ProductSearchResultData extends Data
         public ?string $default_rate,
         public array $accessories = [],
         public ?string $availability = null,
+        public ?string $image_url = null,
+        public string $initials = '',
     ) {}
 }

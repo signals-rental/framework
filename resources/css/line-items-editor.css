@@ -8,6 +8,36 @@
     background: color-mix(in srgb, var(--danger, #dc2626) 8%, transparent);
 }
 
+@keyframes lf-row-added-fade {
+    0% {
+        background-color: color-mix(in srgb, var(--success, #16a34a) 35%, transparent);
+    }
+
+    100% {
+        background-color: transparent;
+    }
+}
+
+.lf-row-added {
+    animation: lf-row-added-fade 2s ease-out;
+}
+
+@keyframes lf-row-removing-fade {
+    0% {
+        background-color: color-mix(in srgb, var(--danger, #dc2626) 35%, transparent);
+        opacity: 1;
+    }
+
+    100% {
+        background-color: color-mix(in srgb, var(--danger, #dc2626) 35%, transparent);
+        opacity: 0;
+    }
+}
+
+.lf-row-removing {
+    animation: lf-row-removing-fade 350ms ease-out forwards;
+}
+
 .lf-toolbar-sticky {
     position: sticky;
     top: 0;
@@ -109,19 +139,49 @@
     max-width: 44px;
 }
 
+.lf-quick-add-qty {
+    box-sizing: border-box;
+    flex: 0 0 5rem;
+    width: 5rem;
+    min-width: 5rem;
+    max-width: 5rem;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+.lf-add-text-row {
+    border-top: 1px solid var(--card-border);
+}
+
+.lf-add-text-btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 5px 14px;
+    font-size: 12px;
+    line-height: 1.25;
+    border-radius: 0;
+}
+
 .lf-col-days {
     width: 40px;
     max-width: 40px;
 }
 
+.lf-col-charge {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+}
+
 .lf-col-price {
-    width: 72px;
-    max-width: 72px;
+    width: 75px;
+    max-width: 75px;
 }
 
 .lf-col-disc {
-    width: 48px;
-    max-width: 48px;
+    width: 75px;
+    max-width: 75px;
 }
 
 .opportunity-line-items-editor .s-btn-icon {

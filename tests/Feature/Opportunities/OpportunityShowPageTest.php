@@ -123,7 +123,7 @@ it('surfaces convert_to_order as allowed for an open quotation', function () {
         ->and($actions['convert_to_quotation']['allowed'])->toBeFalse();
 });
 
-it('labels the rates action Lock rates when unlocked and Unlock rates when locked', function () {
+it('labels the rates action Lock price when unlocked and Unlock price when locked', function () {
     $opportunity = Opportunity::factory()->quotation()->create();
 
     $this->actingAs($this->owner);
@@ -131,15 +131,30 @@ it('labels the rates action Lock rates when unlocked and Unlock rates when locke
     $unlocked = collect(Volt::test('opportunities.show', ['opportunity' => $opportunity])->viewData('availableActions'))
         ->keyBy('key');
 
-    expect($unlocked['unlock_locks']['label'])->toBe('Lock rates');
+    expect($unlocked['unlock_locks']['label'])->toBe('Lock price')
+        ->and($unlocked['unlock_locks']['allowed'])->toBeTrue();
 
     $opportunity->update(['exchange_rate_locked' => true]);
 
     $locked = collect(Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])->viewData('availableActions'))
         ->keyBy('key');
 
-    expect($locked['unlock_locks']['label'])->toBe('Unlock rates')
+    expect($locked['unlock_locks']['label'])->toBe('Unlock price')
         ->and($locked['unlock_locks']['allowed'])->toBeTrue();
+});
+
+it('locks rates via unlockRates when no locks are active', function () {
+    $opportunity = Opportunity::factory()->quotation()->create();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('unlockRates');
+
+    $opportunity->refresh();
+
+    expect($opportunity->exchange_rate_locked)->toBeTrue()
+        ->and($opportunity->tax_locked)->toBeTrue();
 });
 
 it('renders the convert-to-quotation action button on a draft for an owner', function () {
@@ -151,19 +166,54 @@ it('renders the convert-to-quotation action button on a draft for an owner', fun
         ->assertSee('Convert to Quotation');
 });
 
-it('opens a convert modal for convert actions and direct-fires the rest', function () {
+it('opens confirm modals for transition actions except convert flows', function () {
     $opportunity = Opportunity::factory()->create();
 
     $this->actingAs($this->owner);
 
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
         ->assertOk()
-        ->assertDontSeeHtml('confirm-action')
         ->assertSeeHtml("openConvertModal('convert_to_quotation'")
         ->assertSeeHtml('convert-opportunity')
         ->assertSeeHtml('wire:click="confirmConvert"')
-        ->assertSeeHtml('wire:click="cloneOpportunity"')
+        ->assertSeeHtml("openConfirmModal('clone'")
+        ->assertSeeHtml("openConfirmModal('unlock_locks'")
+        ->assertSeeHtml('confirm-opportunity-action')
+        ->assertSeeHtml('wire:click="confirmTransition"')
+        ->assertDontSeeHtml('wire:click="cloneOpportunity"')
+        ->assertDontSeeHtml('wire:click="unlockRates"')
         ->assertDontSeeHtml('wire:click="convertToQuotation"');
+});
+
+it('confirms clone via the shared confirm modal', function () {
+    $opportunity = createLiveOpportunity($this->owner, $this->store->id, 'Clone Modal');
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('openConfirmModal', 'clone')
+        ->assertSet('pendingConfirmKey', 'clone')
+        ->call('confirmTransition')
+        ->assertSet('pendingConfirmKey', null)
+        ->assertRedirect();
+
+    expect(Opportunity::query()->count())->toBe(2);
+});
+
+it('confirms lock rates via the shared confirm modal', function () {
+    $opportunity = Opportunity::factory()->quotation()->create();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('openConfirmModal', 'unlock_locks')
+        ->assertSet('pendingConfirmKey', 'unlock_locks')
+        ->call('confirmTransition')
+        ->assertSet('pendingConfirmKey', null)
+        ->assertDispatched('toast', type: 'success', message: 'Price locked');
+
+    expect($opportunity->fresh()->exchange_rate_locked)->toBeTrue()
+        ->and($opportunity->fresh()->tax_locked)->toBeTrue();
 });
 
 it('converts via the convert modal and shows a success toast', function () {
@@ -174,7 +224,6 @@ it('converts via the convert modal and shows a success toast', function () {
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
         ->call('openConvertModal', 'convert_to_quotation')
         ->assertSet('pendingConvertKey', 'convert_to_quotation')
-        ->assertDispatched('open-modal', 'convert-opportunity')
         ->call('confirmConvert')
         ->assertSet('pendingConvertKey', null)
         ->assertDispatched('toast', type: 'success', message: 'Converted to quotation')
@@ -576,4 +625,17 @@ it('refreshes the projection when the line-item editor reports a totals change (
     Volt::test('opportunities.show', ['opportunity' => $opportunity])
         ->call('onTotalsUpdated')
         ->assertOk();
+});
+
+it('applies an optimistic charge total from the editor without waiting for refresh (#371)', function () {
+    $opportunity = Opportunity::factory()->create([
+        'subject' => 'Optimistic Totals Opp',
+        'charge_total' => 12500,
+    ])->fresh();
+
+    $this->actingAs($this->owner);
+
+    Volt::test('opportunities.show', ['opportunity' => $opportunity])
+        ->call('onTotalsUpdated', 7500)
+        ->assertSet('opportunity.charge_total', 7500);
 });

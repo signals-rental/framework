@@ -2,7 +2,7 @@
     // Centralise tab-count loading so every opportunity tab shows correct, consistent
     // counts regardless of which relations the individual page component loaded.
     // `items()` is already active-version-scoped (opportunity-lifecycle.md §8.7).
-    $opportunity->loadCount(['items', 'costs', 'attachments', 'participants']);
+    $opportunity->loadCount(['items', 'costs', 'attachments', 'participants', 'activities']);
 
     // B3: allocation/dispatch (Assets) and shortage resolution (Shortages) only
     // apply once demand is committed — i.e. for an ORDER, or a QUOTATION that has
@@ -24,6 +24,7 @@
             ->unresolved()
             ->count();
     }
+
 @endphp
 {{--
     The Overview tab embeds the live line-item editor (the standalone "Line Items"
@@ -43,6 +44,9 @@
             : null,
         \Illuminate\Support\Facades\Gate::allows('opportunities.view')
             ? ['name' => 'versions', 'label' => 'Versions & Timeline', 'route' => route('opportunities.versions', $opportunity), 'count' => $opportunity->version_count ?? 0]
+            : null,
+        \Illuminate\Support\Facades\Gate::allows('activities.view')
+            ? ['name' => 'activities', 'label' => 'Activities', 'route' => route('opportunities.activities', $opportunity), 'count' => $opportunity->activities_count ?? 0]
             : null,
         $allocationTabsVisible && \Illuminate\Support\Facades\Gate::allows('shortages.view')
             ? ['name' => 'shortages', 'label' => 'Shortages', 'route' => route('opportunities.shortages', $opportunity), 'count' => $shortageTabCount]

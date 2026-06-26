@@ -8,6 +8,7 @@ use App\Data\Opportunities\OverrideItemPriceData;
 use App\Guards\Opportunities\GuardPipeline;
 use App\Guards\Opportunities\TransitionContext;
 use App\Models\OpportunityItem;
+use App\Services\Opportunities\OpportunityItemChargeBounds;
 use App\Verbs\Events\Opportunities\ItemPriceOverridden;
 
 /**
@@ -35,6 +36,12 @@ class OverrideItemPrice
     public function __invoke(OpportunityItem $item, OverrideItemPriceData $data): OpportunityData
     {
         $opportunity = $item->opportunity()->firstOrFail();
+
+        app(OpportunityItemChargeBounds::class)->assertUnitPriceAndProjectedTotalFit(
+            $item,
+            $opportunity,
+            $data->unit_price,
+        );
 
         $this->commitVerbs(function () use ($item, $data, $opportunity): void {
             app(GuardPipeline::class)->run(new TransitionContext(

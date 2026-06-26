@@ -76,7 +76,7 @@ class AddOpportunityItemData extends Data
     public static function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['string', 'max:255'],
             'itemable_id' => ['sometimes', 'nullable', 'integer'],
             'itemable_type' => ['sometimes', 'nullable', 'string', 'max:255'],
             'item_type' => ['sometimes', 'string', Rule::enum(OpportunityItemType::class)],

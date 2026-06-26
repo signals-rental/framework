@@ -23,6 +23,7 @@ use App\Actions\Opportunities\DeallocateAsset;
 use App\Actions\Opportunities\DeleteOpportunity;
 use App\Actions\Opportunities\DispatchAsset;
 use App\Actions\Opportunities\DispatchBulkQuantity;
+use App\Actions\Opportunities\LockOpportunity;
 use App\Actions\Opportunities\MarkAssetOnHire;
 use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\PrepareAsset;
@@ -490,8 +491,10 @@ class OpportunityController extends Controller
                 statePrecondition: fn (): ?array => $isQuotation && $status->isRevertibleToDraft() ? null : ['Only an open, provisional quotation can be reverted to a draft.', 'invalid_state']),
 
             // Release FX/tax locks.
-            $this->describeAction($opportunity, 'unlock_locks', $hasLocks ? 'Unlock rates' : 'Lock rates', 'opportunities.unlock_rates', null,
-                statePrecondition: fn (): ?array => $hasLocks ? null : ['The opportunity has no active FX/tax locks to release.', 'nothing_to_unlock']),
+            $this->describeAction($opportunity, 'unlock_locks', $hasLocks ? 'Unlock price' : 'Lock price', 'opportunities.unlock_rates', null,
+                statePrecondition: fn (): ?array => (! $hasLocks && $opportunity->deal_total !== null)
+                    ? ['Clear the deal price before locking price.', 'deal_price_active']
+                    : null),
 
             // Clone — always available to a creator.
             $this->describeAction($opportunity, 'clone', 'Clone', 'opportunities.create', null),
@@ -645,6 +648,27 @@ class OpportunityController extends Controller
         ]);
 
         $result = (new UnlockOpportunity)($opportunity, $validated['reason'] ?? null);
+
+        return $this->respondWithIncludes($request, $result, $opportunity);
+    }
+
+    /**
+     * Apply FX and tax locks on an opportunity (freeze re-pricing / re-taxing).
+     *
+     * Fires the OpportunityLocksApplied event. Requires the privileged
+     * `opportunities.unlock_rates` permission; a 422 results when locks are
+     * already active.
+     */
+    #[ApiResponse(200, 'Opportunity FX/tax locks applied')]
+    public function lockLocks(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorizeApi('opportunities.unlock_rates', 'opportunities:write');
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string'],
+        ]);
+
+        $result = (new LockOpportunity)($opportunity, $validated['reason'] ?? null);
 
         return $this->respondWithIncludes($request, $result, $opportunity);
     }

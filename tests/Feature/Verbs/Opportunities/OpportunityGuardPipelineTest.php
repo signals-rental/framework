@@ -7,6 +7,7 @@ use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\CreateVersion;
+use App\Actions\Opportunities\LockOpportunity;
 use App\Actions\Opportunities\OverrideItemPrice;
 use App\Actions\Opportunities\SendVersion;
 use App\Actions\Opportunities\SetDealPrice;
@@ -35,6 +36,7 @@ use App\Services\Opportunities\TransitionRuleRegistry;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Validation\ValidationException;
 use Thunk\Verbs\Exceptions\EventNotValid;
 use Thunk\Verbs\Facades\Verbs;
 
@@ -155,6 +157,40 @@ it('rejects unlocking an opportunity that has no active locks', function () {
     (new UnlockOpportunity)($opportunity->refresh());
 })->throws(EventNotValid::class);
 
+it('applies both locks via LockOpportunity', function () {
+    [$opportunity] = guardedQuotation($this->store);
+
+    (new LockOpportunity)($opportunity->refresh(), 'Freeze before client sign-off');
+    $opportunity->refresh();
+
+    expect($opportunity->exchange_rate_locked)->toBeTrue()
+        ->and($opportunity->tax_locked)->toBeTrue();
+});
+
+it('rejects locking an opportunity that already has active locks', function () {
+    [$opportunity] = guardedQuotation($this->store);
+    (new ConvertToOrder)($opportunity->refresh());
+
+    (new LockOpportunity)($opportunity->refresh());
+})->throws(EventNotValid::class);
+
+it('replays the locks-applied event to the same locked projection', function () {
+    [$opportunity] = guardedQuotation($this->store);
+    (new LockOpportunity)($opportunity->refresh());
+
+    Verbs::commit();
+    Opportunity::query()->whereKey($opportunity->id)->update([
+        'exchange_rate_locked' => false,
+        'tax_locked' => false,
+    ]);
+
+    Verbs::replay();
+
+    $replayed = Opportunity::query()->whereKey($opportunity->id)->firstOrFail();
+    expect($replayed->exchange_rate_locked)->toBeTrue()
+        ->and($replayed->tax_locked)->toBeTrue();
+});
+
 it('forbids unlocking without the opportunities.unlock_rates permission', function () {
     [$opportunity] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
@@ -184,29 +220,34 @@ it('allows a discount edit on a locked order (a structural net edit, not an FX/t
         ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
 });
 
-it('allows setting a deal price on a locked order (a structural net override of the headline)', function () {
+it('rejects setting a deal price on a locked order (deal price and lock price are mutually exclusive)', function () {
     [$opportunity] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
 
-    $lockedTax = (int) $opportunity->refresh()->tax_total;
+    // Deal price and lock price are mutually exclusive: any active lock (incl. the
+    // FX/tax lock an order auto-applies on conversion) blocks a deal price — the user
+    // must unlock first. {@see App\Actions\Opportunities\SetDealPrice}.
+    expect(fn () => (new SetDealPrice)($opportunity->refresh(), SetDealPriceData::from(['deal_total' => 12345])))
+        ->toThrow(ValidationException::class, 'Unlock price before setting a deal price.');
 
-    (new SetDealPrice)($opportunity->refresh(), SetDealPriceData::from(['deal_total' => 12345]));
-
-    expect((int) $opportunity->refresh()->deal_total)->toBe(12345)
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(12345)
-        ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
+    expect($opportunity->refresh()->deal_total)->toBeNull()
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(40000); // 2 x 5000 x 4 chargeable days
 });
 
-it('allows clearing a deal price on a locked order', function () {
+it('allows setting and clearing a deal price once the order is unlocked', function () {
     [$opportunity] = guardedQuotation($this->store);
     (new ConvertToOrder)($opportunity->refresh());
+    (new UnlockOpportunity)($opportunity->refresh(), 'correcting the booking');
+
     (new SetDealPrice)($opportunity->refresh(), SetDealPriceData::from(['deal_total' => 12345]));
+    expect((int) $opportunity->refresh()->deal_total)->toBe(12345)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(12345);
 
     (new ClearDealPrice)($opportunity->refresh());
 
-    // Cleared: headline reverts to the summed net lines (2 x 5000 = 10000).
+    // Cleared: headline reverts to the summed net lines (2 x 5000 x 4 chargeable days = 40000).
     expect($opportunity->refresh()->deal_total)->toBeNull()
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(10000);
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(40000);
 });
 
 it('still allows a discount and deal price once the locks are released', function () {

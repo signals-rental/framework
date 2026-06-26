@@ -7,6 +7,7 @@ use App\Actions\Opportunities\CloneOpportunity;
 use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\DeleteOpportunity;
+use App\Actions\Opportunities\LockOpportunity;
 use App\Actions\Opportunities\ReinstateOpportunity;
 use App\Actions\Opportunities\ReopenOpportunity;
 use App\Actions\Opportunities\RestoreOpportunity;
@@ -51,6 +52,9 @@ trait HasOpportunityActions
     /** @var 'convert_to_quotation'|'convert_to_order'|null */
     public ?string $pendingConvertKey = null;
 
+    /** @var 'reinstate'|'reopen'|'revert_to_quotation'|'revert_to_draft'|'clone'|'delete'|'unlock_locks'|null */
+    public ?string $pendingConfirmKey = null;
+
     /**
      * @return array<string, array{title: string, message: string, confirm: string, success: string}>
      */
@@ -79,7 +83,7 @@ trait HasOpportunityActions
         }
 
         $this->pendingConvertKey = $key;
-        $this->dispatch('open-modal', 'convert-opportunity');
+        $this->js("\$dispatch('open-modal', 'convert-opportunity')");
     }
 
     public function confirmConvert(): void
@@ -106,6 +110,128 @@ trait HasOpportunityActions
         }
 
         $this->pendingConvertKey = null;
+    }
+
+    /**
+     * @return array<string, array{title: string, message: string, confirm: string, success: string, danger?: bool}>
+     */
+    protected function confirmModalCopy(): array
+    {
+        return [
+            'reinstate' => [
+                'title' => __('Reinstate opportunity'),
+                'message' => __('Reinstate this opportunity and return it to an active status?'),
+                'confirm' => __('Reinstate'),
+                'success' => __('Opportunity reinstated'),
+            ],
+            'reopen' => [
+                'title' => __('Re-open order'),
+                'message' => __('Re-open this completed order so fulfilment can continue?'),
+                'confirm' => __('Re-open'),
+                'success' => __('Order re-opened'),
+            ],
+            'revert_to_quotation' => [
+                'title' => __('Revert to quotation'),
+                'message' => __('Revert this order back to a quotation? Demand will be released and FX/tax locks cleared.'),
+                'confirm' => __('Revert to quotation'),
+                'success' => __('Reverted to quotation'),
+            ],
+            'revert_to_draft' => [
+                'title' => __('Revert to draft'),
+                'message' => __('Revert this quotation to a draft? Reserved demand will be released.'),
+                'confirm' => __('Revert to draft'),
+                'success' => __('Reverted to draft'),
+            ],
+            'clone' => [
+                'title' => __('Clone opportunity'),
+                'message' => __('Create a copy of this opportunity with the same line items and settings?'),
+                'confirm' => __('Clone'),
+                'success' => __('Opportunity cloned'),
+            ],
+            'delete' => [
+                'title' => __('Archive opportunity'),
+                'message' => __('Archive this opportunity? It can be restored later from the archive.'),
+                'confirm' => __('Archive'),
+                'success' => __('Opportunity archived'),
+                'danger' => true,
+            ],
+            ...$this->unlockLocksConfirmCopy(),
+        ];
+    }
+
+    /**
+     * @return array<string, array{title: string, message: string, confirm: string, success: string}>
+     */
+    protected function unlockLocksConfirmCopy(): array
+    {
+        $hasLocks = (bool) $this->opportunity->exchange_rate_locked || (bool) $this->opportunity->tax_locked;
+
+        if ($hasLocks) {
+            return [
+                'unlock_locks' => [
+                    'title' => __('Unlock price'),
+                    'message' => __('Unlock price — allow editing quantities, rates, discounts, and removing lines again? New items will be priced normally.'),
+                    'confirm' => __('Unlock price'),
+                    'success' => __('Price unlocked'),
+                ],
+            ];
+        }
+
+        return [
+            'unlock_locks' => [
+                'title' => __('Lock price'),
+                'message' => __('Lock price — freeze all line pricing and the charge total? You will not be able to edit qty, rate, discount, or days, remove lines, or add priced items (new lines are added at £0).'),
+                'confirm' => __('Lock price'),
+                'success' => __('Price locked'),
+            ],
+        ];
+    }
+
+    public function openConfirmModal(string $key): void
+    {
+        if (! array_key_exists($key, $this->confirmModalCopy())) {
+            return;
+        }
+
+        $this->pendingConfirmKey = $key;
+        $this->js("\$dispatch('open-modal', 'confirm-opportunity-action')");
+    }
+
+    public function confirmTransition(): void
+    {
+        $key = $this->pendingConfirmKey;
+        $copy = $key !== null ? ($this->confirmModalCopy()[$key] ?? null) : null;
+
+        if ($copy === null) {
+            return;
+        }
+
+        $errorBefore = session()->has('error');
+
+        match ($key) {
+            'reinstate' => $this->reinstate(),
+            'reopen' => $this->reopen(),
+            'revert_to_quotation' => $this->revertToQuotation(),
+            'revert_to_draft' => $this->revertToDraft(),
+            'clone' => $this->cloneOpportunity(),
+            'delete' => $this->archive(),
+            'unlock_locks' => $this->unlockRates(),
+            default => null,
+        };
+
+        if ($key === 'clone' && ! $errorBefore && ! session()->has('error')) {
+            $this->pendingConfirmKey = null;
+
+            return;
+        }
+
+        if (! $errorBefore && ! session()->has('error')) {
+            $this->dispatch('toast', type: 'success', message: $copy['success']);
+            $this->dispatch('close-modal', 'confirm-opportunity-action');
+            $this->js("\$dispatch('close-modal', 'confirm-opportunity-action')");
+        }
+
+        $this->pendingConfirmKey = null;
     }
 
     public function convertToQuotation(): void
@@ -140,7 +266,14 @@ trait HasOpportunityActions
 
     public function unlockRates(): void
     {
-        $this->runTransition(fn () => (new UnlockOpportunity)($this->opportunity, null));
+        $opportunity = $this->opportunity;
+        $hasLocks = (bool) $opportunity->exchange_rate_locked || (bool) $opportunity->tax_locked;
+
+        if ($hasLocks) {
+            $this->runTransition(fn () => (new UnlockOpportunity)($opportunity, null));
+        } else {
+            $this->runTransition(fn () => (new LockOpportunity)($opportunity, null));
+        }
     }
 
     /**
@@ -282,13 +415,33 @@ trait HasOpportunityActions
         $this->dispatch(
             'opportunity-lifecycle-changed',
             editable: $editable,
-            fieldsEditable: $editable && $opportunity->deal_total === null,
+            fieldsEditable: $editable && ! $opportunity->pricingFrozen(),
+            pricingFrozen: $opportunity->pricingFrozen(),
+            priceLocked: $opportunity->hasLocks(),
             hasDealPrice: $opportunity->deal_total !== null,
             dealTotalRaw: $dealTotalRaw,
             chargeTotalMinor: (int) ($opportunity->charge_total ?? 0),
             dealTotalMinor: $opportunity->deal_total !== null ? (int) $opportunity->deal_total : null,
             cacheToken: $opportunity->state->value.':'.$opportunity->status,
         );
+
+        $browserPayload = json_encode([
+            'editable' => $editable,
+            'fieldsEditable' => $editable && ! $opportunity->pricingFrozen(),
+            'pricingFrozen' => $opportunity->pricingFrozen(),
+            'priceLocked' => $opportunity->hasLocks(),
+            'hasDealPrice' => $opportunity->deal_total !== null,
+            'dealTotalRaw' => $dealTotalRaw,
+            'chargeTotalMinor' => (int) ($opportunity->charge_total ?? 0),
+            'dealTotalMinor' => $opportunity->deal_total !== null ? (int) $opportunity->deal_total : null,
+            'cacheToken' => $opportunity->state->value.':'.$opportunity->status,
+        ], JSON_THROW_ON_ERROR);
+
+        $this->js(sprintf(
+            'window.dispatchEvent(new CustomEvent(%s, { detail: %s, bubbles: true }))',
+            json_encode('opportunity-lifecycle-changed'),
+            $browserPayload,
+        ));
     }
 
     /**
@@ -312,6 +465,7 @@ trait HasOpportunityActions
             'statusOptions' => $isArchived ? [] : $this->statusOptions(),
             'canChangeStatus' => ! $isArchived && Gate::allows('opportunities.edit') && ! $this->opportunity->statusEnum()->isClosed(),
             'convertModalCopy' => $this->convertModalCopy(),
+            'confirmModalCopy' => $this->confirmModalCopy(),
         ];
     }
 
@@ -351,8 +505,10 @@ trait HasOpportunityActions
             $this->describeAction($opportunity, 'revert_to_draft', 'Revert to Draft', 'opportunities.edit', RevertToDraft::TRANSITION,
                 statePrecondition: fn (): ?array => $isQuotation && $status->isRevertibleToDraft() ? null : ['Only an open, provisional quotation can be reverted to a draft.', 'invalid_state']),
 
-            $this->describeAction($opportunity, 'unlock_locks', $hasLocks ? 'Unlock rates' : 'Lock rates', 'opportunities.unlock_rates', null,
-                statePrecondition: fn (): ?array => $hasLocks ? null : ['The opportunity has no active FX/tax locks to release.', 'nothing_to_unlock']),
+            $this->describeAction($opportunity, 'unlock_locks', $hasLocks ? 'Unlock price' : 'Lock price', 'opportunities.unlock_rates', null,
+                statePrecondition: fn (): ?array => (! $hasLocks && $opportunity->deal_total !== null)
+                    ? ['Clear the deal price before locking price.', 'deal_price_active']
+                    : null),
 
             $this->describeAction($opportunity, 'clone', 'Clone', 'opportunities.create', null),
 

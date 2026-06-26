@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -252,6 +253,23 @@ class Opportunity extends Model implements HasSchema
         return (bool) $this->exchange_rate_locked || (bool) $this->tax_locked;
     }
 
+    /**
+     * Whether FX and/or tax locks are active on this opportunity.
+     */
+    public function hasLocks(): bool
+    {
+        return $this->pricingLocked();
+    }
+
+    /**
+     * Whether line-item pricing fields are frozen in the editor — deal price
+     * and/or FX/tax locks both impose a full pricing freeze.
+     */
+    public function pricingFrozen(): bool
+    {
+        return $this->deal_total !== null || $this->hasLocks();
+    }
+
     public static function defineSchema(SchemaBuilder $builder): void
     {
         $builder->string('subject')->label('Subject')->required()->searchable()->filterable()->sortable();
@@ -448,6 +466,16 @@ class Opportunity extends Model implements HasSchema
     public function participants(): HasMany
     {
         return $this->hasMany(OpportunityParticipant::class, 'opportunity_id')->orderBy('id');
+    }
+
+    /**
+     * CRM activities (calls, emails, tasks, notes) regarding this opportunity.
+     *
+     * @return MorphMany<Activity, $this>
+     */
+    public function activities(): MorphMany
+    {
+        return $this->morphMany(Activity::class, 'regarding');
     }
 
     /**

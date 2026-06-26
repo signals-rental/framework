@@ -6,6 +6,9 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\MergeOpportunityItemsData;
 use App\Data\Opportunities\OpportunityData;
 use App\Models\OpportunityItem;
+use App\Verbs\Events\Opportunities\ItemDatesChanged;
+use App\Verbs\Events\Opportunities\ItemDiscountSet;
+use App\Verbs\Events\Opportunities\ItemPriceOverridden;
 use App\Verbs\Events\Opportunities\ItemQuantityChanged;
 use App\Verbs\Events\Opportunities\ItemRemoved;
 use Illuminate\Support\Facades\Gate;
@@ -61,7 +64,16 @@ class MergeOpportunityItems
         $mergedQuantity = (float) $survivor->quantity
             + $duplicates->sum(fn (OpportunityItem $item): float => (float) $item->quantity);
 
-        $this->commitVerbs(function () use ($survivor, $duplicates, $mergedQuantity): void {
+        $richest = collect([$survivor])->concat($duplicates)
+            ->sortByDesc(fn (OpportunityItem $item): array => [
+                (int) ($item->total ?? 0),
+                (int) ($item->unit_price ?? 0),
+            ])
+            ->first();
+
+        $this->commitVerbs(function () use ($survivor, $duplicates, $mergedQuantity, $richest): void {
+            $this->applySurvivorPricingFrom($survivor, $richest);
+
             // Remove the duplicates first so their availability demand is released
             // before the survivor absorbs their quantity (avoids briefly
             // double-counting demand on the survivor's window).
@@ -101,5 +113,34 @@ class MergeOpportunityItems
         }
 
         return $a->equalTo($b);
+    }
+
+    private function applySurvivorPricingFrom(OpportunityItem $survivor, OpportunityItem $source): void
+    {
+        if ((int) ($source->unit_price ?? 0) !== (int) ($survivor->unit_price ?? 0)) {
+            ItemPriceOverridden::fire(
+                opportunity_item_id: $survivor->state_id,
+                unit_price: (int) ($source->unit_price ?? 0),
+            );
+        }
+
+        $sourceDiscount = $source->discount_percent !== null ? (string) $source->discount_percent : null;
+        $survivorDiscount = $survivor->discount_percent !== null ? (string) $survivor->discount_percent : null;
+
+        if ($sourceDiscount !== $survivorDiscount) {
+            ItemDiscountSet::fire(
+                opportunity_item_id: $survivor->state_id,
+                discount_percent: $sourceDiscount,
+            );
+        }
+
+        if (! $this->sameInstant($source->starts_at, $survivor->starts_at)
+            || ! $this->sameInstant($source->ends_at, $survivor->ends_at)) {
+            ItemDatesChanged::fire(
+                opportunity_item_id: $survivor->state_id,
+                starts_at: $source->starts_at?->toIso8601String(),
+                ends_at: $source->ends_at?->toIso8601String(),
+            );
+        }
     }
 }

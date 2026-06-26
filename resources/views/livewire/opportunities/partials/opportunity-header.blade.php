@@ -73,6 +73,7 @@
                     'delete' => 'archive',
                 ];
                 $convertModalKeys = ['convert_to_quotation', 'convert_to_order'];
+                $confirmModalKeys = ['reinstate', 'reopen', 'revert_to_quotation', 'revert_to_draft', 'unlock_locks', 'clone', 'delete'];
             @endphp
             <x-signals.split-button label="Actions" size="sm">
                 @if($canChangeStatus ?? false)
@@ -103,6 +104,21 @@
                             >
                                 <span wire:loading.remove wire:target="openConvertModal">{{ $action['label'] }}</span>
                                 <span wire:loading wire:target="openConvertModal" class="inline-flex items-center gap-1.5">
+                                    <x-signals.spinner size="xs" /> {{ __('Working…') }}
+                                </span>
+                            </button>
+                        @elseif(in_array($action['key'], $confirmModalKeys, true))
+                            <button
+                                type="button"
+                                wire:click="openConfirmModal('{{ $action['key'] }}')"
+                                x-on:click="open = false"
+                                wire:loading.attr="disabled"
+                                wire:target="openConfirmModal"
+                                class="s-dropdown-item w-full text-left"
+                                wire:key="action-{{ $action['key'] }}"
+                            >
+                                <span wire:loading.remove wire:target="openConfirmModal">{{ $action['label'] }}</span>
+                                <span wire:loading wire:target="openConfirmModal" class="inline-flex items-center gap-1.5">
                                     <x-signals.spinner size="xs" /> {{ __('Working…') }}
                                 </span>
                             </button>

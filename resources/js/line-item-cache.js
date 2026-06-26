@@ -21,6 +21,7 @@ export function serializeRowForCache(row, oppId) {
         parent_group_id: row.parent_group_id ?? null,
         name: row.name ?? null,
         description: row.description ?? null,
+        notes: row.notes ?? null,
         quantity: row.quantity ?? null,
         quantity_raw: row.quantity_raw ?? null,
         days: row.days ?? null,

@@ -271,7 +271,7 @@ it('keeps persistTree reorder after a mutation refresh and a fresh editor mount'
     ]);
 });
 
-it('deleteSection promotes nested products to root instead of removing them', function () {
+it('deleteSection cascade-removes nested lines instead of promoting them', function () {
     $opportunity = persistTreeOpportunity();
     $seed = seedGroupWithTwoItems($opportunity);
 
@@ -291,11 +291,7 @@ it('deleteSection promotes nested products to root instead of removing them', fu
     $component->call('deleteSection', $seed['group']->id);
 
     expect(OpportunityItem::query()->find($seed['group']->id))->toBeNull()
-        ->and($seed['first']->fresh()->parentPath())->toBeNull()
-        ->and($seed['second']->fresh()->parentPath())->toBeNull();
-
-    $serverIds = collect($editor->serverTree()['tree'])->pluck('id')->all();
-
-    expect($serverIds)->toContain($seed['first']->id, $seed['second']->id);
-    expect($serverIds)->not->toContain($seed['group']->id);
+        ->and(OpportunityItem::query()->find($seed['first']->id))->toBeNull()
+        ->and(OpportunityItem::query()->whereKey($seed['second']->id)->exists())->toBeTrue()
+        ->and(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(1);
 });

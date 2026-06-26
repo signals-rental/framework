@@ -30,7 +30,7 @@ import MiniSearch from 'minisearch';
  */
 
 const INDEX_FIELDS = ['name', 'sku'];
-const STORE_FIELDS = ['id', 'name', 'sku', 'default_rate', 'accessories', 'availability'];
+const STORE_FIELDS = ['id', 'name', 'sku', 'default_rate', 'accessories', 'availability', 'image_url', 'initials'];
 
 const DEFAULT_SEARCH_OPTIONS = {
     prefix: true,
@@ -38,6 +38,36 @@ const DEFAULT_SEARCH_OPTIONS = {
     boost: { name: 2 },
     combineWith: 'AND',
 };
+
+/**
+ * Coerce catalogue / search hit ids to numbers so local MiniSearch and Livewire
+ * server hits dedupe correctly in {@see merge}.
+ *
+ * @param {unknown} id
+ * @returns {number}
+ */
+export function productHitId(id) {
+    const numeric = Number(id);
+
+    return Number.isFinite(numeric) ? numeric : id;
+}
+
+/**
+ * @param {Object} hit
+ * @returns {ProductHit}
+ */
+function normaliseHit(hit) {
+    return {
+        ...hit,
+        id: productHitId(hit.id),
+        sku: hit.sku ?? null,
+        default_rate: hit.default_rate ?? null,
+        accessories: hit.accessories ?? [],
+        availability: hit.availability ?? null,
+        image_url: hit.image_url ?? null,
+        initials: hit.initials ?? '',
+    };
+}
 
 /**
  * Build a MiniSearch index from a catalogue payload.
@@ -58,7 +88,7 @@ export function buildIndex(catalogue = []) {
         },
     });
 
-    index.addAll(catalogue);
+    index.addAll(catalogue.map((row) => normaliseHit(row)));
 
     return index;
 }
@@ -91,12 +121,7 @@ export function parseQuickAdd(raw) {
  */
 function normaliseLocal(row) {
     return {
-        id: row.id,
-        name: row.name,
-        sku: row.sku ?? null,
-        default_rate: row.default_rate ?? null,
-        accessories: row.accessories ?? [],
-        availability: row.availability ?? null,
+        ...normaliseHit(row),
         source: 'local',
         isNew: false,
     };
@@ -119,24 +144,36 @@ export function merge(localResults = [], serverResults = []) {
     const ordered = [];
 
     for (const hit of localResults) {
-        const normalised = { ...hit, source: hit.source ?? 'local', isNew: false };
+        const normalised = {
+            ...normaliseHit(hit),
+            source: hit.source ?? 'local',
+            isNew: false,
+        };
         byId.set(normalised.id, normalised);
         ordered.push(normalised);
     }
 
     for (const hit of serverResults) {
-        const existing = byId.get(hit.id);
+        const normalised = normaliseHit(hit);
+        const existing = byId.get(normalised.id);
 
         if (existing) {
-            // Local already has this product — adopt the server's live availability
-            // (store/date aware) without disturbing local ranking order.
             if (hit.availability !== undefined && hit.availability !== null) {
                 existing.availability = hit.availability;
             }
+
+            if (hit.image_url !== undefined && hit.image_url !== null) {
+                existing.image_url = hit.image_url;
+            }
+
             continue;
         }
 
-        const serverHit = { ...hit, source: 'server', isNew: true };
+        const serverHit = {
+            ...normalised,
+            source: 'server',
+            isNew: true,
+        };
         byId.set(serverHit.id, serverHit);
         ordered.push(serverHit);
     }
@@ -201,7 +238,7 @@ export function createProductSearch({ catalogue = [], serverSearch = null, limit
         const results = await serverSearch(term);
 
         return Array.isArray(results)
-            ? results.map((hit) => ({ ...hit, source: 'server' }))
+            ? results.map((hit) => ({ ...normaliseHit(hit), source: 'server' }))
             : [];
     }
 

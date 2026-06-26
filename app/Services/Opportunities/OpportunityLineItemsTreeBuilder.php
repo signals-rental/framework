@@ -142,6 +142,7 @@ class OpportunityLineItemsTreeBuilder
             'revenue_group_id' => $item->revenue_group_id,
             'name' => $item->name,
             'description' => $item->description,
+            'notes' => $item->notes,
             'quantity' => $this->formatQuantity($item->quantity),
             'quantity_raw' => (string) $item->quantity,
             'days' => $days,
@@ -151,9 +152,11 @@ class OpportunityLineItemsTreeBuilder
             'discount_percent' => $item->discount_percent !== null ? (string) $item->discount_percent : null,
             'charge_total' => (int) ($item->total ?? 0),
             'charge_total_display' => $this->formatter->money((int) ($item->total ?? 0), $currencyCode),
-            'type_label' => in_array($item->item_type, [OpportunityItemType::Group, OpportunityItemType::Text], true)
+            'type_label' => $item->item_type === OpportunityItemType::Group
                 ? null
-                : $item->transaction_type->label(),
+                : ($item->item_type === OpportunityItemType::Text
+                    ? OpportunityItemType::Text->label()
+                    : $item->transaction_type->label()),
             'status_label' => $statusLabel,
             'availability_status' => $this->availabilityStatus($avail, $showShortageIndicators),
             'has_shortage' => $showShortageIndicators && ($avail !== null && $avail->has_shortage),
@@ -303,7 +306,7 @@ class OpportunityLineItemsTreeBuilder
         string $currencyCode,
         int $days,
     ): ?array {
-        if (in_array($item->item_type, [OpportunityItemType::Group, OpportunityItemType::Text], true)) {
+        if ($item->item_type === OpportunityItemType::Group) {
             return null;
         }
 

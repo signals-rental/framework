@@ -60,9 +60,21 @@ new #[Layout('components.layouts.app')] class extends Component
      * live on THIS component, so they would otherwise stay stale.
      */
     #[On('opportunity-totals-updated')]
-    public function onTotalsUpdated(): void
+    public function onTotalsUpdated(?int $chargeTotalMinor = null): void
     {
+        if ($chargeTotalMinor !== null) {
+            $this->opportunity->charge_total = $chargeTotalMinor;
+
+            return;
+        }
+
         $this->opportunity->refresh();
+    }
+
+    #[On('open-opportunity-lock-price-modal')]
+    public function openLockPriceModal(): void
+    {
+        $this->openConfirmModal('unlock_locks');
     }
 
     /**

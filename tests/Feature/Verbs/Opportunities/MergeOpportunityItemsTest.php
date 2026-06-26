@@ -63,7 +63,46 @@ it('merges duplicate lines into the survivor with the summed quantity', function
 
     expect(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(1)
         ->and((float) $survivor->refresh()->quantity)->toBe(5.0)
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(5000); // 1000 x 5
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(20000);
+});
+
+it('keeps the pricing of the most expensive duplicate when merging (#377)', function () {
+    $product = Product::factory()->create();
+    $created = (new CreateOpportunity)(CreateOpportunityData::from([
+        'subject' => 'Merge richest pricing',
+        'store_id' => $this->store->id,
+        'starts_at' => '2026-12-01T09:00:00Z',
+        'ends_at' => '2026-12-04T17:00:00Z',
+    ]));
+    $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+
+    (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
+        'name' => $product->name,
+        'quantity' => '2',
+        'unit_price' => 1000,
+    ]));
+    (new AddOpportunityItem)($opportunity->refresh(), AddOpportunityItemData::from([
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
+        'name' => $product->name,
+        'quantity' => '3',
+        'unit_price' => 5000,
+    ]));
+
+    $items = $opportunity->allItems()->orderBy('id')->get();
+    $survivor = $items->first();
+    $duplicate = $items->last();
+
+    (new MergeOpportunityItems)($survivor, MergeOpportunityItemsData::from([
+        'duplicate_item_ids' => [$duplicate->id],
+    ]));
+
+    $merged = $survivor->refresh();
+
+    expect((float) $merged->quantity)->toBe(5.0)
+        ->and((int) $merged->unit_price)->toBe(5000);
 });
 
 it('rejects merging lines that are not the same charge', function () {

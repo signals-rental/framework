@@ -7,6 +7,7 @@ use App\Models\Activity;
 use App\Models\ActivityParticipant;
 use App\Models\ListValue;
 use App\Models\Member;
+use App\Models\Opportunity;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\User;
@@ -141,6 +142,14 @@ it('scopes to activities for a product', function () {
     expect(Activity::forProduct($product->id)->count())->toBe(1);
 });
 
+it('scopes to activities for an opportunity', function () {
+    $opportunity = Opportunity::factory()->create();
+    Activity::factory()->forOpportunity($opportunity)->create();
+    Activity::factory()->create();
+
+    expect(Activity::forOpportunity($opportunity->id)->count())->toBe(1);
+});
+
 it('scopes to pending activities', function () {
     Activity::factory()->create(['completed' => false]);
     Activity::factory()->completed()->create();
@@ -208,7 +217,8 @@ it('scopes to activities for a stock level', function () {
 it('resolves a RMS short regarding_type to a class name', function () {
     expect(Activity::resolveRegardingType('Member'))->toBe(Member::class)
         ->and(Activity::resolveRegardingType('Product'))->toBe(Product::class)
-        ->and(Activity::resolveRegardingType('StockLevel'))->toBe(StockLevel::class);
+        ->and(Activity::resolveRegardingType('StockLevel'))->toBe(StockLevel::class)
+        ->and(Activity::resolveRegardingType('Opportunity'))->toBe(Opportunity::class);
 });
 
 it('returns null when resolving a null regarding_type', function () {
@@ -222,7 +232,8 @@ it('throws for an unknown regarding_type', function () {
 it('converts a class name to a RMS short regarding_type', function () {
     expect(Activity::shortRegardingType(Member::class))->toBe('Member')
         ->and(Activity::shortRegardingType(Product::class))->toBe('Product')
-        ->and(Activity::shortRegardingType(StockLevel::class))->toBe('StockLevel');
+        ->and(Activity::shortRegardingType(StockLevel::class))->toBe('StockLevel')
+        ->and(Activity::shortRegardingType(Opportunity::class))->toBe('Opportunity');
 });
 
 it('returns null when shortening a null regarding_type', function () {

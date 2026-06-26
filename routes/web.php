@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\Web\DocsController;
+use App\Http\Controllers\Web\OpportunityLineItemController;
 use App\Http\Controllers\Web\SearchController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
@@ -132,8 +133,13 @@ Route::middleware(['signals.setup-complete', 'auth', '2fa', 'signals.session-tim
     Volt::route('opportunities/{opportunity}/participants', 'opportunities.participants')->name('opportunities.participants')->withTrashed();
     Volt::route('opportunities/{opportunity}/shortages', 'opportunities.shortages')->name('opportunities.shortages')->withTrashed();
     Volt::route('opportunities/{opportunity}/versions', 'opportunities.versions')->name('opportunities.versions')->withTrashed();
+    Volt::route('opportunities/{opportunity}/activities', 'opportunities.activities')->name('opportunities.activities')->withTrashed();
     Volt::route('opportunities/{opportunity}/custom-fields', 'opportunities.custom-fields')->name('opportunities.custom-fields')->withTrashed();
     Volt::route('opportunities/{opportunity}/files', 'opportunities.files')->name('opportunities.files')->withTrashed();
+
+    Route::delete('opportunities/{opportunity}/items/{item}', [OpportunityLineItemController::class, 'destroy'])
+        ->name('opportunities.items.destroy')
+        ->withTrashed();
 
     // Editor Lab — the chosen "local-first" prototype, KEPT as the design
     // reference for the production line-item editor rebuild (RMS-unified model)

@@ -9,6 +9,7 @@ use App\Guards\Opportunities\GuardPipeline;
 use App\Guards\Opportunities\TransitionContext;
 use App\Models\Opportunity;
 use App\Verbs\Events\Opportunities\DealPriceSet;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Sets a manual deal-total override on an opportunity via the DealPriceSet event.
@@ -32,6 +33,12 @@ class SetDealPrice
 
     public function __invoke(Opportunity $opportunity, SetDealPriceData $data): OpportunityData
     {
+        if ($opportunity->hasLocks()) {
+            throw ValidationException::withMessages([
+                'opportunity' => 'Unlock price before setting a deal price.',
+            ]);
+        }
+
         $this->commitVerbs(function () use ($opportunity, $data): void {
             app(GuardPipeline::class)->run(new TransitionContext(
                 transition: 'opportunity.set_deal_price',

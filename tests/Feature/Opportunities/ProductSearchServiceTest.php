@@ -145,8 +145,25 @@ it('builds a lightweight catalogue index payload for the client tier', function 
 
     expect($catalogue)->toBeArray()
         ->and($catalogue)->toHaveCount(1)
-        ->and($catalogue[0])->toHaveKeys(['id', 'name', 'sku', 'default_rate', 'accessories'])
+        ->and($catalogue[0])->toHaveKeys(['id', 'name', 'sku', 'default_rate', 'accessories', 'image_url', 'initials'])
         ->and($catalogue[0]['name'])->toBe('Indexed Spiider')
         // Availability is omitted from the client index (store/date specific).
-        ->and($catalogue[0]['availability'])->toBeNull();
+        ->and($catalogue[0]['availability'])->toBeNull()
+        ->and($catalogue[0]['initials'])->toBe('IS');
+});
+
+it('includes a signed image url and initials fallback for picker rows', function (): void {
+    Product::factory()->create([
+        'name' => 'Gallery Light',
+        'icon_thumb_url' => 'icons/products/1/thumbs/icon.jpg',
+    ]);
+    Product::factory()->create(['name' => 'Plain Cable']);
+
+    $withImage = $this->service->search('gallery')->first();
+    $withoutImage = $this->service->search('plain')->first();
+
+    expect($withImage->image_url)->not->toBeNull()
+        ->and($withImage->initials)->toBe('GL')
+        ->and($withoutImage->image_url)->toBeNull()
+        ->and($withoutImage->initials)->toBe('PC');
 });

@@ -202,6 +202,7 @@ Route::prefix('v1')->middleware([ForceJsonResponse::class, 'throttle:api', 'auth
     Route::post('opportunities/{opportunity}/restore', [OpportunityController::class, 'restore'])
         ->withTrashed()
         ->name('api.v1.opportunities.restore');
+    Route::post('opportunities/{opportunity}/lock_locks', [OpportunityController::class, 'lockLocks'])->name('api.v1.opportunities.lock_locks');
     Route::post('opportunities/{opportunity}/unlock_locks', [OpportunityController::class, 'unlockLocks'])->name('api.v1.opportunities.unlock_locks');
     Route::post('opportunities/{opportunity}/change_status', [OpportunityController::class, 'changeStatus'])->name('api.v1.opportunities.change_status');
     // Line items (priced via the rate + tax engines; totals roll up to the parent)

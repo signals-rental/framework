@@ -37,7 +37,7 @@ class AddOpportunityGroupData extends Data
     public static function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['string', 'max:255'],
             'parent_path' => ['sometimes', 'nullable', 'string'],
             'custom_fields' => ['sometimes', 'nullable', 'array'],
         ];

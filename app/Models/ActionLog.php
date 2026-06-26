@@ -91,6 +91,15 @@ class ActionLog extends Model implements HasSchema
      * @param  Builder<ActionLog>  $query
      * @return Builder<ActionLog>
      */
+    public function scopeForOpportunity(Builder $query, int $opportunityId): Builder
+    {
+        return $query->forEntity(Opportunity::class, $opportunityId);
+    }
+
+    /**
+     * @param  Builder<ActionLog>  $query
+     * @return Builder<ActionLog>
+     */
     public function scopeForUser(Builder $query, int $userId): Builder
     {
         return $query->where('user_id', $userId);

@@ -3,6 +3,7 @@
 namespace App\Data\Casts;
 
 use App\Services\CurrencyService;
+use App\Services\Opportunities\OpportunityItemChargeBounds;
 use Brick\Math\Exception\NumberFormatException;
 use Brick\Math\Exception\RoundingNecessaryException;
 use Brick\Money\Exception\MoneyMismatchException;
@@ -49,13 +50,15 @@ class MoneyInput implements Cast
     {
         // Integers are treated as already being in minor units — pass through.
         if (is_int($value)) {
+            $this->assertWithinIntegerBounds($property->name, $value);
+
             return $value;
         }
 
         $currency = $this->resolveCurrency($properties);
 
         try {
-            return Money::of($value, $currency)->getMinorAmount()->toInt();
+            $minor = Money::of($value, $currency)->getMinorAmount()->toInt();
         } catch (RoundingNecessaryException $e) {
             throw ValidationException::withMessages([
                 $property->name => __('The :attribute has more decimal places than the :currency currency allows.', [
@@ -67,6 +70,21 @@ class MoneyInput implements Cast
             throw ValidationException::withMessages([
                 $property->name => __('The :attribute is not a valid money amount.', [
                     'attribute' => $property->name,
+                ]),
+            ]);
+        }
+
+        $this->assertWithinIntegerBounds($property->name, $minor);
+
+        return $minor;
+    }
+
+    private function assertWithinIntegerBounds(string $field, int $minor): void
+    {
+        if ($minor < 0 || $minor > OpportunityItemChargeBounds::MAX_MINOR) {
+            throw ValidationException::withMessages([
+                $field => __('The :attribute exceeds the maximum allowed value.', [
+                    'attribute' => $field,
                 ]),
             ]);
         }

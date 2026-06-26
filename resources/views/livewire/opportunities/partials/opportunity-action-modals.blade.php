@@ -73,3 +73,31 @@
         </button>
     </x-slot:footer>
 </x-signals.modal>
+
+{{-- ============================================================ --}}
+{{--  CONFIRM MODAL (reinstate, reopen, revert, clone, archive)    --}}
+{{-- ============================================================ --}}
+@php
+    $activeConfirm = ($pendingConfirmKey ?? null) ? (($confirmModalCopy ?? [])[$pendingConfirmKey] ?? null) : null;
+@endphp
+<x-signals.modal name="confirm-opportunity-action" title="{{ $activeConfirm['title'] ?? __('Confirm action') }}" size="sm">
+    <p class="text-sm text-[var(--text-muted)]">{{ $activeConfirm['message'] ?? __('Are you sure?') }}</p>
+
+    <x-slot:footer>
+        <button type="button" x-on:click="$dispatch('close-modal', 'confirm-opportunity-action')"
+                wire:loading.attr="disabled" wire:target="confirmTransition"
+                class="s-btn s-btn-sm">{{ __('Cancel') }}</button>
+        <button type="button"
+                wire:click="confirmTransition"
+                wire:loading.attr="disabled" wire:target="confirmTransition"
+                @class([
+                    's-btn s-btn-sm',
+                    ($activeConfirm['danger'] ?? false) ? 's-btn-danger' : 's-btn-primary',
+                ])>
+            <span wire:loading.remove wire:target="confirmTransition">{{ $activeConfirm['confirm'] ?? __('Confirm') }}</span>
+            <span wire:loading wire:target="confirmTransition" class="inline-flex items-center gap-1.5">
+                <x-signals.spinner size="xs" /> {{ __('Working…') }}
+            </span>
+        </button>
+    </x-slot:footer>
+</x-signals.modal>

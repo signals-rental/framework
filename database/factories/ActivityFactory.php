@@ -10,6 +10,7 @@ use App\Models\Activity;
 use App\Models\ListName;
 use App\Models\ListValue;
 use App\Models\Member;
+use App\Models\Opportunity;
 use App\Models\Product;
 use App\Models\StockLevel;
 use App\Models\User;
@@ -115,6 +116,14 @@ class ActivityFactory extends Factory
         return $this->state(fn () => [
             'regarding_type' => StockLevel::class,
             'regarding_id' => $stockLevel->id,
+        ]);
+    }
+
+    public function forOpportunity(Opportunity $opportunity): static
+    {
+        return $this->state(fn () => [
+            'regarding_type' => Opportunity::class,
+            'regarding_id' => $opportunity->id,
         ]);
     }
 

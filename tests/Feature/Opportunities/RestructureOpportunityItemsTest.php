@@ -205,7 +205,7 @@ it('rejects a node id that does not belong to the opportunity', function () {
         ->and(OpportunityItem::query()->whereKey($foreign)->value('path'))->toBe('0001');
 });
 
-it('rejects an incomplete node list that omits one of the items', function () {
+it('rejects an incomplete node list that omits one of the items when prune_orphans is false', function () {
     $opportunity = restructureTestOpportunity($this->store);
     $a = fireRestructureTestItem($opportunity, ['item_type' => 'product', 'name' => 'A', 'path' => '0001']);
     $b = fireRestructureTestItem($opportunity, ['item_type' => 'product', 'name' => 'B', 'path' => '0002']);
@@ -219,6 +219,22 @@ it('rejects an incomplete node list that omits one of the items', function () {
     ])))->toThrow(ValidationException::class);
 
     expect(OpportunityItem::query()->whereIn('id', [$a, $b])->pluck('path', 'id')->all())->toBe($before);
+});
+
+it('prunes items omitted from the node list when prune_orphans is enabled', function () {
+    $opportunity = restructureTestOpportunity($this->store);
+    $a = fireRestructureTestItem($opportunity, ['item_type' => 'product', 'name' => 'A', 'path' => '0001']);
+    $b = fireRestructureTestItem($opportunity, ['item_type' => 'product', 'name' => 'B', 'path' => '0002']);
+
+    (new RestructureOpportunityItems)($opportunity, RestructureOpportunityItemsData::from([
+        'nodes' => [
+            ['id' => $a, 'depth' => 1],
+        ],
+        'prune_orphans' => true,
+    ]));
+
+    expect(OpportunityItem::query()->whereKey($a)->exists())->toBeTrue()
+        ->and(OpportunityItem::query()->whereKey($b)->exists())->toBeFalse();
 });
 
 it('rejects duplicate ids in the node list', function () {

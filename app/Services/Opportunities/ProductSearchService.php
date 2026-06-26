@@ -11,6 +11,7 @@ use App\Models\ProductRate;
 use App\Services\Api\RansackFilter;
 use App\Services\AvailabilityService;
 use App\Services\CurrencyService;
+use App\Services\FileService;
 use App\Services\RateEngine\RateCalculator;
 use App\Services\RateEngine\RateResolver;
 use App\ValueObjects\CalculationContext;
@@ -55,6 +56,7 @@ class ProductSearchService
         private readonly RateResolver $rateResolver,
         private readonly RateCalculator $rateCalculator,
         private readonly AvailabilityService $availabilityService,
+        private readonly FileService $fileService,
     ) {}
 
     /**
@@ -92,7 +94,7 @@ class ProductSearchService
      * Embed this once in the editor (or fetch it once) and hand it to MiniSearch
      * via `addAll()`. Keeping it lean keeps the client index small.
      *
-     * @return array<int, array{id: int, name: string, sku: string|null, default_rate: string|null, accessories: array<int, array{id: int, name: string, sku: string|null, ratio: string, included: bool, zero_priced: bool}>}>
+     * @return array<int, array{id: int, name: string, sku: string|null, default_rate: string|null, accessories: array<int, array{id: int, name: string, sku: string|null, ratio: string, included: bool, zero_priced: bool}>, image_url: string|null, initials: string}>
      */
     public function catalogueIndex(?int $storeId = null): array
     {
@@ -212,6 +214,17 @@ class ProductSearchService
             default_rate: $this->defaultRate($product, $storeId),
             accessories: $this->accessories($product),
             availability: $withAvailability ? $this->availabilityStatus($product, $storeId) : null,
+            image_url: $this->fileService->signedUrlOrNull($product->icon_thumb_url),
+            initials: $this->productInitials($product->name),
+        );
+    }
+
+    private function productInitials(string $name): string
+    {
+        $words = preg_split('/\s+/', trim($name));
+
+        return mb_strtoupper(
+            mb_substr($words[0] ?? '', 0, 1).mb_substr($words[1] ?? '', 0, 1),
         );
     }
 

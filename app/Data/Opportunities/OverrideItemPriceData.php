@@ -3,6 +3,7 @@
 namespace App\Data\Opportunities;
 
 use App\Data\Casts\MoneyInput;
+use App\Services\Opportunities\OpportunityItemChargeBounds;
 use Spatie\LaravelData\Attributes\WithCast;
 use Spatie\LaravelData\Data;
 
@@ -27,7 +28,7 @@ class OverrideItemPriceData extends Data
     {
         return [
             'currency' => ['sometimes', 'string', 'size:3'],
-            'unit_price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'unit_price' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:'.OpportunityItemChargeBounds::MAX_MINOR],
         ];
     }
 }
