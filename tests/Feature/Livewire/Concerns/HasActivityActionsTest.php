@@ -3,6 +3,8 @@
 use App\Models\Activity;
 use App\Models\Member;
 use App\Models\User;
+use App\Services\Api\WebhookService;
+use Illuminate\Support\Facades\Log;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -37,17 +39,25 @@ it('deletes an activity and dispatches event', function () {
 it('handles completing a non-existent activity gracefully', function () {
     $member = Member::factory()->create();
 
-    Volt::test('members.activities', ['member' => $member])
-        ->call('completeActivity', 99999)
-        ->assertOk();
+    $flashed = captureFlashedMessages(function () use ($member): void {
+        Volt::test('members.activities', ['member' => $member])
+            ->call('completeActivity', 99999)
+            ->assertOk();
+    });
+
+    expect($flashed['info'] ?? null)->toBe('Activity was already removed.');
 });
 
 it('handles deleting a non-existent activity gracefully', function () {
     $member = Member::factory()->create();
 
-    Volt::test('members.activities', ['member' => $member])
-        ->call('deleteActivity', 99999)
-        ->assertOk();
+    $flashed = captureFlashedMessages(function () use ($member): void {
+        Volt::test('members.activities', ['member' => $member])
+            ->call('deleteActivity', 99999)
+            ->assertOk();
+    });
+
+    expect($flashed['info'] ?? null)->toBe('Activity was already removed.');
 });
 
 it('handles auth denial on complete gracefully', function () {
@@ -57,11 +67,14 @@ it('handles auth denial on complete gracefully', function () {
     $member = Member::factory()->create();
     $activity = Activity::factory()->forMember($member)->create(['completed' => false]);
 
-    Volt::test('members.activities', ['member' => $member])
-        ->call('completeActivity', $activity->id)
-        ->assertOk(); // Auth exception caught, no 403
+    $flashed = captureFlashedMessages(function () use ($member, $activity): void {
+        Volt::test('members.activities', ['member' => $member])
+            ->call('completeActivity', $activity->id)
+            ->assertOk();
+    });
 
-    expect($activity->refresh()->completed)->toBeFalse();
+    expect($flashed['error'] ?? null)->toBe('You do not have permission to complete this activity.')
+        ->and($activity->refresh()->completed)->toBeFalse();
 });
 
 it('handles auth denial on delete gracefully', function () {
@@ -71,9 +84,60 @@ it('handles auth denial on delete gracefully', function () {
     $member = Member::factory()->create();
     $activity = Activity::factory()->forMember($member)->create();
 
-    Volt::test('members.activities', ['member' => $member])
-        ->call('deleteActivity', $activity->id)
-        ->assertOk(); // Auth exception caught, no 403
+    $flashed = captureFlashedMessages(function () use ($member, $activity): void {
+        Volt::test('members.activities', ['member' => $member])
+            ->call('deleteActivity', $activity->id)
+            ->assertOk();
+    });
+
+    expect($flashed['error'] ?? null)->toBe('You do not have permission to delete this activity.')
+        ->and(Activity::find($activity->id))->not->toBeNull();
+});
+
+it('logs and flashes when completing an activity hits an unexpected error', function () {
+    $log = Log::spy();
+
+    $this->mock(WebhookService::class, function ($mock): void {
+        $mock->shouldReceive('dispatch')->andThrow(new RuntimeException('Webhook down'));
+    });
+
+    $member = Member::factory()->create();
+    $activity = Activity::factory()->forMember($member)->create(['completed' => false]);
+
+    $flashed = captureFlashedMessages(function () use ($member, $activity): void {
+        Volt::test('members.activities', ['member' => $member])
+            ->call('completeActivity', $activity->id);
+    });
+
+    expect($flashed['error'] ?? null)->toBe('Something went wrong. Please try again.');
+
+    $log->shouldHaveReceived('error')
+        ->once()
+        ->with('Failed to complete activity', Mockery::on(fn (array $context): bool => $context['activity_id'] === $activity->id));
+
+    expect($activity->refresh()->completed)->toBeFalse();
+});
+
+it('logs and flashes when deleting an activity hits an unexpected error', function () {
+    $log = Log::spy();
+
+    $this->mock(WebhookService::class, function ($mock): void {
+        $mock->shouldReceive('dispatch')->andThrow(new RuntimeException('Webhook down'));
+    });
+
+    $member = Member::factory()->create();
+    $activity = Activity::factory()->forMember($member)->create();
+
+    $flashed = captureFlashedMessages(function () use ($member, $activity): void {
+        Volt::test('members.activities', ['member' => $member])
+            ->call('deleteActivity', $activity->id);
+    });
+
+    expect($flashed['error'] ?? null)->toBe('Something went wrong. Please try again.');
+
+    $log->shouldHaveReceived('error')
+        ->once()
+        ->with('Failed to delete activity', Mockery::on(fn (array $context): bool => $context['activity_id'] === $activity->id));
 
     expect(Activity::find($activity->id))->not->toBeNull();
 });

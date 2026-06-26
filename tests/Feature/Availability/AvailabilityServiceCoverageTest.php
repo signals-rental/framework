@@ -204,16 +204,32 @@ it('builds gantt bars with opportunity source names and buffer-zone shortage fla
             'buffered_ends_at' => Carbon::parse('2026-08-11T19:00:00Z'),
         ]);
 
-    AvailabilityDailySummary::factory()->day(Carbon::parse('2026-08-10'), -1, 0)->create([
-        'product_id' => $product->id,
-        'store_id' => $this->store->id,
-    ]);
+    $shortageDate = Carbon::parse('2026-08-11');
+    $updated = AvailabilityDailySummary::query()
+        ->where('product_id', $product->id)
+        ->where('store_id', $this->store->id)
+        ->whereDate('date', $shortageDate)
+        ->update([
+            'min_available' => -1,
+            'max_available' => 0,
+            'has_shortage' => true,
+            'calculated_at' => Carbon::now('UTC'),
+        ]);
+
+    if ($updated === 0) {
+        AvailabilityDailySummary::factory()
+            ->day($shortageDate, -1, 0)
+            ->create([
+                'product_id' => $product->id,
+                'store_id' => $this->store->id,
+            ]);
+    }
 
     $gantt = $this->service->getGantt($product->id, $this->store->id, $from, $to);
 
     expect($gantt->total_stock)->toBe(2)
-        ->and($gantt->bars)->toHaveCount(1)
-        ->and($gantt->bars[0]->source_name)->toBe('Gantt Opp')
+        ->and($gantt->demands)->toHaveCount(1)
+        ->and($gantt->demands[0]->source_name)->toBe('Gantt Opp')
         ->and($gantt->shortages)->toHaveCount(1)
         ->and($gantt->shortages[0]->in_buffer_zone)->toBeFalse();
 });

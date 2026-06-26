@@ -17,7 +17,6 @@ use App\Models\Store;
 use App\Services\Availability\OpportunityItemDemandResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
-use InvalidArgumentException;
 
 /**
  * @param  array<string, mixed>  $itemAttributes
@@ -205,10 +204,11 @@ it('voids demands for inactive version items and resyncs the active version on o
     $store = Store::factory()->create();
     $opportunity = Opportunity::factory()->order()->create(['store_id' => $store->id]);
     $version = OpportunityVersion::factory()->for($opportunity)->create();
+    $staleVersion = OpportunityVersion::factory()->for($opportunity)->create(['version_number' => 2]);
     $opportunity->forceFill(['active_version_id' => $version->id])->save();
 
     $staleItem = OpportunityItem::factory()->for($opportunity)->create([
-        'version_id' => $version->id + 1,
+        'version_id' => $staleVersion->id,
         'itemable_type' => Product::class,
         'itemable_id' => $product->id,
     ]);

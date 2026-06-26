@@ -106,6 +106,15 @@ it('rejects creation when required custom field is missing', function () {
     (new CreateProduct)($data);
 })->throws(ValidationException::class);
 
+it('rejects creation when the product name is empty', function () {
+    expect(fn () => CreateProductData::validateAndCreate([
+        'name' => '',
+        'product_type' => ProductType::Rental->value,
+    ]))->toThrow(ValidationException::class);
+
+    expect(Product::query()->where('name', '')->exists())->toBeFalse();
+});
+
 it('does not persist product when required custom field validation fails', function () {
     CustomField::factory()->string()->required()->create([
         'name' => 'mandatory_ref',

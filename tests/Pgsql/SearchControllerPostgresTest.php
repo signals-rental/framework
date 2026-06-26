@@ -242,7 +242,7 @@ describe('GET /search (PostgreSQL ilike)', function () {
 
     it('scopes results to the actor permissions', function () {
         Opportunity::factory()->create(['subject' => 'Hidden Festival Deal']);
-        Member::factory()->contact()->create(['name' => 'Visible Member']);
+        Member::factory()->contact()->create(['name' => 'Festival Contact']);
 
         $viewer = User::factory()->create();
         $viewer->givePermissionTo('members.access', 'members.view');
@@ -251,7 +251,8 @@ describe('GET /search (PostgreSQL ilike)', function () {
             ->getJson(route('search', ['q' => 'Festival']))
             ->assertOk()
             ->assertJsonCount(0, 'opportunities')
-            ->assertJsonCount(1, 'members');
+            ->assertJsonCount(1, 'members')
+            ->assertJsonPath('members.0.name', 'Festival Contact');
     });
 
     it('accepts a trimmed query of at least two characters', function () {

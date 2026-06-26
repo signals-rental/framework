@@ -54,3 +54,21 @@ it('sets is_active on member to match user is_active', function () {
     $member = Member::find($user->member_id);
     expect($member->is_active)->toBeFalse();
 });
+
+it('is idempotent when re-run after members were backfilled', function () {
+    $user = User::factory()->makeOne(['name' => 'Once Only']);
+    $user->saveQuietly();
+    $user->update(['member_id' => null]);
+
+    $this->artisan('signals:backfill-user-members')->assertExitCode(0);
+    $memberCountAfterFirstRun = Member::count();
+
+    $this->artisan('signals:backfill-user-members')
+        ->expectsOutputToContain('All users already have linked member records')
+        ->assertExitCode(0);
+
+    $user->refresh();
+
+    expect($user->member_id)->not->toBeNull()
+        ->and(Member::count())->toBe($memberCountAfterFirstRun);
+});

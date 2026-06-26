@@ -13,7 +13,6 @@ use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Availability\ContainerDemandResolver;
 use Illuminate\Database\Eloquent\Model;
-use InvalidArgumentException;
 
 beforeEach(function () {
     $this->app->bind(AvailabilityResolutionProvider::class, fn () => new class implements AvailabilityResolutionProvider
@@ -93,15 +92,17 @@ it('purges stale container demands when switching from kit to transport mode', f
 
 it('does not write a demand when the serialised stock level is missing', function () {
     $container = Container::factory()->kit()->create(['store_id' => $this->store->id]);
-    $product = Product::factory()->serialised()->create();
+    $item = StockLevel::factory()->serialised()->create(['store_id' => $this->store->id]);
 
     $membership = ContainerItem::factory()->create([
         'container_id' => $container->id,
-        'serialised_item_id' => 999999999,
-        'product_id' => $product->id,
+        'serialised_item_id' => $item->id,
+        'product_id' => $item->product_id,
         'packed_at' => now()->subHour(),
         'unpacked_at' => null,
     ]);
+
+    $item->delete();
 
     $this->resolver->syncDemands($membership);
 

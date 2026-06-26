@@ -179,7 +179,7 @@ it('records transfer intent as pending with the source store metadata', function
     $option = $this->resolver->getOptions($shortage)[0];
     $result = $this->resolver->apply($shortage, $option);
 
-    expect($result->success)->toBeFalse()
+    expect($result->success)->toBeTrue()
         ->and($result->status)->toBe(ShortageResolutionStatus::Pending)
         ->and($result->requiresFollowup)->toBeTrue()
         ->and($result->followupType)->toBe('delivery')

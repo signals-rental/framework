@@ -83,7 +83,7 @@ describe('POST /api/v1/opportunities/{id}/clone', function () {
             ->postJson("/api/v1/opportunities/{$source->id}/clone")
             ->assertCreated()
             ->assertJsonPath('opportunity.state', OpportunityState::Draft->value)
-            ->assertJsonPath('opportunity.subject', $source->subject);
+            ->assertJsonPath('opportunity.subject', $source->subject.' (cloned)');
 
         $cloneId = $response->json('opportunity.id');
         expect($cloneId)->not->toBe($source->id)

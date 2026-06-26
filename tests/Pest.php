@@ -101,3 +101,37 @@ function assertActionLogged(string $action, string $auditableType, int $auditabl
 
     \Pest\Laravel\assertDatabaseHas('action_logs', $expected);
 }
+
+/**
+ * Capture session flash payloads during Livewire/Volt actions.
+ *
+ * Livewire clears `_flash.new` after non-redirect component updates, so
+ * `session('key')` is null once the testable returns even though the
+ * component did flash during the request.
+ *
+ * @return array<string, mixed>
+ */
+function captureFlashedMessages(callable $callback): array
+{
+    $session = app('session.store');
+    $captured = [];
+
+    $mock = Mockery::mock($session)->makePartial();
+    $mock->shouldReceive('flash')->withArgs(function (mixed $key, mixed $value = true) use (&$captured): bool {
+        $captured[(string) $key] = $value;
+
+        return true;
+    })->passthru();
+
+    app()->instance('session.store', $mock);
+    app()->instance('session', $mock);
+
+    try {
+        $callback();
+
+        return $captured;
+    } finally {
+        app()->instance('session.store', $session);
+        app()->instance('session', $session);
+    }
+}

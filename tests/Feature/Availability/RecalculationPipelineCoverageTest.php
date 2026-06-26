@@ -140,8 +140,10 @@ it('clamps open-ended windows to the rolling horizon', function () {
         Demand::sentinel(),
     );
 
+    $horizonEnd = Carbon::parse('2026-06-01T00:00:00Z')->addDays(10)->endOfDay();
+
     expect($from->greaterThanOrEqualTo(Carbon::parse('2026-05-22T00:00:00Z')))->toBeTrue()
-        ->and($to->lessThanOrEqualTo(Carbon::parse('2026-06-11T23:59:59Z')))->toBeTrue();
+        ->and($to->lessThanOrEqualTo($horizonEnd))->toBeTrue();
 
     Carbon::setTestNow();
 });

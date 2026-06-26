@@ -117,20 +117,24 @@ it('persists a non-inverted tstzrange when an asset is returned before its plann
 
     $demand = Demand::query()->where('source_id', $item->id)->where('asset_id', $asset->id)->sole();
 
+    $returnedAt = '2026-11-29T09:00:00+00:00';
+
     expect($demand->phase)->toBe(DemandPhase::Closed)
+        ->and($demand->starts_at->toIso8601String())->toBe($returnedAt)
+        ->and($demand->ends_at->toIso8601String())->toBe($returnedAt)
         ->and($demand->starts_at->lessThanOrEqualTo($demand->ends_at))->toBeTrue()
-        ->and($demand->ends_at->toIso8601String())->toBe('2026-11-29T09:00:00+00:00');
+        ->and($demand->buffered_starts_at->toIso8601String())->toBe($returnedAt)
+        ->and($demand->buffered_ends_at->toIso8601String())->toBe($returnedAt);
 
     $bounds = DB::connection('pgsql_testing')
         ->selectOne(
-            'SELECT lower(period) AS lower_bound, upper(period) AS upper_bound FROM demands WHERE id = ?',
+            'SELECT lower(period) AS lower_bound, upper(period) AS upper_bound, isempty(period) AS is_empty FROM demands WHERE id = ?',
             [$demand->id],
         );
 
-    expect(Carbon::parse($bounds->lower_bound)->lessThanOrEqualTo(Carbon::parse($bounds->upper_bound)))
-        ->toBeTrue()
-        ->and(Carbon::parse($bounds->upper_bound)->toIso8601String())
-        ->toBe('2026-11-29T09:00:00+00:00');
+    // Collapsed [return, return) is an empty half-open tstzrange — avoids SQLSTATE 22000
+    // while the scalar columns still pin the operational window at the return time.
+    expect($bounds->is_empty)->toBeTrue();
 });
 
 it('contracts the asset period tstzrange upper bound to the actual return time', function () {

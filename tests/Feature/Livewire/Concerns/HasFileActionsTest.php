@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\Attachment;
+use App\Models\Member;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\FileService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Livewire\Volt\Volt;
@@ -50,14 +52,14 @@ it('rejects deletion when user lacks authorization', function () {
         'uploaded_by' => $this->user->id, // uploaded by a different user
     ]);
 
-    Volt::test('products.files', ['product' => $product])
-        ->call('confirmDelete', $attachment->id)
-        ->call('deleteAttachment')
-        ->assertSet('deleteAttachmentId', null)
-        ->assertOk(); // Auth exception is caught gracefully, no 403
+    $flashed = captureFlashedMessages(function () use ($product, $attachment): void {
+        Volt::test('products.files', ['product' => $product])
+            ->call('confirmDelete', $attachment->id)
+            ->call('deleteAttachment');
+    });
 
-    // Attachment should not be deleted (auth was denied)
-    expect(Attachment::find($attachment->id))->not->toBeNull();
+    expect($flashed['error'] ?? null)->toBe('You do not have permission to delete this file.')
+        ->and(Attachment::find($attachment->id))->not->toBeNull();
 });
 
 it('cancels delete and resets deleteAttachmentId', function () {
@@ -75,4 +77,75 @@ it('cancels delete and resets deleteAttachmentId', function () {
 
     // Attachment should still exist
     expect(Attachment::find($attachment->id))->not->toBeNull();
+});
+
+it('returns early from deleteAttachment when no attachment id is set', function () {
+    $member = Member::factory()->create();
+    $attachment = Attachment::factory()->create([
+        'attachable_type' => Member::class,
+        'attachable_id' => $member->id,
+    ]);
+
+    Volt::test('members.files', ['member' => $member])
+        ->call('deleteAttachment')
+        ->assertSet('deleteAttachmentId', null);
+
+    expect(Attachment::find($attachment->id))->not->toBeNull();
+});
+
+it('flashes info when deleting an attachment that was already removed', function () {
+    $member = Member::factory()->create();
+    $attachment = Attachment::factory()->create([
+        'attachable_type' => Member::class,
+        'attachable_id' => $member->id,
+    ]);
+
+    $component = Volt::test('members.files', ['member' => $member])
+        ->call('confirmDelete', $attachment->id);
+
+    $attachment->delete();
+
+    $flashed = captureFlashedMessages(function () use ($component): void {
+        $component->call('deleteAttachment');
+    });
+
+    expect($flashed['info'] ?? null)->toBe('File was already deleted.')
+        ->and($component->get('deleteAttachmentId'))->toBeNull();
+});
+
+it('flashes error when file deletion fails unexpectedly', function () {
+    $this->mock(FileService::class, function ($mock): void {
+        $mock->shouldReceive('delete')->andThrow(new RuntimeException('Storage unavailable'));
+    });
+
+    $member = Member::factory()->create();
+    $attachment = Attachment::factory()->create([
+        'attachable_type' => Member::class,
+        'attachable_id' => $member->id,
+        'uploaded_by' => $this->user->id,
+    ]);
+
+    $flashed = captureFlashedMessages(function () use ($member, $attachment): void {
+        Volt::test('members.files', ['member' => $member])
+            ->call('confirmDelete', $attachment->id)
+            ->call('deleteAttachment');
+    });
+
+    expect($flashed['error'] ?? null)->toBe('The file could not be deleted. Please try again.')
+        ->and(Attachment::find($attachment->id))->not->toBeNull();
+});
+
+it('refreshes attachment counts after a file upload event', function () {
+    $member = Member::factory()->create();
+
+    $component = Volt::test('members.files', ['member' => $member]);
+
+    Attachment::factory()->create([
+        'attachable_type' => Member::class,
+        'attachable_id' => $member->id,
+    ]);
+
+    $component->call('refreshFiles');
+
+    expect($component->get('member')->attachments_count)->toBe(1);
 });
