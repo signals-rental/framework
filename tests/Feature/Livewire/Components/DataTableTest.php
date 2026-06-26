@@ -209,8 +209,8 @@ it('paginates results', function () {
 });
 
 it('applies default sort', function () {
-    Member::factory()->create(['name' => 'Zebra']);
-    Member::factory()->create(['name' => 'Alpha']);
+    $zebra = Member::factory()->create(['name' => 'DefaultSort Zebra']);
+    $alpha = Member::factory()->create(['name' => 'DefaultSort Alpha']);
 
     Livewire::test(DataTable::class, [
         'columns' => memberColumns(),
@@ -218,7 +218,16 @@ it('applies default sort', function () {
         'defaultSort' => 'name',
         'defaultDirection' => 'asc',
     ])
-        ->assertViewHas('items', fn ($items) => $items->first()->name === 'Alpha');
+        ->assertViewHas('items', function ($items) use ($alpha, $zebra): bool {
+            $position = fn (Member $member): int|false => $items->search(
+                fn (Member $row): bool => $row->id === $member->id,
+            );
+
+            $alphaPos = $position($alpha);
+            $zebraPos = $position($zebra);
+
+            return $alphaPos !== false && $zebraPos !== false && $alphaPos < $zebraPos;
+        });
 });
 
 it('applies eager loading via with parameter', function () {

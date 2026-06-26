@@ -89,8 +89,8 @@ it('creates the first version, adopts the existing items, and activates it', fun
     // The opportunity's existing item was adopted into version 1.
     $items = OpportunityVersion::query()->whereKey($version->id)->firstOrFail()->items;
     expect($items)->toHaveCount(1)
-        ->and($items->first()->total)->toBe(10000)
-        ->and($opportunity->charge_total)->toBe(10000);
+        ->and($items->first()->total)->toBe(40000) // 2 x 5000 x 4 chargeable days
+        ->and($opportunity->charge_total)->toBe(40000);
 });
 
 it('creates a revision that clones items and supersedes its parent', function () {
@@ -113,7 +113,7 @@ it('creates a revision that clones items and supersedes its parent', function ()
     $v1ItemId = OpportunityVersion::query()->whereKey($v1->id)->firstOrFail()->items->first()->id;
     $v2ItemId = OpportunityVersion::query()->whereKey($v2->id)->firstOrFail()->items->first()->id;
     expect($v2ItemId)->not->toBe($v1ItemId)
-        ->and($opportunity->charge_total)->toBe(10000);
+        ->and($opportunity->charge_total)->toBe(40000);
 });
 
 it('creates an alternative that coexists and flags has_alternatives', function () {
@@ -146,15 +146,15 @@ it('keeps exactly one active version and switches the opportunity totals on acti
     ]));
     $opportunity->refresh();
 
-    // v2 active -> totals = 10000 (cloned) + 3000 (new) = 13000.
+    // v2 active -> totals = 40000 (cloned) + 12000 (1 x 3000 x 4 days) = 52000.
     expect($opportunity->active_version_id)->toBe($v2->id)
-        ->and($opportunity->charge_total)->toBe(13000);
+        ->and($opportunity->charge_total)->toBe(52000);
 
     (new ActivateVersion)(OpportunityVersion::query()->whereKey($v1->id)->firstOrFail());
     $opportunity->refresh();
 
     expect($opportunity->active_version_id)->toBe($v1->id)
-        ->and($opportunity->charge_total)->toBe(10000);
+        ->and($opportunity->charge_total)->toBe(40000);
 
     // The one-active invariant holds.
     expect(OpportunityVersion::query()->where('opportunity_id', $opportunity->id)->where('is_active', true)->count())->toBe(1);
@@ -372,10 +372,10 @@ it('diffs two versions: added, removed, changed, and net change', function () {
         ->and($diff->changed[0]->source_quantity)->toBe('2.00')
         ->and($diff->changed[0]->target_quantity)->toBe('4.00');
 
-    // Net change: v1 = 10000 + 2000 = 12000; v2 = 20000 (4*5000) + 1000 = 21000.
-    expect($diff->source_total)->toBe('120.00')
-        ->and($diff->target_total)->toBe('210.00')
-        ->and($diff->net_change)->toBe('90.00');
+    // Net change: v1 = 40000 + 8000 = 48000; v2 = 80000 (4*5000*4) + 4000 (1*1000*4) = 84000.
+    expect($diff->source_total)->toBe('480.00')
+        ->and($diff->target_total)->toBe('840.00')
+        ->and($diff->net_change)->toBe('360.00');
 });
 
 it('rejects diffing versions from different opportunities', function () {
@@ -512,10 +512,10 @@ it('diffs two lines of the same product without collapsing them', function () {
         ->and($diff->changed[0]->source_quantity)->toBe('1.00')
         ->and($diff->changed[0]->target_quantity)->toBe('5.00');
 
-    // Totals reconcile: v1 = 2*5000 + 1*3000 = 13000; v2 = 2*5000 + 5*3000 = 25000.
-    expect($diff->source_total)->toBe('130.00')
-        ->and($diff->target_total)->toBe('250.00')
-        ->and($diff->net_change)->toBe('120.00');
+    // Totals reconcile: v1 = (2*5000 + 1*3000) x 4 days = 52000; v2 = (2*5000 + 5*3000) x 4 = 100000.
+    expect($diff->source_total)->toBe('520.00')
+        ->and($diff->target_total)->toBe('1000.00')
+        ->and($diff->net_change)->toBe('480.00');
 });
 
 it('persists the decline reason and supersession lineage', function () {

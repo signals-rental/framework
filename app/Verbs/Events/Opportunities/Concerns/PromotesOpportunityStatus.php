@@ -315,7 +315,13 @@ trait PromotesOpportunityStatus
 
     private function isSerialised(OpportunityItem $item): bool
     {
-        $product = $item->item;
+        if (! $item->isProductBacked()) {
+            return false;
+        }
+
+        $product = ($item->relationLoaded('item') && $item->item instanceof Product)
+            ? $item->item
+            : Product::query()->find($item->itemable_id);
 
         return $product instanceof Product
             && $product->stock_method === StockMethod::Serialised;

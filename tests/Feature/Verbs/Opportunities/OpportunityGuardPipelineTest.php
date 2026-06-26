@@ -129,10 +129,12 @@ it('allows a manual rate override on a locked order and still recomputes the net
 
     (new OverrideItemPrice)($item->refresh(), OverrideItemPriceData::from(['unit_price' => 9999]));
 
+    $chargeableDays = 4; // 2026-10-01 → 2026-10-05 hire window
+
     expect($item->refresh()->unit_price)->toBe(9999)
-        ->and((int) $item->refresh()->total)->toBe(9999 * 2) // quantity is 2
+        ->and((int) $item->refresh()->total)->toBe(9999 * 2 * $chargeableDays)
         // The net charge_total moved; the locked tax figure stayed frozen.
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(9999 * 2)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(9999 * 2 * $chargeableDays)
         ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
 });
 
@@ -213,10 +215,12 @@ it('allows a discount edit on a locked order (a structural net edit, not an FX/t
 
     (new SetItemDiscount)($item->refresh(), SetItemDiscountData::from(['discount_percent' => '10']));
 
-    // Line is 2 x 5000 = 10000; a 10% discount nets 9000.
+    $chargeableDays = 4; // 2026-10-01 → 2026-10-05 hire window
+
+    // Line is 2 x 5000 x 4 = 40000; a 10% discount nets 36000.
     expect($item->refresh()->discount_percent)->toBe('10.00')
-        ->and((int) $item->refresh()->total)->toBe(9000)
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(9000)
+        ->and((int) $item->refresh()->total)->toBe(36000)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(36000)
         ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
 });
 

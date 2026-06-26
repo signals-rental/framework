@@ -73,12 +73,12 @@ function netEditQuotation(Store $store): array
 it('moves the line total and parent net when overriding the rate on an unlocked quotation', function () {
     [$opportunity, $item] = netEditQuotation($this->store);
 
-    expect((int) $opportunity->charge_total)->toBe(10000);
+    expect((int) $opportunity->charge_total)->toBe(40000); // 2 x 5000 x 4 chargeable days
 
     (new OverrideItemPrice)($item->refresh(), OverrideItemPriceData::from(['unit_price' => 7500]));
 
-    expect((int) $item->refresh()->total)->toBe(15000) // 7500 x 2
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(15000);
+    expect((int) $item->refresh()->total)->toBe(60000) // 7500 x 2 x 4
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(60000);
 });
 
 it('moves the line total and parent net when overriding the rate on a LOCKED order, with tax frozen', function () {
@@ -93,8 +93,8 @@ it('moves the line total and parent net when overriding the rate on a LOCKED ord
 
     (new OverrideItemPrice)($item->refresh(), OverrideItemPriceData::from(['unit_price' => 7500]));
 
-    expect((int) $item->refresh()->total)->toBe(15000)
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(15000)
+    expect((int) $item->refresh()->total)->toBe(60000)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(60000)
         // The tax lock is honoured: the frozen tax figure does not move.
         ->and((int) $opportunity->refresh()->tax_total)->toBe($lockedTax);
 });
@@ -105,9 +105,9 @@ it('applies a discount to the net on a locked order', function () {
 
     (new SetItemDiscount)($item->refresh(), SetItemDiscountData::from(['discount_percent' => '10']));
 
-    // 10000 net less 10% = 9000.
-    expect((int) $item->refresh()->total)->toBe(9000)
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(9000);
+    // 40000 net less 10% = 36000.
+    expect((int) $item->refresh()->total)->toBe(36000)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(36000);
 });
 
 it('changes the quantity and recomputes the net on a locked order', function () {
@@ -116,7 +116,7 @@ it('changes the quantity and recomputes the net on a locked order', function () 
 
     (new ChangeItemQuantity)($item->refresh(), ChangeItemQuantityData::from(['quantity' => '4']));
 
-    // 5000 x 4 = 20000.
-    expect((int) $item->refresh()->total)->toBe(20000)
-        ->and((int) $opportunity->refresh()->charge_total)->toBe(20000);
+    // 5000 x 4 qty x 4 chargeable days = 80000.
+    expect((int) $item->refresh()->total)->toBe(80000)
+        ->and((int) $opportunity->refresh()->charge_total)->toBe(80000);
 });

@@ -85,14 +85,14 @@ describe('POST /api/v1/opportunities/{id}/items', function () {
             ->assertCreated()
             ->assertJsonPath('opportunity.id', $opportunity->id);
 
-        // 2 * £50.00 = £100.00 net (no tax wired).
-        expect($response->json('opportunity.charge_total'))->toBe('100.00');
+        // 2 * £50.00 * 4 chargeable days = £400.00 net (no tax wired).
+        expect($response->json('opportunity.charge_total'))->toBe('400.00');
 
         $this->assertDatabaseHas('opportunity_items', [
             'opportunity_id' => $opportunity->id,
             'name' => 'Mixing Desk',
             'unit_price' => 5000,
-            'total' => 10000,
+            'total' => 40000,
         ]);
     });
 
@@ -197,8 +197,8 @@ describe('PATCH /api/v1/opportunities/{id}/items/{item}', function () {
             ->assertOk()
             ->assertJsonPath('opportunity.id', $opportunity->id);
 
-        // 4 * £50.00 = £200.00
-        expect($response->json('opportunity.charge_total'))->toBe('200.00');
+        // 4 * £50.00 * 4 chargeable days = £800.00
+        expect($response->json('opportunity.charge_total'))->toBe('800.00');
     });
 
     it('404s when the item does not belong to the opportunity', function () {
@@ -345,7 +345,7 @@ describe('DELETE /api/v1/opportunities/{id}/items/{item}', function () {
 describe('deal price endpoints', function () {
     it('sets and clears a manual deal-total override', function () {
         $opportunity = makeApiOpportunity($this->owner);
-        addApiItem($this->owner, $opportunity); // computed 10000
+        addApiItem($this->owner, $opportunity); // computed 40000 (2 x 5000 x 4 days)
         $token = itemWriteToken($this->owner);
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -357,7 +357,7 @@ describe('deal price endpoints', function () {
         $this->withHeader('Authorization', "Bearer {$token}")
             ->deleteJson("/api/v1/opportunities/{$opportunity->id}/deal_price")
             ->assertOk()
-            ->assertJsonPath('opportunity.charge_total', '100.00')
+            ->assertJsonPath('opportunity.charge_total', '400.00')
             ->assertJsonPath('opportunity.deal_total', null);
     });
 

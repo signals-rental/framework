@@ -60,6 +60,9 @@ return new class extends Migration
             $table->string('name');
             $table->integer('sort_order')->default(0);
             $table->timestamps();
+
+            $table->index(['parent_id', 'sort_order']);
+            $table->index(['opportunity_id', 'auto_group_key']);
         });
 
         Schema::table('opportunity_items', function (Blueprint $table): void {

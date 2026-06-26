@@ -2,32 +2,13 @@
 
 use App\Console\Commands\SignalsClearDemoCommand;
 use App\Models\Product;
-use Database\Seeders\DemoDataSeeder;
 use Database\Seeders\ProductGroupSeeder;
-use Illuminate\Console\Command;
-use Illuminate\Console\OutputStyle;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\NullOutput;
+
+require_once __DIR__.'/../../Support/DemoSeederTestHelpers.php';
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
 });
-
-/**
- * Invoke DemoDataSeeder::createDemoProducts() in isolation (a private method)
- * without triggering the multi-thousand-row member seed in run(). A silent
- * command is attached so the seeder's $this->command->info() calls succeed.
- */
-function seedDemoProducts(): void
-{
-    $command = new Command;
-    $command->setLaravel(app());
-    $command->setOutput(new OutputStyle(new ArrayInput([]), new NullOutput));
-
-    $seeder = (new DemoDataSeeder)->setContainer(app())->setCommand($command);
-
-    (new ReflectionMethod(DemoDataSeeder::class, 'createDemoProducts'))->invoke($seeder);
-}
 
 it('creates demo products tagged demo-data', function () {
     seedDemoProducts();

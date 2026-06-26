@@ -157,8 +157,8 @@ it('recomputes totals when the item dates change', function () {
     $opportunity = makeOpportunity();
     $item = addManualItem($opportunity);
 
-    // Manual-priced lines do not depend on duration, so the total is stable, but
-    // the event must run end to end and re-roll the parent.
+    // Manual-priced lines inherit the hire window chargeable days; changing dates
+    // re-rolls the parent totals for the new window (still 4 days here).
     (new ChangeItemDates)($item->refresh(), ChangeItemDatesData::from([
         'starts_at' => '2026-07-01T09:00:00Z',
         'ends_at' => '2026-07-05T17:00:00Z',
@@ -166,8 +166,8 @@ it('recomputes totals when the item dates change', function () {
 
     $item->refresh();
     expect($item->starts_at)->not->toBeNull()
-        ->and($item->total)->toBe(10000)
-        ->and($opportunity->refresh()->charge_total)->toBe(10000);
+        ->and($item->total)->toBe(40000)
+        ->and($opportunity->refresh()->charge_total)->toBe(40000);
 });
 
 it('substitutes the catalogue reference and re-prices', function () {

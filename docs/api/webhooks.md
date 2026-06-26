@@ -119,6 +119,7 @@ when the event store is rebuilt.
 | `opportunity.reverted_to_draft` | A quotation is reverted back to a draft |
 | `opportunity.reinstated` | A lost, dead, postponed, or cancelled opportunity is reinstated |
 | `opportunity.reopened` | A completed order is re-opened back to an active order |
+| `opportunity.locks_applied` | FX/tax locks are applied to an order |
 | `opportunity.locks_released` | An order's FX/tax locks are released for re-pricing |
 | `opportunity.status_changed` | An opportunity's status changes |
 | `opportunity.status_promoted` | An opportunity's status is promoted along its workflow |
@@ -128,6 +129,8 @@ when the event store is rebuilt.
 | `opportunity.deal_price_set` | A negotiated deal total is set |
 | `opportunity.deal_price_cleared` | A negotiated deal total is cleared |
 | `opportunity.item_added` | A line item is added |
+| `opportunity.item_details_updated` | A line item's details (description, notes, etc.) are updated |
+| `opportunity.item_renamed` | A line item is renamed |
 | `opportunity.item_removed` | A line item is removed |
 | `opportunity.item_quantity_changed` | A line item's quantity changes |
 | `opportunity.item_dates_changed` | A line item's hire dates change |
@@ -135,6 +138,7 @@ when the event store is rebuilt.
 | `opportunity.item_optional_toggled` | A line item is toggled optional/required |
 | `opportunity.item_price_overridden` | A line item unit price is overridden |
 | `opportunity.item_substituted` | A line item product is substituted |
+| `opportunity.items_restructured` | An opportunity's line-item tree is restructured |
 | `opportunity.items_reordered` | An opportunity's line items are reordered |
 | `opportunity.cost_added` | An additional cost is added |
 | `opportunity.cost_updated` | An additional cost is updated |

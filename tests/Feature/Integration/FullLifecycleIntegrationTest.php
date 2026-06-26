@@ -111,10 +111,10 @@ it('runs the serialised vertical slice: create → quote → version → order �
     ]));
     $item = $opportunity->refresh()->items()->firstOrFail();
 
-    // Totals (NET / ex-tax integer model): 2 × 7500 = 15000.
-    expect($opportunity->charge_total)->toBe(15000)
-        ->and($opportunity->charge_excluding_tax_total)->toBe(15000)
-        ->and($item->total)->toBe(15000);
+    // Totals (NET / ex-tax integer model): 2 × 7500 × 4 chargeable days = 60000.
+    expect($opportunity->charge_total)->toBe(60000)
+        ->and($opportunity->charge_excluding_tax_total)->toBe(60000)
+        ->and($item->total)->toBe(60000);
 
     // A Draft line raises a draft-phase, quantity-based demand of 2.
     $draftDemand = Demand::query()->where('source_id', $item->id)->sole();
@@ -133,8 +133,8 @@ it('runs the serialised vertical slice: create → quote → version → order �
         ->and($opportunity->active_version_id)->toBe($version->id);
     // The active version's totals mirror the opportunity totals.
     $versionItems = OpportunityVersion::query()->whereKey($version->id)->firstOrFail()->items;
-    expect($versionItems->sum('total'))->toBe(15000)
-        ->and($opportunity->charge_total)->toBe(15000);
+    expect($versionItems->sum('total'))->toBe(60000)
+        ->and($opportunity->charge_total)->toBe(60000);
 
     (new SendVersion)(OpportunityVersion::query()->whereKey($version->id)->firstOrFail());
     (new AcceptVersion)(OpportunityVersion::query()->whereKey($version->id)->firstOrFail());
@@ -213,7 +213,7 @@ it('runs the serialised vertical slice: create → quote → version → order �
         ->and($opportunity->statusEnum()->isClosed())->toBeTrue();
 
     // Totals survived the full lifecycle unchanged.
-    expect($opportunity->refresh()->charge_total)->toBe(15000);
+    expect($opportunity->refresh()->charge_total)->toBe(60000);
 
     // --- Audit accuracy: key transitions all produced action_log rows -----
     $actions = ActionLog::query()->where('auditable_type', Opportunity::class)
@@ -255,7 +255,7 @@ it('runs the bulk vertical slice with partial dispatch/return and effective_quan
         'unit_price' => 250,
     ]));
     $item = $opportunity->refresh()->items()->firstOrFail();
-    expect($item->total)->toBe(25000); // 100 × 250
+    expect($item->total)->toBe(100000); // 100 × 250 × 4 chargeable days
 
     (new ConvertToOrder)($opportunity->refresh());
     expect($opportunity->refresh()->statusEnum())->toBe(OpportunityStatus::OrderActive);

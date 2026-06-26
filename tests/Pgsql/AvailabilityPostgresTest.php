@@ -139,9 +139,16 @@ it('recalculates serialised availability against the asset exclusion model', fun
             'quantity' => 1,
         ]);
 
-    // The demand-create observer recalculates the WHOLE rolling snapshot horizon
-    // (M3-4 async wiring), so scope the read to the demand's own window rather
-    // than the earliest horizon slot (which carries no demand).
+    // The demand-create observer enqueues async recalculation, but the pgsql
+    // harness wraps each test in a transaction (rolled back in tear-down), so
+    // afterCommit jobs never materialise snapshots — recalculate explicitly.
+    app(RecalculationPipeline::class)->recalculate(
+        $product->id,
+        $this->store->id,
+        Carbon::parse('2026-08-20T00:00:00Z'),
+        Carbon::parse('2026-08-22T00:00:00Z'),
+    );
+
     $snapshot = AvailabilitySnapshot::query()
         ->forProductStore($product->id, $this->store->id)
         ->where('slot_start', '>=', Carbon::parse('2026-08-20T00:00:00Z'))

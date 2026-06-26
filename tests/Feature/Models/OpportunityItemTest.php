@@ -14,10 +14,10 @@ it('belongs to an opportunity', function () {
         ->and($item->opportunity->id)->toBe($opportunity->id);
 });
 
-it('exposes its items via the inverse relation in sort order', function () {
+it('exposes its items via the inverse relation in path order', function () {
     $opportunity = Opportunity::factory()->create();
-    OpportunityItem::factory()->for($opportunity)->create(['sort_order' => 2, 'name' => 'Second']);
-    OpportunityItem::factory()->for($opportunity)->create(['sort_order' => 1, 'name' => 'First']);
+    OpportunityItem::factory()->for($opportunity)->create(['path' => '0002', 'name' => 'Second']);
+    OpportunityItem::factory()->for($opportunity)->create(['path' => '0001', 'name' => 'First']);
 
     $items = $opportunity->items()->get();
 

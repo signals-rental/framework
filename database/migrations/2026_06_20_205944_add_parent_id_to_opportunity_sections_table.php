@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -32,8 +33,17 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasTable('opportunity_sections') || ! Schema::hasColumn('opportunity_sections', 'parent_id')) {
+            return;
+        }
+
         Schema::table('opportunity_sections', function (Blueprint $table): void {
-            $table->dropIndex(['parent_id', 'sort_order']);
+            if (Schema::getConnection()->getDriverName() === 'sqlite') {
+                DB::statement('DROP INDEX IF EXISTS opportunity_sections_parent_id_sort_order_index');
+            } else {
+                $table->dropIndex(['parent_id', 'sort_order']);
+            }
+
             $table->dropConstrainedForeignId('parent_id');
         });
     }
