@@ -2,6 +2,7 @@
     "agents": [
         "claude_code"
     ],
+    "cloud": false,
     "guidelines": true,
     "herd_mcp": true,
     "mcp": true,
@@ -12,6 +13,7 @@
         "laravel-best-practices",
         "configuring-horizon",
         "configure-nightwatch",
+        "octane-development",
         "pennant-development",
         "scout-development",
         "socialite-development",
@@ -19,6 +21,7 @@
         "livewire-development",
         "volt-development",
         "pest-testing",
-        "tailwindcss-development"
+        "tailwindcss-development",
+        "echo-development"
     ]
 }
