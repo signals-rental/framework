@@ -2031,6 +2031,51 @@ describe('delete persistence (mutation flush and persistTree)', function () {
         expect($result['kinds'])->toBe(['field', 'persistTree']);
     });
 
+    it('re-queues the full batch exactly once on a flush rejection with a populated requeue', function () {
+        // Simulate: a batch of 3 mutations was spliced off; the success path had
+        // partially populated `requeue` (id 1) before the server rejected the call.
+        // The fix must re-queue the FULL batch once and IGNORE the partial requeue —
+        // no duplication, no lost mutation.
+        $result = runLineItemJs('tests/js/line-item-mutation-flush-runner.mjs', [
+            'action' => 'flushRequeue',
+            'caught' => true,
+            'queueAfterSplice' => [],
+            'batch' => [
+                ['id' => 1, 'kind' => 'field'],
+                ['id' => 2, 'kind' => 'field'],
+                ['id' => 3, 'kind' => 'persistTree'],
+            ],
+            'requeue' => [
+                ['id' => 1, 'kind' => 'field'],
+            ],
+        ]);
+
+        // Every batch mutation present exactly once; the partial requeue did not
+        // duplicate id 1; nothing dropped.
+        expect($result['queue'])->toBe([1, 2, 3])
+            ->and($result['requeued'])->toBe([1, 2, 3]);
+    });
+
+    it('applies the partial requeue exactly once on a successful flush', function () {
+        $result = runLineItemJs('tests/js/line-item-mutation-flush-runner.mjs', [
+            'action' => 'flushRequeue',
+            'caught' => false,
+            'queueAfterSplice' => [['id' => 9, 'kind' => 'field']],
+            'batch' => [
+                ['id' => 1, 'kind' => 'field'],
+                ['id' => 2, 'kind' => 'persistTree'],
+            ],
+            'requeue' => [
+                ['id' => 2, 'kind' => 'persistTree'],
+            ],
+        ]);
+
+        // Only the deferred requeue (id 2) is unshifted ahead of the residual queue;
+        // the batch is NOT re-queued on success, and id 2 appears once.
+        expect($result['queue'])->toBe([2, 9])
+            ->and($result['requeued'])->toBe([2]);
+    });
+
     it('persistTree via the editor prunes omitted nodes like the real menu delete flush path', function () {
         $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Round 10 menu delete persist');
         $seed = seedEditorGroupWithTwoItems($opportunity);

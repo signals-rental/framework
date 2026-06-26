@@ -150,7 +150,7 @@ test('getChangelog extracts frontmatter correctly', function () {
     $entries = $service->getChangelog();
 
     expect($entries[0]['version'])->toBe('0.5.0')
-        ->and($entries[0]['date'])->toBe('2026-06-20')
+        ->and($entries[0]['date'])->toBe('2026-06-26')
         ->and($entries[0]['title'])->toBe('Opportunities, Availability Engine, Shortage Resolution & Quote Versioning');
 });
 

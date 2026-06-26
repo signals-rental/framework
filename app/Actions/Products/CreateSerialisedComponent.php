@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\SerialisedComponent;
 use App\Services\Api\WebhookService;
 use App\Services\Availability\KitCompositionGuard;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -30,28 +31,37 @@ class CreateSerialisedComponent
 
         $product = Product::query()->findOrFail($data->product_id);
 
-        // Reject a duplicate component line for the same kit up-front.
-        $exists = SerialisedComponent::query()
-            ->where('product_id', $product->id)
-            ->where('component_product_id', $data->component_product_id)
-            ->exists();
-
-        if ($exists) {
-            throw ValidationException::withMessages([
-                'component_product_id' => __('This product is already a component of the kit.'),
-            ]);
-        }
-
-        // Depth / cycle integrity — rejected as a 422 before anything is written.
-        app(KitCompositionGuard::class)->assertCanAdd($product->id, $data->component_product_id);
-
         $component = DB::transaction(function () use ($product, $data): SerialisedComponent {
-            $component = $product->components()->create([
-                'component_product_id' => $data->component_product_id,
-                'quantity' => $data->quantity,
-                'binding' => $data->binding,
-                'sort_order' => $data->sort_order,
-            ]);
+            // Run the duplicate and depth/cycle checks INSIDE the transaction so a
+            // concurrent create cannot slip between the check and the insert.
+            $exists = SerialisedComponent::query()
+                ->where('product_id', $product->id)
+                ->where('component_product_id', $data->component_product_id)
+                ->exists();
+
+            if ($exists) {
+                throw ValidationException::withMessages([
+                    'component_product_id' => __('This product is already a component of the kit.'),
+                ]);
+            }
+
+            // Depth / cycle integrity — rejected as a 422 before anything is written.
+            app(KitCompositionGuard::class)->assertCanAdd($product->id, $data->component_product_id);
+
+            try {
+                $component = $product->components()->create([
+                    'component_product_id' => $data->component_product_id,
+                    'quantity' => $data->quantity,
+                    'binding' => $data->binding,
+                    'sort_order' => $data->sort_order,
+                ]);
+            } catch (QueryException) {
+                // A concurrent create won the race on the Postgres unique constraint
+                // (uq_kit_component). Surface it as a friendly 422 rather than a raw 500.
+                throw ValidationException::withMessages([
+                    'component_product_id' => __('This product is already a component of the kit.'),
+                ]);
+            }
 
             // First component makes the product a kit.
             if (! $product->is_kit) {

@@ -15,6 +15,7 @@ use App\Actions\Opportunities\QuickPrepareAssets;
 use App\Actions\Opportunities\RevertAssetPreparation;
 use App\Actions\Opportunities\SetAssetContainer;
 use App\Actions\Opportunities\SubstituteAsset;
+use App\Actions\Opportunities\SubstituteItem;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\AllocateAssetData;
 use App\Data\Opportunities\ChangeItemQuantityData;
@@ -23,6 +24,7 @@ use App\Data\Opportunities\QuickAllocateAssetsData;
 use App\Data\Opportunities\QuickPrepareAssetsData;
 use App\Data\Opportunities\SetAssetContainerData;
 use App\Data\Opportunities\SubstituteAssetData;
+use App\Data\Opportunities\SubstituteItemData;
 use App\Enums\AssetAssignmentStatus;
 use App\Enums\LineItemTransactionType;
 use App\Enums\OpportunityStatus;
@@ -152,6 +154,25 @@ it('rejects reducing a line quantity below its already-allocated asset count', f
         ->toThrow(EventNotValid::class);
 
     expect((string) $item->refresh()->quantity)->toBe('3.00');
+});
+
+it('rejects substituting a line that still has an allocated asset', function () {
+    $item = makeOrderLine($this->store, $this->product, '2');
+    $asset = makeSerialisedAsset($this->store, $this->product);
+
+    (new AllocateAsset)($item, AllocateAssetData::from(['stock_level_id' => $asset->id]));
+
+    $replacement = Product::factory()->rental()->serialised()->create();
+
+    // Substituting would strand the old product's still-allocated asset.
+    expect(fn () => (new SubstituteItem)($item->refresh(), SubstituteItemData::from([
+        'item_id' => $replacement->id,
+        'itemable_type' => Product::class,
+        'name' => $replacement->name,
+    ])))->toThrow(EventNotValid::class);
+
+    // The line keeps its original product reference — nothing was swapped.
+    expect($item->refresh()->itemable_id)->toBe($this->product->id);
 });
 
 it('allows reducing a line quantity down to (not below) its allocated asset count', function () {

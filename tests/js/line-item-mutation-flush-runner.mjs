@@ -1,4 +1,5 @@
 import {
+    mutationsToRequeue,
     orderFlushBatch,
     resolveServerItemId,
     rowsEligibleForPersistTree,
@@ -39,6 +40,27 @@ if (input.action === 'orderFlushBatch') {
 
     process.stdout.write(JSON.stringify({
         kinds: ordered.map((mutation) => mutation.kind),
+    }));
+
+    process.exit(0);
+}
+
+if (input.action === 'flushRequeue') {
+    // Model the queue reconciliation a flush performs: the batch was already
+    // spliced off the queue, `requeue` holds the success-path deferrals, and
+    // `caught` marks whether the server call threw. Re-build the resulting queue.
+    const queue = [...(input.queueAfterSplice || [])];
+    const toRequeue = mutationsToRequeue({
+        caught: input.caught === true,
+        batch: input.batch || [],
+        requeue: input.requeue || [],
+    });
+
+    queue.unshift(...toRequeue);
+
+    process.stdout.write(JSON.stringify({
+        queue: queue.map((mutation) => mutation.id),
+        requeued: toRequeue.map((mutation) => mutation.id),
     }));
 
     process.exit(0);

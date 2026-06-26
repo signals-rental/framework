@@ -14,14 +14,11 @@ use App\Actions\Opportunities\RestoreOpportunity;
 use App\Actions\Opportunities\RevertToDraft;
 use App\Actions\Opportunities\RevertToQuotation;
 use App\Actions\Opportunities\UnlockOpportunity;
-use App\Enums\AssetAssignmentStatus;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
-use App\Guards\Opportunities\GuardPipeline;
 use App\Guards\Opportunities\Rules\ShortageConfirmationRule;
-use App\Guards\Opportunities\TransitionContext;
 use App\Models\Opportunity;
-use App\Models\OpportunityItemAsset;
+use App\Services\Opportunities\OpportunityActionDescriber;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -535,70 +532,19 @@ trait HasOpportunityActions
         ?string $transition,
         ?\Closure $statePrecondition = null,
     ): array {
-        if (! Gate::allows($permission)) {
-            return $this->actionVerdict($key, $label, false, 'You do not have permission to perform this action.', 'permission_denied');
-        }
-
-        if ($statePrecondition !== null) {
-            $stateDenial = $statePrecondition();
-
-            if ($stateDenial !== null) {
-                return $this->actionVerdict($key, $label, false, $stateDenial[0], $stateDenial[1]);
-            }
-        }
-
-        if ($transition !== null) {
-            $result = app(GuardPipeline::class)->check(new TransitionContext(
-                transition: $transition,
-                opportunity: $opportunity,
-                permission: $permission,
-            ));
-
-            if ($result->denied()) {
-                return $this->actionVerdict($key, $label, false, $result->firstError(), $result->code);
-            }
-        }
-
-        return $this->actionVerdict($key, $label, true, null, null);
-    }
-
-    /**
-     * @return array{key: string, label: string, allowed: bool, reason: string|null, code: string|null}
-     */
-    protected function actionVerdict(string $key, string $label, bool $allowed, ?string $reason, ?string $code): array
-    {
-        return [
-            'key' => $key,
-            'label' => $label,
-            'allowed' => $allowed,
-            'reason' => $reason,
-            'code' => $code,
-        ];
+        return app(OpportunityActionDescriber::class)
+            ->describe($opportunity, $key, $label, $permission, $transition, $statePrecondition);
     }
 
     /**
      * The revert-to-quotation state precondition: must be an open Order with no
-     * dispatch history. Mirrors OpportunityController::revertToQuotationPrecondition.
+     * dispatch history. Delegates to {@see OpportunityActionDescriber}.
      *
      * @return array{0: string, 1: string}|null
      */
     protected function revertToQuotationPrecondition(Opportunity $opportunity, bool $isOrder, bool $isClosed): ?array
     {
-        if (! $isOrder || $isClosed) {
-            return ['Only an open order can be reverted to a quotation.', 'invalid_state'];
-        }
-
-        $dispatched = OpportunityItemAsset::query()
-            ->whereIn('opportunity_item_id', $opportunity->allItems()->select('opportunity_items.id'))
-            ->where('status', '>=', AssetAssignmentStatus::Dispatched->value)
-            ->exists();
-
-        $bulkDispatched = $opportunity->allItems()
-            ->where('dispatched_quantity', '>', 0)
-            ->exists();
-
-        return $dispatched || $bulkDispatched
-            ? ['An order with dispatched assets cannot be reverted to a quotation.', 'dispatched']
-            : null;
+        return app(OpportunityActionDescriber::class)
+            ->revertToQuotationPrecondition($opportunity, $isOrder, $isClosed);
     }
 }

@@ -101,7 +101,7 @@ You can **reorder** lines by dragging the row handles (`wire:sort`), including d
 
 ### Accessories
 
-Products that carry accessories show their accessories as **display-only sub-rows** beneath the line. Accessory quantities **ripple** from the parent line's quantity by their configured ratio, and accessories are shown as included (`incl.`, £0). Accessories are presentational — they are not persisted as separate billable lines.
+Products that carry accessories show their accessories as **sub-rows** nested beneath the principal product line. Each accessory is a real, persisted line item (added via the same event-sourced `ItemAdded` path as any product line) that hangs under its principal and inherits the principal's quote-version scope. Accessory quantities **ripple** from the parent line's quantity by their configured ratio. Accessories are **priced through the rate engine** and **generate availability demand** in their own right — they are not free or presentational, though an accessory configured at a zero rate naturally totals to nil.
 
 ### Per-line edits
 

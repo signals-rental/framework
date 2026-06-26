@@ -3,6 +3,7 @@
 namespace App\Verbs\Events\Opportunities;
 
 use App\Models\OpportunityItem;
+use App\Models\OpportunityItemAsset;
 use App\Verbs\Events\Opportunities\Concerns\PricesOpportunityItems;
 use App\Verbs\Events\Opportunities\Concerns\RecordsOpportunityAudit;
 use App\Verbs\States\OpportunityItemState;
@@ -30,6 +31,35 @@ class ItemSubstituted extends Event
     public function validate(OpportunityItemState $state): void
     {
         $this->assertItemMutable($state);
+
+        // Substitution swaps the product reference, so it must not strand committed
+        // fulfilment of the OLD product. Mirroring the {@see ItemRemoved} guard: a
+        // line with serialised assets still allocated to it, or with bulk quantity
+        // already dispatched, cannot be substituted — the assets must be deallocated
+        // / returned first. Both are read from the projection (validate() runs before
+        // handle(), so the rows reflect the pre-substitution state) and replay-safely
+        // reproduce.
+        $allocatedAssets = OpportunityItemAsset::query()
+            ->where('opportunity_item_id', $state->opportunity_item_id)
+            ->count();
+
+        $this->assert(
+            $allocatedAssets === 0,
+            sprintf(
+                'Cannot substitute a line with %d allocated asset(s); deallocate first.',
+                $allocatedAssets,
+            ),
+        );
+
+        $dispatched = (int) round((float) $state->dispatched_quantity);
+
+        $this->assert(
+            $dispatched === 0,
+            sprintf(
+                'Cannot substitute a line with %d already-dispatched unit(s); return them first.',
+                $dispatched,
+            ),
+        );
     }
 
     public function apply(OpportunityItemState $state): void

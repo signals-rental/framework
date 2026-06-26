@@ -1,5 +1,7 @@
 <?php
 
+use App\Actions\Products\CreateSerialisedComponent;
+use App\Data\Products\CreateSerialisedComponentData;
 use App\Models\Product;
 use App\Models\SerialisedComponent;
 use App\Models\Store;
@@ -8,6 +10,7 @@ use App\Services\Availability\KitAvailabilityCalculator;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -136,6 +139,20 @@ describe('POST /api/v1/products/{product}/components', function () {
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('component_product_id');
+    });
+
+    it('rejects a duplicate component as a ValidationException when the action is called directly', function () {
+        $this->actingAs($this->owner);
+
+        SerialisedComponent::factory()->create([
+            'product_id' => $this->kit->id,
+            'component_product_id' => $this->componentProduct->id,
+        ]);
+
+        expect(fn () => (new CreateSerialisedComponent)(CreateSerialisedComponentData::from([
+            'product_id' => $this->kit->id,
+            'component_product_id' => $this->componentProduct->id,
+        ])))->toThrow(ValidationException::class, 'already a component of the kit');
     });
 });
 

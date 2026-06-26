@@ -42,9 +42,29 @@ export function orderFlushBatch(batch) {
     return [...middle, ...persistTrees.slice(0, 1)];
 }
 
+/**
+ * Resolve the mutations that must be unshifted back onto the queue after a flush.
+ *
+ * On ERROR (`caught` true) the FULL batch is re-queued exactly once and the partial
+ * `requeue` (which may have been populated before the throw on the success path) is
+ * ignored — re-applying it would double-queue those mutations. On SUCCESS only the
+ * partial `requeue` (deferred/persistTree retries) is returned, exactly once.
+ *
+ * @param {{ caught: boolean, batch?: Array, requeue?: Array }} args
+ * @returns {Array}
+ */
+export function mutationsToRequeue({ caught, batch = [], requeue = [] }) {
+    if (caught) {
+        return [...batch];
+    }
+
+    return [...requeue];
+}
+
 export default {
     resolveServerItemId,
     rowsEligibleForPersistTree,
     shouldScheduleFlushRetry,
     orderFlushBatch,
+    mutationsToRequeue,
 };

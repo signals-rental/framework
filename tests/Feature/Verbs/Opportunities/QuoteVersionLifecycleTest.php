@@ -571,3 +571,44 @@ it('rebuilds the version tree, items, and opportunity state identically on repla
         ->and(OpportunityItem::query()->orderBy('id')->get(['id', 'version_id', 'total'])->toArray())->toBe($itemsBefore)
         ->and(Opportunity::query()->whereKey($opportunity->id)->firstOrFail()->only(['active_version_id', 'version_count', 'has_alternatives', 'charge_total']))->toBe($opportunityBefore);
 });
+
+it('preserves sent_at, accepted_at, and declined_at milestone timestamps across replay', function () {
+    [$opportunity] = versionedQuotationWithItem();
+    $toAccept = (new CreateVersion)($opportunity->refresh(), CreateVersionData::from([]));
+    $toDecline = (new CreateVersion)($opportunity->refresh(), CreateVersionData::from(['version_type' => VersionType::Alternative->value]));
+
+    // Drive each version through a milestone that stamps a wall-clock column.
+    (new SendVersion)(OpportunityVersion::query()->whereKey($toAccept->id)->firstOrFail());
+    (new AcceptVersion)(OpportunityVersion::query()->whereKey($toAccept->id)->firstOrFail());
+    (new DeclineVersion)(OpportunityVersion::query()->whereKey($toDecline->id)->firstOrFail(), 'Too expensive');
+
+    $acceptedBefore = OpportunityVersion::query()->whereKey($toAccept->id)->firstOrFail();
+    $declinedBefore = OpportunityVersion::query()->whereKey($toDecline->id)->firstOrFail();
+
+    $sentAtBefore = $acceptedBefore->sent_at?->toIso8601String();
+    $acceptedAtBefore = $acceptedBefore->accepted_at?->toIso8601String();
+    $declinedAtBefore = $declinedBefore->declined_at?->toIso8601String();
+
+    // Sanity: the timestamps actually got stamped before we replay.
+    expect($sentAtBefore)->not->toBeNull()
+        ->and($acceptedAtBefore)->not->toBeNull()
+        ->and($declinedAtBefore)->not->toBeNull();
+
+    // Move the clock forward so a now()-on-replay bug would visibly corrupt the columns.
+    $this->travel(3)->days();
+
+    OpportunityItem::query()->forceDelete();
+    OpportunityVersion::query()->delete();
+    Opportunity::query()->forceDelete();
+
+    Verbs::replay();
+
+    $this->travelBack();
+
+    $acceptedAfter = OpportunityVersion::query()->whereKey($toAccept->id)->firstOrFail();
+    $declinedAfter = OpportunityVersion::query()->whereKey($toDecline->id)->firstOrFail();
+
+    expect($acceptedAfter->sent_at?->toIso8601String())->toBe($sentAtBefore)
+        ->and($acceptedAfter->accepted_at?->toIso8601String())->toBe($acceptedAtBefore)
+        ->and($declinedAfter->declined_at?->toIso8601String())->toBe($declinedAtBefore);
+});

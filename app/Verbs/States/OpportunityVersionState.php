@@ -76,6 +76,15 @@ class OpportunityVersionState extends State
     /** The member who accepted the version (§8.6); null until accepted. */
     public ?int $accepted_by = null;
 
+    /** ISO-8601 instant the version was sent (§8.6); baked at fire-time, replay-stable. */
+    public ?string $sent_at = null;
+
+    /** ISO-8601 instant the version was accepted (§8.6); baked at fire-time, replay-stable. */
+    public ?string $accepted_at = null;
+
+    /** ISO-8601 instant the version was declined (§8.6); baked at fire-time, replay-stable. */
+    public ?string $declined_at = null;
+
     public bool $is_deleted = false;
 
     public ?CarbonImmutable $last_event_at = null;

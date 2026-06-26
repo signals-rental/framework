@@ -28,6 +28,8 @@ class VersionAccepted extends Event
         public int $version_id,
         /** The member who accepted the version (§8.6); recorded on the event stream. */
         public ?int $accepted_by = null,
+        /** ISO-8601 instant of acceptance, baked at fire-time so replay stays stable. */
+        public ?string $accepted_at = null,
     ) {}
 
     public function validate(OpportunityVersionState $state): void
@@ -49,6 +51,7 @@ class VersionAccepted extends Event
     {
         $state->status = VersionStatus::Accepted->value;
         $state->accepted_by = $this->accepted_by;
+        $state->accepted_at = $this->accepted_at ?? CarbonImmutable::now()->toIso8601String();
         $state->last_event_at = CarbonImmutable::now();
     }
 
@@ -64,7 +67,7 @@ class VersionAccepted extends Event
 
         $version->forceFill([
             'status' => VersionStatus::Accepted->value,
-            'accepted_at' => CarbonImmutable::now(),
+            'accepted_at' => $state->accepted_at,
             'accepted_by' => $this->accepted_by,
         ])->save();
 

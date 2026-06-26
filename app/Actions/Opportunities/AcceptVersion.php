@@ -6,6 +6,7 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityVersionData;
 use App\Models\OpportunityVersion;
 use App\Verbs\Events\Opportunities\VersionAccepted;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -25,6 +26,7 @@ class AcceptVersion
             VersionAccepted::fire(
                 version_id: $version->state_id,
                 accepted_by: $acceptedBy,
+                accepted_at: CarbonImmutable::now()->toIso8601String(),
             );
         });
 

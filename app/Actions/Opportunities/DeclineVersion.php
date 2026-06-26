@@ -6,6 +6,7 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityVersionData;
 use App\Models\OpportunityVersion;
 use App\Verbs\Events\Opportunities\VersionDeclined;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -21,7 +22,11 @@ class DeclineVersion
         Gate::authorize('opportunities.edit');
 
         $this->commitVerbs(function () use ($version, $reason): void {
-            VersionDeclined::fire(version_id: $version->state_id, reason: $reason);
+            VersionDeclined::fire(
+                version_id: $version->state_id,
+                reason: $reason,
+                declined_at: CarbonImmutable::now()->toIso8601String(),
+            );
         });
 
         return OpportunityVersionData::fromModel($version->refresh());

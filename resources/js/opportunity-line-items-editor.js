@@ -16,6 +16,7 @@ import {
 import { serializeRowsForCache } from './line-item-cache';
 import { resolveBootSource } from './line-item-boot-reconcile';
 import {
+    mutationsToRequeue,
     orderFlushBatch,
     resolveServerItemId,
     rowsEligibleForPersistTree,
@@ -1780,6 +1781,7 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             const batch = orderFlushBatch(this.queue.splice(0, this.queue.length));
             const requeue = [];
+            let caught = false;
 
             try {
                 await this.applyBatchToServer(batch, requeue);
@@ -1787,15 +1789,19 @@ export default function createOpportunityLineItemsEditor(cfg) {
                 await this.syncTotalsFromServer();
                 this.notifyTabsInvalidate();
             } catch (e) {
+                caught = true;
                 const message = this.flushErrorMessage(e);
                 console.error('line-items flush failed, re-queueing', message, e);
                 this.toastError(message);
-                this.queue.unshift(...(requeue.length ? requeue : batch));
                 this.setSync('syncing');
                 setTimeout(() => this.scheduleFlush(), 1500);
             } finally {
-                if (requeue.length) {
-                    this.queue.unshift(...requeue);
+                // Single source of truth for what gets re-queued: on error the full
+                // batch (once), on success the partial requeue (once). Never both.
+                const toRequeue = mutationsToRequeue({ caught, batch, requeue });
+
+                if (toRequeue.length) {
+                    this.queue.unshift(...toRequeue);
                 }
 
                 this._flushing = false;

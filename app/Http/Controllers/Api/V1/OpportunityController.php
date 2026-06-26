@@ -91,7 +91,6 @@ use App\Data\Opportunities\ToggleItemOptionalData;
 use App\Data\Opportunities\UpdateOpportunityCostData;
 use App\Data\Opportunities\UpdateOpportunityData;
 use App\Data\Opportunities\UpdateOpportunityParticipantData;
-use App\Enums\AssetAssignmentStatus;
 use App\Enums\OpportunityItemType;
 use App\Enums\OpportunityState;
 use App\Enums\OpportunityStatus;
@@ -110,6 +109,7 @@ use App\Models\OpportunityItem;
 use App\Models\OpportunityItemAsset;
 use App\Models\OpportunityParticipant;
 use App\Services\AvailabilityService;
+use App\Services\Opportunities\OpportunityActionDescriber;
 use App\ValueObjects\DispatchGateResult;
 use Closure;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
@@ -1346,49 +1346,8 @@ class OpportunityController extends Controller
         ?string $transition,
         ?Closure $statePrecondition = null,
     ): array {
-        // 1. Permission probe (no 403 — a dry-run verdict).
-        if (! Gate::allows($permission)) {
-            return $this->actionVerdict($key, $label, false, 'You do not have permission to perform this action.', 'permission_denied');
-        }
-
-        // 2. Generic state precondition (mirrors the event's Verbs validate()).
-        if ($statePrecondition !== null) {
-            $stateDenial = $statePrecondition();
-
-            if ($stateDenial !== null) {
-                return $this->actionVerdict($key, $label, false, $stateDenial[0], $stateDenial[1]);
-            }
-        }
-
-        // 3. Guard-pipeline dry-run (business rules incl. the shortage gate + FX/tax
-        //    lock) for transitions that route through it.
-        if ($transition !== null) {
-            $result = app(GuardPipeline::class)->check(new TransitionContext(
-                transition: $transition,
-                opportunity: $opportunity,
-                permission: $permission,
-            ));
-
-            if ($result->denied()) {
-                return $this->actionVerdict($key, $label, false, $result->firstError(), $result->code);
-            }
-        }
-
-        return $this->actionVerdict($key, $label, true, null, null);
-    }
-
-    /**
-     * @return array{key: string, label: string, allowed: bool, reason: string|null, code: string|null}
-     */
-    private function actionVerdict(string $key, string $label, bool $allowed, ?string $reason, ?string $code): array
-    {
-        return [
-            'key' => $key,
-            'label' => $label,
-            'allowed' => $allowed,
-            'reason' => $reason,
-            'code' => $code,
-        ];
+        return app(OpportunityActionDescriber::class)
+            ->describe($opportunity, $key, $label, $permission, $transition, $statePrecondition);
     }
 
     /**
@@ -1399,22 +1358,8 @@ class OpportunityController extends Controller
      */
     private function revertToQuotationPrecondition(Opportunity $opportunity, bool $isOrder, bool $isClosed): ?array
     {
-        if (! $isOrder || $isClosed) {
-            return ['Only an open order can be reverted to a quotation.', 'invalid_state'];
-        }
-
-        $dispatched = OpportunityItemAsset::query()
-            ->whereIn('opportunity_item_id', $opportunity->allItems()->select('opportunity_items.id'))
-            ->where('status', '>=', AssetAssignmentStatus::Dispatched->value)
-            ->exists();
-
-        $bulkDispatched = $opportunity->allItems()
-            ->where('dispatched_quantity', '>', 0)
-            ->exists();
-
-        return $dispatched || $bulkDispatched
-            ? ['An order with dispatched assets cannot be reverted to a quotation.', 'dispatched']
-            : null;
+        return app(OpportunityActionDescriber::class)
+            ->revertToQuotationPrecondition($opportunity, $isOrder, $isClosed);
     }
 
     /**

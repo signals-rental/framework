@@ -14,12 +14,12 @@ use Illuminate\Support\Carbon;
  * NON-event-sourced row used by the line-item editor to group lines under
  * operator-named headings (M8-3 grouping decision).
  *
- * Sections are deliberately decoupled from the Verbs event stream: the
- * line -> section link lives on `opportunity_items.section_id`, which is written
- * only by plain actions and never by a Verbs event/apply()/handle(), so a Verbs
- * replay rebuilds the `opportunity_items` projection without disturbing section
- * assignments. Lines with no section fall back to automatic product-group
- * grouping in the UI.
+ * Sections are deliberately decoupled from the Verbs event stream: they are plain
+ * rows written only by plain actions and never by a Verbs event/apply()/handle(),
+ * so a Verbs replay rebuilds the `opportunity_items` projection without disturbing
+ * section rows. Under the unified line-item model the line -> group membership lives
+ * on the `opportunity_items` materialised tree itself (the legacy
+ * `opportunity_items.section_id` link was dropped at the unified-line-items cutover).
  *
  * Sections may also nest: a section can carry a `parent_id` pointing at another
  * section on the same opportunity, giving the editor sub-groups. The hierarchy is
@@ -91,15 +91,5 @@ class OpportunitySection extends Model
     public function children(): HasMany
     {
         return $this->hasMany(OpportunitySection::class, 'parent_id')->orderBy('sort_order');
-    }
-
-    /**
-     * Line items assigned to this section, in display order.
-     *
-     * @return HasMany<OpportunityItem, $this>
-     */
-    public function items(): HasMany
-    {
-        return $this->hasMany(OpportunityItem::class, 'section_id')->orderBy('path');
     }
 }

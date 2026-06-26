@@ -6,6 +6,7 @@ use App\Concerns\CommitsVerbsEvents;
 use App\Data\Opportunities\OpportunityVersionData;
 use App\Models\OpportunityVersion;
 use App\Verbs\Events\Opportunities\VersionSent;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -26,6 +27,7 @@ class SendVersion
                 version_id: $version->state_id,
                 sent_to: $sentTo,
                 sent_via: $sentVia,
+                sent_at: CarbonImmutable::now()->toIso8601String(),
             );
         });
 

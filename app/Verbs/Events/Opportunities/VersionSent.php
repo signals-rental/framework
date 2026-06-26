@@ -31,6 +31,8 @@ class VersionSent extends Event
         public ?int $sent_to = null,
         /** The channel it was sent through (e.g. email/portal/manual). */
         public ?string $sent_via = null,
+        /** ISO-8601 instant the version was sent, baked at fire-time so replay stays stable. */
+        public ?string $sent_at = null,
     ) {}
 
     public function validate(OpportunityVersionState $state): void
@@ -53,6 +55,7 @@ class VersionSent extends Event
         $state->status = VersionStatus::Sent->value;
         $state->sent_to = $this->sent_to;
         $state->sent_via = $this->sent_via;
+        $state->sent_at = $this->sent_at ?? CarbonImmutable::now()->toIso8601String();
         $state->last_event_at = CarbonImmutable::now();
     }
 
@@ -66,7 +69,7 @@ class VersionSent extends Event
 
         $version->forceFill([
             'status' => VersionStatus::Sent->value,
-            'sent_at' => CarbonImmutable::now(),
+            'sent_at' => $state->sent_at,
             'sent_to' => $this->sent_to,
             'sent_via' => $this->sent_via,
         ])->save();

@@ -26,6 +26,8 @@ class VersionDeclined extends Event
         #[StateId(OpportunityVersionState::class)]
         public int $version_id,
         public ?string $reason = null,
+        /** ISO-8601 instant of decline, baked at fire-time so replay stays stable. */
+        public ?string $declined_at = null,
     ) {}
 
     public function validate(OpportunityVersionState $state): void
@@ -46,6 +48,7 @@ class VersionDeclined extends Event
     public function apply(OpportunityVersionState $state): void
     {
         $state->status = VersionStatus::Declined->value;
+        $state->declined_at = $this->declined_at ?? CarbonImmutable::now()->toIso8601String();
         $state->last_event_at = CarbonImmutable::now();
     }
 
@@ -61,7 +64,7 @@ class VersionDeclined extends Event
 
         $version->forceFill([
             'status' => VersionStatus::Declined->value,
-            'declined_at' => CarbonImmutable::now(),
+            'declined_at' => $state->declined_at,
             'decline_reason' => $this->reason,
         ])->save();
 
