@@ -353,7 +353,10 @@ new class extends Component implements OpportunityLineItemsEditorContract
     ): void {
         $this->guardEditable();
 
-        $this->runMutation(function () use ($itemId, $unitPrice, $discount, $startsAt, $endsAt, $description, $notes): void {
+        $args = func_get_args();
+        $argumentCount = func_num_args();
+
+        $this->runMutation(function () use ($itemId, $unitPrice, $discount, $startsAt, $endsAt, $description, $notes, $args, $argumentCount): void {
             $item = $this->findItem($itemId);
 
             if (! $this->opportunity->pricingFrozen()) {
@@ -372,10 +375,19 @@ new class extends Component implements OpportunityLineItemsEditorContract
                 ]));
             }
 
-            (new UpdateOpportunityItemDetails)($item->fresh(), UpdateOpportunityItemDetailsData::from([
-                'description' => $description === '' ? null : $description,
-                'notes' => $notes === '' ? null : $notes,
-            ]));
+            $detailsPayload = [];
+
+            if (array_key_exists(5, $args)) {
+                $detailsPayload['description'] = $description === '' ? null : $description;
+            }
+
+            if ($argumentCount > 6) {
+                $detailsPayload['notes'] = $notes === '' ? null : $notes;
+            }
+
+            if ($detailsPayload !== []) {
+                (new UpdateOpportunityItemDetails)($item->fresh(), UpdateOpportunityItemDetailsData::from($detailsPayload));
+            }
 
             $this->refreshOpportunity();
         }, 'Line updated', syncTree: true, mutationMeta: ['modalId' => 'edit-line']);
@@ -493,6 +505,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
     public function persistTree(array $nodes, int $baseRevision = 0): array
     {
         $this->guardEditable();
+        $this->guardPricingFrozenForTreePrune($nodes);
 
         $serverRevision = $this->treeRevision();
         $revisionDrift = $baseRevision > 0 && $serverRevision > $baseRevision;
@@ -520,6 +533,7 @@ new class extends Component implements OpportunityLineItemsEditorContract
     public function mergeDuplicates(int $survivorId): void
     {
         $this->guardEditable();
+        $this->guardPricingFrozenForRemoval();
 
         $this->runMutation(function () use ($survivorId): void {
             $survivor = $this->findItem($survivorId);
@@ -1079,6 +1093,28 @@ new class extends Component implements OpportunityLineItemsEditorContract
     private function guardPricingFrozenForRemoval(): void
     {
         if ($this->opportunity->pricingFrozen()) {
+            throw ValidationException::withMessages([
+                'opportunity' => 'Line items cannot be removed while pricing is frozen.',
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<int, array{id: int, depth: int}>  $nodes
+     */
+    private function guardPricingFrozenForTreePrune(array $nodes): void
+    {
+        if (! $this->opportunity->pricingFrozen()) {
+            return;
+        }
+
+        $nodeIds = array_map(static fn (array $node): int => (int) $node['id'], $nodes);
+        $existingIds = ($this->opportunity->fresh(['items']) ?? $this->opportunity)
+            ->items
+            ->pluck('id')
+            ->all();
+
+        if (collect($existingIds)->diff($nodeIds)->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'opportunity' => 'Line items cannot be removed while pricing is frozen.',
             ]);

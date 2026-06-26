@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Services\CustomFieldDefinitionResolver;
 use App\Services\CustomFieldSerializer;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->serializer = app(CustomFieldSerializer::class);
@@ -182,10 +183,11 @@ it('eagerLoad batch-loads values and toArray uses them', function () {
 });
 
 it('eagerLoad handles empty collection gracefully', function () {
+    DB::enableQueryLog();
+
     $this->serializer->eagerLoad(new Collection, 'Store');
 
-    // Verify no queries were executed and no exceptions thrown
-    expect(Store::query()->count())->toBeGreaterThanOrEqual(0);
+    expect(DB::getQueryLog())->toBe([]);
 });
 
 it('eagerLoad sets empty collection for entities without custom field values', function () {

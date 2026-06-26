@@ -27,7 +27,12 @@ use App\Models\Member;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\OpportunityVersion;
+use App\Models\OrganisationTaxClass;
+use App\Models\Product;
+use App\Models\ProductTaxClass;
 use App\Models\Store;
+use App\Models\TaxRate;
+use App\Models\TaxRule;
 use App\Models\User;
 use App\Services\NotificationRegistry;
 use App\Services\Opportunities\Hooks\ApprovalChainRegistry;
@@ -49,14 +54,40 @@ beforeEach(function () {
 });
 
 /**
+ * Wire a 20% tax rule plus a member and product that resolve against it.
+ *
+ * @return array{member: Member, product: Product}
+ */
+function wireGuardedTax(): array
+{
+    $orgClass = OrganisationTaxClass::factory()->create();
+    $productClass = ProductTaxClass::factory()->create(['is_default' => true]);
+    $taxRate = TaxRate::factory()->create(['name' => 'Standard', 'rate' => '20.0000', 'is_active' => true]);
+    TaxRule::factory()->create([
+        'organisation_tax_class_id' => $orgClass->id,
+        'product_tax_class_id' => $productClass->id,
+        'tax_rate_id' => $taxRate->id,
+        'is_active' => true,
+    ]);
+
+    return [
+        'member' => Member::factory()->organisation()->create(['sale_tax_class_id' => $orgClass->id]),
+        'product' => Product::factory()->rental()->create(['tax_class_id' => $productClass->id]),
+    ];
+}
+
+/**
  * Build a Quotation opportunity carrying a single manual-priced line.
  *
  * @return array{0: Opportunity, 1: OpportunityItem}
  */
 function guardedQuotation(?Store $store = null): array
 {
+    ['member' => $member, 'product' => $product] = wireGuardedTax();
+
     $created = (new CreateOpportunity)(CreateOpportunityData::from([
         'subject' => 'Guard pipeline',
+        'member_id' => $member->id,
         'store_id' => $store?->id,
         'starts_at' => '2026-10-01T09:00:00Z',
         'ends_at' => '2026-10-05T17:00:00Z',
@@ -65,7 +96,9 @@ function guardedQuotation(?Store $store = null): array
     $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
 
     (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
-        'name' => 'PA Stack',
+        'name' => $product->name,
+        'itemable_id' => $product->id,
+        'itemable_type' => Product::class,
         'quantity' => '2',
         'unit_price' => 5000,
     ]));
@@ -126,6 +159,8 @@ it('allows a manual rate override on a locked order and still recomputes the net
     expect($opportunity->refresh()->exchange_rate_locked)->toBeTrue();
 
     $lockedTax = (int) $opportunity->refresh()->tax_total;
+
+    expect($lockedTax)->toBeGreaterThan(0);
 
     (new OverrideItemPrice)($item->refresh(), OverrideItemPriceData::from(['unit_price' => 9999]));
 
@@ -212,6 +247,8 @@ it('allows a discount edit on a locked order (a structural net edit, not an FX/t
     (new ConvertToOrder)($opportunity->refresh());
 
     $lockedTax = (int) $opportunity->refresh()->tax_total;
+
+    expect($lockedTax)->toBeGreaterThan(0);
 
     (new SetItemDiscount)($item->refresh(), SetItemDiscountData::from(['discount_percent' => '10']));
 

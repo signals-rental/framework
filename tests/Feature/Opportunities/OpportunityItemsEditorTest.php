@@ -7,10 +7,12 @@ use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\LockOpportunity;
 use App\Actions\Opportunities\SetDealPrice;
+use App\Actions\Opportunities\UpdateOpportunityItemDetails;
 use App\Data\Opportunities\AddOpportunityGroupData;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\SetDealPriceData;
+use App\Data\Opportunities\UpdateOpportunityItemDetailsData;
 use App\Models\Activity;
 use App\Services\Opportunities\OpportunityLineItemsTreeBuilder;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +29,8 @@ use App\Models\ProductGroup;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\Opportunities\OpportunityEditorTreeService;
+use App\Verbs\Events\Opportunities\ItemPriceOverridden;
+use App\Verbs\Events\Opportunities\ItemRemoved;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Database\Eloquent\Collection;
@@ -35,6 +39,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Volt\Volt;
+use Thunk\Verbs\Models\VerbEvent;
 
 uses(RefreshDatabase::class);
 
@@ -266,7 +271,7 @@ describe('adding product lines', function () {
 
         $this->actingAs($this->owner);
 
-        Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
+        $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
             ->call('addProduct', $product->id, 6)
             ->assertHasNoErrors();
 
@@ -281,8 +286,11 @@ describe('adding product lines', function () {
             ->and($item->itemable_type)->toBe(Product::class)
             ->and((float) $item->quantity)->toBe(6.0);
 
-        // The opportunity total recomputes (ex-tax) once the line is priced.
-        expect($opportunity->fresh()->charge_total)->toBeGreaterThanOrEqual(0);
+        // Fix the rate so the opportunity total is deterministic (6 × £10.00 net).
+        $component->call('overridePrice', $item->id, '10.00')->assertHasNoErrors();
+
+        expect($item->fresh()->total)->toBe(6000)
+            ->and($opportunity->fresh()->charge_total)->toBe(6000);
     });
 
     it('auto-groups an unassigned line by its product group', function () {
@@ -734,6 +742,61 @@ describe('merge duplicates', function () {
             ->where('opportunity_id', $opportunity->id)
             ->where('item_type', OpportunityItemType::Product)
             ->count())->toBe(2);
+    });
+
+    it('blocks mergeDuplicates while pricing is frozen without mutating lines or pricing events', function () {
+        Auth::login($this->owner);
+        $created = (new CreateOpportunity)(CreateOpportunityData::from([
+            'subject' => 'Frozen merge fixture',
+            'store_id' => $this->store->id,
+            'starts_at' => '2026-12-01T09:00:00Z',
+            'ends_at' => '2026-12-05T17:00:00Z',
+        ]));
+        $opportunity = Opportunity::query()->whereKey($created->id)->firstOrFail();
+        $product = Product::factory()->create(['name' => 'Frozen merge product']);
+
+        $this->actingAs($this->owner);
+
+        $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity])
+            ->call('addProduct', $product->id, 2)
+            ->call('addProduct', $product->id, 3);
+
+        $lines = OpportunityItem::query()
+            ->where('opportunity_id', $opportunity->id)
+            ->where('item_type', OpportunityItemType::Product)
+            ->orderBy('id')
+            ->get();
+
+        expect($lines)->toHaveCount(2);
+
+        (new SetDealPrice)($opportunity->fresh(), SetDealPriceData::from([
+            'currency' => 'GBP',
+            'deal_total' => 50000,
+        ]));
+
+        expect($opportunity->fresh()->pricingFrozen())->toBeTrue();
+
+        $survivor = $lines->first();
+        $survivorPrice = (int) $survivor->unit_price;
+        $eventCount = fn (): int => VerbEvent::query()
+            ->whereIn('type', [
+                ItemRemoved::class,
+                ItemPriceOverridden::class,
+            ])
+            ->count();
+
+        $beforeEvents = $eventCount();
+
+        $component = Volt::test('opportunities.line-items', ['opportunity' => $opportunity->fresh()])
+            ->call('mergeDuplicates', $survivor->id)
+            ->assertHasErrors(['opportunity']);
+
+        expect($eventCount())->toBe($beforeEvents)
+            ->and(OpportunityItem::query()
+                ->where('opportunity_id', $opportunity->id)
+                ->where('item_type', OpportunityItemType::Product)
+                ->count())->toBe(2)
+            ->and((int) $survivor->fresh()->unit_price)->toBe($survivorPrice);
     });
 
 });
@@ -1724,6 +1787,58 @@ describe('description and warehouse notes', function () {
             ->and($fresh->notes)->toBe('Pack spare batteries');
     });
 
+    it('preserves warehouse notes when only the description is updated via the action', function () {
+        $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Round 5 UAT');
+
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+            'name' => 'Mic package',
+            'quantity' => '1',
+            'unit_price' => 1500,
+            'description' => 'Original blurb',
+            'notes' => 'Keep this note',
+        ]));
+
+        $item = $opportunity->fresh(['items'])->items->first();
+
+        (new UpdateOpportunityItemDetails)($item, UpdateOpportunityItemDetailsData::from([
+            'description' => 'Updated blurb',
+        ]));
+
+        $fresh = $item->fresh();
+
+        expect($fresh->description)->toBe('Updated blurb')
+            ->and($fresh->notes)->toBe('Keep this note');
+    });
+
+    it('preserves warehouse notes when saveLineEdits receives only a description argument', function () {
+        $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Round 5 UAT');
+
+        (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from([
+            'name' => 'Mic package',
+            'quantity' => '1',
+            'unit_price' => 1500,
+            'description' => 'Original blurb',
+            'notes' => 'Keep this note',
+        ]));
+
+        $item = $opportunity->fresh(['items'])->items->first();
+
+        $this->actingAs($this->owner);
+
+        $editor = Volt::test('opportunities.line-items', ['opportunity' => $opportunity->fresh()]);
+
+        // Direct invocation with six args simulates a crafted partial wire call (Livewire
+        // `->call()` always pads trailing defaults, which would clobber omitted fields).
+        $instance = $editor->instance();
+        assert(method_exists($instance, 'saveLineEdits'));
+        $instance->saveLineEdits($item->id, null, null, null, null, 'Updated via modal');
+
+        $fresh = $item->fresh();
+
+        expect($fresh->description)->toBe('Updated via modal')
+            ->and($fresh->notes)->toBe('Keep this note');
+    });
+
     it('includes description and notes in the editor tree payload', function () {
         $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Round 5 UAT');
 
@@ -1984,6 +2099,78 @@ describe('delete persistence (mutation flush and persistTree)', function () {
 
         expect($serverIds)->toBe([$keep->id]);
     });
+
+    it('blocks persistTree orphan pruning while pricing is frozen', function () {
+        $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Frozen persistTree prune');
+        $seed = seedEditorGroupWithTwoItems($opportunity);
+
+        (new SetDealPrice)($opportunity->fresh(), SetDealPriceData::from([
+            'currency' => 'GBP',
+            'deal_total' => 7500,
+        ]));
+
+        expect($opportunity->fresh()->pricingFrozen())->toBeTrue();
+
+        $this->actingAs($this->owner);
+
+        $editor = Volt::test('opportunities.line-items', ['opportunity' => $opportunity->fresh()]);
+        $instance = lineItemsEditorInstance($editor);
+
+        $beforeEvents = VerbEvent::query()
+            ->where('type', ItemRemoved::class)
+            ->count();
+
+        $nodes = [
+            ['id' => $seed['group']->id, 'depth' => 1],
+            ['id' => $seed['first']->id, 'depth' => 2],
+        ];
+
+        $editor->call('persistTree', $nodes, $instance->treeRevision())
+            ->assertHasErrors(['opportunity']);
+
+        expect(OpportunityItem::query()->whereKey($seed['second']->id)->exists())->toBeTrue()
+            ->and(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(3)
+            ->and(VerbEvent::query()
+                ->where('type', ItemRemoved::class)
+                ->count())->toBe($beforeEvents);
+    });
+
+    it('allows persistTree reorder-only while pricing is frozen', function () {
+        $opportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Frozen persistTree reorder');
+        $seed = seedEditorGroupWithTwoItems($opportunity);
+
+        (new SetDealPrice)($opportunity->fresh(), SetDealPriceData::from([
+            'currency' => 'GBP',
+            'deal_total' => 7500,
+        ]));
+
+        expect($opportunity->fresh()->pricingFrozen())->toBeTrue();
+
+        $this->actingAs($this->owner);
+
+        $editor = Volt::test('opportunities.line-items', ['opportunity' => $opportunity->fresh()]);
+        $instance = lineItemsEditorInstance($editor);
+
+        $nodes = [
+            ['id' => $seed['group']->id, 'depth' => 1],
+            ['id' => $seed['second']->id, 'depth' => 2],
+            ['id' => $seed['first']->id, 'depth' => 2],
+        ];
+
+        $editor->call('persistTree', $nodes, $instance->treeRevision())->assertHasNoErrors();
+
+        expect(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(3);
+
+        $serverIds = collect(lineItemsEditorInstance(
+            Volt::test('opportunities.line-items', ['opportunity' => $opportunity->fresh()])
+        )->serverTree()['tree'])->pluck('id')->all();
+
+        expect($serverIds)->toBe([
+            $seed['group']->id,
+            $seed['second']->id,
+            $seed['first']->id,
+        ]);
+    });
 });
 
 describe('delete persistence (keepalive web endpoint)', function () {
@@ -2123,6 +2310,31 @@ describe('delete persistence (keepalive web endpoint)', function () {
             ->and(OpportunityItem::query()->find($textLine->id))->toBeNull()
             ->and(OpportunityItem::query()->find($deepProduct->id))->toBeNull()
             ->and(OpportunityItem::query()->whereKey($rootSpare->id)->exists())->toBeTrue();
+    });
+
+    it('returns 404 for keepalive delete when the item belongs to a different opportunity', function () {
+        $targetOpportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Round 13 IDOR target');
+        $otherOpportunity = liveOpportunityForEditor($this->owner, $this->store->id, 'Round 13 IDOR other');
+
+        (new AddOpportunityItem)($otherOpportunity, AddOpportunityItemData::from([
+            'name' => 'Foreign line',
+            'quantity' => '1',
+            'unit_price' => 1000,
+        ]));
+
+        $foreignItem = $otherOpportunity->fresh(['items'])->items->first();
+
+        (new SetDealPrice)($targetOpportunity->fresh(), SetDealPriceData::from([
+            'currency' => 'GBP',
+            'deal_total' => '50.00',
+        ]));
+
+        $this->actingAs($this->owner);
+
+        $this->deleteJson(route('opportunities.items.destroy', [$targetOpportunity->fresh(), $foreignItem]))
+            ->assertNotFound();
+
+        expect(OpportunityItem::query()->whereKey($foreignItem->id)->exists())->toBeTrue();
     });
 
     it('rejects keepalive delete when pricing is frozen', function () {

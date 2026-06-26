@@ -3,9 +3,11 @@
 use App\Actions\Opportunities\AddOpportunityItem;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\MergeOpportunityItems;
+use App\Actions\Opportunities\SetDealPrice;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\MergeOpportunityItemsData;
+use App\Data\Opportunities\SetDealPriceData;
 use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use App\Models\Product;
@@ -164,4 +166,22 @@ it('rejects merging lines in different tree groups even when the product matches
     expect(fn () => (new MergeOpportunityItems)($items[0], MergeOpportunityItemsData::from([
         'duplicate_item_ids' => [$items[1]->id],
     ])))->toThrow(ValidationException::class, 'tree group');
+});
+
+it('rejects merging duplicate lines while pricing is frozen', function () {
+    $product = Product::factory()->create();
+    [$opportunity, $survivor, $duplicate] = duplicateLineFixture($this->store, $product);
+
+    (new SetDealPrice)($opportunity->fresh(), SetDealPriceData::from([
+        'currency' => 'GBP',
+        'deal_total' => 20000,
+    ]));
+
+    expect($opportunity->fresh()->pricingFrozen())->toBeTrue();
+
+    expect(fn () => (new MergeOpportunityItems)($survivor->refresh(), MergeOpportunityItemsData::from([
+        'duplicate_item_ids' => [$duplicate->id],
+    ])))->toThrow(ValidationException::class, 'Line items cannot be edited while pricing is frozen.');
+
+    expect(OpportunityItem::query()->where('opportunity_id', $opportunity->id)->count())->toBe(2);
 });

@@ -20,6 +20,8 @@ class OpportunityLineItemController
     ): JsonResponse {
         Gate::authorize('opportunities.edit');
 
+        abort_unless($item->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
+
         if ($opportunity->statusEnum()->isClosed()) {
             throw ValidationException::withMessages([
                 'opportunity' => 'This opportunity is closed and its line items cannot be edited.',
@@ -31,8 +33,6 @@ class OpportunityLineItemController
                 'opportunity' => 'Line items cannot be removed while pricing is frozen.',
             ]);
         }
-
-        abort_unless($item->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
 
         // scope=section is kept for URL compatibility; group rows always cascade
         // their subtree via RemoveOpportunityItem (deepest-first).

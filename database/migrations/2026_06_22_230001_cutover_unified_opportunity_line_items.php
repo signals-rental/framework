@@ -61,6 +61,7 @@ return new class extends Migration
             $table->integer('sort_order')->default(0);
             $table->timestamps();
 
+            $table->index(['opportunity_id', 'sort_order']);
             $table->index(['parent_id', 'sort_order']);
             $table->index(['opportunity_id', 'auto_group_key']);
         });

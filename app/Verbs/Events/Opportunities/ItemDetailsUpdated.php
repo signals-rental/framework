@@ -13,6 +13,10 @@ use Thunk\Verbs\Event;
 /**
  * Updates a line item's customer-facing description and warehouse notes.
  *
+ * Full-replace semantics: both fields are written exactly as supplied. Callers
+ * that intend a partial update must merge with the item's current values before
+ * firing (see {@see UpdateOpportunityItemDetails}). Explicit null clears a field.
+ *
  * Neither field affects pricing or availability demand — projection-only with
  * audit on the parent opportunity.
  */

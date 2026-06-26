@@ -313,6 +313,11 @@ trait PromotesOpportunityStatus
         ];
     }
 
+    /**
+     * The {@see Product::query()->find()} fallback is not a guard against a missing
+     * eager-load — {@see promoteOpportunityFromItems()} always loads `items.item`.
+     * It resolves the catalogue Product when the morph target is a non-Product.
+     */
     private function isSerialised(OpportunityItem $item): bool
     {
         if (! $item->isProductBacked()) {

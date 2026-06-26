@@ -41,6 +41,12 @@ class MergeOpportunityItems
 
         $opportunity = $survivor->opportunity()->firstOrFail();
 
+        if ($opportunity->pricingFrozen()) {
+            throw ValidationException::withMessages([
+                'opportunity' => 'Line items cannot be edited while pricing is frozen.',
+            ]);
+        }
+
         $duplicates = OpportunityItem::query()
             ->where('opportunity_id', $opportunity->id)
             ->whereIn('id', $data->duplicate_item_ids)
