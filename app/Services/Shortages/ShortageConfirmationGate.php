@@ -70,15 +70,17 @@ class ShortageConfirmationGate
     {
         $result = $this->evaluate($opportunity);
 
-        // Emit shortage.detected telemetry for whatever the gate saw.
-        if ($result->shortages->isNotEmpty()) {
-            $this->events->detected($result->shortages);
-        }
-
         if ($result->blocks()) {
             throw ValidationException::withMessages([
                 'shortages' => [$this->blockMessage($result->shortages)],
             ]);
+        }
+
+        // Emit shortage.detected telemetry only when the gate does NOT block. The
+        // caller runs this inside its DB::transaction (commitVerbs); emitting before
+        // the throw would write the telemetry rows then roll them straight back.
+        if ($result->shortages->isNotEmpty()) {
+            $this->events->detected($result->shortages);
         }
 
         if ($result->acknowledgementRequired()) {

@@ -10,6 +10,7 @@ use App\Guards\Opportunities\TransitionContext;
 use App\Models\OpportunityItem;
 use App\Services\Opportunities\OpportunityItemChargeBounds;
 use App\Verbs\Events\Opportunities\ItemPriceOverridden;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Sets or clears a line item's manual unit-price override via the
@@ -35,6 +36,12 @@ class OverrideItemPrice
 
     public function __invoke(OpportunityItem $item, OverrideItemPriceData $data): OpportunityData
     {
+        // Fast-path authorization BEFORE any business-logic read so an
+        // unauthorized caller receives a 403, never a 422 bounds leak. The
+        // GuardPipeline's Permission stage below remains the config-driven
+        // authority for the transition itself.
+        Gate::authorize('opportunities.edit');
+
         $opportunity = $item->opportunity()->firstOrFail();
 
         app(OpportunityItemChargeBounds::class)->assertUnitPriceAndProjectedTotalFit(

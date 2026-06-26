@@ -94,9 +94,7 @@ describe('immutability guard (unit)', function () {
         $definition = new AvailabilitySettings;
 
         $definition->guard(['resolution' => 'hourly'], app(SettingsService::class));
-
-        expect(true)->toBeTrue();
-    });
+    })->throwsNoExceptions();
 
     it('rejects a change when availability data exists', function () {
         fakeAvailabilityPresence(true);
@@ -114,9 +112,7 @@ describe('immutability guard (unit)', function () {
         $definition = new AvailabilitySettings;
 
         $definition->guard(['resolution' => 'daily'], app(SettingsService::class));
-
-        expect(true)->toBeTrue();
-    });
+    })->throwsNoExceptions();
 
     it('is a no-op when the resolution key is absent from the input', function () {
         fakeAvailabilityPresence(true);
@@ -124,9 +120,7 @@ describe('immutability guard (unit)', function () {
         $definition = new AvailabilitySettings;
 
         $definition->guard([], app(SettingsService::class));
-
-        expect(true)->toBeTrue();
-    });
+    })->throwsNoExceptions();
 });
 
 describe('immutability guard via the settings API', function () {

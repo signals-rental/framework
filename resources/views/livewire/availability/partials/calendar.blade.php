@@ -12,6 +12,15 @@
     /** @var \Illuminate\Support\Collection<int, \App\Data\Availability\CalendarProductData> $rows */
     $rows = $this->calendar;
     $dayList = $this->days;
+
+    // Shared four-state classification (matches the By-Group tab) so the same stock
+    // state renders the same colour across both tabs.
+    $stateBadge = [
+        'available' => 's-badge-green',
+        'warning' => 's-badge-amber',
+        'shortage' => 's-badge-red',
+        'booked' => 's-badge-cyan',
+    ];
 @endphp
 
 @if($rows->isEmpty())
@@ -57,10 +66,11 @@
                                     <span class="text-[11px] text-[var(--text-muted)]">&middot;</span>
                                 @else
                                     @php
-                                        $color = $cell->has_shortage ? 'red' : ($cell->available <= 0 ? 'amber' : 'green');
+                                        $state = $this->classifyCell($cell->available, $cell->has_shortage);
+                                        $badge = $stateBadge[$state];
                                     @endphp
                                     <div class="flex flex-col items-center gap-0.5">
-                                        <span class="s-badge s-badge-{{ $color }}" title="{{ $cell->has_shortage ? __('Shortage') : __('Worst available this day') }}">
+                                        <span class="s-badge {{ $badge }}" title="{{ $cell->has_shortage ? __('Shortage') : ($state === 'booked' ? __('Booked (fully committed)') : __('Worst available this day')) }}">
                                             {{ $cell->available }}
                                         </span>
                                         @if($cell->pending_checkin > 0)
@@ -78,10 +88,11 @@
         </table>
     </div>
 
-    {{-- Legend --}}
+    {{-- Legend (four-state, matching the By-Group tab) --}}
     <div class="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-[var(--text-muted)]">
         <span class="flex items-center gap-1.5"><span class="s-badge s-badge-green">n</span> {{ __('Available') }}</span>
-        <span class="flex items-center gap-1.5"><span class="s-badge s-badge-amber">0</span> {{ __('None free') }}</span>
+        <span class="flex items-center gap-1.5"><span class="s-badge s-badge-amber">n</span> {{ __('Warning (low)') }}</span>
+        <span class="flex items-center gap-1.5"><span class="s-badge s-badge-cyan">0</span> {{ __('Booked') }}</span>
         <span class="flex items-center gap-1.5"><span class="s-badge s-badge-red">-n</span> {{ __('Shortage') }}</span>
         <span class="flex items-center gap-1.5"><span class="s-badge s-badge-cyan s-badge-count">n</span> {{ __('Pending check-in') }}</span>
     </div>

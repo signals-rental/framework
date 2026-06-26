@@ -19,6 +19,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Debounced, asynchronous availability recompute for a single product/store.
@@ -177,13 +178,26 @@ class RecalculateAvailabilityJob implements ShouldBeUnique, ShouldQueue
             ->where('source_type', 'opportunity_item')
             ->active()
             ->overlapping($from, $to)
-            ->get(['metadata'])
+            ->get(['id', 'source_id', 'metadata'])
             ->each(function (Demand $demand) use (&$opportunityIds): void {
                 $opportunityId = $demand->metadata['opportunity_id'] ?? null;
 
                 if ($opportunityId !== null) {
                     $opportunityIds[(int) $opportunityId] = true;
+
+                    return;
                 }
+
+                // An opportunity_item demand without a metadata.opportunity_id is a
+                // data-consistency defect (a third-party plugin or a test factory
+                // that omitted the key): the opportunity cannot be broadcast to. Log
+                // it so the gap surfaces rather than failing silently.
+                Log::warning('opportunity_item demand missing metadata.opportunity_id; skipped opportunity broadcast.', [
+                    'demand_id' => $demand->id,
+                    'source_id' => $demand->source_id,
+                    'product_id' => $this->productId,
+                    'store_id' => $this->storeId,
+                ]);
             });
 
         $detector = app(ShortageDetector::class);

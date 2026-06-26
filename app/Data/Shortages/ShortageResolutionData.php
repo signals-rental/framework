@@ -28,7 +28,12 @@ class ShortageResolutionData extends Data
         public string $status,
         public string $status_label,
         public int $quantity_resolved,
-        public ?int $cost,
+        /**
+         * Cost in the company base currency as an RMS-compatible decimal string
+         * ("125.50"), null when no cost was recorded. Stored as integer minor
+         * units in the DB; serialised via {@see ShortageResolution::formatMoneyCost()}.
+         */
+        public ?string $cost,
         public ?array $metadata,
         public ?int $resolved_by,
         public ?string $confirmed_at,
@@ -54,7 +59,7 @@ class ShortageResolutionData extends Data
             status: $resolution->status->value,
             status_label: $resolution->status->label(),
             quantity_resolved: $resolution->quantity_resolved,
-            cost: $resolution->cost,
+            cost: $resolution->cost !== null ? $resolution->formatMoneyCost('cost') : null,
             metadata: $resolution->metadata,
             resolved_by: $resolution->resolved_by,
             confirmed_at: self::formatNullableTimestamp($resolution->confirmed_at),

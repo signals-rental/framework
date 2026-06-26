@@ -3,8 +3,8 @@
 namespace App\Services\Opportunities;
 
 use App\Models\OpportunityItem;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Thunk\Verbs\Models\VerbStateEvent;
 
 /**
  * Resolves the opportunity line-item tree revision token used by the local-first
@@ -30,7 +30,7 @@ class OpportunityLineItemTreeRevision
             return 0;
         }
 
-        $max = DB::table('verb_state_events')
+        $max = VerbStateEvent::query()
             ->whereIn('state_id', $stateIds)
             ->max('event_id');
 

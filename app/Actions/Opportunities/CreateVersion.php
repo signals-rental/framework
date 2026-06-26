@@ -78,9 +78,11 @@ class CreateVersion
             if ($source !== null) {
                 /** @var array<string, string> $pathMap */
                 $pathMap = [];
+                /** @var array<int, true> $knownIds */
+                $knownIds = [];
 
                 foreach ($source->items()->orderBy('path')->get() as $item) {
-                    $this->cloneItemWithPathRemap($opportunity, $item, $pathMap, $versionId);
+                    $this->cloneItemWithPathRemap($opportunity, $item, $pathMap, $versionId, $knownIds);
                 }
             }
 

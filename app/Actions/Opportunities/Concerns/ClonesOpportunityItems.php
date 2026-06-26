@@ -77,13 +77,21 @@ trait ClonesOpportunityItems
      * the growing old-path → new-path map so gapped source trees (from removals
      * that do not recompact siblings) still nest correctly on the target.
      *
+     * `$knownIds` is an in-memory accumulator of every item id already present on
+     * the target (seeded once on the first call, then grown with each clone). It
+     * lets us identify the single newly-added row with one keyed query instead of
+     * re-plucking the whole item list per source line — keeping a clone of N items
+     * linear rather than O(n²).
+     *
      * @param  array<string, string>  $pathMap
+     * @param  array<int, true>  $knownIds  keyed by item id for O(1) membership
      */
     protected function cloneItemWithPathRemap(
         Opportunity $opportunity,
         OpportunityItem $sourceItem,
         array &$pathMap,
         ?int $versionId = null,
+        array &$knownIds = [],
     ): void {
         $sourceParentPath = $sourceItem->parentPath();
         $remappedParentPath = $sourceParentPath === null
@@ -93,15 +101,25 @@ trait ClonesOpportunityItems
         $payload = $this->itemDataFrom($sourceItem, $versionId)->toArray();
         $payload['parent_path'] = $remappedParentPath;
 
-        $existingIds = $opportunity->allItems()->pluck('id')->all();
+        // Seed the accumulator once from whatever was already on the target before
+        // any cloning began (empty for a fresh CloneOpportunity Draft, non-empty
+        // for a CreateVersion onto an opportunity that already has lines).
+        if ($knownIds === []) {
+            foreach ($opportunity->allItems()->pluck('id')->all() as $existingId) {
+                $knownIds[(int) $existingId] = true;
+            }
+        }
 
         (new AddOpportunityItem)($opportunity, AddOpportunityItemData::from($payload));
 
+        // The clone path sets materialize_included_accessories=false, so exactly one
+        // row is added. Fetch only the rows not yet seen (the single new item).
         /** @var OpportunityItem $newItem */
-        $newItem = $opportunity->fresh()->allItems()
-            ->whereNotIn('id', $existingIds)
+        $newItem = $opportunity->allItems()
+            ->whereNotIn('id', array_keys($knownIds))
             ->sole();
 
+        $knownIds[(int) $newItem->id] = true;
         $pathMap[$sourceItem->path] = $newItem->path;
     }
 }

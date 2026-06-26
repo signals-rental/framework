@@ -1,12 +1,12 @@
 <div>
     @if ($canAccess)
-        <div class="data-table-wrap mb-8">
-            <div class="table-header">
-                <span class="table-title">Recent Opportunities</span>
-                <a class="table-action" href="{{ route('opportunities.index') }}" wire:navigate>View All</a>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="data-table">
+        <x-signals.panel title="Recent Opportunities" class="mb-8">
+            <x-slot:headerActions>
+                <a class="s-btn s-btn-sm s-btn-ghost" href="{{ route('opportunities.index') }}" wire:navigate>View All</a>
+            </x-slot:headerActions>
+
+            <x-signals.table-wrap>
+                <table class="s-table">
                     <thead>
                         <tr>
                             <th>Reference</th>
@@ -24,7 +24,7 @@
                             @endphp
                             <tr wire:key="recent-opp-{{ $opportunity->id }}">
                                 <td>
-                                    <a class="cell-ref" href="{{ route('opportunities.show', $opportunity) }}" wire:navigate>
+                                    <a class="s-cell-link" href="{{ route('opportunities.show', $opportunity) }}" wire:navigate>
                                         {{ $opportunity->number ?? '#'.$opportunity->id }}
                                     </a>
                                 </td>
@@ -35,7 +35,7 @@
                                         <span class="s-status-dot"></span> {{ $status->label() }}
                                     </span>
                                 </td>
-                                <td class="cell-amount">{{ $opportunity->formatMoneyCost('charge_total') }}</td>
+                                <td class="s-cell-amount">{{ $opportunity->formatMoneyCost('charge_total') }}</td>
                                 <td>@localdate($opportunity->created_at)</td>
                             </tr>
                         @empty
@@ -47,7 +47,7 @@
                         @endforelse
                     </tbody>
                 </table>
-            </div>
-        </div>
+            </x-signals.table-wrap>
+        </x-signals.panel>
     @endif
 </div>

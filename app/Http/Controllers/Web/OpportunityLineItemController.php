@@ -7,7 +7,6 @@ use App\Models\Opportunity;
 use App\Models\OpportunityItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -18,8 +17,9 @@ class OpportunityLineItemController
         Opportunity $opportunity,
         OpportunityItem $item,
     ): JsonResponse {
-        Gate::authorize('opportunities.edit');
-
+        // Authorization lives in RemoveOpportunityItem (Gate::authorize there is the
+        // single authority); the controller stays thin. IDOR scoping (the item
+        // belongs to this opportunity) is checked before any state-revealing 422.
         abort_unless($item->opportunity_id === $opportunity->id, Response::HTTP_NOT_FOUND);
 
         if ($opportunity->statusEnum()->isClosed()) {

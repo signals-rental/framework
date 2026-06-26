@@ -99,4 +99,18 @@ return [
 
     'kit_nesting_max_depth' => (int) env('AVAILABILITY_KIT_NESTING_MAX_DEPTH', 3),
 
+    /*
+    |--------------------------------------------------------------------------
+    | API max range (days)
+    |--------------------------------------------------------------------------
+    |
+    | The widest date span the calendar / gantt / shortages API endpoints accept
+    | in a single request. Bounds the size of the (largely unpaginated) read-model
+    | payloads those endpoints return so an unbounded from→to span cannot fan out
+    | into a multi-thousand-row response. Default 366 days (one leap year).
+    |
+    */
+
+    'api_max_range_days' => (int) env('AVAILABILITY_API_MAX_RANGE_DAYS', 366),
+
 ];

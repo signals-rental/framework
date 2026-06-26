@@ -61,10 +61,19 @@ class OpportunityPipeline extends Component
 
     public function render(): View
     {
+        $canAccess = Gate::allows('opportunities.access');
+
+        // Only run the four aggregate counts for users who can see the widget —
+        // a user lacking the gate renders nothing, so the queries would be wasted
+        // (mirrors RecentOpportunities, which gates before its query).
+        $counts = $canAccess
+            ? $this->counts()
+            : ['quotations' => 0, 'orders' => 0, 'due_soon' => 0, 'shortages' => 0];
+
         return view('livewire.dashboard.opportunity-pipeline', [
-            'counts' => $this->counts(),
+            'counts' => $counts,
             'dueSoonDays' => $this->dueSoonDays,
-            'canAccess' => Gate::allows('opportunities.access'),
+            'canAccess' => $canAccess,
         ]);
     }
 }

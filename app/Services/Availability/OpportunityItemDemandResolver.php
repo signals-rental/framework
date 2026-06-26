@@ -316,6 +316,12 @@ class OpportunityItemDemandResolver implements DemandResolverContract
      * This is the filled M5-3b seam: fixed routes to container demands, pool
      * explodes.
      *
+     * `$depth` bounds the nested-kit recursion below. The KitCompositionGuard
+     * prevents cycles from being persisted at create-time and the read-path
+     * KitAvailabilityCalculator carries its own ancestry guard; this depth cap is
+     * the write-path backstop so a corrupted/cyclic composition fails bounded
+     * rather than recursing forever.
+     *
      * @param  array<string, mixed>  $metadata
      */
     protected function syncKitComponentDemands(
@@ -329,12 +335,21 @@ class OpportunityItemDemandResolver implements DemandResolverContract
         Carbon $bufferedEnd,
         DemandPhase $phase,
         array $metadata,
+        int $depth = 0,
     ): void {
+        // Backstop against an unbounded/cyclic nested-kit composition. Mirrors the
+        // read-path guard (KitAvailabilityCalculator::computeSlots) and the
+        // create-time KitCompositionGuard.
+        if ($depth > max(1, (int) config('availability.kit_nesting_max_depth', 3))) {
+            return;
+        }
+
         $appliesTurnaround = $phase->appliesTurnaround();
 
         /** @var list<SerialisedComponent> $components */
         $components = $kit->components()
             ->where('binding', KitComponentBinding::Pool->value)
+            ->with('componentProduct')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
@@ -352,7 +367,7 @@ class OpportunityItemDemandResolver implements DemandResolverContract
             // below 1 for a present component.
             $componentQuantity = max(1, (int) ceil($kitQuantity * (float) $component->quantity));
 
-            $componentProduct = Product::query()->find($component->component_product_id);
+            $componentProduct = $component->componentProduct;
 
             if ($componentProduct === null) {
                 continue;
@@ -374,6 +389,7 @@ class OpportunityItemDemandResolver implements DemandResolverContract
                     $bufferedEnd,
                     $phase,
                     $metadata,
+                    $depth + 1,
                 );
 
                 continue;

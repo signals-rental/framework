@@ -2,14 +2,17 @@
 
 use App\Actions\Containers\PackContainerItem;
 use App\Actions\Containers\UnpackContainerItem;
+use App\Actions\Products\UpdateSerialisedComponent;
 use App\Contracts\Availability\AvailabilityResolutionProvider;
 use App\Data\Containers\PackContainerItemData;
 use App\Data\Containers\UnpackContainerItemData;
+use App\Data\Products\UpdateSerialisedComponentData;
 use App\Enums\AvailabilityResolution;
 use App\Enums\ContainerAvailabilityMode;
 use App\Enums\ContainerItemUnpackReason;
 use App\Enums\ContainerStatus;
 use App\Enums\DemandPhase;
+use App\Enums\KitComponentBinding;
 use App\Models\Container;
 use App\Models\ContainerItem;
 use App\Models\Demand;
@@ -234,6 +237,35 @@ it('holds only FIXED-binding components in a hybrid container, not pool', functi
     // Pool component → not held (drawn from general stock per dispatch).
     expect(Demand::query()->where('source_type', 'container')->where('source_id', $poolMembership->id)->exists())
         ->toBeFalse();
+});
+
+it('re-syncs packed members when a hybrid component binding flips pool → fixed', function () {
+    Gate::define('kits.manage', fn (): bool => true);
+
+    $container = Container::factory()->hybrid()->create(['store_id' => $this->store->id]);
+    $containerProduct = $container->product;
+
+    $poolProduct = Product::factory()->serialised()->create();
+    $component = SerialisedComponent::factory()->pool()->quantity(1)->create([
+        'product_id' => $containerProduct->id,
+        'component_product_id' => $poolProduct->id,
+    ]);
+
+    $item = packableItem($this->store, $poolProduct);
+    $membership = packItem($container, $item);
+
+    // Packed as a POOL slot → no container demand held.
+    expect(Demand::query()->where('source_type', 'container')->where('source_id', $membership->id)->exists())
+        ->toBeFalse();
+
+    // Flip the binding to FIXED — the previously-packed member must now be held.
+    (new UpdateSerialisedComponent)(
+        $component->refresh(),
+        UpdateSerialisedComponentData::from(['binding' => KitComponentBinding::Fixed->value]),
+    );
+
+    expect(Demand::query()->where('source_type', 'container')->where('source_id', $membership->id)->where('is_active', true)->exists())
+        ->toBeTrue();
 });
 
 it('rejects packing a non-serialised item', function () {

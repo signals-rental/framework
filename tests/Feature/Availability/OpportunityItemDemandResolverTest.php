@@ -480,6 +480,29 @@ describe('catalogue kit explosion (M5-3a)', function () {
             ->and($demands->first()->product_id)->toBe($pool->id);
     });
 
+    it('terminates bounded on a cyclic nested-kit composition (write-path depth backstop)', function () {
+        // Build a deliberately cyclic composition (kitA → kitB → kitA) directly,
+        // bypassing the create-time KitCompositionGuard, to prove the resolver's
+        // recursion is depth-bounded and cannot loop forever on corrupt data.
+        $leaf = Product::factory()->bulk()->create();
+        $kitA = Product::factory()->kit()->create();
+        $kitB = Product::factory()->kit()->create();
+
+        SerialisedComponent::factory()->pool()->quantity(1)->create(['product_id' => $kitA->id, 'component_product_id' => $kitB->id]);
+        SerialisedComponent::factory()->pool()->quantity(1)->create(['product_id' => $kitA->id, 'component_product_id' => $leaf->id]);
+        SerialisedComponent::factory()->pool()->quantity(1)->create(['product_id' => $kitB->id, 'component_product_id' => $kitA->id]);
+
+        $store = Store::factory()->create();
+        $item = makeDemandItem(OpportunityStatus::OrderActive, $kitA, $store, ['quantity' => 1]);
+
+        // Must return (bounded by availability.kit_nesting_max_depth) rather than
+        // recursing until the stack overflows.
+        demandResolver()->syncDemands($item);
+
+        // The leaf component is reached and at least one demand is written.
+        expect(Demand::query()->where('source_id', $item->id)->where('product_id', $leaf->id)->exists())->toBeTrue();
+    });
+
     it('releases exploded kit-component demands as one set', function () {
         $a = Product::factory()->bulk()->create();
         $b = Product::factory()->bulk()->create();

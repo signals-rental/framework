@@ -8,6 +8,7 @@ use App\Services\AvailabilityService;
 use Dedoc\Scramble\Attributes\Response as ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -121,7 +122,7 @@ class AvailabilityController extends Controller
         $validated = $request->validate([
             'store_id' => ['required', 'integer', 'exists:stores,id'],
             'from' => ['required', 'date'],
-            'to' => ['required', 'date', 'after_or_equal:from'],
+            'to' => $this->rangeToRules($request),
             'product_ids' => ['nullable', 'array'],
             'product_ids.*' => ['integer'],
         ]);
@@ -160,7 +161,7 @@ class AvailabilityController extends Controller
         $validated = $request->validate([
             'store_id' => ['required', 'integer', 'exists:stores,id'],
             'from' => ['required', 'date'],
-            'to' => ['required', 'date', 'after_or_equal:from'],
+            'to' => $this->rangeToRules($request),
             'asset_ids' => ['nullable', 'array'],
             'asset_ids.*' => ['integer'],
         ]);
@@ -192,7 +193,9 @@ class AvailabilityController extends Controller
         $validated = $request->validate([
             'store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'from' => ['required', 'date'],
-            'to' => ['required', 'date', 'after_or_equal:from'],
+            'to' => $this->rangeToRules($request),
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
 
         $shortages = app(AvailabilityService::class)
@@ -205,7 +208,19 @@ class AvailabilityController extends Controller
             ->values()
             ->all();
 
-        return $this->respondWithCollection($shortages, 'shortages');
+        // Offset-paginate the (already range-bounded) sweep so the response honours
+        // the documented {meta: {total, per_page, page}} contract rather than
+        // returning every row as a single implicit page.
+        $perPage = (int) ($validated['per_page'] ?? 50);
+        $page = (int) ($validated['page'] ?? 1);
+        $paginator = new LengthAwarePaginator(
+            array_slice($shortages, ($page - 1) * $perPage, $perPage),
+            count($shortages),
+            $perPage,
+            $page,
+        );
+
+        return $this->respondWithCollection($paginator->items(), 'shortages', $paginator);
     }
 
     /**
@@ -253,6 +268,35 @@ class AvailabilityController extends Controller
      * Authorize an availability read: the user needs `availability.view`, and a
      * token (if used) must carry the `availability:read` ability.
      */
+    /**
+     * Validation rules for the `to` bound of a range query, capping the from→to
+     * span at `availability.api_max_range_days` so the (largely unpaginated)
+     * calendar / gantt / shortages payloads cannot fan out unboundedly.
+     *
+     * @return array<int, mixed>
+     */
+    private function rangeToRules(Request $request): array
+    {
+        $maxDays = max(1, (int) config('availability.api_max_range_days', 366));
+
+        return [
+            'required',
+            'date',
+            'after_or_equal:from',
+            function (string $attribute, mixed $value, \Closure $fail) use ($request, $maxDays): void {
+                $from = $request->input('from');
+
+                if (! is_string($from) || ! is_string($value)) {
+                    return;
+                }
+
+                if (Carbon::parse($from)->diffInDays(Carbon::parse($value)) > $maxDays) {
+                    $fail("The date range may not exceed {$maxDays} days.");
+                }
+            },
+        ];
+    }
+
     private function authorizeAvailability(Request $request): void
     {
         Gate::authorize('availability.view');

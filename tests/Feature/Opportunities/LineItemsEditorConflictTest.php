@@ -13,8 +13,38 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Volt\Volt;
+use Symfony\Component\Process\Process;
 
 uses(RefreshDatabase::class);
+
+/**
+ * Drive the client-side reconcileLocalTree() (resources/js/line-item-tree-reconcile.js)
+ * through a Node runner so the browser merge logic is tested directly, not only via
+ * its PHP mirror.
+ *
+ * @param  array<string, mixed>  $payload
+ * @return array{ids: array<int, int>, names: array<int, string|null>, conflicts: array<string, string>}
+ */
+function runReconcileJs(array $payload): array
+{
+    $process = new Process(
+        ['node', base_path('tests/js/line-item-tree-reconcile-runner.mjs')],
+        base_path(),
+        null,
+        json_encode($payload, JSON_THROW_ON_ERROR),
+    );
+
+    $process->run();
+
+    if (! $process->isSuccessful()) {
+        throw new RuntimeException(trim($process->getErrorOutput() ?: $process->getOutput()));
+    }
+
+    /** @var array{ids: array<int, int>, names: array<int, string|null>, conflicts: array<string, string>} $decoded */
+    $decoded = json_decode(trim($process->getOutput()), true, 512, JSON_THROW_ON_ERROR);
+
+    return $decoded;
+}
 
 beforeEach(function () {
     config(['signals.installed' => true, 'signals.setup_complete' => true]);
@@ -70,6 +100,54 @@ it('applies persistTree despite revision drift when the node set is complete', f
     $serverIds = collect(lineItemsEditorInstance($component)->serverTree()['tree'])->pluck('id')->all();
 
     expect($serverIds)->toBe(array_column($nodes, 'id'));
+});
+
+describe('reconcileLocalTree (client-side JS)', function () {
+    it('server-wins for a non-pending row', function () {
+        $result = runReconcileJs([
+            'localRows' => [['id' => 1, 'path' => '0001', 'name' => 'Local name', 'quantity' => '1', 'unit_price' => 1000, 'discount_percent' => null]],
+            'serverRows' => [['id' => 1, 'path' => '0001', 'name' => 'Server name', 'quantity' => '1', 'unit_price' => 1000, 'discount_percent' => null]],
+            'pendingLocalIds' => [],
+        ]);
+
+        expect($result['ids'])->toBe([1])
+            ->and($result['names'])->toBe(['Server name'])
+            ->and($result['conflicts'])->toBe([]);
+    });
+
+    it('local-wins when the id is in pendingLocalIds, flagging a hard-field conflict', function () {
+        $result = runReconcileJs([
+            'localRows' => [['id' => 1, 'path' => '0001', 'name' => 'Pending local', 'quantity' => '2', 'unit_price' => 1000, 'discount_percent' => null]],
+            'serverRows' => [['id' => 1, 'path' => '0001', 'name' => 'Server name', 'quantity' => '1', 'unit_price' => 1000, 'discount_percent' => null]],
+            'pendingLocalIds' => [1],
+        ]);
+
+        expect($result['ids'])->toBe([1])
+            ->and($result['names'])->toBe(['Pending local'])
+            ->and($result['conflicts'])->toHaveKey('1');
+    });
+
+    it('keeps a pending local row without conflict when hard fields match the server', function () {
+        $result = runReconcileJs([
+            'localRows' => [['id' => 1, 'path' => '0001', 'name' => 'Same', 'quantity' => '1', 'unit_price' => 1000, 'discount_percent' => null]],
+            'serverRows' => [['id' => 1, 'path' => '0001', 'name' => 'Same', 'quantity' => '1', 'unit_price' => 1000, 'discount_percent' => null]],
+            'pendingLocalIds' => [1],
+        ]);
+
+        expect($result['ids'])->toBe([1])
+            ->and($result['conflicts'])->toBe([]);
+    });
+
+    it('appends negative temp-ID local rows after the server rows', function () {
+        $result = runReconcileJs([
+            'localRows' => [['id' => -42, 'path' => '0002', 'name' => 'Brand new local', 'quantity' => '1', 'unit_price' => 0, 'discount_percent' => null]],
+            'serverRows' => [['id' => 1, 'path' => '0001', 'name' => 'Server', 'quantity' => '1', 'unit_price' => 1000, 'discount_percent' => null]],
+            'pendingLocalIds' => [],
+        ]);
+
+        expect($result['ids'])->toBe([1, -42])
+            ->and($result['conflicts'])->toBe([]);
+    });
 });
 
 it('pullTree reconciles local pending rows against fresh server truth', function () {

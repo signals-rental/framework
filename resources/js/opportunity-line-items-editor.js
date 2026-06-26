@@ -1444,6 +1444,11 @@ export default function createOpportunityLineItemsEditor(cfg) {
 
             if (serverId !== null) {
                 this.sendKeepaliveDelete(serverId, isSection);
+            } else {
+                // A not-yet-persisted (temp-ID) row: purge any queued add mutation
+                // for it so the next flush does not re-create the row we just
+                // deleted (a ghost row). Mirrors discardBlankInlineRow's cleanup.
+                this.queue = this.queue.filter((m) => ! sameRowId(m.tmpId, id) && ! sameRowId(m.id, id));
             }
 
             this.notifyTabsInvalidate();

@@ -6,11 +6,13 @@ use App\Actions\Opportunities\ConvertToOrder;
 use App\Actions\Opportunities\ConvertToQuotation;
 use App\Actions\Opportunities\CreateOpportunity;
 use App\Actions\Opportunities\OverrideItemPrice;
+use App\Actions\Opportunities\SetDealPrice;
 use App\Actions\Opportunities\SetItemDiscount;
 use App\Data\Opportunities\AddOpportunityItemData;
 use App\Data\Opportunities\ChangeItemQuantityData;
 use App\Data\Opportunities\CreateOpportunityData;
 use App\Data\Opportunities\OverrideItemPriceData;
+use App\Data\Opportunities\SetDealPriceData;
 use App\Data\Opportunities\SetItemDiscountData;
 use App\Guards\Opportunities\Rules\FxTaxLockRule;
 use App\Models\Member;
@@ -23,9 +25,12 @@ use App\Models\Store;
 use App\Models\TaxRate;
 use App\Models\TaxRule;
 use App\Models\User;
+use App\Services\Opportunities\OpportunityItemChargeBounds;
 use App\Services\Opportunities\OpportunityTotalsCalculator;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Regression guard for the keystone line-item editor bug (UAT): manual rate /
@@ -103,6 +108,44 @@ function netEditQuotation(Store $store): array
 
     return [$opportunity->refresh(), $opportunity->allItems()->firstOrFail()];
 }
+
+it('authorizes OverrideItemPrice BEFORE the charge-bounds check (403 not a 422 leak)', function () {
+    [$opportunity, $item] = netEditQuotation($this->store);
+
+    // A viewer lacks opportunities.edit. An out-of-bounds unit price would
+    // throw a 422 if the bounds check ran first — the gate must win.
+    $viewer = User::factory()->create();
+    $viewer->assignRole('Read Only');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $this->actingAs($viewer);
+
+    // A unit price that is individually in-bounds but whose projected line
+    // total (× qty × chargeable days) overflows MAX_MINOR. The action-level
+    // bounds check would throw a 422 if it ran before the gate.
+    $highUnitPrice = OpportunityItemChargeBounds::MAX_MINOR;
+
+    expect(fn () => (new OverrideItemPrice)(
+        $item->refresh(),
+        OverrideItemPriceData::from(['unit_price' => $highUnitPrice]),
+    ))->toThrow(AuthorizationException::class);
+});
+
+it('authorizes SetDealPrice BEFORE the lock check (403 not a 422 leak)', function () {
+    [$opportunity, $item] = netEditQuotation($this->store);
+    (new ConvertToOrder)($opportunity->refresh()); // applies FX/tax locks
+
+    $viewer = User::factory()->create();
+    $viewer->assignRole('Read Only');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $this->actingAs($viewer);
+
+    // On a locked order, hasLocks() would throw a 422 "unlock price" if it ran
+    // first — the gate must win and produce a 403.
+    expect(fn () => (new SetDealPrice)(
+        $opportunity->refresh(),
+        SetDealPriceData::from(['deal_total' => '10.00']),
+    ))->toThrow(AuthorizationException::class);
+});
 
 it('moves the line total and parent net when overriding the rate on an unlocked quotation', function () {
     [$opportunity, $item] = netEditQuotation($this->store);

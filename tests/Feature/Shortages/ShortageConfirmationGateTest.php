@@ -18,6 +18,8 @@ use App\Models\ShortageAcknowledgement;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Shortages\ShortageConfirmationGate;
+use App\Services\Shortages\ShortageEventRecorder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Carbon;
@@ -97,6 +99,44 @@ it('blocks conversion under a Block policy when shortages exist', function () {
     // Conversion rolled back: still a quotation.
     expect($opportunity->fresh()->state)->toBe(OpportunityState::Quotation)
         ->and(ShortageAcknowledgement::query()->count())->toBe(0);
+});
+
+it('does not emit shortage.detected telemetry when the gate blocks (would be rolled back)', function () {
+    $user = User::factory()->create();
+    $user->assignRole('Sales');
+    $this->actingAs($user);
+
+    $opportunity = shortQuotation(ShortagePolicy::Block);
+
+    // Spy the event recorder AFTER setup (add-time probe emits its own detected
+    // event) so we measure only the gate's emission. The gate must never call
+    // detected() on the Block path, where the enclosing transaction would roll the
+    // write straight back.
+    $spy = Mockery::spy(ShortageEventRecorder::class);
+    $this->app->instance(ShortageEventRecorder::class, $spy);
+
+    $gate = app(ShortageConfirmationGate::class);
+
+    expect(fn () => $gate->enforceForConfirmation($opportunity))
+        ->toThrow(ValidationException::class);
+
+    $spy->shouldNotHaveReceived('detected');
+});
+
+it('emits shortage.detected telemetry when the gate proceeds (Warn)', function () {
+    $user = User::factory()->create();
+    $user->assignRole('Sales');
+    $this->actingAs($user);
+
+    $opportunity = shortQuotation(ShortagePolicy::Warn);
+
+    $spy = Mockery::spy(ShortageEventRecorder::class);
+    $this->app->instance(ShortageEventRecorder::class, $spy);
+
+    $gate = app(ShortageConfirmationGate::class);
+    $gate->enforceForConfirmation($opportunity);
+
+    $spy->shouldHaveReceived('detected')->once();
 });
 
 it('allows a Block policy to be overridden by the ignore permission, recording an acknowledgement', function () {

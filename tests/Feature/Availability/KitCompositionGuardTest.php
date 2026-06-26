@@ -52,9 +52,7 @@ it('allows a valid acyclic composition within the depth bound', function () {
     $component = Product::factory()->bulk()->create();
 
     $this->guard->assertCanAdd($kit->id, $component->id);
-
-    expect(true)->toBeTrue();
-});
+})->throwsNoExceptions();
 
 it('validates binding strings against the enum', function () {
     expect(KitCompositionGuard::isValidBinding(KitComponentBinding::Pool->value))->toBeTrue()

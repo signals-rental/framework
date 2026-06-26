@@ -82,9 +82,19 @@ it('renders nothing for a user without opportunities.access', function () {
 
     $viewer = User::factory()->create();
 
-    Livewire::actingAs($viewer)
+    $component = Livewire::actingAs($viewer)
         ->test(OpportunityPipeline::class)
         ->assertOk()
         ->assertDontSee('Opportunity Pipeline')
         ->assertDontSee('Open Quotations');
+
+    // The counts are NOT computed for an unauthorized user — they are returned as
+    // zeros rather than running four aggregate queries for a widget that renders
+    // nothing.
+    expect($component->viewData('counts'))->toBe([
+        'quotations' => 0,
+        'orders' => 0,
+        'due_soon' => 0,
+        'shortages' => 0,
+    ]);
 });

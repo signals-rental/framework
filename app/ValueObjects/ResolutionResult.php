@@ -13,6 +13,13 @@ use App\Models\ShortageResolution;
 final readonly class ResolutionResult
 {
     /**
+     * `$success` means the resolve OPERATION succeeded in recording an outcome —
+     * NOT that the shortage is fully covered. A `pending()` or `monitoring()` result
+     * is therefore `success: true` (the intent was recorded) AND `requiresFollowup:
+     * true` (an external/user action or unbuilt domain must finish it). Consumers
+     * that need "is the shortage actually cleared?" must read `status` /
+     * `requiresFollowup`, not `success`.
+     *
      * @param  array<string, mixed>  $metadata
      */
     public function __construct(

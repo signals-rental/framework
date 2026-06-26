@@ -42,11 +42,32 @@ final class OpportunityItemChargeBounds
         Opportunity $opportunity,
         int $unitPriceMinor,
     ): int {
-        $quantity = (float) $item->quantity;
+        // Mirror OpportunityTotalsCalculator::manualLineSubtotal exactly so the
+        // guard never permits a value the calculator then overflows: the quantity is
+        // rounded to whole units (not the raw fractional value) and the discount is
+        // applied with the same bcmath HALF_UP rounding on the minor-unit grid.
+        $quantityUnits = max(0, (int) round((float) $item->quantity));
         $days = max(1, app(OpportunityItemChargeableDays::class)->forItem($item, $opportunity));
-        $gross = $quantity * $unitPriceMinor * $days;
-        $discount = $item->discount_percent !== null ? (float) $item->discount_percent : 0.0;
 
-        return (int) round($gross * (1 - ($discount / 100)));
+        $gross = $unitPriceMinor * $quantityUnits * $days;
+
+        return $this->applyDiscount($gross, $item->discount_percent);
+    }
+
+    /**
+     * Apply a percentage discount to a net minor amount, rounding HALF_UP at the
+     * minor-unit boundary — identical to
+     * {@see OpportunityTotalsCalculator::applyDiscount()}.
+     */
+    private function applyDiscount(int $netMinor, ?string $discountPercent): int
+    {
+        if ($discountPercent === null || bccomp($discountPercent, '0', 10) === 0) {
+            return $netMinor;
+        }
+
+        $rawDiscount = bcdiv(bcmul((string) $netMinor, $discountPercent, 10), '100', 10);
+        $discount = (int) bcadd($rawDiscount, str_starts_with($rawDiscount, '-') ? '-0.5' : '0.5', 0);
+
+        return $netMinor - $discount;
     }
 }

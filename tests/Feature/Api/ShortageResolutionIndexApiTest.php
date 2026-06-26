@@ -54,6 +54,21 @@ describe('GET /api/v1/opportunities/{opportunity}/shortage_resolutions', functio
             ->and($response->json('shortage_resolutions.0.items.0.opportunity_item_id'))->toBe($this->item->id);
     });
 
+    it('serialises cost as an RMS decimal string from integer minor units', function () {
+        // 12550 minor units (pence) => "125.50" at the base currency's 2dp scale.
+        resolutionFor($this->item, ShortageResolution::factory()->create(['cost' => 12550]));
+        resolutionFor($this->item, ShortageResolution::factory()->create(['cost' => null]));
+
+        $token = $this->owner->createToken('test', ['shortages:read'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/opportunities/{$this->opportunity->id}/shortage_resolutions?q[s]=created_at+asc")
+            ->assertOk();
+
+        expect($response->json('shortage_resolutions.0.cost'))->toBe('125.50')
+            ->and($response->json('shortage_resolutions.1.cost'))->toBeNull();
+    });
+
     it('filters by status via Ransack', function () {
         resolutionFor($this->item, ShortageResolution::factory()->create()); // confirmed
         resolutionFor($this->item, ShortageResolution::factory()->cancelled()->create());

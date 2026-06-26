@@ -80,7 +80,7 @@ class ShortageController extends Controller
      * `?q[status_eq]=confirmed`); the per-item allocations are eager-loaded so the
      * tab can render them.
      */
-    #[ApiResponse(200, 'Opportunity shortage resolutions', type: 'array{shortage_resolutions: list<array{id: int, resolver_key: string, resolution_type: string, status: string, status_label: string, quantity_resolved: int, cost: int|null, metadata: array<string, mixed>|null, resolved_by: int|null, confirmed_at: string|null, cancelled_at: string|null, cancellation_reason: string|null, notes: string|null, created_at: string, updated_at: string, items: list<array{id: int, opportunity_item_id: int, quantity_allocated: int}>}>, meta: array{total: int, per_page: int, page: int}}')]
+    #[ApiResponse(200, 'Opportunity shortage resolutions', type: 'array{shortage_resolutions: list<array{id: int, resolver_key: string, resolution_type: string, status: string, status_label: string, quantity_resolved: int, cost: string|null, metadata: array<string, mixed>|null, resolved_by: int|null, confirmed_at: string|null, cancelled_at: string|null, cancellation_reason: string|null, notes: string|null, created_at: string, updated_at: string, items: list<array{id: int, opportunity_item_id: int, quantity_allocated: int}>}>, meta: array{total: int, per_page: int, page: int}}')]
     public function resolutions(Request $request, Opportunity $opportunity): JsonResponse
     {
         $this->authorizeShortage('shortages.view', 'shortages:read');
@@ -193,7 +193,7 @@ class ShortageController extends Controller
     /**
      * Apply a resolver option to a line item's shortage, recording a resolution.
      */
-    #[ApiResponse(201, 'Resolution applied', type: 'array{resolution: array{id: int, resolver_key: string, resolution_type: string, status: string, status_label: string, quantity_resolved: int, cost: int|null}, status: string, message: string, requires_followup: bool}')]
+    #[ApiResponse(201, 'Resolution applied', type: 'array{resolution: array{id: int, resolver_key: string, resolution_type: string, status: string, status_label: string, quantity_resolved: int, cost: string|null}, status: string, message: string, requires_followup: bool}')]
     public function resolve(Request $request): JsonResponse
     {
         $this->authorizeShortage('shortages.resolve', 'shortages:write');
@@ -216,6 +216,24 @@ class ShortageController extends Controller
 
         return response()->json($payload, Response::HTTP_CREATED);
     }
+
+    /*
+     |--------------------------------------------------------------------------
+     | Resolution lifecycle transitions (§8.3)
+     |--------------------------------------------------------------------------
+     |
+     | INTENTIONAL DESIGN: these transition routes are top-level
+     | (PATCH /shortage_resolutions/{resolution}/...), NOT nested under
+     | /opportunities/{opportunity}/. Authorization is by the GLOBAL
+     | `shortages.resolve` permission (and the `shortages:write` token ability)
+     | only — there is deliberately NO per-opportunity scope check, consistent
+     | with the rest of the OSF API, which is tenant-ignorant and scopes purely
+     | by role permission rather than by per-record ownership. Per-record /
+     | per-store access control is a future concern handled by the commercial
+     | signals/cloud package; when that lands, a store-scope guard should be added
+     | to these transitions (e.g. via firstOpportunity()). Documented so the gap
+     | is a recorded decision rather than an accidental omission.
+     */
 
     /**
      * Confirm a pending/monitoring resolution (§8.3: pending → confirmed).

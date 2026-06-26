@@ -68,6 +68,14 @@ it('creates a group row against an opportunity', function () {
         ->and($group->parentPath())->toBeNull();
 });
 
+it('rejects a group with a blank or missing name', function () {
+    expect(fn () => AddOpportunityGroupData::validateAndCreate(['name' => '']))
+        ->toThrow(ValidationException::class);
+
+    expect(fn () => AddOpportunityGroupData::validateAndCreate(['parent_path' => null]))
+        ->toThrow(ValidationException::class);
+});
+
 it('renames a group row via RenameOpportunityItem', function () {
     $opportunity = groupTestOpportunity($this->store);
 

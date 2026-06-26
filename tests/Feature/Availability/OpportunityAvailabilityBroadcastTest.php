@@ -12,6 +12,7 @@ use App\Models\Store;
 use App\Services\Availability\RecalculationPipeline;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -71,6 +72,42 @@ describe('opportunity-scoped availability broadcast', function () {
                 && $event->storeId === $this->store->id
                 && in_array('private-availability.opportunity.77', $names, true);
         });
+    });
+
+    it('logs a warning for an opportunity_item demand missing metadata.opportunity_id', function () {
+        Queue::fake();
+        Event::fake([OpportunityAvailabilityChanged::class]);
+        $log = Log::spy();
+
+        $product = Product::factory()->bulk()->create();
+        StockLevel::factory()->bulk()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'quantity_held' => 5,
+        ]);
+
+        // An opportunity_item demand with NO opportunity_id in its metadata — a
+        // data-consistency defect that must surface in the log, not fail silently.
+        Demand::factory()
+            ->phase(DemandPhase::Committed)
+            ->window(Carbon::parse('2026-06-20T00:00:00Z'), Carbon::parse('2026-06-21T00:00:00Z'))
+            ->create([
+                'product_id' => $product->id,
+                'store_id' => $this->store->id,
+                'source_type' => 'opportunity_item',
+                'source_id' => 999,
+                'quantity' => 1,
+                'metadata' => [],
+            ]);
+
+        (new RecalculateAvailabilityJob($product->id, $this->store->id))->handle(
+            app(RecalculationPipeline::class)
+        );
+
+        Event::assertNotDispatched(OpportunityAvailabilityChanged::class);
+        $log->shouldHaveReceived('warning')
+            ->withArgs(fn (string $message): bool => str_contains($message, 'missing metadata.opportunity_id'))
+            ->once();
     });
 
     it('does not broadcast to opportunities when no opportunity-item demand exists', function () {

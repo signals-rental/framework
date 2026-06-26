@@ -12,7 +12,6 @@ use App\Models\OpportunityCost;
 use App\Verbs\Events\Opportunities\OpportunityCloned;
 use App\Verbs\Events\Opportunities\OpportunityCreated;
 use Illuminate\Support\Facades\Gate;
-use Thunk\Verbs\Facades\Verbs;
 
 /**
  * Clones an opportunity into a NEW Draft quotation.
@@ -27,9 +26,12 @@ use Thunk\Verbs\Facades\Verbs;
  * stamps the lineage (source → new id).
  *
  * The entire clone — new header, every item, every cost, the lineage event — runs
- * inside one atomic {@see CommitsVerbsEvents::commitVerbs()} boundary, so a partial
- * clone can never be left behind: any failure rolls back the new opportunity and
- * all its children together.
+ * inside one outer {@see CommitsVerbsEvents::commitVerbs()} → {@see DB::transaction}
+ * boundary, so a partial clone can never be left behind: any failure rolls back the
+ * new opportunity and all its children together. The inner action calls (which each
+ * have their own commitVerbs) run as savepoints within that single transaction; the
+ * outer commitVerbs flushes the queue once at the end (no explicit Verbs::commit()
+ * is needed here).
  */
 class CloneOpportunity
 {
@@ -48,9 +50,11 @@ class CloneOpportunity
 
             /** @var array<string, string> $pathMap */
             $pathMap = [];
+            /** @var array<int, true> $knownIds */
+            $knownIds = [];
 
             foreach ($source->items->sortBy('path') as $item) {
-                $this->cloneItemWithPathRemap($clone, $item, $pathMap);
+                $this->cloneItemWithPathRemap($clone, $item, $pathMap, null, $knownIds);
             }
 
             foreach ($source->costs as $cost) {
@@ -63,7 +67,6 @@ class CloneOpportunity
                 opportunity_id: $clone->state_id,
                 source_opportunity_id: $source->id,
             );
-            Verbs::commit();
 
             return $clone->id;
         });

@@ -9,6 +9,7 @@ use App\Guards\Opportunities\GuardPipeline;
 use App\Guards\Opportunities\TransitionContext;
 use App\Models\Opportunity;
 use App\Verbs\Events\Opportunities\DealPriceSet;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -33,6 +34,12 @@ class SetDealPrice
 
     public function __invoke(Opportunity $opportunity, SetDealPriceData $data): OpportunityData
     {
+        // Fast-path authorization BEFORE the lock check so an unauthorized
+        // caller receives a 403, never a 422 "unlock price" leak. The
+        // GuardPipeline's Permission stage below remains the config-driven
+        // authority for the transition itself.
+        Gate::authorize('opportunities.edit');
+
         if ($opportunity->hasLocks()) {
             throw ValidationException::withMessages([
                 'opportunity' => 'Unlock price before setting a deal price.',

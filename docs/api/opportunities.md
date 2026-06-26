@@ -26,6 +26,7 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 | POST | `/api/v1/opportunities/{id}/reopen` | Re-open a completed order |
 | POST | `/api/v1/opportunities/{id}/revert_to_quotation` | Revert an Order back to a Quotation |
 | POST | `/api/v1/opportunities/{id}/revert_to_draft` | Revert a Quotation back to a Draft |
+| POST | `/api/v1/opportunities/{id}/lock_locks` | Apply FX/tax locks (freeze rates) |
 | POST | `/api/v1/opportunities/{id}/unlock_locks` | Release FX/tax locks for re-pricing |
 | POST | `/api/v1/opportunities/{id}/participants` | Add a participant |
 | PATCH | `/api/v1/opportunities/{id}/participants/{participant}` | Update a participant's role or mute flag |
@@ -33,6 +34,7 @@ Opportunities use a two-axis model: a **state** (Draft, Quotation, Order) and a 
 | POST | `/api/v1/opportunities/{id}/items` | Add a line item |
 | PATCH | `/api/v1/opportunities/{id}/items/{item}` | Update a line item |
 | DELETE | `/api/v1/opportunities/{id}/items/{item}` | Remove a line item |
+| PATCH | `/api/v1/opportunities/{id}/items/tree` | Restructure the line-item tree (reorder/nest) |
 | PATCH | `/api/v1/opportunities/{id}/items/{item}/fulfilment` | Dispatch/return/adjust a bulk line |
 | POST | `/api/v1/opportunities/{id}/quick_allocate` | Batch-allocate serialised assets |
 | POST | `/api/v1/opportunities/{id}/quick_prepare` | Batch-prepare allocated assets |
@@ -607,6 +609,35 @@ POST /api/v1/opportunities/{id}/unlock_locks
 Releases any FX rate lock and/or tax lock currently in place on an order. Once unlocked, the next write (line edit, cost add, deal-price change) will re-snapshot the current exchange rates and tax rules. Returns the updated opportunity.
 
 Requires the `opportunities.unlock_rates` permission and `opportunities:write` ability. Returns `422` when neither lock is set.
+
+## Lock Rates
+
+```
+POST /api/v1/opportunities/{id}/lock_locks
+```
+
+Applies FX and tax locks on an opportunity — snapshots the current exchange rate and freezes the tax treatment so later writes re-price the agreed net basis at the frozen rate rather than re-deriving FX/tax. This is the inverse of `unlock_locks`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reason` | string | No | Free-text note recorded with the lock event |
+
+Requires the `opportunities.unlock_rates` permission and `opportunities:write` ability. Returns `422` when locks are already active. Returns the updated opportunity.
+
+## Restructure Items Tree
+
+```
+PATCH /api/v1/opportunities/{id}/items/tree
+```
+
+Reorders and/or re-nests the line-item tree in one operation. The body carries the full item set in display pre-order (top-to-bottom), each node carrying its target tree depth; the server rebuilds every item's materialised path from order + depth.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `nodes` | array | Yes | Ordered `[{id, depth}]` — every item in final display pre-order, `depth` 1-based |
+| `prune_orphans` | boolean | No | When `true`, items omitted from `nodes` are removed (used by the local-first editor sync). Default `false` |
+
+Requires `opportunities.edit` / `opportunities:write`. Returns the updated opportunity.
 
 ## Opportunity Participants
 

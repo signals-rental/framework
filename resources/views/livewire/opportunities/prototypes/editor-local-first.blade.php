@@ -25,6 +25,7 @@
 
 use App\Models\Opportunity;
 use App\Services\Prototypes\PrototypeEditorService;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -38,6 +39,8 @@ new #[Layout('components.layouts.app')] class extends Component
 
     public function mount(Opportunity $opportunity): void
     {
+        Gate::authorize('opportunities.view');
+
         $this->opportunity = $opportunity;
 
         $this->service()->ensureSeeded($this->opportunity->id, self::VARIANT);

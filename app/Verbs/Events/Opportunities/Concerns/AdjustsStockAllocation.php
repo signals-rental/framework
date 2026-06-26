@@ -52,7 +52,12 @@ trait AdjustsStockAllocation
             return;
         }
 
-        $stockLevel = StockLevel::query()->whereKey($stockLevelId)->first();
+        // Pessimistically lock the row for the duration of this read-modify-write
+        // so two concurrent allocations against the same stock level can never both
+        // read the same baseline and clobber each other's increment. These events
+        // always run inside the caller's commitVerbs → DB::transaction boundary, so
+        // the lock is held until that transaction commits.
+        $stockLevel = StockLevel::query()->whereKey($stockLevelId)->lockForUpdate()->first();
 
         if ($stockLevel === null) {
             return;

@@ -17,6 +17,7 @@ use App\Services\RateEngine\RateResolver;
 use App\Services\TaxCalculator;
 use App\ValueObjects\CalculationContext;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Derives the priced totals for opportunity line items and rolls them up onto the
@@ -223,6 +224,21 @@ class OpportunityTotalsCalculator
         $items = $opportunity->items()->get();
         $costs = $opportunity->costs()->get();
 
+        // Batch-fetch every product-backed line's product once, keyed by id, so the
+        // per-item loop below resolves the product from memory instead of issuing
+        // one SELECT per line (an N+1 on every totals rollup).
+        $productIds = $items
+            ->filter(fn (OpportunityItem $item): bool => $item->isProductBacked())
+            ->pluck('itemable_id')
+            ->filter()
+            ->unique()
+            ->all();
+
+        /** @var Collection<int, Product> $productsById */
+        $productsById = $productIds === []
+            ? collect()
+            : Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
+
         $rental = 0;
         $sale = 0;
         $service = 0;
@@ -246,7 +262,9 @@ class OpportunityTotalsCalculator
                 continue;
             }
 
-            $product = $this->resolveProduct($item);
+            $product = $item->isProductBacked()
+                ? $productsById->get((int) $item->itemable_id)
+                : null;
             $lineNet = (int) $item->total;
 
             $excludingTax += $lineNet;

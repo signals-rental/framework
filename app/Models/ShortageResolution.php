@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Contracts\HasSchema;
 use App\Enums\ShortageResolutionStatus;
 use App\Enums\ShortageResolutionType;
+use App\Models\Traits\FormatsMoney;
 use App\Services\SchemaBuilder;
 use Database\Factories\ShortageResolutionFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +45,8 @@ use Illuminate\Support\Carbon;
  */
 class ShortageResolution extends Model implements HasSchema
 {
+    use FormatsMoney;
+
     /** @use HasFactory<ShortageResolutionFactory> */
     use HasFactory;
 

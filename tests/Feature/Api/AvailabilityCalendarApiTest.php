@@ -110,6 +110,17 @@ describe('GET /api/v1/availability/calendar', function () {
             ->and($response->json('calendar.products.0.product_id'))->toBe($this->product->id);
     });
 
+    it('rejects a date range that exceeds the configured maximum span', function () {
+        config(['availability.api_max_range_days' => 30]);
+
+        $token = ($this->token)();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/availability/calendar?store_id={$this->store->id}&from=2026-01-01&to=2026-12-31")
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('to');
+    });
+
     it('requires the availability:read ability', function () {
         $token = ($this->token)(['stock:read']);
 

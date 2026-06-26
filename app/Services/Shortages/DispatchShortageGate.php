@@ -89,21 +89,28 @@ class DispatchShortageGate
      */
     public function enforceForItems(iterable $items): DispatchGateResult
     {
+        // Materialise once: $items is consumed twice below (detect, then policy),
+        // so a single-pass Generator would be exhausted by the first call and the
+        // second would silently see nothing (wrong policy fallback).
+        $items = is_array($items) ? $items : iterator_to_array($items);
+
         $shortages = $this->detectForItems($items);
         $policy = $this->resolvePolicy($items);
 
         $result = new DispatchGateResult($policy, $shortages);
-
-        // Emit shortage.detected telemetry for whatever the gate saw at dispatch.
-        if ($result->isShort()) {
-            $this->events->detected($shortages);
-        }
 
         if ($result->blocks()) {
             throw ValidationException::withMessages([
                 'code' => [self::CODE],
                 'shortages' => [$this->blockMessage($shortages)],
             ]);
+        }
+
+        // Emit shortage.detected telemetry only when the gate does NOT block. The
+        // caller runs this inside its DB::transaction (commitVerbs); emitting before
+        // the throw would write the telemetry rows then roll them straight back.
+        if ($result->isShort()) {
+            $this->events->detected($shortages);
         }
 
         return $result;

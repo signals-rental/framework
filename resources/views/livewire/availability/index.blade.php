@@ -439,7 +439,12 @@ new #[Layout('components.layouts.app')] #[Title('Equipment Availability')] class
      *  - `warning` (amber) — low but still positive (0 < available ≤ threshold);
      *  - `available` (green) — comfortably available (> threshold).
      */
-    private function classifyCell(int $available, bool $hasShortage): string
+    /**
+     * Classify an availability cell into a shared four-state badge key
+     * (shortage / booked / warning / available). Used by BOTH the Calendar tab and
+     * the By-Group tab so the same stock state renders the same colour in each.
+     */
+    public function classifyCell(int $available, bool $hasShortage): string
     {
         if ($hasShortage || $available < 0) {
             return 'shortage';
