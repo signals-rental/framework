@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\SettingsService;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 
 beforeEach(function () {
@@ -93,4 +94,14 @@ it('allows non-admin user through when only admin 2FA is required', function () 
     $this->actingAs($user)
         ->get('/dashboard')
         ->assertOk();
+});
+
+it('passes guest requests straight through when the 2FA guard runs without auth', function () {
+    // A route guarded by `2fa` but NOT `auth`: the middleware sees a null user and
+    // returns $next($request) immediately (the unauthenticated short-circuit).
+    Route::middleware(['web', '2fa'])->get('/2fa-guest-probe', fn (): string => 'passed-through');
+
+    $this->get('/2fa-guest-probe')
+        ->assertOk()
+        ->assertSee('passed-through');
 });

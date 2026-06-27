@@ -3,6 +3,10 @@
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
+// Writes real files into docs/changelog — runs sequentially with the other
+// filesystem-mutating command tests, not under the parallel runner.
+pest()->group('env-writing');
+
 afterEach(function () {
     // Clean up only test-created changelog files, not pre-existing ones
     $testVersions = ['99.99.98', '0.1.0-test', '1.0.0-beta.1'];

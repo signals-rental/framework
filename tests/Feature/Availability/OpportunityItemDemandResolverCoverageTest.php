@@ -237,6 +237,43 @@ it('voids demands for inactive version items and resyncs the active version on o
         ->toBeTrue();
 });
 
+it('skips a kit pool component whose backing product no longer exists when exploding demands', function () {
+    $kit = Product::factory()->kit()->create([
+        'buffer_before_minutes' => 0,
+        'post_rent_unavailability' => 0,
+    ]);
+    $live = Product::factory()->bulk()->create([
+        'buffer_before_minutes' => 0,
+        'post_rent_unavailability' => 0,
+    ]);
+    $ghost = Product::factory()->bulk()->create();
+
+    SerialisedComponent::factory()->pool()->quantity(1)->create([
+        'product_id' => $kit->id,
+        'component_product_id' => $live->id,
+    ]);
+    $orphan = SerialisedComponent::factory()->pool()->quantity(1)->create([
+        'product_id' => $kit->id,
+        'component_product_id' => $ghost->id,
+    ]);
+
+    // Delete the backing product so the component's componentProduct relation
+    // resolves to null — the explosion loop must `continue` past it (line 370)
+    // and still write the live component's demand.
+    $ghost->delete();
+
+    $store = Store::factory()->create();
+    $item = coverageDemandItem(OpportunityStatus::OrderActive, $kit, $store, ['quantity' => 2]);
+
+    app(OpportunityItemDemandResolver::class)->syncDemands($item);
+
+    $demands = Demand::query()->where('source_id', $item->id)->get();
+
+    // The live component got a demand; the orphaned one produced nothing.
+    expect($demands->where('product_id', $live->id)->count())->toBe(1)
+        ->and($demands->where('product_id', $orphan->component_product_id)->count())->toBe(0);
+});
+
 it('rejects the wrong model type', function () {
     expect(fn () => app(OpportunityItemDemandResolver::class)->syncDemands(Product::factory()->create()))
         ->toThrow(InvalidArgumentException::class, 'OpportunityItem');

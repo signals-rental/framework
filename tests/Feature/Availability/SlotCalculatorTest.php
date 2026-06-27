@@ -149,6 +149,20 @@ describe('slot-count safety ceiling', function () {
         ))->toThrow(RuntimeException::class);
     });
 
+    it('emits exactly the slot containing `from` when from == to (zero-width window)', function () {
+        $calc = slotCalculator(AvailabilityResolution::Daily);
+
+        // A zero-width window aligned to a slot boundary must still yield the
+        // single slot that contains it rather than an empty list. `from` sits on
+        // local midnight so the aligned cursor equals `to` exactly, taking the
+        // `! cursor->lessThan(end)` guard.
+        $instant = Carbon::parse('2026-03-02T00:00:00Z');
+        $slots = $calc->generateSlots($instant, $instant->copy(), 'UTC');
+
+        expect($slots)->toHaveCount(1)
+            ->and($slots[0]->toIso8601String())->toBe('2026-03-02T00:00:00+00:00');
+    });
+
     it('does not throw for a window within the ceiling', function () {
         config(['availability.max_slots_per_recalculation' => 10]);
 

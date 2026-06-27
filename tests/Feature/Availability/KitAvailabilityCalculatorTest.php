@@ -177,3 +177,25 @@ it('ignores fixed-binding components (M5-3b seam)', function () {
     expect($range->slots)->toHaveCount(1)
         ->and($range->slots[0]->available)->toBe(4);
 });
+
+it('skips a zero-quantity pool component so it places no constraint on the kit', function () {
+    $kit = Product::factory()->kit()->create();
+    $constraining = Product::factory()->bulk()->create();
+    $zero = Product::factory()->bulk()->create();
+
+    // A genuine constraint at 4 kits, plus a zero-quantity component that must be
+    // skipped entirely (it would otherwise clamp the kit to its own availability).
+    SerialisedComponent::factory()->pool()->quantity(1)->create(['product_id' => $kit->id, 'component_product_id' => $constraining->id]);
+    SerialisedComponent::factory()->pool()->quantity(0)->create(['product_id' => $kit->id, 'component_product_id' => $zero->id]);
+
+    $slot = Carbon::parse('2026-09-01T00:00:00Z');
+    componentSnapshot($constraining->id, $this->store->id, $slot, 4);
+    // The zero-qty component has only 1 available; if it were NOT skipped the kit
+    // would be clamped to 1 instead of 4.
+    componentSnapshot($zero->id, $this->store->id, $slot, 1);
+
+    $range = $this->calculator->calculate($kit->id, $this->store->id, $slot, $slot->copy()->addDay());
+
+    expect($range->slots)->toHaveCount(1)
+        ->and($range->slots[0]->available)->toBe(4);
+});

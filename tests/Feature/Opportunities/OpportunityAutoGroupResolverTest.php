@@ -38,6 +38,32 @@ it('derives rental revenue_group_id and Ungrouped label for an ungrouped product
         ->and($label)->toBe('Ungrouped');
 });
 
+it('returns null group and Other when the linked product no longer exists', function () {
+    $item = new OpportunityItem([
+        'itemable_id' => 999999, // no such product; on-demand find returns null
+        'itemable_type' => Product::class,
+        'transaction_type' => LineItemTransactionType::Rental,
+    ]);
+
+    [$revenueGroupId, $label] = app(OpportunityAutoGroupResolver::class)->resolve($item);
+
+    expect($revenueGroupId)->toBeNull()
+        ->and($label)->toBe('Other');
+});
+
+it('returns the other legacy section key when the linked product is missing', function () {
+    $item = new OpportunityItem([
+        'itemable_id' => 888888,
+        'itemable_type' => Product::class,
+        'transaction_type' => LineItemTransactionType::Rental,
+    ]);
+
+    [$key, $label] = app(OpportunityAutoGroupResolver::class)->resolveLegacySectionKey($item);
+
+    expect($key)->toBe('auto:other')
+        ->and($label)->toBe('Other');
+});
+
 it('derives sale revenue_group_id and a parent-group label for grouped products', function () {
     $parent = ProductGroup::factory()->create(['name' => 'AV']);
     $group = ProductGroup::factory()->create(['name' => 'Lighting', 'parent_id' => $parent->id]);

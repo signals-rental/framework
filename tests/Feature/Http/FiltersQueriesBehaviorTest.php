@@ -186,3 +186,45 @@ it('applyViewOrFilters aborts when view_id does not resolve', function () {
 
     filtersBehaviorDouble()->callApplyViewOrFilters(Member::query(), $request, 'members');
 })->throws(HttpException::class);
+
+it('applyViewOrFilters coerces a non-array q parameter to an empty filter set', function () {
+    // When a view is resolved but `q` arrives as a scalar string (not the expected
+    // array shape), the explicit-filter set is reset to [] (line 141) so the view's
+    // own filters apply unmodified.
+    $user = User::factory()->create();
+    Member::factory()->create(['name' => 'Org Member', 'membership_type' => MembershipType::Organisation]);
+    Member::factory()->create(['name' => 'Contact Member', 'membership_type' => MembershipType::Contact]);
+
+    $view = CustomView::factory()->create([
+        'user_id' => $user->id,
+        'entity_type' => 'members',
+        'columns' => ['name'],
+        'filters' => [
+            ['field' => 'membership_type', 'predicate' => 'eq', 'value' => 'organisation', 'logic' => 'and'],
+        ],
+    ]);
+
+    // q is a bare string rather than an array.
+    $request = Request::create('/api/v1/members', 'GET', ['view_id' => $view->id, 'q' => 'not-an-array']);
+    $request->setUserResolver(fn () => $user);
+
+    ['query' => $query, 'view' => $resolved] = filtersBehaviorDouble()
+        ->callApplyViewOrFilters(Member::query(), $request, 'members');
+
+    $names = $query->pluck('name');
+
+    expect($resolved?->id)->toBe($view->id)
+        ->and($names)->toHaveCount(1)
+        ->and($names->first())->toBe('Org Member');
+});
+
+it('translateFilterAliases rewrites a bare alias key with no predicate suffix', function () {
+    // `active` (the exact alias, no `_predicate` suffix) maps directly to the real
+    // `is_active` column via the exact-match branch (lines 278-281), distinct from
+    // the `active_true` predicate-suffix path.
+    $translated = filtersBehaviorDouble()->callTranslateFilterAliases(['active' => '1']);
+
+    expect($translated)->toHaveKey('is_active')
+        ->and($translated)->not->toHaveKey('active')
+        ->and($translated['is_active'])->toBe('1');
+});

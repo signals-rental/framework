@@ -60,6 +60,25 @@ it('validates binding strings against the enum', function () {
         ->and(KitCompositionGuard::isValidBinding('not-a-binding'))->toBeFalse();
 });
 
+it('counts the component subtree depth when admitting a kit that already has children', function () {
+    config(['availability.kit_nesting_max_depth' => 3]);
+
+    // The component being added is itself a kit with one child, so its subtree
+    // depth is 1 — the guard must walk into subtreeDepth()'s loop. Parent has no
+    // ancestors, so resulting depth = 0 + 1 (parent→component) + 1 (component's
+    // own subtree) = 2, within the bound of 3, and the add is allowed.
+    $parent = Product::factory()->kit()->create();
+    $component = Product::factory()->kit()->create();
+    $grandchild = Product::factory()->bulk()->create();
+
+    SerialisedComponent::factory()->pool()->quantity(1)->create([
+        'product_id' => $component->id,
+        'component_product_id' => $grandchild->id,
+    ]);
+
+    $this->guard->assertCanAdd($parent->id, $component->id);
+})->throwsNoExceptions();
+
 it('detects transitive cycles through nested components', function () {
     $a = Product::factory()->kit()->create();
     $b = Product::factory()->kit()->create();

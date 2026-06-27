@@ -184,6 +184,29 @@ it('accepts only ContainerItem models through the contract type hint', function 
         ->toThrow(InvalidArgumentException::class);
 });
 
+it('writes no demand for an active membership whose container relation is missing', function () {
+    $container = Container::factory()->kit()->create(['store_id' => $this->store->id]);
+    $item = StockLevel::factory()->serialised()->create(['store_id' => $this->store->id]);
+
+    $membership = ContainerItem::factory()->create([
+        'container_id' => $container->id,
+        'serialised_item_id' => $item->id,
+        'product_id' => $item->product_id,
+        'packed_at' => now()->subHour(),
+        'unpacked_at' => null,
+    ]);
+
+    // An active membership (unpacked_at === null) whose container relation
+    // resolves to null — shouldHoldFromAvailability() must take the null-container
+    // guard and hold nothing, so the row is purged and no demand is written.
+    $membership->setRelation('container', null);
+
+    $this->resolver->syncDemands($membership);
+
+    expect(Demand::query()->where('source_type', 'container')->where('source_id', $membership->id)->exists())
+        ->toBeFalse();
+});
+
 it('holds hybrid fixed slots but not pool slots after a mode change on the container product', function () {
     $container = Container::factory()->hybrid()->create(['store_id' => $this->store->id]);
     $fixedProduct = Product::factory()->serialised()->create();

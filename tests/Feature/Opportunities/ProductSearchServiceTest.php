@@ -5,6 +5,7 @@ use App\Models\Accessory;
 use App\Models\Product;
 use App\Models\ProductRate;
 use App\Models\RateDefinition;
+use App\Models\StockLevel;
 use App\Models\Store;
 use App\Services\Opportunities\ProductSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -135,6 +136,39 @@ it('resolves a point availability status when a store is supplied', function ():
 
     // No stock seeded → "out"; the status is one of the three editor chips.
     expect($result->availability)->toBeIn(['available', 'reserved', 'out']);
+});
+
+it('skips a linked accessory whose product has been deleted', function (): void {
+    $primary = Product::factory()->create(['name' => 'Spiider Deleted Acc']);
+    $accessory = Product::factory()->create(['name' => 'Vanished Clamp']);
+
+    Accessory::factory()->create([
+        'product_id' => $primary->id,
+        'accessory_product_id' => $accessory->id,
+    ]);
+
+    // Soft-delete the linked product so accessoryProduct resolves to null and the
+    // accessory is dropped from the result (null-return branch).
+    $accessory->delete();
+
+    $result = $this->service->search('spiider deleted acc')->first();
+
+    expect($result->accessories)->toBe([]);
+});
+
+it('reports an available status when free stock exists at the store', function (): void {
+    $store = Store::factory()->create();
+    $product = Product::factory()->bulk()->create(['name' => 'Stocked Spiider', 'track_availability' => true]);
+
+    StockLevel::factory()->bulk()->create([
+        'product_id' => $product->id,
+        'store_id' => $store->id,
+        'quantity_held' => 5,
+    ]);
+
+    $result = $this->service->search('stocked spiider', $store->id)->first();
+
+    expect($result->availability)->toBe('available');
 });
 
 it('builds a lightweight catalogue index payload for the client tier', function (): void {

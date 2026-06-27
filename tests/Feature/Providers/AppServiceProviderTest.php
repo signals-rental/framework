@@ -5,6 +5,8 @@ use App\Services\DocsService;
 use App\Services\NotificationRegistry;
 use App\Services\PermissionRegistry;
 use App\Services\SettingsService;
+use App\Services\Shortages\CostApportionmentRegistry;
+use App\Services\Shortages\NullCostApportionmentStrategy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
@@ -30,6 +32,18 @@ it('registers NotificationRegistry as singleton', function () {
     $registry = app(NotificationRegistry::class);
 
     expect($registry)->toBeInstanceOf(NotificationRegistry::class);
+});
+
+it('registers CostApportionmentRegistry as a singleton with the null strategy', function () {
+    // Resolving the registry runs the binding closure (lines 195-199), which
+    // registers the no-op NullCostApportionmentStrategy keyed 'none'.
+    $a = app(CostApportionmentRegistry::class);
+    $b = app(CostApportionmentRegistry::class);
+
+    expect($a)->toBe($b)
+        ->and($a)->toBeInstanceOf(CostApportionmentRegistry::class)
+        ->and($a->has('none'))->toBeTrue()
+        ->and($a->get('none'))->toBeInstanceOf(NullCostApportionmentStrategy::class);
 });
 
 it('grants owner users full access via Gate::before', function () {

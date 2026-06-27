@@ -344,3 +344,47 @@ it('redirects cloneOpportunity on success', function () {
 
     expect(Opportunity::query()->count())->toBe(2);
 });
+
+it('flashes a permission error from runTransition when the actor lacks edit rights', function () {
+    // A viewer with no opportunities.edit permission triggers the
+    // AuthorizationException catch in runTransition (line 394).
+    $opportunity = covLiveOpportunity($this->owner, $this->store->id, 'Auth runTransition');
+
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo('opportunities.access', 'opportunities.view');
+    $this->actingAs($viewer);
+
+    $flashed = captureFlashedMessages(function () use ($opportunity): void {
+        Volt::test('opportunities.show', ['opportunity' => $opportunity])
+            ->call('convertToQuotation');
+    });
+
+    expect($flashed['error'] ?? null)->toBe('You do not have permission to perform this action.')
+        ->and($opportunity->fresh()->state)->toBe(OpportunityState::Draft);
+});
+
+it('includes the formatted deal total when broadcasting a lifecycle change for a deal-priced opportunity', function () {
+    // A quotation with a manual deal-total override: a successful in-place
+    // transition fires dispatchOpportunityLifecycleChanged, which formats the
+    // deal_total minor units to a decimal string (line 414).
+    $opportunity = covLiveOpportunity($this->owner, $this->store->id, 'Deal lifecycle');
+    (new ConvertToQuotation)($opportunity);
+    (new AddOpportunityItem)($opportunity->fresh(), AddOpportunityItemData::from([
+        'name' => 'Line', 'quantity' => '1', 'unit_price' => 5000,
+    ]));
+    (new SetDealPrice)($opportunity->fresh(), SetDealPriceData::from(['deal_total' => '321.00']));
+
+    expect($opportunity->fresh()->deal_total)->not->toBeNull();
+
+    $this->actingAs($this->owner);
+
+    // Move to a different status within the quotation state: a runTransition that
+    // succeeds, refreshes, and broadcasts the lifecycle change with the deal total.
+    Volt::test('opportunities.show', ['opportunity' => $opportunity->fresh()])
+        ->call('changeStatus', OpportunityStatus::QuotationReserved->statusValue())
+        ->assertDispatched(
+            'opportunity-lifecycle-changed',
+            fn (string $event, array $params): bool => ($params['hasDealPrice'] ?? null) === true
+                && ($params['dealTotalRaw'] ?? null) === '321.00'
+        );
+});
