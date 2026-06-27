@@ -46,6 +46,27 @@ it('registers CostApportionmentRegistry as a singleton with the null strategy', 
         ->and($a->get('none'))->toBeInstanceOf(NullCostApportionmentStrategy::class);
 });
 
+it('throws when CostApportionmentRegistry is asked for an unknown strategy key', function () {
+    expect(fn () => app(CostApportionmentRegistry::class)->get('missing'))
+        ->toThrow(InvalidArgumentException::class, 'Unknown cost-apportionment strategy: missing');
+});
+
+it('exposes the null cost apportionment strategy contract surface', function () {
+    $strategy = app(CostApportionmentRegistry::class)->get('none');
+
+    expect($strategy->key())->toBe('none')
+        ->and($strategy->name())->toBe('No apportionment')
+        ->and($strategy->requiresManualInput())->toBeFalse()
+        ->and($strategy->calculate(null))->toBe([]);
+});
+
+it('lists every registered cost apportionment strategy via all()', function () {
+    $registry = app(CostApportionmentRegistry::class);
+
+    expect($registry->all())->toHaveKey('none')
+        ->and($registry->all()['none'])->toBeInstanceOf(NullCostApportionmentStrategy::class);
+});
+
 it('grants owner users full access via Gate::before', function () {
     $owner = User::factory()->owner()->create();
 

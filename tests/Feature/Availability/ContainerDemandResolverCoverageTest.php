@@ -251,3 +251,35 @@ it('holds hybrid fixed slots but not pool slots after a mode change on the conta
     expect(Demand::query()->where('source_id', $fixedMembership->id)->exists())->toBeTrue()
         ->and(Demand::query()->where('source_id', $poolMembership->id)->exists())->toBeFalse();
 });
+
+it('does not hold hybrid fixed slots when the container product relation is missing', function () {
+    $container = Container::factory()->hybrid()->create(['store_id' => $this->store->id]);
+    $fixedProduct = Product::factory()->serialised()->create();
+
+    SerialisedComponent::factory()->fixed()->quantity(1)->create([
+        'product_id' => $container->product_id,
+        'component_product_id' => $fixedProduct->id,
+    ]);
+
+    $fixedItem = StockLevel::factory()->serialised()->create([
+        'product_id' => $fixedProduct->id,
+        'store_id' => $this->store->id,
+    ]);
+
+    $membership = ContainerItem::factory()->create([
+        'container_id' => $container->id,
+        'serialised_item_id' => $fixedItem->id,
+        'product_id' => $fixedProduct->id,
+        'packed_at' => now()->subHour(),
+        'unpacked_at' => null,
+    ]);
+
+    $containerWithoutProduct = $container->fresh();
+    $containerWithoutProduct->setRelation('product', null);
+    $membership->setRelation('container', $containerWithoutProduct);
+
+    $this->resolver->syncDemands($membership);
+
+    expect(Demand::query()->where('source_type', 'container')->where('source_id', $membership->id)->exists())
+        ->toBeFalse();
+});

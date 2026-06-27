@@ -59,6 +59,20 @@ it('resolves the default status for a state via OpportunityData::defaultStatusFo
         ->toBe(OpportunityStatus::OrderActive->statusValue());
 });
 
+it('serialises null entity references when optional relations are loaded but absent', function () {
+    $member = Member::factory()->organisation()->create(['name' => 'Acme Hire']);
+    $opportunity = Opportunity::factory()->quotation()->create([
+        'member_id' => $member->id,
+        'venue_id' => null,
+    ]);
+
+    $output = OpportunityData::fromModel($opportunity->fresh(['venue']))
+        ->include('venue')
+        ->toArray();
+
+    expect($output['venue'])->toBeNull();
+});
+
 it('includes lazy nested collections when eager-loaded on OpportunityData', function () {
     $opportunity = Opportunity::factory()->create();
     $version = OpportunityVersion::factory()->for($opportunity)->create(['version_number' => 1]);
